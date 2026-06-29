@@ -1,4 +1,5 @@
 import SwiftUI
+import PDFKit
 import UniformTypeIdentifiers
 
 extension UTType {
@@ -14,7 +15,7 @@ struct WorkspacePackage {
 final class WorkspaceDocument: ReferenceFileDocument {
     typealias Snapshot = WorkspacePackage
 
-    static var readableContentTypes: [UTType] { [.pdfoldproj] }
+    static var readableContentTypes: [UTType] { [.pdfoldproj, .pdf] }
     static var writableContentTypes: [UTType] { [.pdfoldproj] }
 
     var workspace: Workspace
@@ -32,6 +33,13 @@ final class WorkspaceDocument: ReferenceFileDocument {
     // MARK: - Open existing
 
     required init(configuration: ReadConfiguration) throws {
+        if configuration.contentType.conforms(to: .pdf),
+           let data = configuration.file.regularFileContents {
+            workspace = Workspace()
+            importPDFData(data, filename: configuration.file.preferredFilename ?? "Imported PDF.pdf")
+            return
+        }
+
         guard let wrappers = configuration.file.fileWrappers else {
             workspace = Workspace()
             return
@@ -52,6 +60,19 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 }
             }
         }
+    }
+
+    private func importPDFData(_ data: Data, filename: String) {
+        let displayName = URL(fileURLWithPath: filename).deletingPathExtension().lastPathComponent
+        var member = MemberDocument(displayName: displayName, sourcePDFRef: filename)
+        let pageCount = PDFDocument(data: data)?.pageCount ?? 0
+        let refs = (0..<pageCount).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+
+        member.pageRefs = refs.map(\.id)
+        workspace.title = displayName.isEmpty ? "Untitled Workspace" : displayName
+        workspace.documents = [member]
+        workspace.pageOrder = refs
+        memberPDFData[member.id] = data
     }
 
     // MARK: - Snapshot (called on main thread before write)

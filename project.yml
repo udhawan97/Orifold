@@ -39,6 +39,11 @@ targets:
             CFBundleTypeName: PDFold Workspace
             CFBundleTypeRole: Editor
             LSItemContentTypes: [com.ud.PDFold.pdfoldproj]
+          - CFBundleTypeExtensions: [pdf]
+            CFBundleTypeName: PDF Document
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.adobe.pdf, public.pdf]
         UTExportedTypeDeclarations:
           - UTTypeConformsTo: [com.apple.package]
             UTTypeDescription: PDFold Workspace
