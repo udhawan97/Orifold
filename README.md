@@ -10,11 +10,11 @@
 
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">
-  <img alt="Version 1.0" src="https://img.shields.io/badge/Release-v1.0.0-2563EB?style=for-the-badge">
+  <img alt="Version 1.0" src="https://img.shields.io/badge/Version-1.0-2563EB?style=for-the-badge">
   <img alt="Swift 5.9" src="https://img.shields.io/badge/Swift-5.9-F05138?style=for-the-badge&logo=swift&logoColor=white">
   <img alt="SwiftUI" src="https://img.shields.io/badge/UI-SwiftUI-0A84FF?style=for-the-badge">
   <img alt="PDFKit" src="https://img.shields.io/badge/Engine-PDFKit-10B981?style=for-the-badge">
-  <img alt="Double-click installer" src="https://img.shields.io/badge/Setup-Double--click-7C3AED?style=for-the-badge">
+  <img alt="Local installer" src="https://img.shields.io/badge/Setup-Local%20installer-7C3AED?style=for-the-badge">
   <img alt="Smoke tested" src="https://img.shields.io/badge/Quality-Smoke%20tested-10B981?style=for-the-badge">
   <img alt="MIT License" src="https://img.shields.io/badge/License-MIT-6B7280?style=for-the-badge">
 </p>
@@ -26,7 +26,7 @@
   ·
   <a href="#architecture">🏗️ Architecture</a>
   ·
-  <a href="#release">🚢 Release</a>
+  <a href="#release-status">🚢 Release</a>
   ·
   <a href="#quality-checks">✅ Quality</a>
   ·
@@ -52,8 +52,8 @@ PDFold brings that fragmented process into one focused workspace, making documen
 | 🖥️ | Native macOS | SwiftUI, PDFKit, document-based app architecture, sandboxed file access |
 | 🔒 | Local-first | No accounts, no upload pipeline, no "where did my documents go?" subplot |
 | 🧭 | Real workflow | Import, combine, annotate, search, sign, save, print, export |
-| ⚡ | Simple setup | Double-click one file to install, then run that same file again to update |
-| ✅ | Release-checked | Installer build, syntax checks, and README hygiene are part of the handoff |
+| ⚡ | Simple setup | Download or clone the repo, then run the local installer |
+| ✅ | Release-ready | Installer build, syntax checks, and README hygiene are part of the project workflow |
 | 🧑‍💼 | Portfolio-ready | Clear product problem, practical engineering, user-facing polish |
 
 ## Who This Is For
@@ -118,25 +118,18 @@ Most PDF tools either feel like a full-time job or only solve one tiny part of t
 
 The app is intentionally local-first. No account. No upload step. No mysterious cloud conveyor belt. Just your Mac, your files, and a small amount of hard-earned order.
 
-## Release
+## Release Status
 
-PDFold `v1.0.0` is the first stable source release: a complete local-first macOS workflow for collecting scattered documents, turning them into one workspace, marking them up, and exporting a clean result.
+PDFold is prepared for version `1.0`: a complete local-first macOS workflow for collecting scattered documents, turning them into one workspace, marking them up, and exporting a clean result.
 
-|  | Release Detail | Status |
+|  | Detail | Status |
 | --- | --- | --- |
-| 🚢 | Version | `v1.0.0` |
+| 🚢 | Version | `1.0` |
 | 🧾 | App metadata | `CFBundleShortVersionString` `1.0`, `CFBundleVersion` `1` |
-| ⚡ | Install path | Double-click local installer/updater |
+| ⚡ | Install path | Download or clone the repo, then run the local installer/updater |
 | 🧪 | Smoke test | `./scripts/install-mac.sh --no-open` |
 | 🔐 | Signing | Local ad-hoc signing for development/source distribution |
-| 📦 | Distribution style | Source release; notarized binary distribution is a future step |
-
-Recommended tag:
-
-```zsh
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
-```
+| 📦 | Distribution style | Source distribution; no notarized binary is included |
 
 ## Simplest Local Setup
 
