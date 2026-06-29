@@ -31,7 +31,7 @@ struct AppIconButton: View {
     }
 }
 
-private struct AppAboutPopover: View {
+struct AppAboutPopover: View {
     @Binding var isPresented: Bool
 
     var body: some View {
