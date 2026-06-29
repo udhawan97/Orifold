@@ -10,6 +10,7 @@
 
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="Version 1.0" src="https://img.shields.io/badge/Release-v1.0.0-2563EB?style=for-the-badge">
   <img alt="Swift 5.9" src="https://img.shields.io/badge/Swift-5.9-F05138?style=for-the-badge&logo=swift&logoColor=white">
   <img alt="SwiftUI" src="https://img.shields.io/badge/UI-SwiftUI-0A84FF?style=for-the-badge">
   <img alt="PDFKit" src="https://img.shields.io/badge/Engine-PDFKit-10B981?style=for-the-badge">
@@ -25,6 +26,8 @@
   ·
   <a href="#architecture">🏗️ Architecture</a>
   ·
+  <a href="#release">🚢 Release</a>
+  ·
   <a href="#quality-checks">✅ Quality</a>
   ·
   <a href="#troubleshooting">🧰 Help</a>
@@ -36,11 +39,11 @@
 
 > Personal pain point, professionally over-engineered into a native Mac app.
 
-PDFold is a local-first Mac app for importing PDFs, Word documents, HTML, Markdown, text, CSV/JSON/XML files, and images, then reading, organizing, annotating, signing, searching, saving, printing, and exporting them as one coherent PDF workspace.
+PDFold is a local-first macOS application that transforms scattered documents into a single, organized PDF workspace. It supports importing PDFs, Word documents, HTML, Markdown, text files, structured data files, and images, then provides tools to read, organize, annotate, sign, search, save, print, and export them efficiently.
 
-I built it to solve my own very real, very annoying problem: documents do not arrive as one neat file. They arrive as "final.pdf", "final-final.pdf", "signature-page-use-this-one.pdf", a screenshot, a Word doc, and the kind of attachment naming strategy that makes a person stare quietly out a window.
+I built PDFold to solve a real workflow problem I kept running into: important documents rarely arrive as one clean, final file. They often come as multiple attachments, revisions, screenshots, forms, and supporting files that need to be reviewed and shared together.
 
-PDFold folds the mess into a usable workspace. Hence the name. I regret nothing.
+PDFold brings that fragmented process into one focused workspace, making document handling faster, cleaner, and easier to manage.
 
 ## At A Glance
 
@@ -114,6 +117,26 @@ flowchart LR
 Most PDF tools either feel like a full-time job or only solve one tiny part of the workflow. PDFold aims for the middle: focused enough to be fast, native enough to feel at home on macOS, and practical enough to handle the document chaos that shows up in real life.
 
 The app is intentionally local-first. No account. No upload step. No mysterious cloud conveyor belt. Just your Mac, your files, and a small amount of hard-earned order.
+
+## Release
+
+PDFold `v1.0.0` is the first stable source release: a complete local-first macOS workflow for collecting scattered documents, turning them into one workspace, marking them up, and exporting a clean result.
+
+|  | Release Detail | Status |
+| --- | --- | --- |
+| 🚢 | Version | `v1.0.0` |
+| 🧾 | App metadata | `CFBundleShortVersionString` `1.0`, `CFBundleVersion` `1` |
+| ⚡ | Install path | Double-click local installer/updater |
+| 🧪 | Smoke test | `./scripts/install-mac.sh --no-open` |
+| 🔐 | Signing | Local ad-hoc signing for development/source distribution |
+| 📦 | Distribution style | Source release; notarized binary distribution is a future step |
+
+Recommended tag:
+
+```zsh
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
 
 ## Simplest Local Setup
 
