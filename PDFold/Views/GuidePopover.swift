@@ -33,6 +33,7 @@ struct AppIconButton: View {
 struct AppBrandLockup: View {
     var iconSize: CGFloat = 28
     var titleSize: CGFloat = 14
+    var subtitleSize: CGFloat = 11
     var subtitle: String? = "A calmer way to assemble PDFs."
 
     var body: some View {
@@ -44,7 +45,7 @@ struct AppBrandLockup: View {
                     .foregroundStyle(Color.dsTextPrimary)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.dsCaption())
+                        .font(.system(size: subtitleSize, weight: .medium))
                         .foregroundStyle(Color.dsTextSecondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)

@@ -5,6 +5,7 @@ struct SignaturePalette: View {
     @Bindable var viewModel: WorkspaceViewModel
     @State private var savedSignatures: [Data] = SignatureStore.shared.all()
     @State private var isDrawing = false
+    @State private var isShowingDigitalSignatureNotice = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -49,14 +50,24 @@ struct SignaturePalette: View {
 
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
-            Button {
-                isDrawing = true
-            } label: {
-                Label("Draw Signature", systemImage: "pencil.and.outline")
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: .dsSM) {
+                Button {
+                    isDrawing = true
+                } label: {
+                    Label("Local Drawn Signature", systemImage: "pencil.and.outline")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(Color.dsAccent)
+
+                Button {
+                    isShowingDigitalSignatureNotice = true
+                } label: {
+                    Label("Digital Signature", systemImage: "checkmark.seal")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.bordered)
-            .tint(Color.dsAccent)
             .padding(.dsLG)
         }
         .frame(width: 300)
@@ -71,6 +82,11 @@ struct SignaturePalette: View {
             } onCancel: {
                 isDrawing = false
             }
+        }
+        .alert("Digital Signature", isPresented: $isShowingDigitalSignatureNotice) {
+            Button("OK") {}
+        } message: {
+            Text("A standards-compliant PDF digital signature needs certificate-backed signing with a PDF /Sig field, /ByteRange, and CMS signature data. PDFKit cannot create that directly, so PDFold keeps this separate from local drawn signatures until a signing engine is added.")
         }
     }
 }

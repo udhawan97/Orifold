@@ -40,8 +40,9 @@ private struct SidebarBrandMasthead: View {
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
             AppBrandLockup(
-                iconSize: 30,
-                titleSize: 15,
+                iconSize: 38,
+                titleSize: 13,
+                subtitleSize: 10.5,
                 subtitle: "Fold messy documents into one clean PDF."
             )
 
@@ -69,14 +70,14 @@ private struct SidebarMetric: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 3) {
             Text(value)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.dsTextPrimary)
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(Color.dsTextTertiary)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
         .background(Color.dsAccentSoft, in: Capsule())
     }
 }

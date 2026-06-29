@@ -133,27 +133,19 @@ rm -rf "$INSTALLED_APP"
 ditto --norsrc "$STAGED_APP" "$INSTALLED_APP"
 xattr -cr "$INSTALLED_APP"
 
+if [[ $OPEN_AFTER_INSTALL -eq 1 ]]; then
+    print_step "Opening $APP_NAME"
+    open "$INSTALLED_APP" || fail "The app was installed, but macOS could not open it."
+fi
+
 print_step "Refreshing Desktop launcher"
 if [[ -d "$HOME/Desktop" ]]; then
     rm -f "$DESKTOP_ALIAS"
-    if ! /usr/bin/osascript >>"$LOG_FILE" 2>&1 <<APPLESCRIPT
-tell application "Finder"
-    set appFile to POSIX file "$INSTALLED_APP" as alias
-    set desktopFolder to path to desktop folder
-    make new alias file at desktopFolder to appFile with properties {name:"$APP_NAME"}
-end tell
-APPLESCRIPT
-    then
-        ln -s "$INSTALLED_APP" "$DESKTOP_ALIAS" 2>/dev/null || true
-        print_note "Finder alias failed, so a Desktop shortcut was attempted instead."
+    if ! ln -s "$INSTALLED_APP" "$DESKTOP_ALIAS" 2>>"$LOG_FILE"; then
+        print_note "Could not refresh the Desktop launcher. You can still open the app from $INSTALLED_APP."
     fi
 else
     print_note "Desktop folder not found, so no launcher was created."
-fi
-
-if [[ $OPEN_AFTER_INSTALL -eq 1 ]]; then
-    print_step "Opening $APP_NAME"
-    open "$INSTALLED_APP"
 fi
 
 cat <<MESSAGE

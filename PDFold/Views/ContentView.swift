@@ -88,11 +88,7 @@ struct ContentView: View {
 
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
-        // Leading: brand + add source files
-        ToolbarItem(placement: .navigation) {
-            AppIconButton(size: 22)
-        }
-
+        // Leading: add source files
         ToolbarItem(placement: .navigation) {
             Button { openFiles() } label: {
                 Label("Add Files", systemImage: "plus.circle")
@@ -103,15 +99,7 @@ struct ContentView: View {
 
         // Center: annotation tools + color swatch
         ToolbarItem(placement: .principal) {
-            HStack(spacing: .dsSM) {
-                AnnotationToolPicker(selection: $viewModel.currentTool)
-
-                if viewModel.currentTool.isColorable {
-                    AnnotationColorButton(viewModel: viewModel)
-                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                }
-            }
-            .animation(.easeInOut(duration: 0.15), value: viewModel.currentTool.isColorable)
+            AnnotationToolPicker(viewModel: viewModel)
         }
 
         // Trailing primary: Share + Inspector
@@ -183,7 +171,7 @@ struct ContentView: View {
 }
 
 private struct AnnotationToolPicker: View {
-    @Binding var selection: AnnotationTool
+    @Bindable var viewModel: WorkspaceViewModel
     @State private var hoveredTool: AnnotationTool?
     @State private var popoverTool: AnnotationTool?
     @State private var hoverTask: Task<Void, Never>?
@@ -193,25 +181,9 @@ private struct AnnotationToolPicker: View {
     ]
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             ForEach(tools) { tool in
-                Button {
-                    selection = tool
-                } label: {
-                    Image(systemName: tool.iconName)
-                        .font(.system(size: 16, weight: .medium))
-                        .symbolRenderingMode(.monochrome)
-                        .foregroundStyle(selection == tool ? Color.white : Color.dsTextSecondary)
-                        .frame(width: 32, height: 28)
-                        .contentShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .background {
-                    if selection == tool {
-                        RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
-                            .fill(Color.dsAccent.opacity(0.82))
-                    }
-                }
+                toolButton(tool)
                 .popover(isPresented: popoverBinding(for: tool), arrowEdge: .bottom) {
                     AnnotationToolPopover(tool: tool)
                 }
@@ -220,12 +192,57 @@ private struct AnnotationToolPicker: View {
                 }
                 .help(tool.label)
             }
+
+            if viewModel.currentTool.isColorable {
+                Divider()
+                    .frame(height: 22)
+                    .padding(.horizontal, 3)
+                AnnotationColorButton(viewModel: viewModel)
+            }
         }
-        .padding(.horizontal, 5)
+        .padding(.horizontal, 7)
         .padding(.vertical, 4)
-        .background(.bar, in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.dsSeparator, lineWidth: 1))
+        .background(.regularMaterial, in: Capsule())
+        .overlay(
+            Capsule()
+                .strokeBorder(Color.dsSeparator.opacity(0.75), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.16), radius: 10, x: 0, y: 4)
         .help("Annotation tool")
+    }
+
+    @ViewBuilder
+    private func toolButton(_ tool: AnnotationTool) -> some View {
+        let isSelected = viewModel.currentTool == tool
+
+        Button {
+            viewModel.currentTool = tool
+        } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                    .fill(isSelected ? Color.dsAccent : Color.clear)
+                toolIcon(tool, isSelected: isSelected)
+            }
+            .frame(width: tool == .editText ? 50 : 36, height: 32)
+            .contentShape(RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func toolIcon(_ tool: AnnotationTool, isSelected: Bool) -> some View {
+        let foreground = isSelected ? Color.white : Color.dsTextSecondary
+
+        if tool == .editText {
+            Text("Aa")
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundStyle(foreground)
+        } else {
+            Image(systemName: tool.iconName)
+                .font(.system(size: tool == .none ? 15 : 17, weight: .semibold))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(foreground)
+        }
     }
 
     private func popoverBinding(for tool: AnnotationTool) -> Binding<Bool> {
@@ -299,10 +316,17 @@ private struct AnnotationColorButton: View {
 
     var body: some View {
         Button { showPalette.toggle() } label: {
-            Circle()
-                .fill(displayColor)
-                .frame(width: 20, height: 20)
-                .overlay(Circle().strokeBorder(Color.dsSeparator, lineWidth: 1))
+            ZStack {
+                RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                    .fill(showPalette ? Color.dsTextPrimary.opacity(0.12) : Color.clear)
+                Circle()
+                    .fill(displayColor)
+                    .frame(width: 24, height: 24)
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.72), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.18), radius: 2, x: 0, y: 1)
+            }
+            .frame(width: 36, height: 32)
+            .contentShape(RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
         }
         .buttonStyle(.plain)
         .help("Annotation color")

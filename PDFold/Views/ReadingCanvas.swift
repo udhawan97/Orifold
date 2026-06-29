@@ -9,7 +9,6 @@ struct ReadingCanvas: View {
     var body: some View {
         VStack(spacing: 0) {
             PDFViewRepresentable(viewModel: viewModel)
-                .ignoresSafeArea()
             ZoomPageBar(viewModel: viewModel)
         }
     }
@@ -242,6 +241,12 @@ struct PDFViewRepresentable: NSViewRepresentable {
                     let ann = viewModel.addTextBox(at: pagePoint, on: page)
                     let rect = pdfView.convert(ann.bounds, from: page)
                     showNoteEditor(for: ann, near: rect, in: pdfView)
+                }
+            case .signature:
+                if let signatureData = viewModel.pendingSignatureData {
+                    viewModel.placeSignature(imageData: signatureData, at: pagePoint, on: page)
+                } else {
+                    viewModel.isShowingSignaturePalette = true
                 }
             case .none:
                 // Track clicked annotation for Delete-key deletion

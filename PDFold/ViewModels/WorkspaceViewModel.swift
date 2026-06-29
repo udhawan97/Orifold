@@ -81,7 +81,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
 
     var iconName: String {
         switch self {
-        case .none:      return "cursorarrow"
+        case .none:      return "rectangle.dashed"
         case .highlight: return "pencil.tip.crop.circle"
         case .note:      return "note.text"
         case .editText:  return "textformat"
