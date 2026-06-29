@@ -30,6 +30,13 @@ struct PDFViewRepresentable: NSViewRepresentable {
         click.numberOfClicksRequired = 1
         view.addGestureRecognizer(click)
 
+        // Ink drawing overlay — fills the visible PDFView area
+        let overlay = context.coordinator.inkOverlay
+        overlay.frame = view.bounds
+        overlay.autoresizingMask = [.width, .height]
+        overlay.isHidden = true
+        view.addSubview(overlay)
+
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.selectionChanged(_:)),
@@ -56,6 +63,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         )
 
         context.coordinator.pdfView = view
+        context.coordinator.setupInkOverlay()
         return view
     }
 
@@ -81,13 +89,22 @@ struct PDFViewRepresentable: NSViewRepresentable {
         }
 
         @objc func selectionChanged(_ notification: Notification) {
-            // Auto-apply highlight when tool is active and there's a selection
-            guard viewModel.currentTool == .highlight,
-                  let pdfView,
+            guard let pdfView,
                   let selection = pdfView.currentSelection,
                   !(selection.string?.isEmpty ?? true) else { return }
-            viewModel.applyHighlight(to: selection)
-            pdfView.clearSelection()
+            switch viewModel.currentTool {
+            case .highlight:
+                viewModel.applyHighlight(to: selection)
+                pdfView.clearSelection()
+            case .underline:
+                viewModel.applyMarkup(.underline, to: selection)
+                pdfView.clearSelection()
+            case .strikeout:
+                viewModel.applyMarkup(.strikeOut, to: selection)
+                pdfView.clearSelection()
+            default:
+                break
+            }
         }
 
         @objc func handleClick(_ gesture: NSClickGestureRecognizer) {
@@ -115,6 +132,42 @@ struct PDFViewRepresentable: NSViewRepresentable {
             guard let pdfView else { return }
             viewModel.printWorkspace(pdfView: pdfView)
         }
+
+        func setupInkOverlay() {
+            inkOverlay.onStrokeCommitted = { [weak self] overlayPath in
+                guard let self, let pdfView,
+                      let page = pdfView.currentPage else { return }
+                let pagePath = convertOverlayPath(overlayPath, pdfView: pdfView, page: page)
+                viewModel.addInkStroke(path: pagePath, on: page)
+                inkOverlay.clearCommittedPaths()
+            }
+        }
+
+        // Converts a path captured in InkOverlayView (isFlipped=true) to PDF page coordinates.
+        private func convertOverlayPath(_ path: NSBezierPath, pdfView: PDFView, page: PDFPage) -> NSBezierPath {
+            let pagePath = NSBezierPath()
+            pagePath.lineWidth = path.lineWidth
+            var pts = [NSPoint](repeating: .zero, count: 3)
+            let overlayHeight = inkOverlay.bounds.height
+            func toPDFPage(_ p: NSPoint) -> NSPoint {
+                // InkOverlayView is flipped (y↓); PDFView is not flipped (y↑)
+                let viewPt = NSPoint(x: p.x, y: overlayHeight - p.y)
+                return pdfView.convert(viewPt, to: page)
+            }
+            for i in 0..<path.elementCount {
+                let kind = path.element(at: i, associatedPoints: &pts)
+                switch kind {
+                case .moveTo:          pagePath.move(to: toPDFPage(pts[0]))
+                case .lineTo:          pagePath.line(to: toPDFPage(pts[0]))
+                case .curveTo, .cubicCurveTo:
+                    pagePath.curve(to: toPDFPage(pts[2]),
+                                   controlPoint1: toPDFPage(pts[0]),
+                                   controlPoint2: toPDFPage(pts[1]))
+                default:               break
+                }
+            }
+            return pagePath
+        }
     }
 }
 
@@ -125,6 +178,11 @@ final class InkOverlayView: NSView {
 
     private var currentPath: NSBezierPath?
     private var committedPaths: [NSBezierPath] = []
+
+    func clearCommittedPaths() {
+        committedPaths.removeAll()
+        needsDisplay = true
+    }
     private let strokeColor: NSColor = .systemBlue
     private let lineWidth: CGFloat = 2.0
 

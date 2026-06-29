@@ -88,9 +88,9 @@ struct ContentView: View {
 
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
-        // Leading: add source files
+        // Leading: app icon (tappable) + add source files
         ToolbarItemGroup(placement: .navigation) {
-            AppIconMark(size: 24)
+            AppIconButton(size: 24)
 
             Button { openFiles() } label: {
                 Label("Add Files", systemImage: "plus.circle")

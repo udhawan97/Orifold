@@ -8,7 +8,7 @@ struct TOCView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Table of Contents")
+            Text("Documents")
                 .font(.headline)
                 .padding(.horizontal)
                 .padding(.vertical, 10)
@@ -16,7 +16,7 @@ struct TOCView: View {
             Divider()
 
             if viewModel.tableOfContents.isEmpty {
-                Text("No documents loaded.")
+                Text("No documents in workspace.")
                     .foregroundStyle(.secondary)
                     .font(.callout)
                     .padding()
@@ -26,12 +26,16 @@ struct TOCView: View {
                         onJump?(entry.startPageIndex)
                     } label: {
                         HStack {
+                            Image(systemName: "doc.richtext.fill")
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.accentColor)
+                                .frame(width: 18)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(entry.title)
                                     .font(.callout)
                                     .foregroundStyle(.primary)
                                     .lineLimit(1)
-                                Text("p. \(entry.startPageIndex + 1)")
+                                Text("Jump to first page")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }

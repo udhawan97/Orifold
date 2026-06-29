@@ -20,25 +20,6 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(Color(nsColor: .controlBackgroundColor))
-        .toolbar {
-            ToolbarItem {
-                Button { openFiles() } label: {
-                    Image(systemName: "plus")
-                }
-                .help("Add source files to workspace")
-            }
-        }
-    }
-
-    private func openFiles() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowedContentTypes = WorkspaceDocument.importableContentTypes
-        if panel.runModal() == .OK {
-            viewModel.importFiles(urls: panel.urls)
-        }
     }
 }
 

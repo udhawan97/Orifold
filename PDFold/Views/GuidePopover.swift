@@ -14,6 +14,62 @@ struct AppIconMark: View {
     }
 }
 
+/// Tappable version of the app icon that shows a witty "about" popover.
+struct AppIconButton: View {
+    var size: CGFloat = 24
+    @State private var isPresented = false
+
+    var body: some View {
+        Button { isPresented.toggle() } label: {
+            AppIconMark(size: size)
+        }
+        .buttonStyle(.plain)
+        .help("About PDFold")
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            AppAboutPopover(isPresented: $isPresented)
+        }
+    }
+}
+
+private struct AppAboutPopover: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                AppIconMark(size: 40)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("PDFold")
+                        .font(.headline)
+                    Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            Text("Here to fix the tiny PDF annoyances macOS somehow left as character-building exercises.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 240)
+
+            Text("Combine, annotate, reorder, and export documents — without the ceremony.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 240)
+
+            HStack {
+                Spacer()
+                Button("Close") { isPresented = false }
+                    .keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(16)
+        .frame(width: 272)
+    }
+}
+
 struct GuideButton: View {
     var autoShow = false
     @State private var isPresented = false
