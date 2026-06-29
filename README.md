@@ -140,24 +140,38 @@ git push origin v1.0.0
 
 ## Simplest Local Setup
 
-The entire local install path is designed to be one double-click:
+The installer is one double-click after the project is on your Mac.
 
 |  | Step | Action |
 | --- | --- | --- |
-| ⚡ | 1 | Double-click [`Install or Update PDFold.command`](Install%20or%20Update%20PDFold.command) |
-| 🏗️ | 2 | Let it build PDFold locally |
-| 🚀 | 3 | Use the `PDFold` Desktop launcher it creates |
+| 📦 | 1 | Download or clone this repository from GitHub |
+| ⚡ | 2 | Open the project folder in Finder and double-click `Install or Update PDFold.command` |
+| 🏗️ | 3 | Let it build PDFold locally |
+| 🚀 | 4 | Use the `PDFold` Desktop launcher it creates |
 
 That is it. The installer puts the app in `~/Applications/PDFold.app`, refreshes a Desktop launcher named `PDFold`, signs the local build ad-hoc, opens the app, and writes a setup log to `.build/install.log`.
 
 No admin password, no global package manager, no "please install five unrelated things because a PDF app sneezed" detour.
 
+Important GitHub note: clicking `Install or Update PDFold.command` inside the GitHub README opens the file in the browser. Browsers cannot run local Mac installer scripts from a README link. Download or clone the repository first, then double-click the file from Finder.
+
+<details>
+<summary>Fresh install from Terminal</summary>
+
+```zsh
+git clone https://github.com/udhawan97/PDFold.git
+cd PDFold
+./scripts/install-mac.sh
+```
+</details>
+
 ## Updating The App
 
 To update PDFold locally:
 
-1. Pull or download the latest project code.
-2. Double-click [`Install or Update PDFold.command`](Install%20or%20Update%20PDFold.command) again.
+1. Pull the latest project code, or download a fresh copy from GitHub.
+2. Open the project folder in Finder.
+3. Double-click `Install or Update PDFold.command` again.
 
 The installer is intentionally repeatable. If PDFold is already installed, it rebuilds the latest code, closes the running app if needed, replaces `~/Applications/PDFold.app`, refreshes the Desktop launcher, and opens the updated app.
 
@@ -165,6 +179,7 @@ The installer is intentionally repeatable. If PDFold is already installed, it re
 <summary>Prefer Terminal?</summary>
 
 ```zsh
+git pull
 ./scripts/install-mac.sh
 ```
 
@@ -306,6 +321,14 @@ Good contributions are focused, tested, and kind to the next person reading the 
 ## Troubleshooting
 
 <details>
+<summary>Clicking the installer opens a GitHub page instead of installing</summary>
+
+That is expected on GitHub. README links open files in the browser; they do not execute Mac installer scripts.
+
+Download or clone the repository first, then open the downloaded `PDFold` folder in Finder and double-click `Install or Update PDFold.command`.
+</details>
+
+<details>
 <summary>Double-clicking the installer says it cannot be opened</summary>
 
 Open Terminal in the project folder and run:
@@ -314,7 +337,7 @@ Open Terminal in the project folder and run:
 chmod +x "Install or Update PDFold.command" scripts/install-mac.sh scripts/install-mac.command
 ```
 
-Then double-click [`Install or Update PDFold.command`](Install%20or%20Update%20PDFold.command) again.
+Then double-click `Install or Update PDFold.command` again from Finder.
 </details>
 
 <details>
@@ -334,7 +357,7 @@ macOS may ask you to accept the Xcode license or finish installing command line 
 <details>
 <summary>The Desktop launcher does not open the app</summary>
 
-Run [`Install or Update PDFold.command`](Install%20or%20Update%20PDFold.command) again. It refreshes `~/Applications/PDFold.app` and recreates the Desktop launcher.
+Run `Install or Update PDFold.command` again from Finder. It refreshes `~/Applications/PDFold.app` and recreates the Desktop launcher.
 </details>
 
 <details>
