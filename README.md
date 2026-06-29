@@ -75,57 +75,24 @@ flowchart LR
 ## Architecture
 
 ```mermaid
-flowchart TB
-    subgraph UI["SwiftUI Interface"]
-        ContentView["ContentView"]
-        SidebarView["SidebarView"]
-        ReadingCanvas["ReadingCanvas"]
-        InspectorView["InspectorView"]
-        SearchView["SearchView"]
-        SignaturePalette["SignaturePalette"]
-    end
+flowchart LR
+    Files["User files<br/>PDF, Word, HTML, text, images"]
+    App["PDFold macOS app<br/>SwiftUI workspace"]
+    Engine["Document engine<br/>Convert, merge, annotate, search"]
+    Local["Local storage<br/>.pdfoldproj packages"]
+    Output["Exports<br/>Merged PDF or PDFold bundle"]
 
-    subgraph State["Workspace State"]
-        WorkspaceViewModel["WorkspaceViewModel"]
-        WorkspaceDocument["WorkspaceDocument"]
-        WorkspaceModels["Workspace, MemberDocument, PageRef, SignaturePlacement"]
-    end
-
-    subgraph Engine["PDF Engine"]
-        PDFKitEngine["PDFKitEngine"]
-        ImportConverter["DocumentImportConverter"]
-        BoundaryPage["BoundaryPage"]
-        AttachmentWriter["PDFAttachmentWriter"]
-        Manifest["PDFoldManifest"]
-    end
-
-    subgraph Storage["Local Files"]
-        InputFiles["PDF, Word, HTML, text, data, images"]
-        ProjectPackage[".pdfoldproj package"]
-        ExportPDF["Merged PDF"]
-        BundlePDF["PDFold bundle"]
-    end
-
-    ContentView --> WorkspaceViewModel
-    SidebarView --> WorkspaceViewModel
-    ReadingCanvas --> WorkspaceViewModel
-    InspectorView --> WorkspaceViewModel
-    SearchView --> WorkspaceViewModel
-    SignaturePalette --> WorkspaceViewModel
-
-    WorkspaceViewModel <--> WorkspaceDocument
-    WorkspaceDocument <--> WorkspaceModels
-    WorkspaceViewModel --> PDFKitEngine
-    PDFKitEngine --> ImportConverter
-    PDFKitEngine --> BoundaryPage
-    WorkspaceViewModel --> AttachmentWriter
-    AttachmentWriter --> Manifest
-
-    InputFiles --> ImportConverter
-    WorkspaceDocument --> ProjectPackage
-    PDFKitEngine --> ExportPDF
-    AttachmentWriter --> BundlePDF
+    Files --> App
+    App --> Engine
+    Engine <--> Local
+    Engine --> Output
 ```
+
+| Layer | Responsibility |
+| --- | --- |
+| SwiftUI app | Presents the workspace, sidebar, reader, tools, search, and export actions |
+| Document engine | Converts imports, builds the combined PDF, manages annotations, and writes exports |
+| Local storage | Keeps editable `.pdfoldproj` packages and generated output on the user's Mac |
 
 ## Why It Matters
 
