@@ -4,8 +4,8 @@ import Foundation
 import UniformTypeIdentifiers
 
 final class PDFKitEngine: PDFEngine {
-    func loadDocument(from url: URL) -> PDFDocument? {
-        try? DocumentImportConverter.pdfDocument(from: url)
+    func loadDocument(from url: URL) throws -> PDFDocument {
+        try DocumentImportConverter.pdfDocument(from: url)
     }
 
     /// Concatenate member documents into one PDFDocument for display.
@@ -41,16 +41,48 @@ enum DocumentImportConverter {
         case unsupportedType
         case unreadableDocument
         case renderingFailed
+        case fileTooLarge(Int64)
+    }
+
+    static let maxImportBytes: Int64 = 512 * 1024 * 1024
+
+    private static let byteCountFormatter: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter
+    }()
+
+    static func userMessage(for error: Error) -> String {
+        switch error {
+        case ConversionError.unsupportedType:
+            return "This file type is not supported yet."
+        case ConversionError.unreadableDocument:
+            return "The file could not be read. It may be corrupt, encrypted, or incomplete."
+        case ConversionError.renderingFailed:
+            return "The file opened, but PDFold could not render it into a PDF."
+        case ConversionError.fileTooLarge(let byteCount):
+            let actual = byteCountFormatter.string(fromByteCount: byteCount)
+            let limit = byteCountFormatter.string(fromByteCount: maxImportBytes)
+            return "The file is \(actual), which is larger than the \(limit) import safety limit."
+        default:
+            return "The file could not be opened: \(error.localizedDescription)"
+        }
     }
 
     static func pdfDocument(from url: URL) throws -> PDFDocument {
         let type = UTType(filenameExtension: url.pathExtension) ?? .data
+        if let byteCount = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+           Int64(byteCount) > maxImportBytes {
+            throw ConversionError.fileTooLarge(Int64(byteCount))
+        }
         let data = try Data(contentsOf: url)
         return try pdfDocument(
             from: data,
             contentType: type,
             filename: url.lastPathComponent,
-            baseURL: url.deletingLastPathComponent()
+            // Keep HTML/Markdown imports self-contained. A selected document should
+            // not be able to pull arbitrary sibling files or remote resources.
+            baseURL: nil
         )
     }
 

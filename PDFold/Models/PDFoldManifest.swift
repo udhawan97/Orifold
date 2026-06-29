@@ -1,11 +1,13 @@
 import Foundation
 
-/// The `pdfold-manifest.json` schema embedded inside a `.pdfold` file.
+/// The `pdfold-manifest.json` schema embedded inside a `.pdfold` bundle.
+/// It lets a future PDFold import recover the original source-document map
+/// from an otherwise ordinary exported PDF.
 struct PDFoldManifest: Codable {
     var format: String = "pdfold"
     var version: Int = 1
     var title: String
-    var createdWith: String = "PDFold 1.0"
+    var createdWith: String = "PDFold 2.0"
     var documents: [ManifestDocument]
 
     struct ManifestDocument: Codable {

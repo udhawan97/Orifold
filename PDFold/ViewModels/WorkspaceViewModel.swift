@@ -34,7 +34,9 @@ final class WorkspaceViewModel {
 
     // MARK: - UI state
     var importError: ImportError? = nil
+    var exportError: ExportError? = nil
     var pendingPasswordURL: URL? = nil
+    var pendingPasswordPDF: PDFDocument? = nil
     var isShowingPasswordPrompt = false
     var currentTool: AnnotationTool = .none
     var isShowingExport = false
@@ -48,7 +50,7 @@ final class WorkspaceViewModel {
 
     /// Reactive list of member documents — backed by loadedPDFs so the sidebar
     /// re-renders whenever documents are added, removed, or reordered.
-    var memberDocuments: [MemberDocument] { loadedPDFs.map(\.0) }
+    var memberDocuments: [MemberDocument] { loadedPDFs.map { $0.0 } }
 
     weak var undoManager: UndoManager?
 
@@ -57,6 +59,11 @@ final class WorkspaceViewModel {
     struct ImportError: Identifiable {
         let id = UUID()
         var fileName: String
+        var message: String
+    }
+
+    struct ExportError: Identifiable {
+        let id = UUID()
         var message: String
     }
 
@@ -99,13 +106,24 @@ final class WorkspaceViewModel {
 
     func addFile(from url: URL) {
         let fileName = url.lastPathComponent
-        guard let pdf = engine.loadDocument(from: url) else {
-            importError = ImportError(fileName: fileName,
-                message: "Could not open \"\(fileName)\". The file may be corrupt or in an unsupported format.")
+        let isSecurityScoped = url.startAccessingSecurityScopedResource()
+        defer {
+            if isSecurityScoped { url.stopAccessingSecurityScopedResource() }
+        }
+
+        let pdf: PDFDocument
+        do {
+            pdf = try engine.loadDocument(from: url)
+        } catch {
+            importError = ImportError(
+                fileName: fileName,
+                message: "Could not open \"\(fileName)\". \(DocumentImportConverter.userMessage(for: error))"
+            )
             return
         }
         if pdf.isLocked {
             pendingPasswordURL = url
+            pendingPasswordPDF = pdf
             isShowingPasswordPrompt = true
             return
         }
@@ -115,6 +133,7 @@ final class WorkspaceViewModel {
     func unlock(pdf: PDFDocument, password: String, url: URL) -> Bool {
         guard pdf.unlock(withPassword: password) else { return false }
         attachPDF(pdf, from: url)
+        pendingPasswordPDF = nil
         rebuild()
         return true
     }
@@ -158,23 +177,42 @@ final class WorkspaceViewModel {
     private struct OrderSnapshot {
         var documents: [MemberDocument]
         var pageOrder: [PageRef]
-        var loadedPDFs: [(MemberDocument, PDFDocument)]
+        var pdfData: [UUID: Data]
     }
 
     private func captureOrderSnapshot() -> OrderSnapshot {
         OrderSnapshot(
             documents: document.workspace.documents,
             pageOrder: document.workspace.pageOrder,
-            loadedPDFs: loadedPDFs
+            pdfData: currentPDFData()
         )
+    }
+
+    private func restore(_ snapshot: OrderSnapshot) {
+        document.workspace.documents = snapshot.documents
+        document.workspace.pageOrder = snapshot.pageOrder
+        document.memberPDFData = snapshot.pdfData
+        loadedPDFs = snapshot.documents.compactMap { member in
+            guard let data = snapshot.pdfData[member.id],
+                  let pdf = PDFDocument(data: data) else { return nil }
+            return (member, pdf)
+        }
+        rebuild()
+    }
+
+    private func currentPDFData() -> [UUID: Data] {
+        var result: [UUID: Data] = [:]
+        for (member, pdf) in loadedPDFs {
+            if let data = pdf.dataRepresentation() {
+                result[member.id] = data
+            }
+        }
+        return result
     }
 
     private func registerUndo(snapshot: OrderSnapshot, actionName: String) {
         undoManager?.registerUndo(withTarget: self) { vm in
-            vm.document.workspace.documents = snapshot.documents
-            vm.document.workspace.pageOrder = snapshot.pageOrder
-            vm.loadedPDFs = snapshot.loadedPDFs
-            vm.rebuild()
+            vm.restore(snapshot)
         }
         undoManager?.setActionName(actionName)
     }
@@ -187,8 +225,12 @@ final class WorkspaceViewModel {
     }
 
     private func rebuildPageOrder() {
+        var refsByID: [UUID: PageRef] = [:]
+        for ref in document.workspace.pageOrder {
+            refsByID[ref.id] = ref
+        }
         document.workspace.pageOrder = document.workspace.documents.flatMap { member in
-            document.workspace.pageOrder.filter { $0.memberDocId == member.id }
+            member.pageRefs.compactMap { refsByID[$0] }
         }
     }
 
@@ -356,7 +398,10 @@ final class WorkspaceViewModel {
         panel.nameFieldStringValue = "\(document.workspace.title).pdf"
         panel.title = "Export as PDF"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        exportDoc.write(to: url)
+        guard exportDoc.write(to: url) else {
+            exportError = ExportError(message: "PDFold could not write the exported PDF. Check that the destination is writable and has enough free space.")
+            return
+        }
     }
 
     // MARK: - .pdfold bundle export
@@ -364,7 +409,10 @@ final class WorkspaceViewModel {
     func exportPDFoldBundle() {
         // 1. Build the plain concatenated PDF
         let plainDoc = engine.concatenate(documents: loadedPDFs, includeBanners: false)
-        guard let pdfData = plainDoc.dataRepresentation() else { return }
+        guard let pdfData = plainDoc.dataRepresentation() else {
+            exportError = ExportError(message: "PDFold could not prepare the PDF data for export.")
+            return
+        }
 
         // 2. Build the manifest — page counts must sum exactly to total
         let manifestDocs = document.workspace.documents.map { member in
@@ -379,7 +427,10 @@ final class WorkspaceViewModel {
             documents: manifestDocs
         )
         guard let manifestData = try? JSONEncoder().encode(manifest),
-              manifest.isValid(totalPages: plainDoc.pageCount) else { return }
+              manifest.isValid(totalPages: plainDoc.pageCount) else {
+            exportError = ExportError(message: "PDFold could not build a valid bundle manifest.")
+            return
+        }
 
         // 3. Embed manifest via incremental update
         guard let bundleData = PDFAttachmentWriter.embed(
@@ -387,7 +438,10 @@ final class WorkspaceViewModel {
             filename: "pdfold-manifest.json",
             mimeType: "application/json",
             in: pdfData
-        ) else { return }
+        ) else {
+            exportError = ExportError(message: "PDFold could not embed the workspace manifest in this PDF.")
+            return
+        }
 
         // 4. Save
         let panel = NSSavePanel()
@@ -395,7 +449,11 @@ final class WorkspaceViewModel {
         panel.nameFieldStringValue = "\(document.workspace.title).pdfold"
         panel.title = "Export PDFold Bundle"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        try? bundleData.write(to: url)
+        do {
+            try bundleData.write(to: url, options: .atomic)
+        } catch {
+            exportError = ExportError(message: "PDFold could not write the PDFold bundle: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Page operations (all keyed by PageRef.id, all undoable)
@@ -417,7 +475,7 @@ final class WorkspaceViewModel {
     func deletePage(_ ref: PageRef) {
         guard let (mi, pdf) = memberPDF(for: ref),
               let localIdx = localIndex(ref: ref, memberIndex: mi),
-              let page = pdf.page(at: localIdx) else { return }
+              pdf.page(at: localIdx) != nil else { return }
 
         let snapshot = captureOrderSnapshot()
         pdf.removePage(at: localIdx)
@@ -428,15 +486,13 @@ final class WorkspaceViewModel {
         if document.workspace.documents[mi].pageRefs.isEmpty {
             loadedPDFs.remove(at: mi)
             document.workspace.documents.remove(at: mi)
+        } else {
+            loadedPDFs[mi].0 = document.workspace.documents[mi]
         }
         rebuild()
 
         undoManager?.registerUndo(withTarget: self) { vm in
-            vm.document.workspace.documents = snapshot.documents
-            vm.document.workspace.pageOrder = snapshot.pageOrder
-            vm.loadedPDFs = snapshot.loadedPDFs
-            pdf.insert(page, at: localIdx)
-            vm.rebuild()
+            vm.restore(snapshot)
         }
         undoManager?.setActionName("Delete Page")
     }
@@ -457,16 +513,14 @@ final class WorkspaceViewModel {
         refs.remove(at: localIdx)
         refs.insert(ref.id, at: min(adjustedDest, refs.count))
         document.workspace.documents[mi].pageRefs = refs
+        loadedPDFs[mi].0 = document.workspace.documents[mi]
 
         // Rebuild flat pageOrder
         rebuildPageOrder()
         rebuild()
 
         undoManager?.registerUndo(withTarget: self) { vm in
-            vm.document.workspace.documents = snapshot.documents
-            vm.document.workspace.pageOrder = snapshot.pageOrder
-            vm.loadedPDFs = snapshot.loadedPDFs
-            vm.rebuild()
+            vm.restore(snapshot)
         }
         undoManager?.setActionName("Move Page")
     }

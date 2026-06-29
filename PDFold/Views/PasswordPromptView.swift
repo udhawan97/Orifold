@@ -32,7 +32,11 @@ struct PasswordPromptView: View {
                 .onSubmit { attemptUnlock() }
 
             HStack {
-                Button("Cancel") { dismiss() }
+                Button("Cancel") {
+                    viewModel.pendingPasswordURL = nil
+                    viewModel.pendingPasswordPDF = nil
+                    dismiss()
+                }
                     .keyboardShortcut(.cancelAction)
                 Button("Unlock") { attemptUnlock() }
                     .keyboardShortcut(.defaultAction)

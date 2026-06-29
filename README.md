@@ -14,12 +14,12 @@
 
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">
-  <img alt="Version 1.0" src="https://img.shields.io/badge/Version-1.0-2563EB?style=for-the-badge">
+  <img alt="Version 2.0" src="https://img.shields.io/badge/Version-2.0-2563EB?style=for-the-badge">
   <img alt="Swift 5.9" src="https://img.shields.io/badge/Swift-5.9-F05138?style=for-the-badge&logo=swift&logoColor=white">
   <img alt="SwiftUI" src="https://img.shields.io/badge/UI-SwiftUI-0A84FF?style=for-the-badge">
   <img alt="PDFKit" src="https://img.shields.io/badge/Engine-PDFKit-10B981?style=for-the-badge">
   <img alt="Local installer" src="https://img.shields.io/badge/Setup-Local%20installer-7C3AED?style=for-the-badge">
-  <img alt="Smoke tested" src="https://img.shields.io/badge/Quality-Smoke%20tested-10B981?style=for-the-badge">
+  <img alt="Release hardened" src="https://img.shields.io/badge/Quality-Release%20hardened-10B981?style=for-the-badge">
   <img alt="MIT License" src="https://img.shields.io/badge/License-MIT-6B7280?style=for-the-badge">
 </p>
 
@@ -146,16 +146,27 @@ The app is intentionally local-first. No account. No upload step. No mysterious 
 
 ## Release Status
 
-PDFold is prepared for version `1.0`: a complete local-first macOS workflow for collecting scattered documents, turning them into one workspace, marking them up, and exporting a clean result.
+PDFold is prepared for version `2.0`: a release-hardened local-first macOS workflow for collecting scattered documents, turning them into one workspace, marking them up, and exporting a clean result.
 
 |  | Detail | Status |
 | --- | --- | --- |
-| 🚢 | Version | `1.0` |
-| 🧾 | App metadata | `CFBundleShortVersionString` `1.0`, `CFBundleVersion` `1` |
+| 🚢 | Version | `2.0` |
+| 🧾 | App metadata | `CFBundleShortVersionString` `2.0`, `CFBundleVersion` `2` |
 | ⚡ | Install path | Download or clone the repo, then run the local installer/updater |
 | 🧪 | Smoke test | `./scripts/install-mac.sh --no-open` |
 | 🔐 | Signing | Local ad-hoc signing for development/source distribution |
 | 📦 | Distribution style | Source distribution; no notarized binary is included |
+
+### What Changed In v2
+
+|  | Area | Release Hardening |
+| --- | --- | --- |
+| 🛡️ | Import safety | Import failures now show actionable messages, oversized files are rejected before loading, and dragged/selected files use security-scoped access. |
+| 🔐 | Protected PDFs | Password-protected documents unlock from the already-loaded PDF instance instead of reopening the file after sandbox access may have ended. |
+| ↩️ | Undo reliability | Page deletion and page reordering undo restore serialized PDF state, not only sidebar metadata. |
+| 🗂️ | Page order | Reordered pages now rebuild the workspace page map correctly, keeping navigation, export, signatures, and saved projects aligned. |
+| 📤 | Export reliability | Plain PDF and PDFold bundle exports now report write/manifest failures instead of failing silently. |
+| 🧾 | Bundle metadata | Embedded manifest writing sanitizes attachment metadata and uses a safer PDF trailer size calculation. |
 
 ## Simplest Local Setup
 
@@ -291,6 +302,13 @@ PDFold is a local-first Mac app. Documents are opened, edited, saved, and export
 
 The app uses macOS sandboxing and file access through user-selected documents. In normal-person English: it handles the files you give it, not your entire digital attic.
 
+Release v2 also adds practical guardrails around the most failure-prone paths:
+
+- Files larger than 512 MB are rejected before loading to avoid memory pressure from accidental giant imports.
+- HTML and Markdown imports are rendered as self-contained documents, without using the source folder as a base URL for sibling files.
+- Export failures are surfaced to the user, including invalid bundle manifests and failed writes.
+- PDFold bundles embed only the workspace manifest; document contents remain in the PDF itself.
+
 <details>
 <summary>Sandbox details</summary>
 
@@ -318,6 +336,18 @@ Before shipping a build, verify the app from both sides: the developer path and 
 | 🗂️ | Pages | Page rotation, deletion, and reordering behave correctly |
 | 📤 | Export | Plain PDF and PDFold bundle export complete successfully |
 | 🚀 | Launch | Desktop launcher opens the installed app after running the installer |
+
+For v2 release preparation, the local verification pass should include:
+
+```zsh
+plutil -lint PDFold/Resources/Info.plist
+plutil -lint PDFold/Resources/PDFold.entitlements
+zsh -n scripts/install-mac.sh
+zsh -n scripts/install-mac.command
+zsh -n "Install or Update PDFold.command"
+swift build
+xcodebuild -project PDFold.xcodeproj -scheme PDFold -configuration Debug CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES build
+```
 
 ## Roadmap
 

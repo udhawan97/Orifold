@@ -18,11 +18,12 @@ enum PDFAttachmentWriter {
         in pdfData: Data
     ) -> Data? {
         guard let info = PDFParser.parse(pdfData) else { return nil }
+        let safeFilename = sanitizedFilename(filename)
         return buildIncrementalUpdate(
             pdfData: pdfData,
             info: info,
             attachmentData: attachmentData,
-            filename: filename,
+            filename: safeFilename,
             mimeType: mimeType
         )
     }
@@ -97,7 +98,7 @@ enum PDFAttachmentWriter {
         body += enc(buildXref(entries: xrefEntries))
 
         // ── trailer ──────────────────────────────────────────────────────
-        let newSize = info.pdfSize + (nextObjNum - info.highestObjNum - 1)
+        let newSize = max(info.pdfSize, nextObjNum, info.highestObjNum + 1)
         body += enc("""
             trailer
             <<
@@ -147,7 +148,11 @@ enum PDFAttachmentWriter {
 
     /// Converts a MIME type to a PDF name (replaces / with #2F)
     private static func pdfSubtype(_ mimeType: String) -> String {
-        mimeType.replacingOccurrences(of: "/", with: "#2F")
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._+-")
+        return mimeType.unicodeScalars.map { scalar in
+            if scalar == "/" { return "#2F" }
+            return allowed.contains(scalar) ? String(scalar) : "#\(String(format: "%02X", scalar.value))"
+        }.joined()
     }
 
     /// Wraps a string as a PDF literal string, escaping parens and backslash
@@ -155,7 +160,18 @@ enum PDFAttachmentWriter {
         "(" + s
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "(", with: "\\(")
-            .replacingOccurrences(of: ")", with: "\\)") + ")"
+            .replacingOccurrences(of: ")", with: "\\)")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r") + ")"
+    }
+
+    private static func sanitizedFilename(_ filename: String) -> String {
+        let basename = URL(fileURLWithPath: filename).lastPathComponent
+        let filtered = basename.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0) && $0 != "/" && $0 != "\\"
+        }
+        let safe = String(String.UnicodeScalarView(filtered)).trimmingCharacters(in: .whitespacesAndNewlines)
+        return safe.isEmpty ? "attachment" : safe
     }
 }
 

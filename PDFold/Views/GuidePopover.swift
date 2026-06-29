@@ -41,7 +41,7 @@ struct AppAboutPopover: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("PDFold")
                         .font(.headline)
-                    Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")")
+                    Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0")")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }

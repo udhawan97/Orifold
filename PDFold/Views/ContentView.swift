@@ -70,10 +70,18 @@ struct ContentView: View {
         } message: { err in
             Text(err.message)
         }
+        .alert("Export Error", isPresented: Binding(
+            get: { viewModel.exportError != nil },
+            set: { if !$0 { viewModel.exportError = nil } }
+        ), presenting: viewModel.exportError) { _ in
+            Button("OK") { viewModel.exportError = nil }
+        } message: { err in
+            Text(err.message)
+        }
         // Password prompt
         .sheet(isPresented: $viewModel.isShowingPasswordPrompt) {
             if let url = viewModel.pendingPasswordURL,
-               let pdf = PDFDocument(url: url) {
+               let pdf = viewModel.pendingPasswordPDF {
                 PasswordPromptView(
                     fileName: url.lastPathComponent,
                     pdf: pdf,

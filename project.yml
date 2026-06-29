@@ -29,8 +29,8 @@ targets:
       path: PDFold/Resources/Info.plist
       properties:
         CFBundleDisplayName: PDFold
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "2.0"
+        CFBundleVersion: "2"
         NSHumanReadableCopyright: "Copyright © 2026. MIT License."
         NSPrincipalClass: NSApplication
         CFBundleIconName: AppIcon
