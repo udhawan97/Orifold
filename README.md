@@ -35,6 +35,28 @@
 
 ---
 
+## Quick Start
+
+**Prerequisite:** [Xcode 15+](https://developer.apple.com/xcode/) on macOS 14 Sonoma or newer.
+
+1. Clone or download this repository
+2. Double-click **`Install or Update PDFold.command`** in the project folder — it builds, signs, and installs the app to `~/Applications`
+3. Open **PDFold** from the Desktop shortcut or `~/Applications/PDFold.app`
+
+To update: pull the latest code and double-click the installer again.
+
+<details>
+<summary>Terminal path</summary>
+
+```zsh
+git clone https://github.com/udhawan97/PDFold.git
+cd PDFold
+./scripts/install-mac.sh
+```
+</details>
+
+---
+
 ## The Short Version
 
 > Personal pain point, professionally over-engineered into a native Mac app.
