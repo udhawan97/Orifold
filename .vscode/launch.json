@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:PDFold}",
+            "name": "Debug PDFold",
+            "target": "PDFold",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug PDFold"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:PDFold}",
+            "name": "Release PDFold",
+            "target": "PDFold",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release PDFold"
+        }
+    ]
+}

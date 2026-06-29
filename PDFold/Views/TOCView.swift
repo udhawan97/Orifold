@@ -5,6 +5,16 @@ struct TOCView: View {
     var viewModel: WorkspaceViewModel
     var onJump: ((Int) -> Void)?
 
+    private var entries: [WorkspaceViewModel.TOCEntry] {
+        viewModel.tableOfContents
+    }
+
+    private var popoverHeight: CGFloat {
+        let rowHeight: CGFloat = 54
+        let chromeHeight: CGFloat = 53
+        return min(max(CGFloat(entries.count) * rowHeight + chromeHeight, 120), 360)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Contents")
@@ -16,47 +26,50 @@ struct TOCView: View {
 
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
-            if viewModel.tableOfContents.isEmpty {
+            if entries.isEmpty {
                 Text("No documents in workspace.")
                     .font(.dsBody())
                     .foregroundStyle(Color.dsTextSecondary)
                     .padding(.dsLG)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                List(viewModel.tableOfContents) { entry in
-                    Button {
-                        onJump?(entry.startPageIndex)
-                    } label: {
-                        HStack(spacing: .dsSM) {
-                            Image(systemName: "doc.richtext.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.dsAccent)
-                                .frame(width: 16)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.title)
-                                    .font(.dsBody())
-                                    .foregroundStyle(Color.dsTextPrimary)
-                                    .lineLimit(1)
-                                Text("Jump to first page")
-                                    .font(.dsCaption())
-                                    .foregroundStyle(Color.dsTextTertiary)
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(entries) { entry in
+                            Button {
+                                onJump?(entry.startPageIndex)
+                            } label: {
+                                HStack(spacing: .dsSM) {
+                                    Image(systemName: "doc.text.fill")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(Color.dsAccent)
+                                        .frame(width: 18)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(entry.title)
+                                            .font(.dsBody())
+                                            .foregroundStyle(Color.dsTextPrimary)
+                                            .lineLimit(1)
+                                        Text("Page \(entry.startPageIndex + 1)")
+                                            .font(.dsCaption())
+                                            .foregroundStyle(Color.dsTextTertiary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundStyle(Color.dsTextTertiary)
+                                }
+                                .padding(.horizontal, .dsLG)
+                                .frame(height: 54)
+                                .contentShape(Rectangle())
                             }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(Color.dsTextTertiary)
+                            .buttonStyle(.plain)
                         }
                     }
-                    .buttonStyle(.plain)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
                 .background(Color.dsSurface)
             }
         }
-        .frame(width: 260)
+        .frame(width: 280, height: popoverHeight)
         .background(Color.dsSurface)
     }
 }

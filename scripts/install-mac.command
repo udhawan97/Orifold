@@ -13,10 +13,10 @@ STATUS=$?
 
 printf "\n"
 if [[ $STATUS -eq 0 ]]; then
-    printf "Done. Press any key to close this window.\n"
+    printf "Done. This window will close automatically.\n"
 else
-    printf "Something went sideways. Press any key to close this window.\n"
+    printf "Something went sideways. This window will close automatically.\n"
 fi
 
-read -k 1 -s
+sleep 1
 exit $STATUS

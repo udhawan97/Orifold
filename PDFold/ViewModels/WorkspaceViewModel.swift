@@ -56,9 +56,10 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
 }
 
 enum AnnotationTool: String, CaseIterable, Identifiable {
-    case none      = "cursor.arrow"
+    case none      = "select"
     case highlight = "highlighter"
     case note      = "note.text"
+    case editText  = "textformat"
     case ink       = "pencil.tip"
     case underline = "underline"
     case strikeout = "strikethrough"
@@ -70,6 +71,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
         case .none:      return "Select"
         case .highlight: return "Highlight"
         case .note:      return "Note"
+        case .editText:  return "Edit Text"
         case .ink:       return "Ink"
         case .underline: return "Underline"
         case .strikeout: return "Strikeout"
@@ -77,9 +79,35 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
         }
     }
 
+    var iconName: String {
+        switch self {
+        case .none:      return "cursorarrow"
+        case .highlight: return "pencil.tip.crop.circle"
+        case .note:      return "note.text"
+        case .editText:  return "textformat"
+        case .ink:       return "pencil.tip"
+        case .underline: return "underline"
+        case .strikeout: return "strikethrough"
+        case .signature: return "signature"
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .none:      return "Select annotations on the page. Press Delete to remove the selected annotation."
+        case .highlight: return "Select PDF text to add a colored highlight."
+        case .note:      return "Click the page to add a sticky note, or click an existing note to edit it."
+        case .editText:  return "Click the page to place editable text, or click an existing text box to change it."
+        case .ink:       return "Draw freehand marks on the page."
+        case .underline: return "Select PDF text to underline it."
+        case .strikeout: return "Select PDF text to strike it out."
+        case .signature: return "Place a saved signature on the page."
+        }
+    }
+
     var isColorable: Bool {
         switch self {
-        case .highlight, .note, .ink, .underline, .strikeout: return true
+        case .highlight, .note, .editText, .ink, .underline, .strikeout: return true
         case .none, .signature: return false
         }
     }
@@ -378,6 +406,27 @@ final class WorkspaceViewModel {
         page.addAnnotation(ann)
         undoManager?.registerUndo(withTarget: self) { _ in page.removeAnnotation(ann) }
         undoManager?.setActionName("Add Note")
+        return ann
+    }
+
+    @discardableResult
+    func addTextBox(at pagePoint: CGPoint, on page: PDFPage) -> PDFAnnotation {
+        let size = CGSize(width: 160, height: 48)
+        let bounds = CGRect(x: pagePoint.x - size.width / 2,
+                            y: pagePoint.y - size.height / 2,
+                            width: size.width,
+                            height: size.height)
+        let ann = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
+        ann.contents = ""
+        ann.font = .systemFont(ofSize: 14)
+        ann.fontColor = .dsTextPrimaryNS
+        ann.color = annotationColor.withAlphaComponent(0.18)
+        let border = PDFBorder()
+        border.lineWidth = 1
+        ann.border = border
+        page.addAnnotation(ann)
+        undoManager?.registerUndo(withTarget: self) { _ in page.removeAnnotation(ann) }
+        undoManager?.setActionName("Add Text Box")
         return ann
     }
 

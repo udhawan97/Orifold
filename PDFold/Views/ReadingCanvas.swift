@@ -49,6 +49,11 @@ private struct ZoomPageBar: View {
             .foregroundStyle(Color.dsTextSecondary)
             .help("Zoom in")
 
+            Divider()
+                .frame(height: 16)
+
+            BottomBarBrand()
+
             Spacer()
 
             if viewModel.pageCount > 0 {
@@ -84,6 +89,19 @@ private struct ZoomPageBar: View {
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
         }
         .accessibilityElement(children: .contain)
+    }
+}
+
+private struct BottomBarBrand: View {
+    var body: some View {
+        HStack(spacing: .dsXS) {
+            AppIconMark(size: 16)
+            Text("PDFold workspace")
+                .font(.system(size: 11, weight: .medium, design: .serif))
+                .foregroundStyle(Color.dsTextTertiary)
+                .lineLimit(1)
+        }
+        .accessibilityLabel("PDFold workspace")
     }
 }
 
@@ -213,6 +231,15 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 } else {
                     // Place new note and immediately open editor
                     let ann = viewModel.addNote(at: pagePoint, on: page)
+                    let rect = pdfView.convert(ann.bounds, from: page)
+                    showNoteEditor(for: ann, near: rect, in: pdfView)
+                }
+            case .editText:
+                if let ann = page.annotation(at: pagePoint), ann.type == "FreeText" {
+                    let rect = pdfView.convert(ann.bounds, from: page)
+                    showNoteEditor(for: ann, near: rect, in: pdfView)
+                } else {
+                    let ann = viewModel.addTextBox(at: pagePoint, on: page)
                     let rect = pdfView.convert(ann.bounds, from: page)
                     showNoteEditor(for: ann, near: rect, in: pdfView)
                 }
@@ -350,7 +377,7 @@ final class NoteEditorViewController: NSViewController {
         tv.textContainerInset = NSSize(width: 10, height: 10)
         tv.string = annotation.contents ?? ""
         tv.backgroundColor = NSColor.dsSurfaceNS
-        tv.textColor = NSColor(srgbRed: 0.102, green: 0.098, blue: 0.082, alpha: 1)
+        tv.textColor = NSColor.dsTextPrimaryNS
         tv.isEditable = true
         tv.isSelectable = true
         tv.minSize = NSSize(width: 0, height: 124)
@@ -364,7 +391,7 @@ final class NoteEditorViewController: NSViewController {
         // Footer bar with Done button
         let footer = NSView(frame: CGRect(x: 0, y: 0, width: 240, height: 36))
         footer.wantsLayer = true
-        footer.layer?.backgroundColor = NSColor(white: 0, alpha: 0.04).cgColor
+        footer.layer?.backgroundColor = NSColor.dsSeparatorNS.withAlphaComponent(0.35).cgColor
 
         let done = NSButton(title: "Done", target: self, action: #selector(commit))
         done.bezelStyle = .rounded
@@ -375,7 +402,7 @@ final class NoteEditorViewController: NSViewController {
         // Separator between text and footer
         let sep = NSView(frame: CGRect(x: 0, y: 36, width: 240, height: 0.5))
         sep.wantsLayer = true
-        sep.layer?.backgroundColor = NSColor(white: 0, alpha: 0.08).cgColor
+        sep.layer?.backgroundColor = NSColor.dsSeparatorNS.cgColor
         container.addSubview(sep)
 
         view = container

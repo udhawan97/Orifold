@@ -8,6 +8,14 @@ struct SidebarView: View {
 
     var body: some View {
         List {
+            SidebarBrandMasthead(
+                documentCount: viewModel.document.workspace.documents.count,
+                pageCount: viewModel.document.workspace.pageOrder.count
+            )
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
+
             ForEach(viewModel.memberDocuments) { member in
                 MemberDocRow(member: member, viewModel: viewModel, expandedDocs: $expandedDocs)
                     .listRowSeparator(.hidden)
@@ -20,6 +28,56 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(Color.dsSurface)
+    }
+}
+
+// MARK: - Brand masthead
+
+private struct SidebarBrandMasthead: View {
+    var documentCount: Int
+    var pageCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsMD) {
+            AppBrandLockup(
+                iconSize: 30,
+                titleSize: 15,
+                subtitle: "Fold messy documents into one clean PDF."
+            )
+
+            HStack(spacing: .dsSM) {
+                SidebarMetric(value: "\(documentCount)", label: documentCount == 1 ? "file" : "files")
+                SidebarMetric(value: "\(pageCount)", label: pageCount == 1 ? "page" : "pages")
+            }
+        }
+        .padding(.dsMD)
+        .background {
+            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                .fill(Color.dsCard.opacity(0.72))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+    }
+}
+
+private struct SidebarMetric: View {
+    var value: String
+    var label: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(value)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.dsTextPrimary)
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.dsTextTertiary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(Color.dsAccentSoft, in: Capsule())
     }
 }
 
@@ -49,10 +107,7 @@ struct MemberDocRow: View {
             }
         } label: {
             HStack(spacing: .dsSM) {
-                Image(systemName: "doc.richtext.fill")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.dsAccent)
-                    .frame(width: 18)
+                FileTypeBadge(filename: member.sourcePDFRef)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(member.displayName)
                         .font(.system(size: 13, weight: .semibold))
@@ -74,6 +129,76 @@ struct MemberDocRow: View {
             }
         }
         .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - File type badge
+
+private struct FileTypeBadge: View {
+    var filename: String
+
+    private var type: SidebarFileType {
+        SidebarFileType(filename: filename)
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(type.tint)
+            VStack(spacing: -1) {
+                Image(systemName: type.symbolName)
+                    .font(.system(size: 9, weight: .semibold))
+                Text(type.badgeText)
+                    .font(.system(size: type.badgeText.count > 3 ? 5.3 : 6.3, weight: .black))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .frame(width: 22)
+            }
+            .foregroundStyle(type.foreground)
+        }
+        .frame(width: 24, height: 24)
+        .accessibilityLabel(type.accessibilityLabel)
+    }
+}
+
+private struct SidebarFileType {
+    let badgeText: String
+    let symbolName: String
+    let tint: Color
+    let foreground: Color
+    let accessibilityLabel: String
+
+    init(filename: String) {
+        switch URL(fileURLWithPath: filename).pathExtension.lowercased() {
+        case "pdf":
+            self.init("PDF", "doc.fill", Color(red: 0.78, green: 0.20, blue: 0.24), .white, "PDF file")
+        case "html", "htm":
+            self.init("HTML", "globe", Color(red: 0.07, green: 0.48, blue: 0.65), .white, "HTML file")
+        case "doc", "docx", "odt", "rtf":
+            self.init("DOC", "doc.text.fill", Color(red: 0.10, green: 0.30, blue: 0.52), .white, "Word document")
+        case "md", "markdown":
+            self.init("MD", "text.alignleft", Color(red: 0.27, green: 0.35, blue: 0.40), .white, "Markdown file")
+        case "txt":
+            self.init("TXT", "doc.text", Color(red: 0.38, green: 0.47, blue: 0.52), .white, "Text file")
+        case "csv":
+            self.init("CSV", "tablecells.fill", Color(red: 0.09, green: 0.52, blue: 0.44), .white, "CSV file")
+        case "json":
+            self.init("JSON", "curlybraces.square.fill", Color(red: 0.58, green: 0.42, blue: 0.16), .white, "JSON file")
+        case "xml":
+            self.init("XML", "chevron.left.forwardslash.chevron.right", Color(red: 0.43, green: 0.38, blue: 0.68), .white, "XML file")
+        case "png", "jpg", "jpeg", "heic", "tiff", "gif", "bmp":
+            self.init("IMG", "photo.fill", Color(red: 0.10, green: 0.58, blue: 0.63), .white, "Image file")
+        default:
+            self.init("FILE", "doc.fill", Color.dsAccent, .white, "File")
+        }
+    }
+
+    private init(_ badgeText: String, _ symbolName: String, _ tint: Color, _ foreground: Color, _ accessibilityLabel: String) {
+        self.badgeText = badgeText
+        self.symbolName = symbolName
+        self.tint = tint
+        self.foreground = foreground
+        self.accessibilityLabel = accessibilityLabel
     }
 }
 

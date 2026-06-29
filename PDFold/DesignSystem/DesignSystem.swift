@@ -17,61 +17,61 @@ extension Color {
 // MARK: - SwiftUI semantic color tokens
 
 extension Color {
-    /// Warm neutral ground behind PDF pages
+    /// Cool neutral ground behind PDF pages
     static let dsCanvas = Color(
-        light: NSColor(srgbRed: 0.925, green: 0.918, blue: 0.886, alpha: 1),   // #ECEAE2
-        dark:  NSColor(srgbRed: 0.102, green: 0.102, blue: 0.094, alpha: 1))   // #1A1A18
+        light: NSColor(srgbRed: 0.918, green: 0.953, blue: 0.969, alpha: 1),   // #EAF3F7
+        dark:  NSColor(srgbRed: 0.039, green: 0.067, blue: 0.094, alpha: 1))   // #0A1118
 
     /// Panels: sidebar, inspector, popovers
     static let dsSurface = Color(
-        light: NSColor(srgbRed: 0.980, green: 0.976, blue: 0.961, alpha: 1),   // #FAF9F5
-        dark:  NSColor(srgbRed: 0.137, green: 0.133, blue: 0.125, alpha: 1))   // #232220
+        light: NSColor(srgbRed: 0.969, green: 0.984, blue: 0.992, alpha: 1),   // #F7FBFD
+        dark:  NSColor(srgbRed: 0.063, green: 0.102, blue: 0.133, alpha: 1))   // #101A22
 
     /// Raised cards, thumbnails
     static let dsCard = Color(
         light: NSColor(srgbRed: 1.000, green: 1.000, blue: 1.000, alpha: 1),   // #FFFFFF
-        dark:  NSColor(srgbRed: 0.165, green: 0.161, blue: 0.149, alpha: 1))   // #2A2926
+        dark:  NSColor(srgbRed: 0.086, green: 0.137, blue: 0.176, alpha: 1))   // #16232D
 
-    /// Primary clay accent — used sparingly
+    /// Primary glass-blue accent from the app icon, used sparingly
     static let dsAccent = Color(
-        light: NSColor(srgbRed: 0.788, green: 0.392, blue: 0.259, alpha: 1),   // #C96442
-        dark:  NSColor(srgbRed: 0.851, green: 0.467, blue: 0.341, alpha: 1))   // #D97757
+        light: NSColor(srgbRed: 0.071, green: 0.478, blue: 0.647, alpha: 1),   // #127AA5
+        dark:  NSColor(srgbRed: 0.282, green: 0.757, blue: 0.859, alpha: 1))   // #48C1DB
 
     /// Soft accent fill for selection backgrounds and hover tints
     static let dsAccentSoft = Color(
-        light: NSColor(srgbRed: 0.788, green: 0.392, blue: 0.259, alpha: 0.14),
-        dark:  NSColor(srgbRed: 0.851, green: 0.467, blue: 0.341, alpha: 0.22))
+        light: NSColor(srgbRed: 0.071, green: 0.478, blue: 0.647, alpha: 0.13),
+        dark:  NSColor(srgbRed: 0.282, green: 0.757, blue: 0.859, alpha: 0.20))
 
     static let dsTextPrimary = Color(
-        light: NSColor(srgbRed: 0.102, green: 0.098, blue: 0.082, alpha: 1),   // #1A1915
-        dark:  NSColor(srgbRed: 0.925, green: 0.922, blue: 0.882, alpha: 1))   // #ECEAE1
+        light: NSColor(srgbRed: 0.063, green: 0.137, blue: 0.200, alpha: 1),   // #102333
+        dark:  NSColor(srgbRed: 0.929, green: 0.965, blue: 0.980, alpha: 1))   // #EDF6FA
 
     static let dsTextSecondary = Color(
-        light: NSColor(srgbRed: 0.341, green: 0.329, blue: 0.294, alpha: 1),   // #57544B
-        dark:  NSColor(srgbRed: 0.690, green: 0.678, blue: 0.635, alpha: 1))   // #B0ADA2
+        light: NSColor(srgbRed: 0.275, green: 0.349, blue: 0.404, alpha: 1),   // #465967
+        dark:  NSColor(srgbRed: 0.690, green: 0.780, blue: 0.827, alpha: 1))   // #B0C7D3
 
     static let dsTextTertiary = Color(
-        light: NSColor(srgbRed: 0.549, green: 0.533, blue: 0.486, alpha: 1),   // #8C887C
-        dark:  NSColor(srgbRed: 0.478, green: 0.467, blue: 0.431, alpha: 1))   // #7A776E
+        light: NSColor(srgbRed: 0.455, green: 0.510, blue: 0.549, alpha: 1),   // #74828C
+        dark:  NSColor(srgbRed: 0.478, green: 0.569, blue: 0.620, alpha: 1))   // #7A919E
 
     /// Hairlines and dividers
     static let dsSeparator = Color(
-        light: NSColor(white: 0, alpha: 0.08),
-        dark:  NSColor(white: 1, alpha: 0.10))
+        light: NSColor(srgbRed: 0.063, green: 0.137, blue: 0.200, alpha: 0.10),
+        dark:  NSColor(srgbRed: 0.929, green: 0.965, blue: 0.980, alpha: 0.12))
 
     // MARK: Annotation palette (replaces raw .yellow / .systemBlue)
-    static let dsHighlightYellow    = Color(red: 0.984, green: 0.886, blue: 0.604)  // #FBE29A
-    static let dsAnnotationCoral    = Color(red: 0.910, green: 0.627, blue: 0.541)  // #E8A08A
-    static let dsAnnotationSage     = Color(red: 0.659, green: 0.765, blue: 0.627)  // #A8C3A0
-    static let dsAnnotationSky      = Color(red: 0.624, green: 0.753, blue: 0.859)  // #9FC0DB
-    static let dsAnnotationLavender = Color(red: 0.765, green: 0.702, blue: 0.859)  // #C3B3DB
+    static let dsHighlightYellow    = Color(red: 0.984, green: 0.890, blue: 0.510)  // #FBE382
+    static let dsAnnotationCoral    = Color(red: 0.937, green: 0.541, blue: 0.494)  // #EF8A7E
+    static let dsAnnotationSage     = Color(red: 0.553, green: 0.761, blue: 0.671)  // #8DC2AB
+    static let dsAnnotationSky      = Color(red: 0.455, green: 0.690, blue: 0.867)  // #74B0DD
+    static let dsAnnotationLavender = Color(red: 0.690, green: 0.651, blue: 0.867)  // #B0A6DD
 
     static let annotationSwatches: [(Color, NSColor)] = [
         (.dsHighlightYellow,    .dsAnnotationYellow),
-        (.dsAnnotationCoral,    NSColor(srgbRed: 0.910, green: 0.627, blue: 0.541, alpha: 1)),
-        (.dsAnnotationSage,     NSColor(srgbRed: 0.659, green: 0.765, blue: 0.627, alpha: 1)),
-        (.dsAnnotationSky,      NSColor(srgbRed: 0.624, green: 0.753, blue: 0.859, alpha: 1)),
-        (.dsAnnotationLavender, NSColor(srgbRed: 0.765, green: 0.702, blue: 0.859, alpha: 1)),
+        (.dsAnnotationCoral,    .dsAnnotationCoralNS),
+        (.dsAnnotationSage,     .dsAnnotationSageNS),
+        (.dsAnnotationSky,      .dsAnnotationSkyNS),
+        (.dsAnnotationLavender, .dsAnnotationLavNS),
     ]
 }
 
@@ -80,30 +80,40 @@ extension Color {
 extension NSColor {
     static let dsCanvasNS: NSColor = NSColor(name: nil) { app in
         app.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? NSColor(srgbRed: 0.102, green: 0.102, blue: 0.094, alpha: 1)
-            : NSColor(srgbRed: 0.925, green: 0.918, blue: 0.886, alpha: 1)
+            ? NSColor(srgbRed: 0.039, green: 0.067, blue: 0.094, alpha: 1)
+            : NSColor(srgbRed: 0.918, green: 0.953, blue: 0.969, alpha: 1)
     }
     static let dsSurfaceNS: NSColor = NSColor(name: nil) { app in
         app.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? NSColor(srgbRed: 0.137, green: 0.133, blue: 0.125, alpha: 1)
-            : NSColor(srgbRed: 0.980, green: 0.976, blue: 0.961, alpha: 1)
+            ? NSColor(srgbRed: 0.063, green: 0.102, blue: 0.133, alpha: 1)
+            : NSColor(srgbRed: 0.969, green: 0.984, blue: 0.992, alpha: 1)
+    }
+    static let dsTextPrimaryNS: NSColor = NSColor(name: nil) { app in
+        app.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.929, green: 0.965, blue: 0.980, alpha: 1)
+            : NSColor(srgbRed: 0.063, green: 0.137, blue: 0.200, alpha: 1)
+    }
+    static let dsSeparatorNS: NSColor = NSColor(name: nil) { app in
+        app.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.929, green: 0.965, blue: 0.980, alpha: 0.12)
+            : NSColor(srgbRed: 0.063, green: 0.137, blue: 0.200, alpha: 0.10)
     }
 
     // Annotation palette as NSColor
-    static let dsAnnotationYellow   = NSColor(srgbRed: 0.984, green: 0.886, blue: 0.604, alpha: 1)
-    static let dsAnnotationCoralNS  = NSColor(srgbRed: 0.910, green: 0.627, blue: 0.541, alpha: 1)
-    static let dsAnnotationSageNS   = NSColor(srgbRed: 0.659, green: 0.765, blue: 0.627, alpha: 1)
-    static let dsAnnotationSkyNS    = NSColor(srgbRed: 0.624, green: 0.753, blue: 0.859, alpha: 1)
-    static let dsAnnotationLavNS    = NSColor(srgbRed: 0.765, green: 0.702, blue: 0.859, alpha: 1)
+    static let dsAnnotationYellow   = NSColor(srgbRed: 0.984, green: 0.890, blue: 0.510, alpha: 1)
+    static let dsAnnotationCoralNS  = NSColor(srgbRed: 0.937, green: 0.541, blue: 0.494, alpha: 1)
+    static let dsAnnotationSageNS   = NSColor(srgbRed: 0.553, green: 0.761, blue: 0.671, alpha: 1)
+    static let dsAnnotationSkyNS    = NSColor(srgbRed: 0.455, green: 0.690, blue: 0.867, alpha: 1)
+    static let dsAnnotationLavNS    = NSColor(srgbRed: 0.690, green: 0.651, blue: 0.867, alpha: 1)
 
     /// Default ink stroke color
-    static let dsInk = NSColor(srgbRed: 0.18, green: 0.33, blue: 0.62, alpha: 1)
+    static let dsInk = NSColor(srgbRed: 0.071, green: 0.286, blue: 0.443, alpha: 1)
 
-    /// Clay accent for AppKit drawing (BoundaryPage, etc.)
+    /// Glass-blue accent for AppKit drawing (BoundaryPage, etc.)
     static let dsAccentNS: NSColor = NSColor(name: nil) { app in
         app.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? NSColor(srgbRed: 0.851, green: 0.467, blue: 0.341, alpha: 1)
-            : NSColor(srgbRed: 0.788, green: 0.392, blue: 0.259, alpha: 1)
+            ? NSColor(srgbRed: 0.282, green: 0.757, blue: 0.859, alpha: 1)
+            : NSColor(srgbRed: 0.071, green: 0.478, blue: 0.647, alpha: 1)
     }
 }
 

@@ -18,11 +18,20 @@ struct EmptyStateView: View {
                         Text("PDFold")
                             .font(.dsDisplay(size: 36))
                             .foregroundStyle(Color.dsTextPrimary)
-                        Text("Combine, arrange, annotate, and export\ndocuments in one focused workspace.")
+                        Text("Fold scattered pages into one polished PDF.")
+                            .font(.dsHeadline())
+                            .foregroundStyle(Color.dsTextPrimary)
+                        Text("Combine, arrange, annotate, and export documents in one calm workspace.")
                             .font(.dsBody())
                             .foregroundStyle(Color.dsTextSecondary)
                             .multilineTextAlignment(.center)
                             .lineSpacing(3)
+                    }
+
+                    HStack(spacing: .dsSM) {
+                        EmptyStatePill(icon: "square.stack.3d.down.right", title: "Assemble")
+                        EmptyStatePill(icon: "highlighter", title: "Mark up")
+                        EmptyStatePill(icon: "square.and.arrow.up", title: "Export")
                     }
                 }
 
@@ -93,5 +102,23 @@ struct EmptyStateView: View {
         panel.canChooseDirectories = false
         panel.allowedContentTypes = WorkspaceDocument.importableContentTypes
         if panel.runModal() == .OK { viewModel.importFiles(urls: panel.urls) }
+    }
+}
+
+private struct EmptyStatePill: View {
+    var icon: String
+    var title: String
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+        }
+        .foregroundStyle(Color.dsAccent)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.dsAccentSoft, in: Capsule())
     }
 }

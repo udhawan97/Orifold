@@ -30,30 +30,61 @@ struct AppIconButton: View {
     }
 }
 
+struct AppBrandLockup: View {
+    var iconSize: CGFloat = 28
+    var titleSize: CGFloat = 14
+    var subtitle: String? = "A calmer way to assemble PDFs."
+
+    var body: some View {
+        HStack(spacing: .dsSM) {
+            AppIconMark(size: iconSize)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("PDFold")
+                    .font(.system(size: titleSize, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.dsTextPrimary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextSecondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    var compact: some View {
+        HStack(spacing: .dsXS) {
+            AppIconMark(size: iconSize)
+            Text("PDFold")
+                .font(.system(size: titleSize, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.dsTextPrimary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct AppAboutPopover: View {
     @Binding var isPresented: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsLG) {
-            HStack(spacing: .dsMD) {
-                AppIconMark(size: 40)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("PDFold")
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
-                        .foregroundStyle(Color.dsTextPrimary)
-                    Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0")")
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextTertiary)
-                }
+            VStack(alignment: .leading, spacing: .dsXS) {
+                AppBrandLockup(iconSize: 40, titleSize: 15, subtitle: "A calmer way to assemble PDFs.")
+                Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0")")
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextTertiary)
+                    .padding(.leading, 40 + .dsSM)
             }
 
-            Text("Here to fix the tiny PDF annoyances macOS somehow left as character-building exercises.")
+            Text("Built for the small-but-real PDF chores: combine the pieces, mark what matters, and send out something tidy.")
                 .font(.dsBody())
                 .foregroundStyle(Color.dsTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 240)
 
-            Text("Combine, annotate, reorder, and export documents — without the ceremony.")
+            Text("No ceremony. No mystery panels. Just a focused workspace for getting documents into shape.")
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextTertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -102,17 +133,7 @@ private struct GuidePopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsXL) {
-            HStack(spacing: .dsMD) {
-                AppIconMark(size: 40)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("PDFold")
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
-                        .foregroundStyle(Color.dsTextPrimary)
-                    Text("A calmer way to assemble PDFs.")
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextSecondary)
-                }
-            }
+            AppBrandLockup(iconSize: 40, titleSize: 15, subtitle: "A calmer way to assemble PDFs.")
 
             VStack(alignment: .leading, spacing: .dsMD) {
                 GuideStep(icon: "plus.circle",

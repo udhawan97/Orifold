@@ -88,7 +88,11 @@ struct ContentView: View {
 
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
-        // Leading: add source files
+        // Leading: brand + add source files
+        ToolbarItem(placement: .navigation) {
+            AppIconButton(size: 22)
+        }
+
         ToolbarItem(placement: .navigation) {
             Button { openFiles() } label: {
                 Label("Add Files", systemImage: "plus.circle")
@@ -100,14 +104,7 @@ struct ContentView: View {
         // Center: annotation tools + color swatch
         ToolbarItem(placement: .principal) {
             HStack(spacing: .dsSM) {
-                Picker("Tool", selection: $viewModel.currentTool) {
-                    ForEach([AnnotationTool.none, .highlight, .note, .ink, .underline, .strikeout]) { tool in
-                        Label(tool.label, systemImage: tool.rawValue).tag(tool)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 340)
-                .help("Annotation tool")
+                AnnotationToolPicker(selection: $viewModel.currentTool)
 
                 if viewModel.currentTool.isColorable {
                     AnnotationColorButton(viewModel: viewModel)
@@ -146,7 +143,7 @@ struct ContentView: View {
             Divider()
 
             Button { showTOC.toggle() } label: {
-                Label("Contents", systemImage: "list.bullet.indent")
+                Label("Contents", systemImage: "list.bullet.rectangle.portrait")
             }
             .help("Table of contents")
 
@@ -182,6 +179,109 @@ struct ContentView: View {
         panel.canChooseDirectories = false
         panel.allowedContentTypes = WorkspaceDocument.importableContentTypes
         if panel.runModal() == .OK { viewModel.importFiles(urls: panel.urls) }
+    }
+}
+
+private struct AnnotationToolPicker: View {
+    @Binding var selection: AnnotationTool
+    @State private var hoveredTool: AnnotationTool?
+    @State private var popoverTool: AnnotationTool?
+    @State private var hoverTask: Task<Void, Never>?
+
+    private let tools: [AnnotationTool] = [
+        .none, .highlight, .note, .editText, .ink, .underline, .strikeout
+    ]
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(tools) { tool in
+                Button {
+                    selection = tool
+                } label: {
+                    Image(systemName: tool.iconName)
+                        .font(.system(size: 16, weight: .medium))
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(selection == tool ? Color.white : Color.dsTextSecondary)
+                        .frame(width: 32, height: 28)
+                        .contentShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .background {
+                    if selection == tool {
+                        RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                            .fill(Color.dsAccent.opacity(0.82))
+                    }
+                }
+                .popover(isPresented: popoverBinding(for: tool), arrowEdge: .bottom) {
+                    AnnotationToolPopover(tool: tool)
+                }
+                .onHover { isHovered in
+                    updatePopoverHover(isHovered, for: tool)
+                }
+                .help(tool.label)
+            }
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 4)
+        .background(.bar, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.dsSeparator, lineWidth: 1))
+        .help("Annotation tool")
+    }
+
+    private func popoverBinding(for tool: AnnotationTool) -> Binding<Bool> {
+        Binding {
+            popoverTool == tool
+        } set: { isPresented in
+            if !isPresented, popoverTool == tool {
+                popoverTool = nil
+            }
+        }
+    }
+
+    private func updatePopoverHover(_ isHovered: Bool, for tool: AnnotationTool) {
+        hoverTask?.cancel()
+
+        if isHovered {
+            hoveredTool = tool
+            hoverTask = Task {
+                try? await Task.sleep(for: .milliseconds(350))
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    if hoveredTool == tool {
+                        popoverTool = tool
+                    }
+                }
+            }
+        } else if hoveredTool == tool {
+            hoveredTool = nil
+            popoverTool = nil
+        }
+    }
+}
+
+private struct AnnotationToolPopover: View {
+    var tool: AnnotationTool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsXS) {
+            HStack(spacing: .dsSM) {
+                Image(systemName: tool.iconName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.dsAccent)
+                    .frame(width: 18)
+                Text(tool.label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.dsTextPrimary)
+            }
+
+            Text(tool.helpText)
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(width: 220, alignment: .leading)
+        .padding(.dsMD)
+        .background(Color.dsSurface)
     }
 }
 

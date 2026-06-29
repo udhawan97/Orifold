@@ -24,6 +24,6 @@ else
     printf "Setup did not finish. The installer printed the log path above.\n"
 fi
 
-printf "Press any key to close this window.\n"
-read -k 1 -s
+printf "This window will close automatically.\n"
+sleep 1
 exit $STATUS
