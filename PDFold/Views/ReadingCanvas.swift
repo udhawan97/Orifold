@@ -1172,7 +1172,10 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
     @objc private func commitButton() {
         guard !didFinish, let pdfView, let page else { return }
         didFinish = true
-        let pageBounds = pdfView.convert(textView.frame, to: page)
+        let livePageBounds = pdfView.convert(textView.frame, to: page).standardized
+        var pageBounds = block.bounds
+        pageBounds.size.width = max(24, livePageBounds.width)
+        pageBounds.size.height = max(block.bounds.height, livePageBounds.height)
         let result = EditResult(
             pageRef: pageRef,
             block: block,

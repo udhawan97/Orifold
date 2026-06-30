@@ -37,7 +37,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
     ]
 
     static var readableContentTypes: [UTType] { [.pdfoldproj] + importableContentTypes }
-    static var writableContentTypes: [UTType] { [.pdfoldproj] }
+    static var writableContentTypes: [UTType] { [.pdfoldproj, .pdf] }
 
     var workspace: Workspace
     var memberPDFData: [UUID: Data] = [:]
@@ -130,6 +130,13 @@ final class WorkspaceDocument: ReferenceFileDocument {
     // MARK: - Write
 
     func fileWrapper(snapshot: WorkspacePackage, configuration: WriteConfiguration) throws -> FileWrapper {
+        if configuration.contentType.conforms(to: .pdf) {
+            guard let data = exportedPDFData(from: snapshot) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            return FileWrapper(regularFileWithContents: data)
+        }
+
         let wsData = try JSONEncoder().encode(snapshot.workspace)
         let wsWrapper = FileWrapper(regularFileWithContents: wsData)
         wsWrapper.preferredFilename = "workspace.json"
@@ -146,5 +153,22 @@ final class WorkspaceDocument: ReferenceFileDocument {
             "workspace.json": wsWrapper,
             "pdfs": pdfsWrapper
         ])
+    }
+
+    func exportedPDFData(from snapshot: WorkspacePackage) -> Data? {
+        let exportDoc = PDFDocument()
+        var outputIndex = 0
+        for ref in snapshot.workspace.pageOrder {
+            guard let member = snapshot.workspace.documents.first(where: { $0.id == ref.memberDocId }),
+                  let sourceIndex = member.pageRefs.firstIndex(of: ref.id),
+                  let data = snapshot.memberPDFData[member.id],
+                  let pdf = PDFDocument(data: data),
+                  let page = pdf.page(at: sourceIndex) else {
+                continue
+            }
+            exportDoc.insert(page, at: outputIndex)
+            outputIndex += 1
+        }
+        return exportDoc.pageCount > 0 ? exportDoc.dataRepresentation() : nil
     }
 }

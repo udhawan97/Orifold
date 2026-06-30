@@ -164,6 +164,47 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertTrue(viewModel.loadedPDFs.first?.1.stringValue.contains("Replacement text") ?? false)
     }
 
+    func testWritingPDFContentTypeExportsEditedPDFInsteadOfWorkspacePackage() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id,
+            text: "Original text",
+            bounds: CGRect(x: 70, y: 700, width: 120, height: 24),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 700,
+            confidence: .high
+        )
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Saved through PDF writer",
+            editedBounds: CGRect(x: 70, y: 700, width: 220, height: 28),
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .black,
+            alignment: .left
+        ))
+
+        let snapshot = try document.snapshot(contentType: .pdf)
+        let exportedData = try XCTUnwrap(document.exportedPDFData(from: snapshot))
+        let exportedPDF = try XCTUnwrap(PDFDocument(data: exportedData))
+
+        XCTAssertTrue(exportedPDF.stringValue.contains("Saved through PDF writer"))
+    }
+
     func testEditableTextBlockFallsBackToInlineInsertionWithoutWarning() throws {
         let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Known text"])
         let document = WorkspaceDocument()
