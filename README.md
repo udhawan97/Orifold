@@ -169,7 +169,7 @@ The app is intentionally local-first. No account. No upload step. No mysterious 
 
 ## Release Status
 
-PDFold is prepared for version `2.0`: a release-hardened local-first macOS workflow for collecting scattered documents, turning them into one workspace, marking them up, tracking workspace context, and exporting a clean result.
+PDFold is prepared for version `2.0`: a release-hardened local-first macOS workflow for collecting scattered documents, turning them into one workspace, marking them up, tracking workspace context, and exporting clean PDF, Word, Markdown, text, HTML, and image artifacts.
 
 |  | Detail | Status |
 | --- | --- | --- |
@@ -186,6 +186,7 @@ PDFold is prepared for version `2.0`: a release-hardened local-first macOS workf
 | --- | --- | --- |
 | 🏷️ | Workspace context | Tags and workspace comments are persisted in `.pdfoldproj` packages, with inspector tabs for metadata, tags, comments, and markup review. |
 | ✍️ | Text editing | The text tool can create clean free-text boxes or convert selected PDF text into an editable overlay. |
+| 📝 | Markdown export | Workspaces can export `.md` files with a workspace summary, comments, document sections, and extracted PDF text. |
 | 🖊️ | Ink stability | Ink annotations now use PDFKit-native paths, and malformed legacy ink data is sanitized before display to prevent PDFKit drawing crashes. |
 | 🛡️ | Import safety | Import failures now show actionable messages, oversized files are rejected before loading, and dragged/selected files use security-scoped access. |
 | 🔐 | Protected PDFs | Password-protected documents unlock from the already-loaded PDF instance instead of reopening the file after sandbox access may have ended. |
@@ -336,6 +337,7 @@ Release v2 also adds practical guardrails around the most failure-prone paths:
 - Files larger than 512 MB are rejected before loading to avoid memory pressure from accidental giant imports.
 - PDF serialization failures preserve existing package data or report an actionable import error instead of writing broken workspace state.
 - Malformed legacy ink annotations are rebuilt before display so PDFKit does not crash while drawing them.
+- Markdown exports include workspace metadata, comments, document headings, and extracted document text.
 - HTML rendering, image export, page operations, and signature storage now guard invalid or unavailable state.
 - Export failures are surfaced to the user, including failed writes and image-rendering errors.
 
