@@ -161,6 +161,7 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertNotEqual(after, before)
         XCTAssertEqual(viewModel.document.workspace.pageEditStates.first?.operations.first?.replacementText, "Replacement text")
         XCTAssertNotNil(viewModel.loadedPDFs.first?.1.page(at: 0))
+        XCTAssertTrue(viewModel.loadedPDFs.first?.1.stringValue.contains("Replacement text") ?? false)
     }
 
     func testEditableTextBlockFallsBackToInlineInsertionWithoutWarning() throws {

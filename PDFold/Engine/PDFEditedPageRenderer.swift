@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import Foundation
 import PDFKit
 
@@ -48,10 +49,30 @@ enum PDFEditedPageRenderer {
 
     private static func drawReplacement(_ operation: PDFTextEditOperation, in context: CGContext) {
         context.saveGState()
-        let graphics = NSGraphicsContext(cgContext: context, flipped: false)
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = graphics
 
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = operation.alignment.nsTextAlignment
+        paragraph.lineBreakMode = .byWordWrapping
+        let font = NSFont(name: operation.fontName, size: operation.fontSize)
+            ?? NSFont.systemFont(ofSize: operation.fontSize)
+        let framesetter = CTFramesetterCreateWithAttributedString(NSAttributedString(
+            string: operation.replacementText,
+            attributes: [
+                .font: font,
+                .foregroundColor: operation.textColor.nsColor.cgColor,
+                .paragraphStyle: paragraph
+            ]
+        ))
+        let path = CGMutablePath()
+        path.addRect(operation.editedBounds)
+        let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil)
+        context.textMatrix = .identity
+        CTFrameDraw(frame, context)
+
+        context.restoreGState()
+    }
+
+    static func measuredBounds(for operation: PDFTextEditOperation) -> CGRect {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = operation.alignment.nsTextAlignment
         paragraph.lineBreakMode = .byWordWrapping
@@ -62,10 +83,13 @@ enum PDFEditedPageRenderer {
             .foregroundColor: operation.textColor.nsColor,
             .paragraphStyle: paragraph
         ]
-        let text = operation.replacementText as NSString
-        text.draw(with: operation.editedBounds, options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attributes)
-
-        NSGraphicsContext.restoreGraphicsState()
-        context.restoreGState()
+        let measured = (operation.replacementText as NSString).boundingRect(
+            with: CGSize(width: operation.editedBounds.width, height: CGFloat.infinity),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes
+        )
+        var bounds = operation.editedBounds
+        bounds.size.height = max(operation.editedBounds.height, ceil(measured.height) + 4)
+        return bounds
     }
 }

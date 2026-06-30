@@ -641,7 +641,7 @@ final class WorkspaceViewModel {
 
         let previousPDFData = currentPDFData()
         let previousEditStates = document.workspace.pageEditStates
-        let operation = PDFTextEditOperation(
+        var operation = PDFTextEditOperation(
             pageRefID: pageRef.id,
             sourceBlockID: sourceBlock.id,
             sourceBounds: sourceBlock.bounds,
@@ -652,6 +652,7 @@ final class WorkspaceViewModel {
             textColor: CodableColor(nsColor: textColor),
             alignment: CodableTextAlignment(alignment)
         )
+        operation.editedBounds = PDFEditedPageRenderer.measuredBounds(for: operation)
         if let stateIndex = document.workspace.pageEditStates.firstIndex(where: { $0.pageRefID == pageRef.id }) {
             document.workspace.pageEditStates[stateIndex].operations.removeAll { $0.sourceBlockID == sourceBlock.id }
             document.workspace.pageEditStates[stateIndex].operations.append(operation)
@@ -668,9 +669,14 @@ final class WorkspaceViewModel {
         lookup.pdf.removePage(at: localIdx)
         lookup.pdf.insert(regenerated, at: localIdx)
         textAnalysisCache.removeValue(forKey: pageRef.id)
-        if let data = lookup.pdf.dataRepresentation() {
-            document.memberPDFData[pageRef.memberDocId] = data
+        guard let data = lookup.pdf.dataRepresentation() else {
+            lookup.pdf.removePage(at: localIdx)
+            lookup.pdf.insert(page, at: localIdx)
+            document.workspace.pageEditStates = previousEditStates
+            showEditMessage("PDFold could not save the regenerated page. The original page is unchanged.", isError: true)
+            return false
         }
+        document.memberPDFData[pageRef.memberDocId] = data
         markWorkspaceModified()
         rebuild()
 
