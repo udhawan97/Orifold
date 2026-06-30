@@ -60,6 +60,27 @@ final class WorkspaceModelTests: XCTestCase {
     }
 }
 
+final class PDFEditingSupportTests: XCTestCase {
+    func testReplacementBackgroundUsesPDFPageWhiteInsteadOfSystemTextBackground() throws {
+        let color = PDFEditingSupport.replacementBackgroundColor(
+            isReplacement: true,
+            originalBackground: nil
+        )
+        let converted = try XCTUnwrap(color.usingColorSpace(.sRGB))
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        converted.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+
+        XCTAssertGreaterThan(red, 0.95)
+        XCTAssertGreaterThan(green, 0.95)
+        XCTAssertGreaterThan(blue, 0.95)
+        XCTAssertGreaterThan(alpha, 0.9)
+    }
+}
+
 final class DocumentImportConverterTests: XCTestCase {
     func testPlainTextImportCreatesExtractablePDF() throws {
         let data = Data("Hello PDFold\nSecond line".utf8)

@@ -294,7 +294,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
                     showNoteEditor(for: ann, near: rect, in: pdfView)
                 } else if let selection = editableTextSelection(at: pagePoint, on: page),
                           let ann = viewModel.addEditableTextOverlay(from: selection, on: page) {
-                    pdfView.setCurrentSelection(selection, animate: false)
+                    pdfView.clearSelection()
                     let rect = pdfView.convert(ann.bounds, from: page)
                     showNoteEditor(for: ann, near: rect, in: pdfView)
                 } else {

@@ -184,7 +184,7 @@ enum PDFEditingSupport {
 
     static func replacementBackgroundColor(isReplacement: Bool, originalBackground: NSColor?) -> NSColor {
         guard isReplacement else { return originalBackground ?? .clear }
-        return originalBackground ?? NSColor.textBackgroundColor.withAlphaComponent(0.92)
+        return originalBackground ?? .pdfPageEraseBackground
     }
 
     static func isValidPDFBounds(_ bounds: CGRect) -> Bool {
@@ -294,6 +294,8 @@ struct PDFAnnotationEditSnapshot {
 }
 
 private extension NSColor {
+    static let pdfPageEraseBackground = NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.98)
+
     var perceivedBrightness: CGFloat {
         let color = usingColorSpace(.sRGB) ?? self
         var red: CGFloat = 0
