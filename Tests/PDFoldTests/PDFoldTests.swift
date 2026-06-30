@@ -81,6 +81,89 @@ final class PDFEditingSupportTests: XCTestCase {
     }
 }
 
+final class PDFTextEditingRedesignTests: XCTestCase {
+    func testPDFTextAnalysisExtractsHittableBlocks() throws {
+        let pdf = makePDF(pageTexts: ["Inline editable text"])
+        let data = try pdf.dataRepresentation().unwrap()
+        let engine = PDFTextAnalysisEngine()
+        let page = try XCTUnwrap(pdf.page(at: 0))
+
+        let analysis = engine.analyze(data: data, pageIndex: 0, pageRefID: UUID(), fallbackPage: page)
+        let block = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Inline") })
+        let hit = engine.hitTest(CGPoint(x: block.bounds.midX, y: block.bounds.midY), in: analysis)
+
+        XCTAssertEqual(hit?.id, block.id)
+        XCTAssertGreaterThan(block.fontSize, 6)
+        XCTAssertNotEqual(block.confidence, .low)
+    }
+
+    func testWorkspaceCodableRoundTripsPageEditStates() throws {
+        let pageID = UUID()
+        var workspace = Workspace()
+        workspace.pageEditStates = [
+            PageEditState(pageRefID: pageID, operations: [
+                PDFTextEditOperation(
+                    pageRefID: pageID,
+                    sourceBlockID: UUID(),
+                    sourceBounds: CGRect(x: 1, y: 2, width: 30, height: 12),
+                    editedBounds: CGRect(x: 1, y: 2, width: 42, height: 18),
+                    replacementText: "Edited",
+                    fontName: "Helvetica",
+                    fontSize: 14,
+                    textColor: .documentText,
+                    alignment: .left
+                )
+            ])
+        ]
+
+        let decoded = try JSONDecoder().decode(Workspace.self, from: JSONEncoder().encode(workspace))
+
+        XCTAssertEqual(decoded.pageEditStates.first?.pageRefID, pageID)
+        XCTAssertEqual(decoded.pageEditStates.first?.operations.first?.replacementText, "Edited")
+    }
+
+    func testInlineTextEditRegeneratesTouchedPageAndStoresOperation() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id,
+            text: "Original text",
+            bounds: CGRect(x: 70, y: 700, width: 120, height: 24),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 700,
+            confidence: .high
+        )
+        let before = try XCTUnwrap(viewModel.loadedPDFs.first?.1.dataRepresentation())
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Replacement text",
+            editedBounds: CGRect(x: 70, y: 700, width: 180, height: 28),
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .black,
+            alignment: .left
+        ))
+
+        let after = try XCTUnwrap(viewModel.loadedPDFs.first?.1.dataRepresentation())
+        XCTAssertNotEqual(after, before)
+        XCTAssertEqual(viewModel.document.workspace.pageEditStates.first?.operations.first?.replacementText, "Replacement text")
+        XCTAssertNotNil(viewModel.loadedPDFs.first?.1.page(at: 0))
+    }
+}
+
 final class DocumentImportConverterTests: XCTestCase {
     func testPlainTextImportCreatesExtractablePDF() throws {
         let data = Data("Hello PDFold\nSecond line".utf8)

@@ -30,6 +30,9 @@ targets:
           - Resources/Info.plist
     resources:
       - path: PDFold/Resources/Assets.xcassets
+    dependencies:
+      - package: PDFiumBinary
+        product: PDFium
     info:
       path: PDFold/Resources/Info.plist
       properties:

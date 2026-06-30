@@ -165,6 +165,8 @@ final class WorkspaceViewModel {
 
     private let engine: PDFEngine
     private let processingEngine: PDFProcessingEngine
+    private let textAnalysisEngine = PDFTextAnalysisEngine()
+    private var textAnalysisCache: [UUID: PDFTextPageAnalysis] = [:]
     static let textReplacementAnnotationKey = PDFAnnotationKey(rawValue: "/PDFoldTextReplacement")
     static let draftTextAnnotationKey = PDFAnnotationKey(rawValue: "/PDFoldDraftText")
 
@@ -384,7 +386,11 @@ final class WorkspaceViewModel {
 
         let snapshot = captureOrderSnapshot()
         let removedIds = Set(validOffsets.map { loadedPDFs[$0].0.id })
+        let removedPageRefIDs = Set(document.workspace.documents
+            .filter { removedIds.contains($0.id) }
+            .flatMap(\.pageRefs))
         document.workspace.documents.removeAll { removedIds.contains($0.id) }
+        document.workspace.pageEditStates.removeAll { removedPageRefIDs.contains($0.pageRefID) }
         removedIds.forEach { document.memberPDFData.removeValue(forKey: $0) }
         loadedPDFs.removeAll { removedIds.contains($0.0.id) }
         rebuildPageOrder()
@@ -562,6 +568,97 @@ final class WorkspaceViewModel {
     }
 
     // MARK: - Annotations
+
+    func editableTextBlock(at pagePoint: CGPoint, on page: PDFPage, in pdfDocument: PDFDocument?) -> (pageRef: PageRef, block: EditableTextBlock)? {
+        guard let ref = pageRef(for: page, in: pdfDocument),
+              let lookup = memberPDF(for: ref),
+              let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex) else {
+            return nil
+        }
+        let analysis = textAnalysis(for: ref, page: page, memberID: ref.memberDocId, localIndex: localIdx)
+        guard let block = textAnalysisEngine.hitTest(pagePoint, in: analysis) else {
+            if analysis.blocks.isEmpty {
+                showEditMessage("PDFold could not find editable text on this page. Scanned pages need OCR before inline editing.", isError: false)
+            } else {
+                showEditMessage("That part of the PDF has low-confidence text extraction, so PDFold will keep using the fallback text box flow.", isError: false)
+            }
+            return nil
+        }
+        return (ref, block)
+    }
+
+    @discardableResult
+    func applyInlineTextEdit(
+        pageRef: PageRef,
+        sourceBlock: EditableTextBlock,
+        replacementText: String,
+        editedBounds: CGRect,
+        fontName: String,
+        fontSize: CGFloat,
+        textColor: NSColor,
+        alignment: NSTextAlignment
+    ) -> Bool {
+        let normalized = replacementText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else {
+            showEditMessage("Replacement text cannot be empty. Use a future redaction tool for removal.", isError: true)
+            return false
+        }
+        guard let lookup = memberPDF(for: pageRef),
+              let localIdx = localIndex(ref: pageRef, memberIndex: lookup.documentIndex),
+              let page = lookup.pdf.page(at: localIdx) else {
+            showEditMessage("PDFold could not locate that page for inline editing.", isError: true)
+            return false
+        }
+
+        let previousPDFData = currentPDFData()
+        let previousEditStates = document.workspace.pageEditStates
+        let operation = PDFTextEditOperation(
+            pageRefID: pageRef.id,
+            sourceBlockID: sourceBlock.id,
+            sourceBounds: sourceBlock.bounds,
+            editedBounds: editedBounds,
+            replacementText: replacementText,
+            fontName: fontName,
+            fontSize: fontSize,
+            textColor: CodableColor(nsColor: textColor),
+            alignment: CodableTextAlignment(alignment)
+        )
+        if let stateIndex = document.workspace.pageEditStates.firstIndex(where: { $0.pageRefID == pageRef.id }) {
+            document.workspace.pageEditStates[stateIndex].operations.removeAll { $0.sourceBlockID == sourceBlock.id }
+            document.workspace.pageEditStates[stateIndex].operations.append(operation)
+        } else {
+            document.workspace.pageEditStates.append(PageEditState(pageRefID: pageRef.id, operations: [operation]))
+        }
+        guard let operations = document.workspace.pageEditStates.first(where: { $0.pageRefID == pageRef.id })?.operations,
+              let regenerated = PDFEditedPageRenderer.regeneratedPage(from: page, applying: operations) else {
+            document.workspace.pageEditStates = previousEditStates
+            showEditMessage("PDFold could not regenerate that edited page. The original page is unchanged.", isError: true)
+            return false
+        }
+
+        lookup.pdf.removePage(at: localIdx)
+        lookup.pdf.insert(regenerated, at: localIdx)
+        textAnalysisCache.removeValue(forKey: pageRef.id)
+        if let data = lookup.pdf.dataRepresentation() {
+            document.memberPDFData[pageRef.memberDocId] = data
+        }
+        markWorkspaceModified()
+        rebuild()
+
+        undoManager?.registerUndo(withTarget: self) { vm in
+            vm.document.workspace.pageEditStates = previousEditStates
+            vm.document.memberPDFData = previousPDFData
+            vm.loadedPDFs = vm.document.workspace.documents.compactMap { member in
+                guard let data = previousPDFData[member.id],
+                      let pdf = PDFDocument(data: data) else { return nil }
+                return (member, pdf)
+            }
+            vm.textAnalysisCache.removeAll()
+            vm.rebuild()
+        }
+        undoManager?.setActionName("Edit PDF Text")
+        return true
+    }
 
     func applyHighlight(to selection: PDFSelection) {
         selection.selectionsByLine().forEach { line in
@@ -1201,6 +1298,8 @@ final class WorkspaceViewModel {
         pdf.removePage(at: localIdx)
         document.workspace.pageOrder.removeAll { $0.id == ref.id }
         document.workspace.documents[lookup.documentIndex].pageRefs.removeAll { $0 == ref.id }
+        document.workspace.pageEditStates.removeAll { $0.pageRefID == ref.id }
+        textAnalysisCache.removeValue(forKey: ref.id)
 
         // Drop empty member
         if document.workspace.documents[lookup.documentIndex].pageRefs.isEmpty {
@@ -1296,6 +1395,38 @@ final class WorkspaceViewModel {
     }
 
     // MARK: - Page lookup helpers
+
+    func pageRef(for page: PDFPage, in pdfDocument: PDFDocument?) -> PageRef? {
+        guard let pdfDocument else { return nil }
+        let combinedIndex = pdfDocument.index(for: page)
+        guard combinedIndex != NSNotFound else { return nil }
+        var realPageIndex = 0
+        for index in 0...combinedIndex {
+            guard let candidate = pdfDocument.page(at: index),
+                  !(candidate is BoundaryPage) else { continue }
+            if index == combinedIndex {
+                guard document.workspace.pageOrder.indices.contains(realPageIndex) else { return nil }
+                return document.workspace.pageOrder[realPageIndex]
+            }
+            realPageIndex += 1
+        }
+        return nil
+    }
+
+    private func textAnalysis(for ref: PageRef, page: PDFPage, memberID: UUID, localIndex: Int) -> PDFTextPageAnalysis {
+        if let cached = textAnalysisCache[ref.id] {
+            return cached
+        }
+        let data = document.memberPDFData[memberID] ?? currentPDFData()[memberID] ?? Data()
+        let analysis = textAnalysisEngine.analyze(
+            data: data,
+            pageIndex: localIndex,
+            pageRefID: ref.id,
+            fallbackPage: page
+        )
+        textAnalysisCache[ref.id] = analysis
+        return analysis
+    }
 
     private func memberPDF(for ref: PageRef) -> (documentIndex: Int, loadedIndex: Int, pdf: PDFDocument)? {
         guard let documentIndex = document.workspace.documents.firstIndex(where: { $0.id == ref.memberDocId }),

@@ -16,10 +16,11 @@ struct Workspace: Codable {
     var signatures: [SignaturePlacement] = []
     var tags: [String] = []
     var comments: [WorkspaceComment] = []
-    var schemaVersion: Int = 2
+    var pageEditStates: [PageEditState] = []
+    var schemaVersion: Int = 3
 
     enum CodingKeys: String, CodingKey {
-        case id, title, createdAt, modifiedAt, documents, pageOrder, signatures, tags, comments, schemaVersion
+        case id, title, createdAt, modifiedAt, documents, pageOrder, signatures, tags, comments, pageEditStates, schemaVersion
     }
 
     init() {}
@@ -35,6 +36,7 @@ struct Workspace: Codable {
         signatures = try c.decodeIfPresent([SignaturePlacement].self, forKey: .signatures) ?? []
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
         comments = try c.decodeIfPresent([WorkspaceComment].self, forKey: .comments) ?? []
+        pageEditStates = try c.decodeIfPresent([PageEditState].self, forKey: .pageEditStates) ?? []
         schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
     }
 }

@@ -241,6 +241,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         var viewModel: WorkspaceViewModel
         weak var pdfView: PDFoldPDFView?
         let inkOverlay = InkOverlayView()
+        private weak var inlineEditor: InlineTextEditorOverlay?
 
         init(viewModel: WorkspaceViewModel) {
             self.viewModel = viewModel
@@ -289,14 +290,12 @@ struct PDFViewRepresentable: NSViewRepresentable {
                     showNoteEditor(for: ann, near: rect, in: pdfView)
                 }
             case .editText:
+                inlineEditor?.cancel()
                 if let ann = page.annotation(at: pagePoint), ann.type == "FreeText" {
                     let rect = pdfView.convert(ann.bounds, from: page)
                     showNoteEditor(for: ann, near: rect, in: pdfView)
-                } else if let selection = editableTextSelection(at: pagePoint, on: page),
-                          let ann = viewModel.addEditableTextOverlay(from: selection, on: page) {
-                    pdfView.clearSelection()
-                    let rect = pdfView.convert(ann.bounds, from: page)
-                    showNoteEditor(for: ann, near: rect, in: pdfView)
+                } else if let target = viewModel.editableTextBlock(at: pagePoint, on: page, in: pdfView.document) {
+                    showInlineTextEditor(for: target.block, pageRef: target.pageRef, on: page, in: pdfView)
                 } else {
                     guard let ann = viewModel.addTextBox(at: pagePoint, on: page) else { return }
                     let rect = pdfView.convert(ann.bounds, from: page)
@@ -353,6 +352,39 @@ struct PDFViewRepresentable: NSViewRepresentable {
             popover.contentViewController = vc
             popover.behavior = .transient
             popover.show(relativeTo: rect, of: view, preferredEdge: .maxY)
+        }
+
+        private func showInlineTextEditor(for block: EditableTextBlock, pageRef: PageRef, on page: PDFPage, in pdfView: PDFoldPDFView) {
+            inlineEditor?.cancel()
+            let editor = InlineTextEditorOverlay(
+                frame: pdfView.bounds,
+                pdfView: pdfView,
+                page: page,
+                pageRef: pageRef,
+                block: block
+            ) { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case .commit(let edit):
+                    _ = viewModel.applyInlineTextEdit(
+                        pageRef: edit.pageRef,
+                        sourceBlock: edit.block,
+                        replacementText: edit.text,
+                        editedBounds: edit.editedBounds,
+                        fontName: edit.fontName,
+                        fontSize: edit.fontSize,
+                        textColor: edit.textColor,
+                        alignment: edit.alignment
+                    )
+                case .cancel:
+                    break
+                }
+                inlineEditor = nil
+            }
+            editor.autoresizingMask = [.width, .height]
+            inlineEditor = editor
+            pdfView.addSubview(editor)
+            editor.beginEditing()
         }
 
         @objc func jumpToSelection(_ notification: Notification) {
@@ -846,6 +878,343 @@ final class NoteEditorViewController: NSViewController {
         }
     }
 
+}
+
+// MARK: - Inline PDF text editor
+
+final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
+    struct EditResult {
+        var pageRef: PageRef
+        var block: EditableTextBlock
+        var text: String
+        var editedBounds: CGRect
+        var fontName: String
+        var fontSize: CGFloat
+        var textColor: NSColor
+        var alignment: NSTextAlignment
+    }
+
+    enum Completion {
+        case commit(EditResult)
+        case cancel
+    }
+
+    private weak var pdfView: PDFView?
+    private weak var page: PDFPage?
+    private let pageRef: PageRef
+    private let block: EditableTextBlock
+    private let completion: (Completion) -> Void
+    private let patchView = NSView()
+    private let toolbar = NSView()
+    private let textView = NSTextView()
+    private let resizeHandle = InlineResizeHandle()
+    private let familyPopup = NSPopUpButton()
+    private let sizeStepper = NSStepper()
+    private let sizeLabel = NSTextField(labelWithString: "")
+    private let boldButton = NSButton(title: "B", target: nil, action: nil)
+    private let italicButton = NSButton(title: "I", target: nil, action: nil)
+    private let alignControl = NSSegmentedControl(labels: ["L", "C", "R"], trackingMode: .selectOne, target: nil, action: nil)
+    private var editorFontName: String
+    private var editorFontSize: CGFloat
+    private var editorTextColor: NSColor
+    private var editorAlignment: NSTextAlignment = .left
+    private var didFinish = false
+
+    init(
+        frame: CGRect,
+        pdfView: PDFView,
+        page: PDFPage,
+        pageRef: PageRef,
+        block: EditableTextBlock,
+        completion: @escaping (Completion) -> Void
+    ) {
+        self.pdfView = pdfView
+        self.page = page
+        self.pageRef = pageRef
+        self.block = block
+        self.completion = completion
+        editorFontName = block.fontName
+        editorFontSize = max(8, block.fontSize)
+        editorTextColor = block.textColor.nsColor
+        super.init(frame: frame)
+        setup()
+        layoutEditor()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    func beginEditing() {
+        window?.makeFirstResponder(textView)
+        textView.selectAll(nil)
+    }
+
+    func cancel() {
+        guard !didFinish else { return }
+        didFinish = true
+        removeFromSuperview()
+        completion(.cancel)
+    }
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow == nil, !didFinish {
+            didFinish = true
+            completion(.cancel)
+        }
+    }
+
+    private func setup() {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+
+        patchView.wantsLayer = true
+        patchView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.985).cgColor
+        addSubview(patchView)
+
+        textView.delegate = self
+        textView.string = block.text
+        textView.isRichText = false
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.allowsUndo = true
+        textView.drawsBackground = true
+        textView.backgroundColor = NSColor.white.withAlphaComponent(0.98)
+        textView.textColor = editorTextColor
+        textView.insertionPointColor = .dsAccentNS
+        textView.textContainerInset = NSSize(width: 3, height: 2)
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.wantsLayer = true
+        textView.layer?.borderWidth = 1
+        textView.layer?.borderColor = NSColor.dsAccentNS.withAlphaComponent(0.75).cgColor
+        textView.layer?.cornerRadius = 2
+        addSubview(textView)
+
+        resizeHandle.onDrag = { [weak self] deltaX in
+            self?.resizeEditor(by: deltaX)
+        }
+        addSubview(resizeHandle)
+
+        toolbar.wantsLayer = true
+        toolbar.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.96).cgColor
+        toolbar.layer?.cornerRadius = 7
+        toolbar.layer?.cornerCurve = .continuous
+        toolbar.layer?.shadowColor = NSColor.black.cgColor
+        toolbar.layer?.shadowOpacity = 0.16
+        toolbar.layer?.shadowRadius = 10
+        toolbar.layer?.shadowOffset = CGSize(width: 0, height: -2)
+        addSubview(toolbar)
+        setupToolbar()
+        applyFormatting()
+    }
+
+    private func setupToolbar() {
+        let families = ["Helvetica", "Times", "Courier", "Avenir", "Menlo"]
+        familyPopup.addItems(withTitles: families)
+        if let match = families.first(where: { editorFontName.localizedCaseInsensitiveContains($0) }) {
+            familyPopup.selectItem(withTitle: match)
+            editorFontName = match
+        } else {
+            familyPopup.insertItem(withTitle: editorFontName, at: 0)
+            familyPopup.selectItem(at: 0)
+        }
+        familyPopup.target = self
+        familyPopup.action = #selector(changeFamily(_:))
+        familyPopup.frame = CGRect(x: 8, y: 8, width: 142, height: 26)
+        toolbar.addSubview(familyPopup)
+
+        sizeLabel.alignment = .center
+        sizeLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        sizeLabel.frame = CGRect(x: 154, y: 12, width: 34, height: 18)
+        toolbar.addSubview(sizeLabel)
+
+        sizeStepper.minValue = 6
+        sizeStepper.maxValue = 96
+        sizeStepper.integerValue = Int(round(editorFontSize))
+        sizeStepper.target = self
+        sizeStepper.action = #selector(changeSize(_:))
+        sizeStepper.frame = CGRect(x: 190, y: 8, width: 18, height: 26)
+        toolbar.addSubview(sizeStepper)
+
+        boldButton.target = self
+        boldButton.action = #selector(toggleBold)
+        boldButton.setButtonType(.toggle)
+        boldButton.bezelStyle = .rounded
+        boldButton.font = .boldSystemFont(ofSize: 12)
+        boldButton.frame = CGRect(x: 222, y: 8, width: 32, height: 26)
+        toolbar.addSubview(boldButton)
+
+        italicButton.target = self
+        italicButton.action = #selector(toggleItalic)
+        italicButton.setButtonType(.toggle)
+        italicButton.bezelStyle = .rounded
+        italicButton.font = NSFontManager.shared.convert(NSFont.systemFont(ofSize: 12), toHaveTrait: .italicFontMask)
+        italicButton.frame = CGRect(x: 258, y: 8, width: 32, height: 26)
+        toolbar.addSubview(italicButton)
+
+        alignControl.target = self
+        alignControl.action = #selector(changeAlignment(_:))
+        alignControl.selectedSegment = 0
+        alignControl.frame = CGRect(x: 302, y: 8, width: 82, height: 26)
+        toolbar.addSubview(alignControl)
+
+        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelButton))
+        cancel.bezelStyle = .rounded
+        cancel.frame = CGRect(x: 398, y: 8, width: 68, height: 26)
+        toolbar.addSubview(cancel)
+
+        let done = NSButton(title: "Done", target: self, action: #selector(commitButton))
+        done.bezelStyle = .rounded
+        done.contentTintColor = .dsAccentNS
+        done.keyEquivalent = "\r"
+        done.frame = CGRect(x: 472, y: 8, width: 62, height: 26)
+        toolbar.addSubview(done)
+    }
+
+    private func layoutEditor() {
+        guard let pdfView, let page else { return }
+        let sourceRect = pdfView.convert(block.bounds, from: page)
+        let minWidth: CGFloat = 48
+        let editorRect = CGRect(
+            x: sourceRect.minX,
+            y: sourceRect.minY,
+            width: max(minWidth, sourceRect.width),
+            height: max(sourceRect.height + 6, editorFontSize * 1.5)
+        )
+        patchView.frame = sourceRect.insetBy(dx: -2, dy: -2)
+        textView.frame = editorRect
+        toolbar.frame = toolbarFrame(near: editorRect)
+        resizeHandle.frame = CGRect(x: editorRect.maxX - 5, y: editorRect.minY - 5, width: 10, height: 10)
+        resizeTextViewHeight()
+    }
+
+    private func toolbarFrame(near editorRect: CGRect) -> CGRect {
+        let size = CGSize(width: 542, height: 42)
+        let x = min(max(editorRect.midX - size.width / 2, 8), max(8, bounds.width - size.width - 8))
+        let aboveY = editorRect.maxY + 8
+        let y = aboveY + size.height < bounds.height ? aboveY : max(8, editorRect.minY - size.height - 8)
+        return CGRect(origin: CGPoint(x: x, y: y), size: size)
+    }
+
+    private func resizeTextViewHeight() {
+        guard let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer else { return }
+        layoutManager.ensureLayout(for: textContainer)
+        let used = layoutManager.usedRect(for: textContainer)
+        var frame = textView.frame
+        frame.size.height = max(block.bounds.height, ceil(used.height + textView.textContainerInset.height * 2 + 4))
+        textView.frame = frame
+        toolbar.frame = toolbarFrame(near: frame)
+        resizeHandle.frame = CGRect(x: frame.maxX - 5, y: frame.minY - 5, width: 10, height: 10)
+    }
+
+    private func resizeEditor(by deltaX: CGFloat) {
+        var frame = textView.frame
+        frame.size.width = max(48, frame.width + deltaX)
+        textView.frame = frame
+        resizeTextViewHeight()
+    }
+
+    func textDidChange(_ notification: Notification) {
+        resizeTextViewHeight()
+    }
+
+    @objc private func changeFamily(_ sender: NSPopUpButton) {
+        editorFontName = sender.titleOfSelectedItem ?? editorFontName
+        applyFormatting()
+    }
+
+    @objc private func changeSize(_ sender: NSStepper) {
+        editorFontSize = CGFloat(sender.integerValue)
+        applyFormatting()
+    }
+
+    @objc private func toggleBold() {
+        applyFormatting()
+    }
+
+    @objc private func toggleItalic() {
+        applyFormatting()
+    }
+
+    @objc private func changeAlignment(_ sender: NSSegmentedControl) {
+        switch sender.selectedSegment {
+        case 1: editorAlignment = .center
+        case 2: editorAlignment = .right
+        default: editorAlignment = .left
+        }
+        applyFormatting()
+    }
+
+    private func applyFormatting() {
+        sizeLabel.stringValue = "\(Int(round(editorFontSize)))"
+        var font = NSFont(name: editorFontName, size: editorFontSize) ?? .systemFont(ofSize: editorFontSize)
+        if boldButton.state == .on {
+            font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+        }
+        if italicButton.state == .on {
+            font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
+        }
+        textView.font = font
+        textView.textColor = editorTextColor
+        textView.alignment = editorAlignment
+        resizeTextViewHeight()
+    }
+
+    @objc private func commitButton() {
+        guard !didFinish, let pdfView, let page else { return }
+        didFinish = true
+        let pageBounds = pdfView.convert(textView.frame, to: page)
+        let result = EditResult(
+            pageRef: pageRef,
+            block: block,
+            text: textView.string,
+            editedBounds: pageBounds,
+            fontName: textView.font?.fontName ?? editorFontName,
+            fontSize: textView.font?.pointSize ?? editorFontSize,
+            textColor: editorTextColor,
+            alignment: editorAlignment
+        )
+        removeFromSuperview()
+        completion(.commit(result))
+    }
+
+    @objc private func cancelButton() {
+        cancel()
+    }
+}
+
+final class InlineResizeHandle: NSView {
+    var onDrag: ((CGFloat) -> Void)?
+    private var lastPoint: CGPoint?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.dsAccentNS.cgColor
+        layer?.cornerRadius = 5
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .resizeLeftRight)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        lastPoint = convert(event.locationInWindow, from: nil)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if let lastPoint {
+            onDrag?(point.x - lastPoint.x)
+        }
+        self.lastPoint = point
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        lastPoint = nil
+    }
 }
 
 // MARK: - Ink drawing overlay

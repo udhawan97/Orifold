@@ -1,29 +1,29 @@
 import Foundation
 
-private let pdfiumPasswordErrorCode: UInt = 4
-private let pdfiumLock = NSLock()
+let pdfiumPasswordErrorCode: UInt = 4
+let pdfiumLock = NSLock()
 
 @_silgen_name("FPDF_InitLibrary")
-private func FPDF_InitLibrary()
+func FPDF_InitLibrary()
 
 @_silgen_name("FPDF_DestroyLibrary")
-private func FPDF_DestroyLibrary()
+func FPDF_DestroyLibrary()
 
 @_silgen_name("FPDF_LoadMemDocument")
-private func FPDF_LoadMemDocument(
+func FPDF_LoadMemDocument(
     _ data: UnsafeRawPointer?,
     _ size: Int32,
     _ password: UnsafePointer<CChar>?
 ) -> OpaquePointer?
 
 @_silgen_name("FPDF_CloseDocument")
-private func FPDF_CloseDocument(_ document: OpaquePointer?)
+func FPDF_CloseDocument(_ document: OpaquePointer?)
 
 @_silgen_name("FPDF_GetPageCount")
-private func FPDF_GetPageCount(_ document: OpaquePointer?) -> Int32
+func FPDF_GetPageCount(_ document: OpaquePointer?) -> Int32
 
 @_silgen_name("FPDF_GetLastError")
-private func FPDF_GetLastError() -> UInt
+func FPDF_GetLastError() -> UInt
 
 final class PDFiumProcessingEngine: PDFProcessingEngine {
     let name = "PDFium"
