@@ -154,6 +154,7 @@ final class WorkspaceViewModel {
     // MARK: - Canvas state (updated by PDFView via Coordinator)
     var currentPageNumber: Int = 0
     var pageCount: Int = 0
+    private(set) var lastProcessingValidation: PDFProcessingValidation? = nil
 
     /// Reactive list of member documents — backed by loadedPDFs so the sidebar
     /// re-renders whenever documents are added, removed, or reordered.
@@ -161,7 +162,8 @@ final class WorkspaceViewModel {
 
     weak var undoManager: UndoManager?
 
-    private let engine = PDFKitEngine()
+    private let engine: PDFEngine
+    private let processingEngine: PDFProcessingEngine
 
     struct ImportError: Identifiable {
         let id = UUID()
@@ -176,13 +178,20 @@ final class WorkspaceViewModel {
 
     // MARK: - Init
 
-    init(document: WorkspaceDocument) {
+    init(
+        document: WorkspaceDocument,
+        engine: PDFEngine = PDFKitEngine(),
+        processingEngine: PDFProcessingEngine = PDFiumProcessingEngine()
+    ) {
         self.document = document
+        self.engine = engine
+        self.processingEngine = processingEngine
 
         // Reconstruct loadedPDFs from saved package data (document open path)
         for member in document.workspace.documents {
             if let data = document.memberPDFData[member.id],
                let pdf = PDFDocument(data: data) {
+                smokeValidatePDFData(data)
                 sanitizeInkAnnotations(in: pdf)
                 loadedPDFs.append((member, pdf))
             }
@@ -244,6 +253,7 @@ final class WorkspaceViewModel {
 
     func unlock(pdf: PDFDocument, password: String, url: URL) -> Bool {
         guard pdf.unlock(withPassword: password) else { return false }
+        smokeValidatePDFData(pdf.dataRepresentation(), password: password)
         attachPDF(pdf, from: url)
         pendingPasswordPDF = nil
         rebuild()
@@ -260,6 +270,7 @@ final class WorkspaceViewModel {
             )
             return
         }
+        smokeValidatePDFData(data)
 
         let name = url.deletingPathExtension().lastPathComponent
         var member = MemberDocument(displayName: name, sourcePDFRef: url.lastPathComponent)
@@ -269,6 +280,11 @@ final class WorkspaceViewModel {
         document.workspace.pageOrder.append(contentsOf: refs)
         document.memberPDFData[member.id] = data
         loadedPDFs.append((member, pdf))
+    }
+
+    private func smokeValidatePDFData(_ data: Data?, password: String? = nil) {
+        guard let data else { return }
+        lastProcessingValidation = try? processingEngine.validatePDF(data: data, password: password)
     }
 
     func rebuild() {

@@ -126,6 +126,41 @@ final class PDFKitEngineTests: XCTestCase {
     }
 }
 
+final class PDFProcessingEngineTests: XCTestCase {
+    func testPDFKitProcessingFallbackValidatesPDFData() throws {
+        let data = try makePDF(pageTexts: ["processing"]).dataRepresentation().unwrap()
+        let engine = PDFKitProcessingEngineFallback()
+
+        let validation = try engine.validatePDF(data: data, password: nil)
+
+        XCTAssertEqual(validation.engine, .pdfKit)
+        XCTAssertEqual(validation.pageCount, 1)
+        XCTAssertFalse(validation.isEncrypted)
+    }
+
+    func testWorkspaceViewModelAcceptsSupplementalProcessingEngineInjection() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Fixture", pageTexts: ["validation"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let processingEngine = RecordingProcessingEngine(validation: PDFProcessingValidation(
+            engine: .pdfKit,
+            pageCount: 1,
+            isEncrypted: false
+        ))
+
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            engine: PDFKitEngine(),
+            processingEngine: processingEngine
+        )
+
+        XCTAssertEqual(viewModel.lastProcessingValidation?.pageCount, 1)
+        XCTAssertEqual(processingEngine.validateCallCount, 1)
+    }
+}
+
 final class WorkspaceDocumentTests: XCTestCase {
     func testSnapshotUsesCurrentPDFDataProvider() throws {
         let memberID = UUID()
@@ -257,6 +292,21 @@ private final class TextFixturePageView: NSView {
                 .foregroundColor: NSColor.black
             ]
         )
+    }
+}
+
+private final class RecordingProcessingEngine: PDFProcessingEngine {
+    let name = "Recording"
+    private let validation: PDFProcessingValidation
+    private(set) var validateCallCount = 0
+
+    init(validation: PDFProcessingValidation) {
+        self.validation = validation
+    }
+
+    func validatePDF(data: Data, password: String?) throws -> PDFProcessingValidation {
+        validateCallCount += 1
+        return validation
     }
 }
 

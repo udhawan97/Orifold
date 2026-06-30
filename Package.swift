@@ -4,9 +4,18 @@ import PackageDescription
 let package = Package(
     name: "PDFold",
     platforms: [.macOS(.v14)],
+    products: [
+        .executable(name: "PDFold", targets: ["PDFold"])
+    ],
+    dependencies: [
+        .package(path: "Packages/PDFiumBinary")
+    ],
     targets: [
         .executableTarget(
             name: "PDFold",
+            dependencies: [
+                .product(name: "PDFium", package: "PDFiumBinary")
+            ],
             path: "PDFold",
             exclude: [
                 "Resources/Info.plist",

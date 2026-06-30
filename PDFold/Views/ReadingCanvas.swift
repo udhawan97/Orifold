@@ -589,11 +589,13 @@ final class NoteEditorViewController: NSViewController {
             (.systemRed, 260, "Red")
         ]
         for (color, x, name) in swatches {
-            let button = NSButton(frame: CGRect(x: x, y: 8, width: 20, height: 20))
+            let button = NSButton(title: "", target: self, action: #selector(changeTextColor(_:)))
+            button.frame = CGRect(x: x, y: 8, width: 20, height: 20)
             button.bezelStyle = .shadowlessSquare
+            button.setButtonType(.momentaryChange)
             button.isBordered = false
-            button.target = self
-            button.action = #selector(changeTextColor(_:))
+            button.image = nil
+            button.attributedTitle = NSAttributedString(string: "")
             button.toolTip = "\(name) text"
             button.wantsLayer = true
             button.layer?.backgroundColor = color.cgColor

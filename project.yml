@@ -15,6 +15,10 @@ settings:
     CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
     ENABLE_HARDENED_RUNTIME: YES
 
+packages:
+  PDFiumBinary:
+    path: Packages/PDFiumBinary
+
 targets:
   PDFold:
     type: application
@@ -101,9 +105,12 @@ targets:
     sources:
       - path: Tests/PDFoldTests
     dependencies:
+      - package: PDFiumBinary
+        product: PDFium
       - target: PDFold
     settings:
       base:
         PRODUCT_NAME: PDFoldTests
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
+        GENERATE_INFOPLIST_FILE: YES

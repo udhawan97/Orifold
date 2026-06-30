@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0FFEB5F63A4C2AD0A78432DD /* SignaturePlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCD0C97807474CEF3A78C2E /* SignaturePlacement.swift */; };
 		156D6EBE77E5EEE483A69866 /* PDFKitEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CAC778D374332BD668C7F87 /* PDFKitEngine.swift */; };
+		21659EE9F3589A5587F30A8F /* PDFProcessingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E5D3EE703AA0F550391D68 /* PDFProcessingEngine.swift */; };
 		23FC0C344110D094998B9C83 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 532E4CABAC0F8B4664C810DE /* InspectorView.swift */; };
 		3740966A95E081C76D12CC9B /* AppToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48261BB994A895CFA9A07CE0 /* AppToolbar.swift */; };
 		376ED70FB3F09DF6B3F65E70 /* BoundaryPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 062B11437A890C3344D88298 /* BoundaryPage.swift */; };
@@ -16,16 +17,20 @@
 		4DEE81327B0599775C5592F2 /* TOCView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 283B69ED3FF6E997889BB375 /* TOCView.swift */; };
 		4EE0FCC727CB942973E8FE5B /* AnnotationIndexEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBB62EF31188C4156B985682 /* AnnotationIndexEntry.swift */; };
 		4F32970EF66F40DB05F1F6D1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 108F80780D043A5E84254B45 /* Assets.xcassets */; };
+		5867B323DC0FF0CDFF2B9A17 /* PDFKitProcessingEngineFallback.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE11D0D8194ACC0F233D75BB /* PDFKitProcessingEngineFallback.swift */; };
 		6B2F57A1CD6E3D5B2E75FCF0 /* SignaturePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9713D1A7523355DF42B2E18E /* SignaturePalette.swift */; };
 		79BDC616455ED84B90BB2DB9 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C4739CB79025BE3763E623 /* EmptyStateView.swift */; };
 		7D86C0C61FC456E2CF865899 /* PDFEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547E4E8F72DEE08FB7A66472 /* PDFEngine.swift */; };
 		8118B9E40222205B59BFEA95 /* MemberDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21406CD791971A026B6A285 /* MemberDocument.swift */; };
+		8A1F027988EBF4B20A3AD22F /* PDFiumProcessingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F4A0911CD68D8A0B97F04D /* PDFiumProcessingEngine.swift */; };
 		976F39BDDA9E42A215D88353 /* WorkspaceDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04448B1CCE672C13D52392B1 /* WorkspaceDocument.swift */; };
 		97C573B73A6CC4FCA36ACFC6 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45D6F51A2DFB7D860374B43 /* SearchView.swift */; };
+		A702AC2A31C336379A406B19 /* PDFium in Frameworks */ = {isa = PBXBuildFile; productRef = B658BB444C31753D3E86321A /* PDFium */; };
 		B083EBE61135CF3C90CE7D3D /* GuidePopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10CDA157C78EF952ADF98CF9 /* GuidePopover.swift */; };
 		B30400477B2629A199CAE75B /* PasswordPromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B768FD261E14C648AC8312EF /* PasswordPromptView.swift */; };
 		B4C20218249BE0498410F981 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2741DE881320AE151435306D /* DesignSystem.swift */; };
 		B5E88EF7CB2E9E5C9F627940 /* Workspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9FEA37A2C8446DD2FAA57B /* Workspace.swift */; };
+		B82BCDBE75251D9EFD9BE0B5 /* PDFoldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28C6D1AFFA9B5BF8FBD3BA5F /* PDFoldTests.swift */; };
 		B937492F5A9B6525FD516F03 /* PageRef.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9304378D6348FB81960551B5 /* PageRef.swift */; };
 		BB8959F2285A83728B364BCC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C213D7BF6D3264E18EB458 /* ContentView.swift */; };
 		C563657EBB4551503D42CD5F /* PDFoldApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F92B037079D607E9FC1F8D /* PDFoldApp.swift */; };
@@ -34,20 +39,34 @@
 		EF74274BF58489C5E7684EF9 /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF46C0F3791B5D3A22E48619 /* AppCommands.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		E8DAEA3E8B3BADEFE59B2BCC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E3AF924F26CE4D98CA0F5CCA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 82265715D42FB8974195F23E;
+			remoteInfo = PDFold;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		04448B1CCE672C13D52392B1 /* WorkspaceDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDocument.swift; sourceTree = "<group>"; };
 		062B11437A890C3344D88298 /* BoundaryPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundaryPage.swift; sourceTree = "<group>"; };
+		07E5D3EE703AA0F550391D68 /* PDFProcessingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFProcessingEngine.swift; sourceTree = "<group>"; };
 		108F80780D043A5E84254B45 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		10CDA157C78EF952ADF98CF9 /* GuidePopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidePopover.swift; sourceTree = "<group>"; };
 		10F92B037079D607E9FC1F8D /* PDFoldApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFoldApp.swift; sourceTree = "<group>"; };
 		2741DE881320AE151435306D /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		283B69ED3FF6E997889BB375 /* TOCView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TOCView.swift; sourceTree = "<group>"; };
+		28C6D1AFFA9B5BF8FBD3BA5F /* PDFoldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFoldTests.swift; sourceTree = "<group>"; };
 		48261BB994A895CFA9A07CE0 /* AppToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppToolbar.swift; sourceTree = "<group>"; };
 		49CB80F633727439435BF9EE /* PDFold.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PDFold.entitlements; sourceTree = "<group>"; };
 		52DE2C15407429070EAC6A29 /* ReadingCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingCanvas.swift; sourceTree = "<group>"; };
 		532E4CABAC0F8B4664C810DE /* InspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorView.swift; sourceTree = "<group>"; };
 		547E4E8F72DEE08FB7A66472 /* PDFEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFEngine.swift; sourceTree = "<group>"; };
+		60A8C841F2BC6480B83C84F1 /* PDFoldTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFoldTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E5FBDD597A2A46452637450 /* PDFold.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PDFold.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		86F4A0911CD68D8A0B97F04D /* PDFiumProcessingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFiumProcessingEngine.swift; sourceTree = "<group>"; };
 		92C4739CB79025BE3763E623 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		9304378D6348FB81960551B5 /* PageRef.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRef.swift; sourceTree = "<group>"; };
 		93C213D7BF6D3264E18EB458 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -57,20 +76,50 @@
 		B768FD261E14C648AC8312EF /* PasswordPromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordPromptView.swift; sourceTree = "<group>"; };
 		BBCD0C97807474CEF3A78C2E /* SignaturePlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignaturePlacement.swift; sourceTree = "<group>"; };
 		C21406CD791971A026B6A285 /* MemberDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemberDocument.swift; sourceTree = "<group>"; };
+		C26E12E28AF6DB55C0609F09 /* PDFiumBinary */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PDFiumBinary; path = Packages/PDFiumBinary; sourceTree = SOURCE_ROOT; };
 		C7B4116C6F5E99383B85A74B /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		C7FF023C999AB3E5F4C1BD0B /* WorkspaceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceViewModel.swift; sourceTree = "<group>"; };
 		CBB62EF31188C4156B985682 /* AnnotationIndexEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationIndexEntry.swift; sourceTree = "<group>"; };
+		CE11D0D8194ACC0F233D75BB /* PDFKitProcessingEngineFallback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFKitProcessingEngineFallback.swift; sourceTree = "<group>"; };
 		DF9FEA37A2C8446DD2FAA57B /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
 		E45D6F51A2DFB7D860374B43 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		494909A2D7E75FC4D938B701 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A702AC2A31C336379A406B19 /* PDFium in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
+		0F3DC1032BA01E28AEED2A20 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				C26E12E28AF6DB55C0609F09 /* PDFiumBinary */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
 		251337720A803B70BED2B379 /* Document */ = {
 			isa = PBXGroup;
 			children = (
 				04448B1CCE672C13D52392B1 /* WorkspaceDocument.swift */,
 			);
 			path = Document;
+			sourceTree = "<group>";
+		};
+		25BA10698D7D2674C5476FD0 /* PDFoldTests */ = {
+			isa = PBXGroup;
+			children = (
+				28C6D1AFFA9B5BF8FBD3BA5F /* PDFoldTests.swift */,
+			);
+			name = PDFoldTests;
+			path = Tests/PDFoldTests;
 			sourceTree = "<group>";
 		};
 		49876067D0F5E9E9BA814C96 /* App */ = {
@@ -129,6 +178,7 @@
 			isa = PBXGroup;
 			children = (
 				7E5FBDD597A2A46452637450 /* PDFold.app */,
+				60A8C841F2BC6480B83C84F1 /* PDFoldTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -138,7 +188,10 @@
 			children = (
 				062B11437A890C3344D88298 /* BoundaryPage.swift */,
 				547E4E8F72DEE08FB7A66472 /* PDFEngine.swift */,
+				86F4A0911CD68D8A0B97F04D /* PDFiumProcessingEngine.swift */,
 				9CAC778D374332BD668C7F87 /* PDFKitEngine.swift */,
+				CE11D0D8194ACC0F233D75BB /* PDFKitProcessingEngineFallback.swift */,
+				07E5D3EE703AA0F550391D68 /* PDFProcessingEngine.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -173,7 +226,9 @@
 		E78EA29A82C13DD89F39DED1 = {
 			isa = PBXGroup;
 			children = (
+				0F3DC1032BA01E28AEED2A20 /* Packages */,
 				E00473F39C53BD1AD723188C /* PDFold */,
+				25BA10698D7D2674C5476FD0 /* PDFoldTests */,
 				B573FD802240F2101341CA22 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -199,6 +254,26 @@
 			productReference = 7E5FBDD597A2A46452637450 /* PDFold.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D098066C554110139A6C838C /* PDFoldTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BBA2578DDA5751AEA113D5D0 /* Build configuration list for PBXNativeTarget "PDFoldTests" */;
+			buildPhases = (
+				5DE1C0DED575B11D4A7DFD9F /* Sources */,
+				494909A2D7E75FC4D938B701 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3A8486726636EF1E94CFAC6D /* PBXTargetDependency */,
+			);
+			name = PDFoldTests;
+			packageProductDependencies = (
+				B658BB444C31753D3E86321A /* PDFium */,
+			);
+			productName = PDFoldTests;
+			productReference = 60A8C841F2BC6480B83C84F1 /* PDFoldTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -209,6 +284,10 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					82265715D42FB8974195F23E = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					D098066C554110139A6C838C = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
@@ -223,12 +302,16 @@
 			);
 			mainGroup = E78EA29A82C13DD89F39DED1;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6A3EB40AF314CEE94762DB96 /* XCLocalSwiftPackageReference "Packages/PDFiumBinary" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B573FD802240F2101341CA22 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				82265715D42FB8974195F23E /* PDFold */,
+				D098066C554110139A6C838C /* PDFoldTests */,
 			);
 		};
 /* End PBXProject section */
@@ -245,6 +328,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5DE1C0DED575B11D4A7DFD9F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B82BCDBE75251D9EFD9BE0B5 /* PDFoldTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FF8B4BBBDEE398F5BBC7FC2D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -261,6 +352,9 @@
 				8118B9E40222205B59BFEA95 /* MemberDocument.swift in Sources */,
 				7D86C0C61FC456E2CF865899 /* PDFEngine.swift in Sources */,
 				156D6EBE77E5EEE483A69866 /* PDFKitEngine.swift in Sources */,
+				5867B323DC0FF0CDFF2B9A17 /* PDFKitProcessingEngineFallback.swift in Sources */,
+				21659EE9F3589A5587F30A8F /* PDFProcessingEngine.swift in Sources */,
+				8A1F027988EBF4B20A3AD22F /* PDFiumProcessingEngine.swift in Sources */,
 				C563657EBB4551503D42CD5F /* PDFoldApp.swift in Sources */,
 				B937492F5A9B6525FD516F03 /* PageRef.swift in Sources */,
 				B30400477B2629A199CAE75B /* PasswordPromptView.swift in Sources */,
@@ -277,6 +371,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3A8486726636EF1E94CFAC6D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 82265715D42FB8974195F23E /* PDFold */;
+			targetProxy = E8DAEA3E8B3BADEFE59B2BCC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0C07B14CC38B51DD80120898 /* Debug */ = {
@@ -329,8 +431,8 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
@@ -356,6 +458,25 @@
 				SWIFT_VERSION = 5.9;
 			};
 			name = Release;
+		};
+		5D6AC5632131D5A19BC80424 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = PDFoldTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFold.app/Contents/MacOS/PDFold";
+			};
+			name = Debug;
 		};
 		62ADC71FCECB14374A2E72EE /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -407,8 +528,8 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
@@ -442,6 +563,25 @@
 			};
 			name = Debug;
 		};
+		CB646FF6DD28B514F3B5F28D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = PDFoldTests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFold.app/Contents/MacOS/PDFold";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -463,7 +603,30 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		BBA2578DDA5751AEA113D5D0 /* Build configuration list for PBXNativeTarget "PDFoldTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D6AC5632131D5A19BC80424 /* Debug */,
+				CB646FF6DD28B514F3B5F28D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		6A3EB40AF314CEE94762DB96 /* XCLocalSwiftPackageReference "Packages/PDFiumBinary" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/PDFiumBinary;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B658BB444C31753D3E86321A /* PDFium */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PDFium;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E3AF924F26CE4D98CA0F5CCA /* Project object */;
 }
