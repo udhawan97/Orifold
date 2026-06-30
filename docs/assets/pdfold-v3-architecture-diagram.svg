@@ -150,9 +150,10 @@
 
     <rect x="24" y="428" width="192" height="206" rx="14" fill="#0B1220" stroke="#166534"/>
     <text x="46" y="468" class="tag" fill="#86EFAC">INSTALL LIFECYCLE</text>
-    <text x="46" y="500" class="body">One-line install, launch</text>
-    <text x="46" y="522" class="body">updates, and clean uninstall.</text>
-    <g transform="translate(46 548)">
+    <text x="46" y="494" class="body">One-line install,</text>
+    <text x="46" y="516" class="body">launch update checks,</text>
+    <text x="46" y="538" class="body">and clean uninstall.</text>
+    <g transform="translate(46 562)">
       <rect x="0" y="0" width="116" height="26" rx="13" fill="#08251C" stroke="#166534"/>
       <text x="58" y="18" text-anchor="middle" class="chip" fill="#86EFAC">PDFold.command</text>
       <rect x="0" y="36" width="116" height="26" rx="13" fill="#08251C" stroke="#166534"/>
