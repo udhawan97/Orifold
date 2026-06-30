@@ -396,14 +396,17 @@ final class PDFoldPDFView: PDFView {
 final class NoteEditorViewController: NSViewController {
     private let annotation: PDFAnnotation
     private weak var textView: NSTextView?
+    private weak var scrollView: NSScrollView?
     private weak var sizeLabel: NSTextField?
     private var originalAnnotationFont: NSFont?
-    private var originalAnnotationFontColor: NSColor?
-    private let minimumEditorFontSize: CGFloat = 16
-    private var formattingChanged = false
-    private var editorFontSize: CGFloat = 16
-    private var editorFontTraits: NSFontTraitMask = []
-    private var editorTextColor: NSColor = .labelColor
+    private var originalAnnotationBackgroundColor: NSColor?
+    private let minimumEditorFontSize: CGFloat = 10
+    private var styleChanged = false
+    private var editorFontFamily: String
+    private var editorFontSize: CGFloat
+    private var editorFontTraits: NSFontTraitMask
+    private var editorTextColor: NSColor
+    private var editorAlignment: NSTextAlignment
     private var isFreeTextAnnotation: Bool { annotation.type == "FreeText" }
     private var isTextReplacementAnnotation: Bool {
         (annotation.value(forAnnotationKey: WorkspaceViewModel.textReplacementAnnotationKey) as? Bool) == true
@@ -411,24 +414,25 @@ final class NoteEditorViewController: NSViewController {
 
     init(annotation: PDFAnnotation) {
         self.annotation = annotation
+        let resolvedFont = annotation.font ?? .systemFont(ofSize: 16)
         self.originalAnnotationFont = annotation.font
-        self.originalAnnotationFontColor = annotation.fontColor
-        self.editorFontSize = max(annotation.font?.pointSize ?? minimumEditorFontSize, minimumEditorFontSize)
-        if let font = annotation.font {
-            self.editorFontTraits = NSFontManager.shared.traits(of: font).intersection([.boldFontMask, .italicFontMask])
-        }
-        self.editorTextColor = annotation.fontColor ?? .labelColor
+        self.originalAnnotationBackgroundColor = annotation.color
+        self.editorFontFamily = resolvedFont.familyName ?? NSFont.systemFont(ofSize: 16).familyName ?? "System"
+        self.editorFontSize = max(resolvedFont.pointSize, minimumEditorFontSize)
+        self.editorFontTraits = NSFontManager.shared.traits(of: resolvedFont).intersection([.boldFontMask, .italicFontMask])
+        self.editorTextColor = annotation.fontColor ?? .dsTextPrimaryNS
+        self.editorAlignment = annotation.alignment
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { nil }
 
     override func loadView() {
-        let editorWidth = isFreeTextAnnotation ? max(340, min(500, annotation.bounds.width * 2.0)) : 280
-        let editorHeight: CGFloat = isFreeTextAnnotation ? 236 : 208
-        let headerHeight: CGFloat = 42
-        let footerHeight: CGFloat = 48
-        let controlsHeight: CGFloat = isFreeTextAnnotation ? 38 : 0
-        let textMargin: CGFloat = 12
+        let editorWidth = isFreeTextAnnotation ? max(420, min(560, annotation.bounds.width * 2.4)) : 300
+        let editorHeight: CGFloat = isFreeTextAnnotation ? 286 : 210
+        let headerHeight: CGFloat = 44
+        let footerHeight: CGFloat = 52
+        let controlsHeight: CGFloat = isFreeTextAnnotation ? 74 : 0
+        let textMargin: CGFloat = 14
         let textHeight = editorHeight - headerHeight - footerHeight - controlsHeight - textMargin
         let textWidth = editorWidth - (textMargin * 2)
         let container = NSView(frame: CGRect(x: 0, y: 0, width: editorWidth, height: editorHeight))
@@ -447,9 +451,10 @@ final class NoteEditorViewController: NSViewController {
         scroll.borderType = .noBorder
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
-        scroll.drawsBackground = false
+        scroll.drawsBackground = true
+        scroll.backgroundColor = editorFieldBackgroundColor()
         scroll.wantsLayer = true
-        scroll.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+        scroll.layer?.backgroundColor = editorFieldBackgroundColor().cgColor
         scroll.layer?.cornerRadius = 8
         scroll.layer?.cornerCurve = .continuous
         scroll.layer?.borderWidth = 1
@@ -457,12 +462,13 @@ final class NoteEditorViewController: NSViewController {
 
         let tv = NSTextView(frame: CGRect(x: 0, y: 0, width: textWidth, height: textHeight))
         tv.isRichText = false
-        tv.font = readableEditorFont(from: annotation.font)
+        tv.font = editorFont()
         tv.textContainerInset = NSSize(width: 10, height: 10)
         tv.string = annotation.contents ?? ""
-        tv.backgroundColor = .clear
+        tv.backgroundColor = editorFieldBackgroundColor()
         tv.textColor = editorTextColor
         tv.insertionPointColor = NSColor.dsAccentNS
+        tv.alignment = editorAlignment
         tv.isEditable = true
         tv.isSelectable = true
         tv.allowsUndo = true
@@ -499,6 +505,7 @@ final class NoteEditorViewController: NSViewController {
 
         view = container
         textView = tv
+        scrollView = scroll
     }
 
     override func viewDidAppear() {
@@ -520,13 +527,10 @@ final class NoteEditorViewController: NSViewController {
         guard let textView else { return }
         annotation.contents = textView.string
         if isFreeTextAnnotation {
-            if formattingChanged {
-                annotation.font = documentFont()
-                annotation.fontColor = editorTextColor
-            } else {
-                annotation.font = originalAnnotationFont ?? annotation.font
-                annotation.fontColor = originalAnnotationFontColor ?? annotation.fontColor
-            }
+            annotation.font = documentFont()
+            annotation.fontColor = editorTextColor
+            annotation.alignment = editorAlignment
+            annotation.color = replacementBackgroundColor()
             resizeFreeTextAnnotationToFit(textView.string, preserveReplacementWidth: isTextReplacementAnnotation)
         }
     }
@@ -537,7 +541,7 @@ final class NoteEditorViewController: NSViewController {
         let measured = (text.isEmpty ? " " : text) as NSString
         let attributes: [NSAttributedString.Key: Any] = [.font: font]
         let currentBounds = annotation.bounds
-        let measurementWidth = preserveReplacementWidth ? max(currentBounds.width - 10, 1) : 600
+        let measurementWidth = preserveReplacementWidth ? max(currentBounds.width - 10, 1) : 520
         let size = measured.boundingRect(
             with: CGSize(width: measurementWidth, height: CGFloat.infinity),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
@@ -545,23 +549,34 @@ final class NoteEditorViewController: NSViewController {
         ).size
         var bounds = currentBounds
         if !preserveReplacementWidth {
-            bounds.size.width = max(bounds.width, ceil(size.width) + 10)
+            bounds.size.width = max(36, min(620, ceil(size.width) + 12))
         }
-        bounds.size.height = max(font.pointSize * 1.35, ceil(size.height) + 6)
+        bounds.size.height = max(font.pointSize * 1.45, ceil(size.height) + 8)
         annotation.bounds = bounds
-    }
-
-    private func readableEditorFont(from font: NSFont?) -> NSFont {
-        let resolvedFont = font ?? NSFont.systemFont(ofSize: minimumEditorFontSize)
-        let sizedFont = resolvedFont.pointSize < minimumEditorFontSize
-            ? NSFontManager.shared.convert(resolvedFont, toSize: minimumEditorFontSize)
-            : resolvedFont
-        guard !editorFontTraits.isEmpty else { return sizedFont }
-        return NSFontManager.shared.convert(sizedFont, toHaveTrait: editorFontTraits)
     }
 
     private func formattingControls(frame: CGRect) -> NSView {
         let controls = NSView(frame: frame)
+
+        let family = NSPopUpButton(frame: CGRect(x: 0, y: 40, width: 172, height: 26), pullsDown: false)
+        let families = ["Helvetica", "Times", "Courier", "Avenir", "Menlo"]
+        family.addItems(withTitles: families)
+        if let match = families.first(where: { editorFontFamily.localizedCaseInsensitiveContains($0) || $0.localizedCaseInsensitiveContains(editorFontFamily) }) {
+            family.selectItem(withTitle: match)
+        } else {
+            family.insertItem(withTitle: editorFontFamily, at: 0)
+            family.selectItem(at: 0)
+        }
+        family.target = self
+        family.action = #selector(changeFontFamily(_:))
+        family.toolTip = "Font"
+        controls.addSubview(family)
+
+        let align = NSSegmentedControl(labels: ["L", "C", "R"], trackingMode: .selectOne, target: self, action: #selector(changeAlignment(_:)))
+        align.frame = CGRect(x: 184, y: 40, width: 92, height: 26)
+        align.toolTip = "Text alignment"
+        align.selectedSegment = selectedAlignmentSegment()
+        controls.addSubview(align)
 
         let bold = formattingButton(title: "B", x: 0, action: #selector(toggleBold), isToggle: true)
         bold.font = .boldSystemFont(ofSize: 13)
@@ -591,12 +606,13 @@ final class NoteEditorViewController: NSViewController {
         sizeUp.toolTip = "Increase font size"
         controls.addSubview(sizeUp)
 
-        let swatches: [(NSColor, CGFloat, String)] = [
-            (.black, 204, "Black"),
-            (.dsTextPrimaryNS, 232, "Blue"),
-            (.systemRed, 260, "Red")
+        let swatches: [(NSColor, CGFloat, String, Int)] = [
+            (.black, 204, "Black", 0),
+            (.dsTextPrimaryNS, 232, "Blue", 1),
+            (.systemRed, 260, "Red", 2),
+            (.white, 288, "White", 3)
         ]
-        for (color, x, name) in swatches {
+        for (color, x, name, tag) in swatches {
             let button = NSButton(title: "", target: self, action: #selector(changeTextColor(_:)))
             button.frame = CGRect(x: x, y: 8, width: 20, height: 20)
             button.bezelStyle = .shadowlessSquare
@@ -610,7 +626,7 @@ final class NoteEditorViewController: NSViewController {
             button.layer?.cornerRadius = 10
             button.layer?.borderWidth = 1
             button.layer?.borderColor = NSColor.dsSeparatorNS.cgColor
-            button.tag = Int(x)
+            button.tag = tag
             controls.addSubview(button)
         }
 
@@ -646,9 +662,24 @@ final class NoteEditorViewController: NSViewController {
 
     @objc private func changeTextColor(_ sender: NSButton) {
         switch sender.tag {
-        case 232: editorTextColor = .dsTextPrimaryNS
-        case 260: editorTextColor = .systemRed
-        default:  editorTextColor = .black
+        case 1: editorTextColor = .dsTextPrimaryNS
+        case 2: editorTextColor = .systemRed
+        case 3: editorTextColor = .white
+        default: editorTextColor = .black
+        }
+        applyFormatting()
+    }
+
+    @objc private func changeFontFamily(_ sender: NSPopUpButton) {
+        editorFontFamily = sender.titleOfSelectedItem ?? editorFontFamily
+        applyFormatting()
+    }
+
+    @objc private func changeAlignment(_ sender: NSSegmentedControl) {
+        switch sender.selectedSegment {
+        case 1: editorAlignment = .center
+        case 2: editorAlignment = .right
+        default: editorAlignment = .left
         }
         applyFormatting()
     }
@@ -663,19 +694,28 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func applyFormatting() {
-        formattingChanged = true
+        styleChanged = true
         sizeLabel?.stringValue = "\(Int(round(editorFontSize)))"
         textView?.font = editorFont()
         textView?.textColor = editorTextColor
+        textView?.alignment = editorAlignment
+        textView?.backgroundColor = editorFieldBackgroundColor()
+        scrollView?.backgroundColor = editorFieldBackgroundColor()
+        scrollView?.layer?.backgroundColor = editorFieldBackgroundColor().cgColor
     }
 
     private func editorFont() -> NSFont {
-        applyTraits(to: NSFont.systemFont(ofSize: editorFontSize))
+        let descriptor = NSFontDescriptor(fontAttributes: [.family: editorFontFamily])
+        let base = NSFont(descriptor: descriptor, size: editorFontSize) ?? NSFont.systemFont(ofSize: editorFontSize)
+        return applyTraits(to: base)
     }
 
     private func documentFont() -> NSFont {
-        let baseFont = originalAnnotationFont ?? annotation.font ?? NSFont.systemFont(ofSize: editorFontSize)
-        return applyTraits(to: NSFontManager.shared.convert(baseFont, toSize: editorFontSize))
+        guard styleChanged else {
+            return originalAnnotationFont ?? annotation.font ?? editorFont()
+        }
+        let base = NSFont(name: editorFontFamily, size: editorFontSize) ?? editorFont()
+        return applyTraits(to: base)
     }
 
     private func applyTraits(to font: NSFont) -> NSFont {
@@ -691,6 +731,33 @@ final class NoteEditorViewController: NSViewController {
             resolved = NSFontManager.shared.convert(resolved, toNotHaveTrait: .italicFontMask)
         }
         return resolved
+    }
+
+    private func selectedAlignmentSegment() -> Int {
+        switch editorAlignment {
+        case .center: return 1
+        case .right: return 2
+        default: return 0
+        }
+    }
+
+    private func replacementBackgroundColor() -> NSColor {
+        guard isTextReplacementAnnotation else {
+            return originalAnnotationBackgroundColor ?? .clear
+        }
+        return originalAnnotationBackgroundColor ?? NSColor.white.withAlphaComponent(0.96)
+    }
+
+    private func editorFieldBackgroundColor() -> NSColor {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        let color = editorTextColor.usingColorSpace(.sRGB) ?? editorTextColor
+        color.getRed(&red, green: &green, blue: &blue, alpha: nil)
+        let relativeLuminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+        return relativeLuminance > 0.72
+            ? NSColor(srgbRed: 0.071, green: 0.082, blue: 0.098, alpha: 1)
+            : .textBackgroundColor
     }
 }
 

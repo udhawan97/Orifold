@@ -576,6 +576,7 @@ final class WorkspaceViewModel {
         ann.font = .systemFont(ofSize: 16)
         ann.fontColor = .dsTextPrimaryNS
         ann.color = .clear
+        ann.alignment = .left
         let border = PDFBorder()
         border.lineWidth = 0
         ann.border = border
@@ -621,6 +622,7 @@ final class WorkspaceViewModel {
         ann.contents = text
         ann.font = font
         ann.fontColor = fontColor
+        ann.alignment = .left
         ann.color = NSColor.white.withAlphaComponent(0.96)
         ann.setValue(true, forAnnotationKey: Self.textReplacementAnnotationKey)
         let border = PDFBorder()
