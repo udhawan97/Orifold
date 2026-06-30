@@ -24,8 +24,9 @@ STAGED_APP="$STAGE_ROOT/$APP_NAME.app"
 INSTALL_DIR="$HOME/Applications"
 INSTALLED_APP="$INSTALL_DIR/$APP_NAME.app"
 DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME.command"
+DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $APP_NAME.command"
 LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
-DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
+LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
 RELEASE_API="https://api.github.com/repos/$REPO/releases/latest"
 
 usage() {
@@ -146,17 +147,23 @@ install_staged_app() {
     /usr/bin/ditto --norsrc "$STAGED_APP" "$INSTALLED_APP"
     /usr/bin/xattr -cr "$INSTALLED_APP" 2>/dev/null || true
 
-    print_step "Refreshing Desktop shortcuts"
+    print_step "Refreshing Desktop commands"
     if [[ -d "$HOME/Desktop" ]]; then
-        rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$DESKTOP_UPDATER"
+        rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_UPDATER"
         cat > "$DESKTOP_LAUNCHER" <<'LAUNCHER'
 #!/bin/zsh
 set -euo pipefail
 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
 LAUNCHER
         chmod +x "$DESKTOP_LAUNCHER" 2>/dev/null || print_note "Could not make the Desktop launcher executable."
+        cat > "$DESKTOP_UNINSTALLER" <<'UNINSTALLER'
+#!/bin/zsh
+set -euo pipefail
+curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | zsh
+UNINSTALLER
+        chmod +x "$DESKTOP_UNINSTALLER" 2>/dev/null || print_note "Could not make the Desktop uninstaller executable."
     else
-        print_note "Desktop folder not found, so shortcuts were not created."
+        print_note "Desktop folder not found, so the launcher and uninstaller were not created."
     fi
 
     if [[ $OPEN_AFTER_INSTALL -eq 1 ]]; then
@@ -266,6 +273,7 @@ $APP_NAME is ready.
 
 App:     $INSTALLED_APP
 Desktop: $DESKTOP_LAUNCHER
+Remove:  $DESKTOP_UNINSTALLER
 Log:     $LOG_FILE
 MESSAGE
         exit 0
@@ -304,6 +312,7 @@ $APP_NAME is ready.
 
 App:     $INSTALLED_APP
 Desktop: $DESKTOP_LAUNCHER
+Remove:  $DESKTOP_UNINSTALLER
 Log:     $LOG_FILE
 MESSAGE
 fi

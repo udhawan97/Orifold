@@ -25,6 +25,7 @@
 		8A1F027988EBF4B20A3AD22F /* PDFiumProcessingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F4A0911CD68D8A0B97F04D /* PDFiumProcessingEngine.swift */; };
 		976F39BDDA9E42A215D88353 /* WorkspaceDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04448B1CCE672C13D52392B1 /* WorkspaceDocument.swift */; };
 		97C573B73A6CC4FCA36ACFC6 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45D6F51A2DFB7D860374B43 /* SearchView.swift */; };
+		A11F9D7003D84B22A4C8701C /* PDFium in Frameworks */ = {isa = PBXBuildFile; productRef = A11F9D7103D84B22A4C8701C /* PDFium */; };
 		A702AC2A31C336379A406B19 /* PDFium in Frameworks */ = {isa = PBXBuildFile; productRef = B658BB444C31753D3E86321A /* PDFium */; };
 		B083EBE61135CF3C90CE7D3D /* GuidePopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10CDA157C78EF952ADF98CF9 /* GuidePopover.swift */; };
 		B30400477B2629A199CAE75B /* PasswordPromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B768FD261E14C648AC8312EF /* PasswordPromptView.swift */; };
@@ -86,6 +87,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		21C47910784E4441B567E2A3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A11F9D7003D84B22A4C8701C /* PDFium in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		494909A2D7E75FC4D938B701 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -242,6 +251,7 @@
 			buildPhases = (
 				FF8B4BBBDEE398F5BBC7FC2D /* Sources */,
 				0647DFD9DEBD810F772001BE /* Resources */,
+				21C47910784E4441B567E2A3 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -249,6 +259,7 @@
 			);
 			name = PDFold;
 			packageProductDependencies = (
+				A11F9D7103D84B22A4C8701C /* PDFium */,
 			);
 			productName = PDFold;
 			productReference = 7E5FBDD597A2A46452637450 /* PDFold.app */;
@@ -622,6 +633,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A11F9D7103D84B22A4C8701C /* PDFium */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PDFium;
+		};
 		B658BB444C31753D3E86321A /* PDFium */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PDFium;

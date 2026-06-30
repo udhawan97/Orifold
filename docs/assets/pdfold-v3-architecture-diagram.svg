@@ -1,6 +1,6 @@
 <svg width="1280" height="940" viewBox="0 0 1280 940" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">PDFold Technical Architecture</title>
-  <desc id="desc">Dark-mode technical architecture diagram showing the PDFold SwiftUI app surface, workspace state, PDFKit services, local persistence, exports, and release guardrails.</desc>
+  <title id="title">PDFold v3 Technical Architecture</title>
+  <desc id="desc">Dark-mode technical architecture diagram showing the PDFold SwiftUI app surface, workspace state, PDFium processing backend, PDFKit services, local persistence, exports, automatic update launcher, clean uninstall command, and release guardrails.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#070B14"/>
@@ -35,8 +35,8 @@
   <rect x="32" y="32" width="1216" height="876" rx="26" fill="url(#grid)"/>
   <rect x="32" y="32" width="1216" height="876" rx="26" stroke="#1F3147"/>
 
-  <text x="640" y="78" text-anchor="middle" class="title">PDFold Technical Architecture</text>
-  <text x="640" y="108" text-anchor="middle" class="subtitle">SwiftUI document app, observable workspace state, PDFKit processing, local persistence, and export guardrails.</text>
+  <text x="640" y="78" text-anchor="middle" class="title">PDFold v3 Technical Architecture</text>
+  <text x="640" y="108" text-anchor="middle" class="subtitle">SwiftUI document app, local PDFium validation, PDFKit composition, persistence, exports, and install lifecycle commands.</text>
 
   <g>
     <path d="M496 256 V272" class="flow"/>
@@ -99,17 +99,17 @@
   <g transform="translate(86 562)" filter="url(#shadow)">
     <rect width="820" height="126" rx="16" class="engineLayer"/>
     <rect width="5" height="126" rx="2.5" fill="#818CF8"/>
-    <text x="30" y="34" class="tag" fill="#C4B5FD">PDFKIT WORKFLOW SERVICES</text>
-    <text x="30" y="62" class="body">Import conversion, PDF composition, markup, page operations, password unlock, and artifact writers.</text>
+    <text x="30" y="34" class="tag" fill="#C4B5FD">PDF PROCESSING BACKEND</text>
+    <text x="30" y="62" class="body">PDFium validation, PDFKit fallback, import conversion, composition, markup, and artifact writers.</text>
     <g transform="translate(30 88)">
-      <rect x="0" y="0" width="174" height="28" rx="14" fill="#312E81" stroke="#818CF8"/>
-      <text x="87" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">DocumentImportConverter</text>
-      <rect x="186" y="0" width="112" height="28" rx="14" fill="#312E81" stroke="#818CF8"/>
-      <text x="242" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">PDFKitEngine</text>
-      <rect x="310" y="0" width="116" height="28" rx="14" fill="#312E81" stroke="#818CF8"/>
-      <text x="368" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">PDFAnnotation</text>
-      <rect x="438" y="0" width="92" height="28" rx="14" fill="#312E81" stroke="#818CF8"/>
-      <text x="484" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">PDFView</text>
+      <rect x="0" y="0" width="152" height="28" rx="14" fill="#312E81" stroke="#818CF8"/>
+      <text x="76" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">PDFProcessing</text>
+      <rect x="164" y="0" width="132" height="28" rx="14" fill="#312E81" stroke="#818CF8"/>
+      <text x="230" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">PDFiumBackend</text>
+      <rect x="308" y="0" width="124" height="28" rx="14" fill="#312E81" stroke="#818CF8"/>
+      <text x="370" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">PDFKitFallback</text>
+      <rect x="444" y="0" width="112" height="28" rx="14" fill="#312E81" stroke="#818CF8"/>
+      <text x="500" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">PDFKitEngine</text>
     </g>
   </g>
 
@@ -147,14 +147,14 @@
     </g>
 
     <rect x="24" y="428" width="192" height="206" rx="14" fill="#0B1220" stroke="#166534"/>
-    <text x="46" y="468" class="tag" fill="#86EFAC">LOCAL INSTALLER</text>
-    <text x="46" y="500" class="body">xcodebuild, signing, and</text>
-    <text x="46" y="522" class="body">Desktop launcher.</text>
+    <text x="46" y="468" class="tag" fill="#86EFAC">INSTALL LIFECYCLE</text>
+    <text x="46" y="500" class="body">One-line install, launch</text>
+    <text x="46" y="522" class="body">updates, and clean uninstall.</text>
     <g transform="translate(46 548)">
-      <rect x="0" y="0" width="98" height="26" rx="13" fill="#08251C" stroke="#166534"/>
-      <text x="49" y="18" text-anchor="middle" class="chip" fill="#86EFAC">xcodebuild</text>
-      <rect x="0" y="36" width="82" height="26" rx="13" fill="#08251C" stroke="#166534"/>
-      <text x="41" y="54" text-anchor="middle" class="chip" fill="#86EFAC">codesign</text>
+      <rect x="0" y="0" width="116" height="26" rx="13" fill="#08251C" stroke="#166534"/>
+      <text x="58" y="18" text-anchor="middle" class="chip" fill="#86EFAC">PDFold.command</text>
+      <rect x="0" y="36" width="116" height="26" rx="13" fill="#08251C" stroke="#166534"/>
+      <text x="58" y="54" text-anchor="middle" class="chip" fill="#86EFAC">Uninstall</text>
     </g>
   </g>
 </svg>

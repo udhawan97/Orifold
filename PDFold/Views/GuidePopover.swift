@@ -73,7 +73,7 @@ struct AppAboutPopover: View {
         VStack(alignment: .leading, spacing: .dsLG) {
             VStack(alignment: .leading, spacing: .dsXS) {
                 AppBrandLockup(iconSize: 40, titleSize: 15, subtitle: "A calmer way to assemble PDFs.")
-                Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.0")")
+                Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.0")")
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextTertiary)
                     .padding(.leading, 40 + .dsSM)

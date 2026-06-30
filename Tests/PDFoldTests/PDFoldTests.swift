@@ -159,6 +159,49 @@ final class PDFProcessingEngineTests: XCTestCase {
         XCTAssertEqual(viewModel.lastProcessingValidation?.pageCount, 1)
         XCTAssertEqual(processingEngine.validateCallCount, 1)
     }
+
+    func testProcessingValidationFailureDoesNotBlockWorkspaceReconstruction() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Fixture", pageTexts: ["validation"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let processingEngine = ThrowingProcessingEngine()
+
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            engine: PDFKitEngine(),
+            processingEngine: processingEngine
+        )
+
+        XCTAssertEqual(viewModel.memberDocuments.map(\.id), [fixture.member.id])
+        XCTAssertEqual(viewModel.pageCount, fixture.refs.count)
+        XCTAssertNil(viewModel.lastProcessingValidation)
+        XCTAssertEqual(processingEngine.validateCallCount, 1)
+    }
+
+    func testProcessingValidationFailureDoesNotBlockFileImport() throws {
+        let pdfData = try makePDF(pageTexts: ["import"]).dataRepresentation().unwrap()
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("pdf")
+        try pdfData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        let processingEngine = ThrowingProcessingEngine()
+        let viewModel = WorkspaceViewModel(
+            document: WorkspaceDocument(),
+            engine: PDFKitEngine(),
+            processingEngine: processingEngine
+        )
+
+        viewModel.importFiles(urls: [tempURL])
+
+        XCTAssertNil(viewModel.importError)
+        XCTAssertEqual(viewModel.memberDocuments.count, 1)
+        XCTAssertEqual(viewModel.pageCount, 1)
+        XCTAssertNil(viewModel.lastProcessingValidation)
+        XCTAssertEqual(processingEngine.validateCallCount, 1)
+    }
 }
 
 final class WorkspaceDocumentTests: XCTestCase {
@@ -326,6 +369,16 @@ private final class RecordingProcessingEngine: PDFProcessingEngine {
     func validatePDF(data: Data, password: String?) throws -> PDFProcessingValidation {
         validateCallCount += 1
         return validation
+    }
+}
+
+private final class ThrowingProcessingEngine: PDFProcessingEngine {
+    let name = "Throwing"
+    private(set) var validateCallCount = 0
+
+    func validatePDF(data: Data, password: String?) throws -> PDFProcessingValidation {
+        validateCallCount += 1
+        throw PDFProcessingError.unreadableDocument
     }
 }
 

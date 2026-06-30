@@ -1,6 +1,6 @@
 <svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">PDFold Product Flow</title>
-  <desc id="desc">Dark-mode product flow diagram showing source files, the PDFold local workspace, and exported artifacts.</desc>
+  <title id="title">PDFold v3 Product Flow</title>
+  <desc id="desc">Dark-mode product flow diagram showing source files, local PDF processing validation, the PDFold workspace, exported artifacts, and v3 install lifecycle commands.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#070B14"/>
@@ -41,8 +41,8 @@
   <rect x="32" y="32" width="1216" height="656" rx="26" fill="url(#grid)"/>
   <rect x="32" y="32" width="1216" height="656" rx="26" stroke="#1F3147"/>
 
-  <text x="640" y="82" text-anchor="middle" class="title">PDFold Product Flow</text>
-  <text x="640" y="112" text-anchor="middle" class="subtitle">Import files, assemble a local workspace, and export clean artifacts.</text>
+  <text x="640" y="82" text-anchor="middle" class="title">PDFold v3 Product Flow</text>
+  <text x="640" y="112" text-anchor="middle" class="subtitle">Validate PDFs locally, assemble a workspace, export clean artifacts, and keep installs tidy.</text>
 
   <g transform="translate(86 160)" filter="url(#shadow)">
     <rect width="318" height="360" rx="20" class="card"/>
@@ -51,7 +51,8 @@
     <text x="32" y="86" class="step">Source files</text>
     <text x="32" y="124" class="body">Bring in user-selected PDFs,</text>
     <text x="32" y="146" class="body">Office documents, HTML files,</text>
-    <text x="32" y="168" class="body">text, data, and images.</text>
+    <text x="32" y="168" class="body">text, data, images, and local</text>
+    <text x="32" y="190" class="body">PDFium validation checks.</text>
 
     <g transform="translate(32 218)">
       <rect x="0" y="0" width="46" height="30" rx="15" fill="#082F49" stroke="#38BDF8"/>
@@ -157,6 +158,6 @@
   <g transform="translate(248 596)">
     <rect width="784" height="44" rx="22" fill="#08251C" stroke="#166534"/>
     <circle cx="28" cy="22" r="6" fill="#22C55E"/>
-    <text x="48" y="27" class="caption">Local-first: documents, metadata, markup, and exports stay on your Mac.</text>
+    <text x="48" y="27" class="caption">v3: local PDF backend, automatic launch updates, and clean uninstall commands.</text>
   </g>
 </svg>

@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">
   &nbsp;&nbsp;
-  <img alt="Version 2.0" src="https://img.shields.io/badge/version-2.0-2563EB?style=for-the-badge">
+  <img alt="Version 3.0" src="https://img.shields.io/badge/version-3.0-2563EB?style=for-the-badge">
   &nbsp;&nbsp;
   <img alt="Zero compile installer" src="https://img.shields.io/badge/install-zero%20compile-10B981?style=for-the-badge">
 </p>
@@ -25,7 +25,7 @@
 <p align="center">
   <img alt="SwiftUI" src="https://img.shields.io/badge/interface-SwiftUI-0A84FF?style=for-the-badge">
   &nbsp;&nbsp;
-  <img alt="PDFKit" src="https://img.shields.io/badge/engine-PDFKit-10B981?style=for-the-badge">
+  <img alt="PDFKit plus PDFium" src="https://img.shields.io/badge/engine-PDFKit%20%2B%20PDFium-10B981?style=for-the-badge">
   &nbsp;&nbsp;
   <img alt="One line setup" src="https://img.shields.io/badge/setup-one%20line-7C3AED?style=for-the-badge">
 </p>
@@ -62,7 +62,7 @@ Paste this into Terminal:
 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
 ```
 
-The installer downloads the latest prebuilt app, places it in `~/Applications/PDFold.app`, and adds a Desktop launcher, **PDFold.command**, that checks for updates each time it opens the app.
+The installer downloads the latest prebuilt app, places it in `~/Applications/PDFold.app`, and adds Desktop commands for launching/updating and clean uninstall.
 
 No Xcode. No GitHub account. No compile step. Just paste, install, and get back to the documents.
 
@@ -90,7 +90,7 @@ Everything happens on your Mac. No account, no upload queue, and no mystery clou
 | 📥 | Broad import support | Handles PDFs, Word documents, HTML, Markdown, text files, structured data, and images |
 | 🧭 | Real workflow tools | Combine, reorder, rotate, delete, annotate, tag, comment, sign, search, save, print, and export |
 | 🔒 | Local-first privacy | Files stay on the user's Mac instead of being uploaded to a service |
-| ⚡ | Simple installation | One pasted command installs the prebuilt app and creates Desktop shortcuts |
+| ⚡ | Simple installation | One pasted command installs the prebuilt app and creates Desktop launch/update and uninstall commands |
 | 🧱 | Release-minded engineering | Includes installer automation, crash hardening, import safety, export checks, and CI coverage |
 
 ## Who This Is For
@@ -99,7 +99,7 @@ Everything happens on your Mac. No account, no upload queue, and no mystery clou
 | --- | --- | --- |
 | 📎 | People with document chaos | Pull scattered files into one workspace, clean them up, and export something usable |
 | 🧑‍💼 | Recruiters and hiring teams | A polished desktop product with clear user empathy, practical scope, and visible product judgment |
-| 🧑‍💻 | Engineers | SwiftUI, PDFKit, file conversion, document persistence, undo-aware page operations, export pipelines, sandboxing, and installer automation |
+| 🧑‍💻 | Engineers | SwiftUI, PDFKit, PDFium-backed validation, file conversion, document persistence, undo-aware page operations, export pipelines, sandboxing, and installer automation |
 
 ## What It Does
 
@@ -113,12 +113,12 @@ Everything happens on your Mac. No account, no upload queue, and no mystery clou
 | 💾 | Save | Persistent `.pdfoldproj` workspaces with metadata, comments, tags, signatures, page order, and source PDF data |
 | 📤 | Export | PDF, Word `.docx`, Markdown `.md`, plain text, HTML, PNG pages, JPEG pages, or print-ready output |
 | 🔑 | Unlock | Password-protected PDF prompt using native PDFKit behavior |
-| 🛡️ | Protect | Local-first design with sandboxed file access and no network upload pipeline |
+| 🛡️ | Protect | Local-first design with sandboxed file access, local PDF validation, and no document upload pipeline |
 
 ## Product Flow
 
 <p align="center">
-  <img src="docs/assets/pdfold-v2-workspace-diagram.svg" alt="PDFold v2 workspace overview showing imports, native workspace tools, markup, metadata, and export artifacts">
+  <img src="docs/assets/pdfold-v3-workspace-diagram.svg" alt="PDFold workspace overview showing imports, native workspace tools, markup, metadata, update flow, uninstall command, and export artifacts">
 </p>
 
 <p align="center">
@@ -132,7 +132,7 @@ flowchart LR
     Files["Source files<br/>PDF, Word, HTML, Markdown, text, images"]
     UI["SwiftUI app<br/>sidebar, reader, inspector"]
     State["Workspace state<br/>documents, pages, tags, comments"]
-    Engine["PDFKit engine<br/>convert, compose, annotate"]
+    Engine["Processing backend<br/>PDFium validate, PDFKit compose"]
     LocalState["Local document state<br/>metadata and PDF data"]
     Export["Export artifacts<br/>PDF, DOCX, MD, TXT, HTML, PNG, JPG"]
 
@@ -144,7 +144,7 @@ flowchart LR
 ```
 
 <p align="center">
-  <img src="docs/assets/pdfold-v2-architecture-diagram.svg" alt="PDFold v2 architecture diagram showing the SwiftUI app layer, PDFKit document engine, local artifacts, installer path, and stability guards">
+  <img src="docs/assets/pdfold-v3-architecture-diagram.svg" alt="PDFold architecture diagram showing the SwiftUI app layer, PDFKit document engine, local artifacts, update and uninstall commands, and stability guards">
 </p>
 
 <p align="center">
@@ -154,7 +154,7 @@ flowchart LR
 |  | Layer | Responsibility |
 | --- | --- | --- |
 | 🖥️ | SwiftUI app | Presents the document workspace, sidebar, reader, annotation tools, search, inspector, and export actions |
-| ⚙️ | Document engine | Converts imports, composes PDFs, manages page state, preserves annotations, and writes export formats |
+| ⚙️ | Document engine | Converts imports, validates PDFs through the processing backend, composes PDFs, manages page state, preserves annotations, and writes export formats |
 | 💾 | Local storage | Saves workspace metadata, page order, source PDF data, comments, tags, signatures, and generated output |
 
 ## Why It Matters
@@ -167,18 +167,28 @@ For reviewers, the interesting part is not just that PDFold works. It is that th
 
 ## Release Status
 
-PDFold v2 is a release-hardened local-first macOS app for collecting scattered documents, turning them into one editable workspace, marking them up, tracking context, and exporting clean deliverables.
+PDFold v3 is a release-hardened local-first macOS app for collecting scattered documents, turning them into one editable workspace, marking them up, tracking context, and exporting clean deliverables.
 
 |  | Detail | Status |
 | --- | --- | --- |
-| 🚢 | Version | `2.0` |
-| 🧾 | App metadata | `CFBundleShortVersionString` `2.0`, `CFBundleVersion` `2` |
+| 🚢 | Version | `3.0` |
+| 🧾 | App metadata | `CFBundleShortVersionString` `3.0`, `CFBundleVersion` `3` |
 | ⚡ | Install path | One-line installer downloads the latest prebuilt GitHub release |
 | 🧪 | Smoke test | `./scripts/install-mac.sh --no-open` |
 | 🔐 | Signing | Local ad-hoc signing for source and release packaging |
 | 📦 | Distribution style | Prebuilt release zip, with source build fallback for developers |
 
-### What Changed In v2
+### What Changed In v3
+
+|  | Area | Release Update |
+| --- | --- | --- |
+| 🔄 | Automatic updates | The Desktop **PDFold.command** launcher checks the latest GitHub release every time it opens the app |
+| 🧹 | Clean uninstall | The installer now creates **Uninstall PDFold.command** for removing the app, generated commands, installer cache, and PDFold app data |
+| 🧪 | PDF processing backend | PDF imports pass through an injectable `PDFProcessingEngine`, with PDFium validation and a PDFKit fallback path |
+| 🧭 | Simpler setup | The old separate update command is treated as a legacy artifact and cleaned up by install/update/uninstall scripts |
+| 📝 | Release docs | README setup, update, uninstall, quality, and troubleshooting guidance now match the v3 install flow |
+
+### Carried Forward From v2
 
 |  | Area | Release Hardening |
 | --- | --- | --- |
@@ -201,7 +211,7 @@ Paste one command into Terminal:
 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
 ```
 
-The installer downloads the latest prebuilt `PDFold.zip` from GitHub Releases, installs `PDFold.app` to `~/Applications`, creates a self-updating Desktop launcher, removes download quarantine metadata, and opens the app.
+The installer downloads the latest prebuilt `PDFold.zip` from GitHub Releases, installs `PDFold.app` to `~/Applications`, creates self-updating launch and uninstall Desktop commands, removes download quarantine metadata, and opens the app.
 
 The normal path does not require Xcode, Apple's Command Line Tools, a package manager, or a GitHub account. The installer is intentionally uneventful, which is exactly how installers should behave.
 
@@ -228,6 +238,16 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | 
 ```
 
 If PDFold is already installed, the updater closes the running app if needed, replaces `~/Applications/PDFold.app`, refreshes the Desktop launcher, removes quarantine metadata, and opens the updated app.
+
+## Uninstalling The App
+
+Double-click **Uninstall PDFold.command** on the Desktop to remove the installed app, generated Desktop commands, installer cache, and PDFold app data.
+
+Saved `.pdfoldproj` workspace files are not removed. To keep app support, preferences, caches, and sandbox data too, run:
+
+```zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
+```
 
 <details>
 <summary>Developer source update</summary>
@@ -286,12 +306,15 @@ PDFold/
 scripts/
   install-mac.command  Compatibility double-click installer
   install-mac.sh       Release-first installer, source builder, and release packager
+  uninstall-mac.sh     Clean uninstaller for installed app artifacts and PDFold app data
 install.sh
   Hosted one-line bootstrap
 Install or Update PDFold.app
   Finder installer/updater that bypasses Terminal shell startup
 Install or Update PDFold.command
   Compatibility Terminal installer/updater
+Uninstall PDFold.command
+  Compatibility Terminal uninstaller
 ```
 
 ## Developer Notes
@@ -324,10 +347,11 @@ Install from the current source checkout without opening the app:
 
 PDFold is local-first by design. Documents are opened, edited, saved, and exported on your machine.
 
-The app uses macOS sandboxing and file access through user-selected documents. In plain English: PDFold works with the files you hand it, not your entire digital attic.
+The app uses macOS sandboxing and file access through user-selected documents. Its new PDF processing backend runs locally for import validation; it is not a remote upload service. In plain English: PDFold works with the files you hand it, not your entire digital attic.
 
-Release v2 also includes practical guardrails around failure-prone paths:
+Release v3 also includes practical guardrails around failure-prone paths:
 
+- A supplemental PDFium processing backend performs a non-blocking validation smoke check before PDFKit proceeds with the normal import path.
 - Files larger than 512 MB are rejected before loading to avoid memory pressure from accidental giant imports.
 - PDF serialization failures preserve existing package data or report an actionable import error instead of writing broken workspace state.
 - Malformed legacy ink annotations are rebuilt before display so PDFKit does not crash while drawing them.
@@ -353,9 +377,10 @@ Before shipping a build, verify both the developer path and the human-with-docum
 |  | Check | What To Verify |
 | --- | --- | --- |
 | ✅ | Build | `swift build` completes |
-| 🧪 | Installer smoke test | `./scripts/install-mac.sh --no-open` installs the release or builds, signs, installs, and refreshes launchers |
+| 🧪 | Installer smoke test | `./scripts/install-mac.sh --no-open` installs the release or builds, signs, installs, and refreshes Desktop commands |
 | 📦 | Release package | `./scripts/install-mac.sh --package-only --package /tmp/PDFold.zip` creates the release artifact |
 | 📥 | Import | Drag-and-drop works with supported file types |
+| 🧪 | Processing backend | PDFium validation runs when available, and PDFKit fallback remains usable |
 | 🔑 | Protected PDFs | Password-protected PDFs show the unlock flow |
 | 💾 | Persistence | Saved workspaces reopen with metadata, markup, comments, signatures, and document data intact |
 | 🔎 | Search | Search results navigate across the combined workspace |
@@ -363,17 +388,20 @@ Before shipping a build, verify both the developer path and the human-with-docum
 | ✍️ | Annotation | Highlight, note, editable text, ink, underline, strikeout, and undo behavior work |
 | 🗂️ | Pages | Page rotation, deletion, and reordering stay aligned with navigation and export |
 | 📤 | Export | PDF, Word, Markdown, text, HTML, PNG, and JPEG exports complete successfully |
-| 🚀 | Launch | Desktop launcher updates and opens the installed app |
+| 🚀 | Launch/update | Desktop launcher updates and opens the installed app |
+| 🧹 | Uninstall | `./scripts/uninstall-mac.sh --help` prints usage and the Desktop uninstaller removes install artifacts |
 
-For v2 release preparation, the local verification pass should include:
+For v3 release preparation, the local verification pass should include:
 
 ```zsh
 plutil -lint PDFold/Resources/Info.plist
 plutil -lint PDFold/Resources/PDFold.entitlements
 zsh -n install.sh
 zsh -n scripts/install-mac.sh
+zsh -n scripts/uninstall-mac.sh
 zsh -n scripts/install-mac.command
 zsh -n "Install or Update PDFold.command"
+zsh -n "Uninstall PDFold.command"
 plutil -lint "Install or Update PDFold.app/Contents/Info.plist"
 swift build
 ./scripts/install-mac.sh --package-only --package /tmp/PDFold.zip
@@ -413,7 +441,7 @@ Use the Quick Start command from Terminal, or download the repository first and 
 Open Terminal in the project folder and run:
 
 ```zsh
-chmod +x "Install or Update PDFold.command" "Install or Update PDFold.app/Contents/MacOS/PDFoldInstaller" scripts/install-mac.sh scripts/install-mac.command
+chmod +x "Install or Update PDFold.command" "Uninstall PDFold.command" "Install or Update PDFold.app/Contents/MacOS/PDFoldInstaller" scripts/install-mac.sh scripts/install-mac.command scripts/uninstall-mac.sh
 ```
 
 Then double-click `Install or Update PDFold.app` again from Finder.
@@ -430,7 +458,7 @@ Install Apple's free Command Line Tools from the macOS prompt, then run the inst
 <details>
 <summary>The Desktop launcher does not open the app</summary>
 
-Run the installer again. It refreshes `~/Applications/PDFold.app` and recreates the Desktop shortcuts.
+Run the installer again. It refreshes `~/Applications/PDFold.app` and recreates the Desktop launcher.
 </details>
 
 <details>
