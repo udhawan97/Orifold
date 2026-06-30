@@ -42,10 +42,20 @@ enum DocumentImportConverter {
         case unsupportedType
         case unreadableDocument
         case renderingFailed
+        case renderTimedOut
         case fileTooLarge(Int64)
+        case fileTypeTooLarge(typeDescription: String, actualBytes: Int64, limitBytes: Int64)
+        case htmlRenderedTooLarge(pageEstimate: Int, maxPages: Int)
+        case documentRenderedTooLarge(maxPages: Int)
     }
 
     static let maxImportBytes: Int64 = 512 * 1024 * 1024
+    private static let maxHTMLImportBytes: Int64 = 25 * 1024 * 1024
+    private static let maxTextImportBytes: Int64 = 50 * 1024 * 1024
+    private static let maxImageImportBytes: Int64 = 100 * 1024 * 1024
+    private static let maxRichDocumentImportBytes: Int64 = 100 * 1024 * 1024
+    static let maxRenderedHTMLPages = 300
+    static let maxRenderedTextPages = 500
 
     private static let byteCountFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -61,10 +71,20 @@ enum DocumentImportConverter {
             return "The file could not be read. It may be corrupt, encrypted, or incomplete."
         case ConversionError.renderingFailed:
             return "The file opened, but PDFold could not render it into a PDF."
+        case ConversionError.renderTimedOut:
+            return "The file took too long to render. Try exporting it to PDF from its original app, then import the PDF."
         case ConversionError.fileTooLarge(let byteCount):
             let actual = byteCountFormatter.string(fromByteCount: byteCount)
             let limit = byteCountFormatter.string(fromByteCount: maxImportBytes)
             return "The file is \(actual), which is larger than the \(limit) import safety limit."
+        case ConversionError.fileTypeTooLarge(let typeDescription, let actualBytes, let limitBytes):
+            let actual = byteCountFormatter.string(fromByteCount: actualBytes)
+            let limit = byteCountFormatter.string(fromByteCount: limitBytes)
+            return "This \(typeDescription) file is \(actual), which is larger than PDFold can safely convert directly (\(limit)). Try exporting it to PDF first, then import the PDF."
+        case ConversionError.htmlRenderedTooLarge(let pageEstimate, let maxPages):
+            return "This HTML file would render to about \(pageEstimate) pages, which is over PDFold's \(maxPages)-page HTML conversion limit. Try printing or exporting it to PDF from a browser, then import the PDF."
+        case ConversionError.documentRenderedTooLarge(let maxPages):
+            return "This file would render to more than \(maxPages) pages, so PDFold stopped the import before creating a partial PDF. Try exporting it to PDF first, then import the PDF."
         default:
             return "The file could not be opened: \(error.localizedDescription)"
         }
@@ -72,9 +92,8 @@ enum DocumentImportConverter {
 
     static func pdfDocument(from url: URL) throws -> PDFDocument {
         let type = UTType(filenameExtension: url.pathExtension) ?? .data
-        if let byteCount = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
-           Int64(byteCount) > maxImportBytes {
-            throw ConversionError.fileTooLarge(Int64(byteCount))
+        if let byteCount = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+            try validateByteCount(Int64(byteCount), contentType: type)
         }
         let data = try Data(contentsOf: url)
         return try pdfDocument(
@@ -88,6 +107,8 @@ enum DocumentImportConverter {
     }
 
     static func pdfDocument(from data: Data, contentType: UTType, filename: String, baseURL: URL?) throws -> PDFDocument {
+        try validateByteCount(Int64(data.count), contentType: contentType)
+
         if contentType.conforms(to: .pdf) {
             guard let document = PDFDocument(data: data) else { throw ConversionError.unreadableDocument }
             return document
@@ -120,9 +141,40 @@ enum DocumentImportConverter {
         return try renderAttributedString(attributedString, title: filename)
     }
 
+    private static func validateByteCount(_ byteCount: Int64, contentType: UTType) throws {
+        guard byteCount <= maxImportBytes else {
+            throw ConversionError.fileTooLarge(byteCount)
+        }
+
+        let typedLimit: (description: String, bytes: Int64)?
+        if contentType.conforms(to: .html) {
+            typedLimit = ("HTML", maxHTMLImportBytes)
+        } else if contentType.conforms(to: .image) {
+            typedLimit = ("image", maxImageImportBytes)
+        } else if contentType.conforms(to: .docx) || contentType.conforms(to: .wordDoc) || contentType.conforms(to: .odt) || contentType.conforms(to: .rtf) {
+            typedLimit = ("document", maxRichDocumentImportBytes)
+        } else if isPlainTextLike(contentType) || contentType.conforms(to: .markdown) {
+            typedLimit = ("text", maxTextImportBytes)
+        } else {
+            typedLimit = nil
+        }
+
+        if let typedLimit, byteCount > typedLimit.bytes {
+            throw ConversionError.fileTypeTooLarge(
+                typeDescription: typedLimit.description,
+                actualBytes: byteCount,
+                limitBytes: typedLimit.bytes
+            )
+        }
+    }
+
     private static func renderHTML(_ data: Data, title: String, baseURL: URL?) throws -> PDFDocument {
         let html = try decodeText(data)
-        let pdfData = try HTMLPDFRenderer.render(html: html, baseURL: baseURL)
+        let pdfData = try HTMLPDFRenderer.render(
+            html: html,
+            baseURL: baseURL,
+            maxPages: maxRenderedHTMLPages
+        )
         guard let document = PDFDocument(data: pdfData) else { throw ConversionError.renderingFailed }
         document.documentAttributes = [
             PDFDocumentAttribute.titleAttribute: URL(fileURLWithPath: title).deletingPathExtension().lastPathComponent
@@ -242,7 +294,9 @@ enum DocumentImportConverter {
 
             pageIndex += 1
             if NSMaxRange(glyphRange) >= layoutManager.numberOfGlyphs { break }
-            if pageIndex >= 500 { break }
+            if pageIndex >= maxRenderedTextPages {
+                throw ConversionError.documentRenderedTooLarge(maxPages: maxRenderedTextPages)
+            }
         }
 
         output.documentAttributes = [
@@ -335,19 +389,27 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
     private let html: String
     private let baseURL: URL?
     private let timeout: TimeInterval
+    private let maxPages: Int
     private let webView: WKWebView
     private var state = RenderState.pending
 
-    static func render(html: String, baseURL: URL?, timeout: TimeInterval = 30) throws -> Data {
+    private static let pageSize = CGSize(width: 612, height: 792)
+
+    static func render(
+        html: String,
+        baseURL: URL?,
+        timeout: TimeInterval = 30,
+        maxPages: Int
+    ) throws -> Data {
         if Thread.isMainThread {
-            return try renderOnMainThread(html: html, baseURL: baseURL, timeout: timeout)
+            return try renderOnMainThread(html: html, baseURL: baseURL, timeout: timeout, maxPages: maxPages)
         }
 
         var result: Result<Data, Error>?
         let semaphore = DispatchSemaphore(value: 0)
         DispatchQueue.main.async {
             result = Result {
-                try renderOnMainThread(html: html, baseURL: baseURL, timeout: timeout)
+                try renderOnMainThread(html: html, baseURL: baseURL, timeout: timeout, maxPages: maxPages)
             }
             semaphore.signal()
         }
@@ -358,15 +420,16 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
         return try result.get()
     }
 
-    private static func renderOnMainThread(html: String, baseURL: URL?, timeout: TimeInterval) throws -> Data {
-        let renderer = HTMLPDFRenderer(html: html, baseURL: baseURL, timeout: timeout)
+    private static func renderOnMainThread(html: String, baseURL: URL?, timeout: TimeInterval, maxPages: Int) throws -> Data {
+        let renderer = HTMLPDFRenderer(html: html, baseURL: baseURL, timeout: timeout, maxPages: maxPages)
         return try renderer.render()
     }
 
-    private init(html: String, baseURL: URL?, timeout: TimeInterval) {
+    private init(html: String, baseURL: URL?, timeout: TimeInterval, maxPages: Int) {
         self.html = html
         self.baseURL = baseURL
         self.timeout = timeout
+        self.maxPages = maxPages
 
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
@@ -374,7 +437,7 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
 
-        webView = WKWebView(frame: CGRect(origin: .zero, size: CGSize(width: 612, height: 792)), configuration: configuration)
+        webView = WKWebView(frame: CGRect(origin: .zero, size: Self.pageSize), configuration: configuration)
         webView.setValue(false, forKey: "drawsBackground")
         super.init()
         webView.navigationDelegate = self
@@ -386,7 +449,7 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
         let deadline = Date().addingTimeInterval(timeout)
         while case .pending = state {
             if Date() >= deadline {
-                throw DocumentImportConverter.ConversionError.renderingFailed
+                throw DocumentImportConverter.ConversionError.renderTimedOut
             }
             RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
         }
@@ -403,30 +466,54 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         let script = """
-        [Math.max(document.documentElement.scrollWidth, document.body.scrollWidth, 612),
-         Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, 792)]
+        (() => {
+          const style = document.createElement('style');
+          style.textContent = `
+            html, body { box-sizing: border-box; max-width: 612px; overflow-wrap: anywhere; }
+            *, *::before, *::after { box-sizing: inherit; }
+            body { margin: 0; width: 612px; }
+            img, svg, canvas, video, iframe, table { max-width: 100%; }
+            pre, code { white-space: pre-wrap; overflow-wrap: anywhere; }
+          `;
+          document.head.appendChild(style);
+          document.documentElement.style.width = '612px';
+          document.body.style.width = '612px';
+          return Math.max(
+            document.documentElement.scrollHeight,
+            document.body.scrollHeight,
+            792
+          );
+        })()
         """
         webView.evaluateJavaScript(script) { [weak self] result, error in
             if let error {
                 self?.state = .failed(error)
                 return
             }
+            guard let self else { return }
 
-            let sizeValues = result as? [Any] ?? []
-            let width = max((sizeValues.first as? NSNumber)?.doubleValue ?? 612, 612)
-            let height = max((sizeValues.dropFirst().first as? NSNumber)?.doubleValue ?? 792, 792)
-            webView.frame = CGRect(origin: .zero, size: CGSize(width: width, height: height))
+            let height = max((result as? NSNumber)?.doubleValue ?? Double(Self.pageSize.height), Double(Self.pageSize.height))
+            let pageEstimate = Int(ceil(height / Double(Self.pageSize.height)))
+            guard pageEstimate <= self.maxPages else {
+                self.state = .failed(DocumentImportConverter.ConversionError.htmlRenderedTooLarge(
+                    pageEstimate: pageEstimate,
+                    maxPages: self.maxPages
+                ))
+                return
+            }
+
+            webView.frame = CGRect(origin: .zero, size: CGSize(width: Self.pageSize.width, height: height))
 
             let configuration = WKPDFConfiguration()
             configuration.rect = webView.bounds
             webView.createPDF(configuration: configuration) { result in
                 switch result {
                 case .success(let data) where !data.isEmpty:
-                    self?.state = .succeeded(data)
+                    self.state = .succeeded(data)
                 case .success:
-                    self?.state = .failed(DocumentImportConverter.ConversionError.renderingFailed)
+                    self.state = .failed(DocumentImportConverter.ConversionError.renderingFailed)
                 case .failure(let error):
-                    self?.state = .failed(error)
+                    self.state = .failed(error)
                 }
             }
         }

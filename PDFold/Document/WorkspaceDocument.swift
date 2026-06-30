@@ -93,10 +93,14 @@ final class WorkspaceDocument: ReferenceFileDocument {
             filename: filename,
             baseURL: nil
         )
-        importPDFDocument(pdf, filename: filename, fallbackData: data)
+        try importPDFDocument(pdf, filename: filename)
     }
 
-    private func importPDFDocument(_ pdf: PDFDocument, filename: String, fallbackData: Data) {
+    private func importPDFDocument(_ pdf: PDFDocument, filename: String) throws {
+        guard let pdfData = pdf.dataRepresentation() else {
+            throw DocumentImportConverter.ConversionError.renderingFailed
+        }
+
         let displayName = URL(fileURLWithPath: filename).deletingPathExtension().lastPathComponent
         var member = MemberDocument(displayName: displayName, sourcePDFRef: filename)
         let pageCount = pdf.pageCount
@@ -106,7 +110,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
         workspace.title = displayName.isEmpty ? "Untitled Workspace" : displayName
         workspace.documents = [member]
         workspace.pageOrder = refs
-        memberPDFData[member.id] = pdf.dataRepresentation() ?? fallbackData
+        memberPDFData[member.id] = pdfData
     }
 
     // MARK: - Snapshot (called on main thread before write)
