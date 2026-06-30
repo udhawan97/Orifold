@@ -217,6 +217,12 @@ The normal path does not require Xcode, Apple's Command Line Tools, a package ma
 
 Important release note: the zero-compile installer depends on a published GitHub release containing `PDFold.zip`. If no prebuilt release is available, the installer falls back to a source build and macOS may ask for Apple's free Command Line Tools.
 
+For detailed install diagnostics, run the same command with verbose logging enabled:
+
+```zsh
+PDFOLD_INSTALL_VERBOSE=1 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
+```
+
 <details>
 <summary>Developer source install</summary>
 
@@ -262,6 +268,7 @@ Useful terminal options:
 ```zsh
 ./scripts/install-mac.sh --clean
 ./scripts/install-mac.sh --no-open
+./scripts/install-mac.sh --verbose
 ./scripts/install-mac.sh --help
 ```
 
@@ -459,6 +466,12 @@ Install Apple's free Command Line Tools from the macOS prompt, then run the inst
 <summary>The Desktop launcher does not open the app</summary>
 
 Run the installer again. It refreshes `~/Applications/PDFold.app` and recreates the Desktop launcher.
+
+For more detail, run the installer with verbose logging:
+
+```zsh
+PDFOLD_INSTALL_VERBOSE=1 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
+```
 </details>
 
 <details>
@@ -486,10 +499,12 @@ For a fully fresh developer source build:
 
 Open `.build/install.log` in the project folder. It contains the latest installer/build output.
 
+When using the README install command, the prebuilt release attempt is also logged at `~/.pdfold/prebuilt-install.log`. If PDFold opens and immediately exits, the installer records recent macOS launch diagnostics in the install log before failing.
+
 You can also run the installer from Terminal to keep the output visible:
 
 ```zsh
-./scripts/install-mac.sh
+./scripts/install-mac.sh --verbose
 ```
 </details>
 
