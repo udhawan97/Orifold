@@ -8,6 +8,7 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
     case pdf
     case word
     case text
+    case markdown
     case html
     case png
     case jpeg
@@ -19,6 +20,7 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
         case .pdf: return "PDF (.pdf)"
         case .word: return "Word (.docx)"
         case .text: return "Text (.txt)"
+        case .markdown: return "Markdown (.md)"
         case .html: return "HTML (.html)"
         case .png: return "PNG Images (.png)"
         case .jpeg: return "JPEG Images (.jpg)"
@@ -30,6 +32,7 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
         case .pdf: return "pdf"
         case .word: return "docx"
         case .text: return "txt"
+        case .markdown: return "md"
         case .html: return "html"
         case .png: return "png"
         case .jpeg: return "jpg"
@@ -41,6 +44,7 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
         case .pdf: return .pdf
         case .word: return UTType(filenameExtension: "docx") ?? .data
         case .text: return .plainText
+        case .markdown: return UTType(filenameExtension: "md") ?? .plainText
         case .html: return .html
         case .png: return .png
         case .jpeg: return .jpeg
@@ -50,7 +54,7 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
     var exportsDirectory: Bool {
         switch self {
         case .png, .jpeg: return true
-        case .pdf, .word, .text, .html: return false
+        case .pdf, .word, .text, .markdown, .html: return false
         }
     }
 }
@@ -743,6 +747,8 @@ final class WorkspaceViewModel {
             exportWordDocument()
         case .text:
             exportPlainText()
+        case .markdown:
+            exportMarkdown()
         case .html:
             exportHTML()
         case .png, .jpeg:
@@ -782,6 +788,14 @@ final class WorkspaceViewModel {
             return
         }
         saveData(data, as: .text)
+    }
+
+    private func exportMarkdown() {
+        guard let data = markdownForDocumentExport().data(using: .utf8) else {
+            exportError = ExportError(message: "PDFold could not encode the Markdown export.")
+            return
+        }
+        saveData(data, as: .markdown)
     }
 
     private func exportHTML() {
@@ -864,6 +878,25 @@ final class WorkspaceViewModel {
             "\(member.displayName)\n\(String(repeating: "=", count: max(3, member.displayName.count)))\n\n\(text(from: pdf))"
         }
         .joined(separator: "\n\n")
+    }
+
+    private func markdownForDocumentExport() -> String {
+        let title = markdownHeadingEscaped(document.workspace.title)
+        let body = loadedPDFs.map { member, pdf in
+            let extractedText = text(from: pdf)
+            return """
+            ## \(markdownHeadingEscaped(member.displayName))
+
+            \(extractedText.isEmpty ? "_No extractable text._" : extractedText)
+            """
+        }
+        .joined(separator: "\n\n")
+
+        return """
+        # \(title)
+
+        \(body)
+        """
     }
 
     private func htmlForDocumentExport() -> String {
@@ -952,9 +985,13 @@ final class WorkspaceViewModel {
             return bitmap.representation(using: .png, properties: [:])
         case .jpeg:
             return bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.9])
-        case .pdf, .word, .text, .html:
+        case .pdf, .word, .text, .markdown, .html:
             return nil
         }
+    }
+
+    private func markdownHeadingEscaped(_ value: String) -> String {
+        value.replacingOccurrences(of: "#", with: "\\#")
     }
 
     private func htmlEscaped(_ value: String) -> String {

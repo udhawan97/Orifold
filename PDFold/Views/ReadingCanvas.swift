@@ -95,12 +95,12 @@ private struct BottomBarBrand: View {
     var body: some View {
         HStack(spacing: .dsXS) {
             AppIconMark(size: 16)
-            Text("PDFold workspace")
+            Text("PDFold v2 workspace")
                 .font(.system(size: 11, weight: .medium, design: .serif))
                 .foregroundStyle(Color.dsTextTertiary)
                 .lineLimit(1)
         }
-        .accessibilityLabel("PDFold workspace")
+        .accessibilityLabel("PDFold version 2 workspace")
     }
 }
 
@@ -390,56 +390,81 @@ final class PDFoldPDFView: PDFView {
 final class NoteEditorViewController: NSViewController {
     private let annotation: PDFAnnotation
     private weak var textView: NSTextView?
+    private var originalAnnotationFontColor: NSColor?
     private var isFreeTextAnnotation: Bool { annotation.type == "FreeText" }
 
     init(annotation: PDFAnnotation) {
         self.annotation = annotation
+        self.originalAnnotationFontColor = annotation.fontColor
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { nil }
 
     override func loadView() {
-        let editorWidth = isFreeTextAnnotation ? max(260, min(420, annotation.bounds.width * 1.8)) : 240
-        let editorHeight: CGFloat = isFreeTextAnnotation ? 128 : 160
-        let footerHeight: CGFloat = 36
-        let textHeight = editorHeight - footerHeight
+        let editorWidth = isFreeTextAnnotation ? max(300, min(460, annotation.bounds.width * 2.0)) : 280
+        let editorHeight: CGFloat = isFreeTextAnnotation ? 184 : 208
+        let headerHeight: CGFloat = 42
+        let footerHeight: CGFloat = 48
+        let textMargin: CGFloat = 12
+        let textHeight = editorHeight - headerHeight - footerHeight - textMargin
+        let textWidth = editorWidth - (textMargin * 2)
         let container = NSView(frame: CGRect(x: 0, y: 0, width: editorWidth, height: editorHeight))
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.dsSurfaceNS.cgColor
+        container.layer?.cornerRadius = 12
+        container.layer?.cornerCurve = .continuous
 
-        let scroll = NSScrollView(frame: CGRect(x: 0, y: footerHeight, width: editorWidth, height: textHeight))
+        let titleLabel = NSTextField(labelWithString: isFreeTextAnnotation ? "Edit PDF Text" : "Edit Note")
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        titleLabel.textColor = .dsTextPrimaryNS
+        titleLabel.frame = CGRect(x: 16, y: editorHeight - 28, width: editorWidth - 32, height: 18)
+        container.addSubview(titleLabel)
+
+        let scroll = NSScrollView(frame: CGRect(x: textMargin, y: footerHeight, width: textWidth, height: textHeight))
         scroll.borderType = .noBorder
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
+        scroll.drawsBackground = false
+        scroll.wantsLayer = true
+        scroll.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+        scroll.layer?.cornerRadius = 8
+        scroll.layer?.cornerCurve = .continuous
+        scroll.layer?.borderWidth = 1
+        scroll.layer?.borderColor = NSColor.dsSeparatorNS.withAlphaComponent(0.85).cgColor
 
-        let tv = NSTextView(frame: CGRect(x: 0, y: 0, width: editorWidth, height: textHeight))
+        let tv = NSTextView(frame: CGRect(x: 0, y: 0, width: textWidth, height: textHeight))
         tv.isRichText = false
         tv.font = annotation.font ?? NSFont.systemFont(ofSize: isFreeTextAnnotation ? 14 : 13)
-        tv.textContainerInset = NSSize(width: isFreeTextAnnotation ? 6 : 10, height: isFreeTextAnnotation ? 6 : 10)
+        tv.textContainerInset = NSSize(width: 10, height: 10)
         tv.string = annotation.contents ?? ""
-        tv.backgroundColor = NSColor.dsSurfaceNS
-        tv.textColor = annotation.fontColor ?? NSColor.dsTextPrimaryNS
+        tv.backgroundColor = .clear
+        tv.textColor = NSColor.labelColor
+        tv.insertionPointColor = NSColor.dsAccentNS
         tv.isEditable = true
         tv.isSelectable = true
+        tv.allowsUndo = true
         tv.minSize = NSSize(width: 0, height: textHeight)
         tv.maxSize = NSSize(width: CGFloat.infinity, height: CGFloat.infinity)
         tv.isVerticallyResizable = true
-        tv.textContainer?.containerSize = NSSize(width: editorWidth - 20, height: CGFloat.infinity)
+        tv.textContainer?.containerSize = NSSize(width: textWidth - 20, height: CGFloat.infinity)
         tv.textContainer?.widthTracksTextView = true
         scroll.documentView = tv
         container.addSubview(scroll)
 
         let footer = NSView(frame: CGRect(x: 0, y: 0, width: editorWidth, height: footerHeight))
         footer.wantsLayer = true
-        footer.layer?.backgroundColor = NSColor.dsSeparatorNS.withAlphaComponent(0.35).cgColor
+        footer.layer?.backgroundColor = NSColor.dsSurfaceNS.cgColor
 
         let done = NSButton(title: "Done", target: self, action: #selector(commit))
         done.bezelStyle = .rounded
-        done.frame = CGRect(x: editorWidth - 72 - 8, y: 6, width: 72, height: 22)
+        done.controlSize = .large
+        done.keyEquivalent = "\r"
+        done.contentTintColor = .dsAccentNS
+        done.frame = CGRect(x: editorWidth - 88 - 12, y: 10, width: 88, height: 28)
         footer.addSubview(done)
         container.addSubview(footer)
 
-        let sep = NSView(frame: CGRect(x: 0, y: footerHeight, width: editorWidth, height: 0.5))
+        let sep = NSView(frame: CGRect(x: 12, y: footerHeight - 0.5, width: editorWidth - 24, height: 0.5))
         sep.wantsLayer = true
         sep.layer?.backgroundColor = NSColor.dsSeparatorNS.cgColor
         container.addSubview(sep)
@@ -468,7 +493,7 @@ final class NoteEditorViewController: NSViewController {
         annotation.contents = textView.string
         if isFreeTextAnnotation {
             annotation.font = textView.font ?? annotation.font
-            annotation.fontColor = textView.textColor ?? annotation.fontColor
+            annotation.fontColor = originalAnnotationFontColor ?? annotation.fontColor
             resizeFreeTextAnnotationToFit(textView.string)
         }
     }

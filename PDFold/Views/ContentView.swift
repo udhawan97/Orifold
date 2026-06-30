@@ -29,7 +29,7 @@ struct ContentView: View {
                         if showInspector {
                             Rectangle().fill(Color.dsSeparator).frame(width: 0.5)
                             InspectorView(viewModel: viewModel)
-                                .frame(width: 240)
+                                .frame(width: 280)
                         }
                     }
                     .animation(.easeInOut(duration: 0.18), value: showInspector)

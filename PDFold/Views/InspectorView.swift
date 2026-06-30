@@ -10,6 +10,15 @@ struct InspectorView: View {
         case tags = "Tags"
         case comments = "Comments"
         case markup = "Markup"
+
+        var iconName: String {
+            switch self {
+            case .info: return "info.circle"
+            case .tags: return "tag"
+            case .comments: return "text.bubble"
+            case .markup: return "highlighter"
+            }
+        }
     }
 
     var body: some View {
@@ -25,12 +34,9 @@ struct InspectorView: View {
             .padding(.top, .dsMD)
             .padding(.bottom, .dsSM)
 
-            Picker("Tab", selection: $selectedTab) {
-                ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, .dsMD)
-            .padding(.bottom, .dsMD)
+            InspectorTabPicker(selectedTab: $selectedTab)
+                .padding(.horizontal, .dsLG)
+                .padding(.bottom, .dsLG)
 
             Rectangle()
                 .fill(Color.dsSeparator)
@@ -49,6 +55,50 @@ struct InspectorView: View {
     }
 }
 
+private struct InspectorTabPicker: View {
+    @Binding var selectedTab: InspectorView.Tab
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6)
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 6) {
+            ForEach(InspectorView.Tab.allCases, id: \.self) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: tab.iconName)
+                            .font(.system(size: 12, weight: .semibold))
+                            .frame(width: 14, height: 14)
+                        Text(tab.rawValue)
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                    .foregroundStyle(selectedTab == tab ? Color.white : Color.dsTextSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 32)
+                    .padding(.horizontal, 8)
+                    .background {
+                        RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                            .fill(selectedTab == tab ? Color.dsAccent : Color.clear)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(Color.dsCard.opacity(0.74), in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+    }
+}
+
 // MARK: - Info tab
 
 private struct InspectorInfoView: View {
@@ -64,7 +114,8 @@ private struct InspectorInfoView: View {
             InspectorRow(label: "Created",     value: viewModel.document.workspace.createdAt.formatted(
                 date: .abbreviated, time: .omitted))
         }
-        .padding(.dsLG)
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsXL)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -119,7 +170,8 @@ private struct InspectorTagsView: View {
                 }
             }
         }
-        .padding(.dsLG)
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsXL)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -164,7 +216,7 @@ private struct InspectorWorkspaceCommentsView: View {
         VStack(alignment: .leading, spacing: .dsMD) {
             TextEditor(text: $draftComment)
                 .font(.dsBody())
-                .frame(minHeight: 84)
+                .frame(minHeight: 96)
                 .scrollContentBackground(.hidden)
                 .background(Color.dsCard)
                 .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
@@ -178,7 +230,8 @@ private struct InspectorWorkspaceCommentsView: View {
                 draftComment = ""
             } label: {
                 Label("Add Comment", systemImage: "text.bubble")
-                    .frame(maxWidth: .infinity)
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 32)
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.dsAccent)
@@ -196,7 +249,8 @@ private struct InspectorWorkspaceCommentsView: View {
                 }
             }
         }
-        .padding(.dsLG)
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsXL)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

@@ -10,31 +10,46 @@
   <em>A native macOS document workspace for turning a pile of files into one civilized PDF workflow.</em>
 </p>
 
-<br>
-
 <p align="center">
-  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">
-  <img alt="Version 2.0" src="https://img.shields.io/badge/Version-2.0-2563EB?style=for-the-badge">
-  <img alt="Swift 5.9" src="https://img.shields.io/badge/Swift-5.9-F05138?style=for-the-badge&logo=swift&logoColor=white">
-  <img alt="SwiftUI" src="https://img.shields.io/badge/UI-SwiftUI-0A84FF?style=for-the-badge">
-  <img alt="PDFKit" src="https://img.shields.io/badge/Engine-PDFKit-10B981?style=for-the-badge">
-  <img alt="Local installer" src="https://img.shields.io/badge/Setup-Local%20installer-7C3AED?style=for-the-badge">
-  <img alt="Release hardened" src="https://img.shields.io/badge/Quality-Release%20hardened-10B981?style=for-the-badge">
-  <img alt="MIT License" src="https://img.shields.io/badge/License-MIT-6B7280?style=for-the-badge">
+  <strong>Native Mac document assembly, markup, signing, search, and export.</strong>
 </p>
 
 <p align="center">
-  <a href="#simplest-local-setup">⚡ Setup</a>
-  ·
-  <a href="#what-it-does">✨ Features</a>
-  ·
-  <a href="#architecture">🏗️ Architecture</a>
-  ·
-  <a href="#release-status">🚢 Release</a>
-  ·
-  <a href="#quality-checks">✅ Quality</a>
-  ·
-  <a href="#troubleshooting">🧰 Help</a>
+  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">
+  &nbsp;&nbsp;
+  <img alt="Version 2.0" src="https://img.shields.io/badge/version-2.0-2563EB?style=for-the-badge">
+  &nbsp;&nbsp;
+  <img alt="Swift 5.9" src="https://img.shields.io/badge/Swift-5.9-F05138?style=for-the-badge&logo=swift&logoColor=white">
+</p>
+
+<p align="center">
+  <img alt="SwiftUI" src="https://img.shields.io/badge/interface-SwiftUI-0A84FF?style=for-the-badge">
+  &nbsp;&nbsp;
+  <img alt="PDFKit" src="https://img.shields.io/badge/engine-PDFKit-10B981?style=for-the-badge">
+  &nbsp;&nbsp;
+  <img alt="Local installer" src="https://img.shields.io/badge/setup-local%20installer-7C3AED?style=for-the-badge">
+</p>
+
+<p align="center">
+  <img alt="Release hardened" src="https://img.shields.io/badge/quality-release%20hardened-10B981?style=for-the-badge">
+  &nbsp;&nbsp;
+  <img alt="Multi-format export" src="https://img.shields.io/badge/export-PDF%20%7C%20DOCX%20%7C%20TXT%20%7C%20HTML-0EA5E9?style=for-the-badge">
+  &nbsp;&nbsp;
+  <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6B7280?style=for-the-badge">
+</p>
+
+<p align="center">
+  <a href="#simplest-local-setup">⚡&nbsp;<strong>Setup</strong></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="#what-it-does">✨&nbsp;<strong>Features</strong></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="#architecture">🏗️&nbsp;<strong>Architecture</strong></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="#release-status">🚢&nbsp;<strong>Release</strong></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="#quality-checks">✅&nbsp;<strong>Quality</strong></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="#troubleshooting">🧰&nbsp;<strong>Help</strong></a>
 </p>
 
 ---
@@ -65,7 +80,7 @@ cd PDFold
 
 > Personal pain point, professionally over-engineered into a native Mac app.
 
-PDFold is a local-first macOS application that transforms scattered documents into a single, organized PDF workspace. It supports importing PDFs, Word documents, HTML, Markdown, text files, structured data files, and images, then provides tools to read, organize, annotate, sign, search, save, print, and export them efficiently.
+PDFold is a local-first macOS application that transforms scattered documents into a single, organized PDF workspace. It supports importing PDFs, Word documents, HTML, Markdown, text files, structured data files, and images, then provides tools to read, organize, annotate, tag, comment, sign, search, save, print, and export them efficiently.
 
 I built PDFold to solve a real workflow problem I kept running into: important documents rarely arrive as one clean, final file. They often come as multiple attachments, revisions, screenshots, forms, and supporting files that need to be reviewed and shared together.
 
@@ -77,9 +92,9 @@ PDFold brings that fragmented process into one focused workspace, making documen
 | --- | --- | --- |
 | 🖥️ | Native macOS | SwiftUI, PDFKit, document-based app architecture, sandboxed file access |
 | 🔒 | Local-first | No accounts, no upload pipeline, no "where did my documents go?" subplot |
-| 🧭 | Real workflow | Import, combine, annotate, search, sign, save, print, export |
+| 🧭 | Real workflow | Import, combine, annotate, tag, comment, search, sign, save, print, export |
 | ⚡ | Simple setup | Download or clone the repo, then run the local installer |
-| ✅ | Release-ready | Installer build, syntax checks, and README hygiene are part of the project workflow |
+| ✅ | Release-ready | Installer build, crash hardening, syntax checks, and README hygiene are part of the project workflow |
 | 🧑‍💼 | Portfolio-ready | Clear product problem, practical engineering, user-facing polish |
 
 ## Who This Is For
@@ -87,7 +102,7 @@ PDFold brings that fragmented process into one focused workspace, making documen
 |  | Audience | What to Notice |
 | --- | --- | --- |
 | 🧑‍💼 | Recruiters | A polished native macOS app with a clear user problem, visible product thinking, and practical engineering choices. |
-| 🧑‍💻 | Developers | SwiftUI, PDFKit, document packages, custom import conversion, multi-format export, undo-aware page operations, and installer automation. |
+| 🧑‍💻 | Developers | SwiftUI, PDFKit, document packages, custom import conversion, metadata persistence, multi-format export, undo-aware page operations, crash hardening, and installer automation. |
 | 📎 | Actual humans with PDFs | Drag files in, make sense of them, sign what needs signing, export one clean document, and move on with your day. |
 
 ## What It Does
@@ -96,9 +111,10 @@ PDFold brings that fragmented process into one focused workspace, making documen
 | --- | --- | --- |
 | 📥 | Import | PDFs, Word docs, HTML, RTF, Markdown, plain text, CSV, JSON, XML, and images |
 | 🗂️ | Organize | Combine files, reorder source documents, move pages within documents, rotate pages, and delete pages |
-| 📖 | Read | Native PDF canvas, generated section banners, table of contents, sidebar navigation, and search |
-| ✍️ | Mark up | Highlight, note, ink, underline, strikeout, and signature tools |
-| 💾 | Save | Editable `.pdfoldproj` document packages with workspace metadata and source PDF data |
+| 📖 | Read | Native PDF canvas, generated section banners, table of contents, sidebar navigation, inspector views, and search |
+| ✍️ | Mark up | Highlight, note, editable text overlay, ink, underline, strikeout, and signature tools |
+| 🏷️ | Track | Workspace tags, workspace comments, and an inspector markup list for reviewing annotations |
+| 💾 | Save | Editable `.pdfoldproj` document packages with workspace metadata, tags, comments, signatures, and source PDF data |
 | 📤 | Export | PDF, Word `.docx`, text, HTML, PNG pages, JPEG pages, or printable workspace |
 | 🔑 | Unlock | Password-protected PDF prompt using native PDFKit behavior |
 | 🛡️ | Protect | Local-first by design; your files stay on your Mac |
@@ -109,7 +125,7 @@ PDFold brings that fragmented process into one focused workspace, making documen
 flowchart LR
     A["Drop in files"] --> B["Convert supported inputs to PDF"]
     B --> C["Build a PDFold workspace"]
-    C --> D["Read, search, reorder, annotate, sign"]
+    C --> D["Read, search, reorder, annotate, tag, sign"]
     D --> E{"Need to keep editing?"}
     E -- "Yes" --> F["Save .pdfoldproj package"]
     E -- "No" --> G["Export plain PDF"]
@@ -145,7 +161,7 @@ The app is intentionally local-first. No account. No upload step. No mysterious 
 
 ## Release Status
 
-PDFold is prepared for version `2.0`: a release-hardened local-first macOS workflow for collecting scattered documents, turning them into one workspace, marking them up, and exporting a clean result.
+PDFold is prepared for version `2.0`: a release-hardened local-first macOS workflow for collecting scattered documents, turning them into one workspace, marking them up, tracking workspace context, and exporting a clean result.
 
 |  | Detail | Status |
 | --- | --- | --- |
@@ -160,11 +176,15 @@ PDFold is prepared for version `2.0`: a release-hardened local-first macOS workf
 
 |  | Area | Release Hardening |
 | --- | --- | --- |
+| 🏷️ | Workspace context | Tags and workspace comments are persisted in `.pdfoldproj` packages, with inspector tabs for metadata, tags, comments, and markup review. |
+| ✍️ | Text editing | The text tool can create clean free-text boxes or convert selected PDF text into an editable overlay. |
+| 🖊️ | Ink stability | Ink annotations now use PDFKit-native paths, and malformed legacy ink data is sanitized before display to prevent PDFKit drawing crashes. |
 | 🛡️ | Import safety | Import failures now show actionable messages, oversized files are rejected before loading, and dragged/selected files use security-scoped access. |
 | 🔐 | Protected PDFs | Password-protected documents unlock from the already-loaded PDF instance instead of reopening the file after sandbox access may have ended. |
 | ↩️ | Undo reliability | Page deletion and page reordering undo restore serialized PDF state, not only sidebar metadata. |
 | 🗂️ | Page order | Reordered pages now rebuild the workspace page map correctly, keeping navigation, export, signatures, and saved projects aligned. |
 | 📤 | Export reliability | PDF and multi-format exports now report write failures instead of failing silently. |
+| 🧯 | Crash hardening | Document reordering, page operations, PDF serialization, HTML rendering, image export, and signature storage now guard failure cases instead of assuming ideal input. |
 
 ## Simplest Local Setup
 
@@ -240,9 +260,10 @@ PDFold is a native SwiftUI document app. The setup script uses `xcodebuild` to p
 
 1. Launch PDFold.
 2. Drag in one or more files.
-3. Read, reorder, annotate, search, sign, rotate, or remove pages.
-4. Save a `.pdfoldproj` workspace if you want to keep editing later.
-5. Export a PDF, Word document, text file, HTML file, or page images when you need to share the workspace in a useful format.
+3. Read, reorder, annotate, tag, comment, search, sign, rotate, or remove pages.
+4. Review workspace metadata, tags, comments, and markup in the inspector.
+5. Save a `.pdfoldproj` workspace if you want to keep editing later.
+6. Export a PDF, Word document, text file, HTML file, or page images when you need to share the workspace in a useful format.
 
 ## Technical Layout
 
@@ -305,7 +326,9 @@ The app uses macOS sandboxing and file access through user-selected documents. I
 Release v2 also adds practical guardrails around the most failure-prone paths:
 
 - Files larger than 512 MB are rejected before loading to avoid memory pressure from accidental giant imports.
-- HTML and Markdown imports are rendered as self-contained documents, without using the source folder as a base URL for sibling files.
+- PDF serialization failures preserve existing package data or report an actionable import error instead of writing broken workspace state.
+- Malformed legacy ink annotations are rebuilt before display so PDFKit does not crash while drawing them.
+- HTML rendering, image export, page operations, and signature storage now guard invalid or unavailable state.
 - Export failures are surfaced to the user, including failed writes and image-rendering errors.
 
 <details>
@@ -331,7 +354,8 @@ Before shipping a build, verify the app from both sides: the developer path and 
 | 🔑 | Protected PDFs | Password-protected PDFs show the unlock flow |
 | 💾 | Persistence | `.pdfoldproj` packages save and reopen correctly |
 | 🔎 | Search | Search results work across the combined workspace |
-| ✍️ | Annotation | Highlight, note, ink, underline, strikeout, and undo behavior work |
+| 🏷️ | Inspector | Tags, comments, info, and markup tabs reflect workspace state |
+| ✍️ | Annotation | Highlight, note, editable text, ink, underline, strikeout, and undo behavior work |
 | 🗂️ | Pages | Page rotation, deletion, and reordering behave correctly |
 | 📤 | Export | PDF, Word, text, HTML, PNG, and JPEG exports complete successfully |
 | 🚀 | Launch | Desktop launcher opens the installed app after running the installer |
