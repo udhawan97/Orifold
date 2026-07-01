@@ -142,7 +142,7 @@ latest_release_zip_url() {
     local release_json asset_name
     release_json="$STAGE_ROOT/release.json"
     asset_name="$APP_NAME.zip"
-    print_debug "Checking release API: $RELEASE_API"
+    print_debug "Checking release API: $RELEASE_API" >&2
     /usr/bin/curl -fsSL "$RELEASE_API" -o "$release_json" >>"$LOG_FILE" 2>&1 || {
         printf "Release lookup failed for %s\n" "$RELEASE_API" >>"$LOG_FILE"
         return 1
