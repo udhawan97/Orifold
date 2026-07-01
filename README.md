@@ -17,7 +17,7 @@
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">
   &nbsp;&nbsp;
-  <img alt="Version 3.0" src="https://img.shields.io/badge/version-3.0-2563EB?style=for-the-badge">
+  <img alt="Version 3.0" src="https://img.shields.io/badge/version-betav3-2563EB?style=for-the-badge">
   &nbsp;&nbsp;
   <img alt="Zero compile installer" src="https://img.shields.io/badge/install-zero%20compile-10B981?style=for-the-badge">
 </p>
