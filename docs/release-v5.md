@@ -122,12 +122,13 @@ Feature range used for the product-change summary: `release-v4..HEAD`
 Summary:
 
 ```text
-6 commits changed 17 files, with 2131 insertions and 251 deletions.
+7 commits changed 18 files, with 2141 insertions and 251 deletions.
 ```
 
 Commits:
 
-- `HEAD` Prepare release v5
+- `HEAD` Stabilize CI plist validation
+- `25ee541` Prepare release v5
 - `ad00fd9` Inline coverage +
 - `cf28ee5` Cleaning up bugs on export
 - `0235c02` UI header fixes
@@ -141,6 +142,7 @@ Notable files:
 - `PDFold/Engine/PDFKitEngine.swift`
 - `PDFold/Models/SourceDocumentPayload.swift`
 - `PDFold.xcodeproj/project.pbxproj`
+- `.github/workflows/ci.yml`
 - `PDFold/Views/ContentView.swift`
 - `PDFold/Views/ReadingCanvas.swift`
 - `PDFold/Pet/PetBuddy.swift`

@@ -39,6 +39,10 @@ jobs:
           plutil -lint PDFold/Resources/Info.plist
           plutil -lint PDFold/Resources/PDFold.entitlements
           plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
+          if grep -E "pdfoldproj|UTExportedTypeDeclarations|pdFold Workspace" PDFold/Resources/Info.plist; then
+            echo "Info.plist still advertises the retired workspace document type."
+            exit 1
+          fi
 
       - name: Check installer script syntax
         run: |
