@@ -5,6 +5,12 @@ struct SearchView: View {
     @Bindable var viewModel: WorkspaceViewModel
     @FocusState private var fieldFocused: Bool
 
+    private enum Layout {
+        static let width: CGFloat = 460
+        static let resultAreaHeight: CGFloat = 300
+        static let rowMinHeight: CGFloat = 54
+    }
+
     private var resultLabel: String {
         let n = viewModel.searchResults.count
         if n == 0 { return "" }
@@ -72,39 +78,45 @@ struct SearchView: View {
 
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
-            if viewModel.searchResults.isEmpty && !viewModel.searchQuery.isEmpty {
-                VStack(spacing: .dsSM) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(Color.dsTextTertiary)
-                    Text("No results")
-                        .font(.dsBody())
-                        .foregroundStyle(Color.dsTextSecondary)
-                }
-                .padding(.dsXL)
-                .frame(maxWidth: .infinity)
-            } else if !viewModel.searchResults.isEmpty {
-                let rows = Array(viewModel.searchResults.enumerated())
-                List(rows, id: \.offset) { i, result in
-                    SearchResultRow(
-                        result: result,
-                        isActive: i == viewModel.searchResultIndex
-                    )
-                    .listRowBackground(
-                        i == viewModel.searchResultIndex ? Color.dsAccentSoft : Color.clear
-                    )
-                    .onTapGesture {
-                        guard viewModel.searchResults.indices.contains(i) else { return }
-                        viewModel.searchResultIndex = i
-                        NotificationCenter.default.post(
-                            name: .pdfoldJumpToSelection,
-                            object: result
-                        )
+            Group {
+                if viewModel.searchResults.isEmpty && !viewModel.searchQuery.isEmpty {
+                    VStack(spacing: .dsSM) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(Color.dsTextTertiary)
+                        Text("No results")
+                            .font(.dsBody())
+                            .foregroundStyle(Color.dsTextSecondary)
                     }
+                    .padding(.dsXL)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if !viewModel.searchResults.isEmpty {
+                    let rows = Array(viewModel.searchResults.enumerated())
+                    List(rows, id: \.offset) { i, result in
+                        SearchResultRow(
+                            result: result,
+                            isActive: i == viewModel.searchResultIndex
+                        )
+                        .frame(minHeight: Layout.rowMinHeight, alignment: .leading)
+                        .listRowBackground(
+                            i == viewModel.searchResultIndex ? Color.dsAccentSoft : Color.clear
+                        )
+                        .onTapGesture {
+                            guard viewModel.searchResults.indices.contains(i) else { return }
+                            viewModel.searchResultIndex = i
+                            NotificationCenter.default.post(
+                                name: .pdfoldJumpToSelection,
+                                object: result
+                            )
+                        }
+                    }
+                    .listStyle(.plain)
+                } else {
+                    Spacer(minLength: 0)
                 }
-                .listStyle(.plain)
             }
+            .frame(height: Layout.resultAreaHeight)
         }
-        .frame(width: 300)
+        .frame(width: Layout.width)
         .background(Color.dsSurface)
         .onAppear { fieldFocused = true }
     }
@@ -127,11 +139,13 @@ struct SearchResultRow: View {
                 .font(.dsBody())
                 .foregroundStyle(isActive ? Color.dsAccent : Color.dsTextPrimary)
                 .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Text("Page \(pageLabel)")
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextTertiary)
         }
         .padding(.vertical, .dsXS)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
