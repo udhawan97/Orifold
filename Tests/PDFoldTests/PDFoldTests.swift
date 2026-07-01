@@ -693,6 +693,10 @@ final class PDFProcessingEngineTests: XCTestCase {
 }
 
 final class WorkspaceDocumentTests: XCTestCase {
+    func testWritableContentTypesOnlyOfferPDF() {
+        XCTAssertEqual(WorkspaceDocument.writableContentTypes, [.pdf])
+    }
+
     func testSnapshotUsesCurrentPDFDataProvider() throws {
         let memberID = UUID()
         let expectedPDFData = try makePDF(pageTexts: ["snapshot"]).dataRepresentation().unwrap()

@@ -191,8 +191,15 @@ verify_required_frameworks() {
 
 verify_app_bundle() {
     local app_path="$1"
+    local plist="$app_path/Contents/Info.plist"
     print_step "Verifying app bundle"
     verify_required_frameworks "$app_path"
+    if /usr/libexec/PlistBuddy -c "Print :CFBundleDocumentTypes" "$plist" 2>/dev/null | grep -qi "pdfoldproj\\|pdfold workspace"; then
+        fail "The app bundle still advertises the old pdFold Workspace save format."
+    fi
+    if /usr/libexec/PlistBuddy -c "Print :UTExportedTypeDeclarations" "$plist" >/dev/null 2>&1; then
+        fail "The app bundle still exports the old pdFold Workspace document type."
+    fi
     codesign --verify --deep --strict "$app_path" >>"$LOG_FILE" 2>&1 || fail "The installed app signature could not be verified."
 }
 
