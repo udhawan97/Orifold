@@ -313,6 +313,8 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 } else {
                     viewModel.isShowingSignaturePalette = true
                 }
+            case .eraser:
+                viewModel.eraseMarkupAnnotation(at: pagePoint, on: page)
             case .none:
                 // Track clicked annotation for Delete-key deletion
                 viewModel.selectedAnnotation = page.annotation(at: pagePoint)
@@ -390,6 +392,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             assert(inlineEditor == nil, "a previous inline editor should already be finished")
             let editor = InlineTextEditorOverlay(
                 frame: pdfView.bounds,
+                viewModel: viewModel,
                 pdfView: pdfView,
                 page: page,
                 pageRef: pageRef,
@@ -1000,6 +1003,7 @@ final class NoteEditorViewController: NSViewController {
 
     private weak var pdfView: PDFView?
     private weak var page: PDFPage?
+    private weak var viewModel: WorkspaceViewModel?
     private let pageRef: PageRef
     private let block: EditableTextBlock
     private let completion: (Completion) -> Void
@@ -1035,12 +1039,14 @@ final class NoteEditorViewController: NSViewController {
 
     init(
         frame: CGRect,
+        viewModel: WorkspaceViewModel,
         pdfView: PDFView,
         page: PDFPage,
         pageRef: PageRef,
         block: EditableTextBlock,
         completion: @escaping (Completion) -> Void
     ) {
+        self.viewModel = viewModel
         self.pdfView = pdfView
         self.page = page
         self.pageRef = pageRef
@@ -1240,16 +1246,24 @@ final class NoteEditorViewController: NSViewController {
         alignControl.frame = CGRect(x: 314, y: 8, width: 82, height: 26)
         toolbar.addSubview(alignControl)
 
+        let signature = NSButton(title: "", target: self, action: #selector(addSignatureBox))
+        signature.image = NSImage(systemSymbolName: "signature", accessibilityDescription: "Signature")
+        signature.imagePosition = .imageOnly
+        signature.bezelStyle = .rounded
+        signature.toolTip = "Add signature box"
+        signature.frame = CGRect(x: 410, y: 8, width: 34, height: 26)
+        toolbar.addSubview(signature)
+
         let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelButton))
         cancel.bezelStyle = .rounded
-        cancel.frame = CGRect(x: 410, y: 8, width: 68, height: 26)
+        cancel.frame = CGRect(x: 454, y: 8, width: 68, height: 26)
         toolbar.addSubview(cancel)
 
         let done = NSButton(title: "Done", target: self, action: #selector(commitButton))
         done.bezelStyle = .rounded
         done.contentTintColor = .dsAccentNS
         done.keyEquivalent = "\r"
-        done.frame = CGRect(x: 484, y: 8, width: 62, height: 26)
+        done.frame = CGRect(x: 528, y: 8, width: 62, height: 26)
         toolbar.addSubview(done)
         refreshSizeControls()
     }
@@ -1300,7 +1314,7 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func toolbarFrame(near editorRect: CGRect) -> CGRect {
-        let size = CGSize(width: 554, height: 42)
+        let size = CGSize(width: 598, height: 42)
         let x = min(max(editorRect.midX - size.width / 2, 8), max(8, bounds.width - size.width - 8))
         let aboveY = editorRect.maxY + 8
         let y = aboveY + size.height < bounds.height ? aboveY : max(8, editorRect.minY - size.height - 8)
@@ -1715,6 +1729,14 @@ final class NoteEditorViewController: NSViewController {
 
     @objc private func cancelButton() {
         cancel()
+    }
+
+    @objc private func addSignatureBox() {
+        guard !didFinish else { return }
+        let viewModel = viewModel
+        finishForHandoff()
+        viewModel?.currentTool = .signature
+        viewModel?.isShowingSignaturePalette = true
     }
 }
 

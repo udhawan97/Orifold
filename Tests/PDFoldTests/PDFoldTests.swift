@@ -73,8 +73,81 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(decodedSignature.pageRefId, pageRef.id)
         XCTAssertEqual(decodedSignature.imageData, signature.imageData)
         XCTAssertEqual(decodedSignature.rect, signature.rect)
+        XCTAssertEqual(decodedSignature.kind, .visualTyped)
         XCTAssertEqual(decodedSignature.signerName, "Ada")
         XCTAssertEqual(decodedSignature.signedAt, signature.signedAt)
+        XCTAssertNil(decodedSignature.signerIdentityRef)
+        XCTAssertNil(decodedSignature.reason)
+        XCTAssertFalse(decodedSignature.timestampApplied)
+    }
+
+    func testLegacySignaturePlacementDecodesWithVisualDefaults() throws {
+        let id = UUID()
+        let pageRefID = UUID()
+        let legacyJSON = """
+        {
+          "id": "\(id.uuidString)",
+          "pageRefId": "\(pageRefID.uuidString)",
+          "imageData": "AAECAw==",
+          "rect": { "x": 4, "y": 5, "width": 120, "height": 48 },
+          "signerName": "Ada"
+        }
+        """
+
+        let decoded = try JSONDecoder().decode(SignaturePlacement.self, from: Data(legacyJSON.utf8))
+
+        XCTAssertEqual(decoded.id, id)
+        XCTAssertEqual(decoded.pageRefId, pageRefID)
+        XCTAssertEqual(decoded.imageData, Data([0, 1, 2, 3]))
+        XCTAssertEqual(decoded.rect, CGRect(x: 4, y: 5, width: 120, height: 48))
+        XCTAssertEqual(decoded.kind, .visualTyped)
+        XCTAssertEqual(decoded.signerName, "Ada")
+        XCTAssertNil(decoded.signerIdentityRef)
+        XCTAssertNil(decoded.reason)
+        XCTAssertNil(decoded.location)
+        XCTAssertNil(decoded.contactInfo)
+        XCTAssertNil(decoded.subFilter)
+        XCTAssertFalse(decoded.timestampApplied)
+    }
+
+    func testCryptographicSignaturePlacementRoundTripsMetadata() throws {
+        let placement = SignaturePlacement(
+            pageRefId: UUID(),
+            imageData: Data([9, 8, 7]),
+            rect: CGRect(x: 20, y: 30, width: 180, height: 60),
+            kind: .cryptographic,
+            signerName: "Ada Lovelace",
+            signedAt: Date(timeIntervalSince1970: 98_765),
+            signerIdentityRef: "self-signed",
+            reason: "Approval",
+            location: "London",
+            contactInfo: "ada@example.com",
+            subFilter: "ETSI.CAdES.detached",
+            timestampApplied: true
+        )
+
+        let decoded = try JSONDecoder().decode(SignaturePlacement.self, from: JSONEncoder().encode(placement))
+
+        XCTAssertEqual(decoded.kind, .cryptographic)
+        XCTAssertEqual(decoded.signerIdentityRef, "self-signed")
+        XCTAssertEqual(decoded.reason, "Approval")
+        XCTAssertEqual(decoded.location, "London")
+        XCTAssertEqual(decoded.contactInfo, "ada@example.com")
+        XCTAssertEqual(decoded.subFilter, "ETSI.CAdES.detached")
+        XCTAssertTrue(decoded.timestampApplied)
+        XCTAssertTrue(decoded.isCryptographic)
+    }
+
+    func testCertificateGuideResourceLoadsGuideText() {
+        let text = CertificateGuideResource.guideText()
+        let acquisition = CertificateGuideResource.acquisitionGuideText()
+
+        XCTAssertTrue(text.contains("Getting a Digital ID for Signing PDFs"))
+        XCTAssertTrue(text.contains("pdFold never charges for signing"))
+        XCTAssertTrue(text.contains("SSL.com"))
+        XCTAssertTrue(acquisition.contains("Getting a CA-issued (AATL) Digital ID"))
+        XCTAssertTrue(acquisition.contains("Trusted providers"))
+        XCTAssertTrue(CertificateGuideResource.shortPopoverCopy.contains("pdFold never charges for signing"))
     }
 }
 
@@ -1442,6 +1515,26 @@ final class WorkspaceViewModelTests: XCTestCase {
         XCTAssertNil(annotation)
         XCTAssertEqual(viewModel.editingStatus?.message, PDFTextEditWarning.invalidAnnotationBounds.message)
     }
+
+    func testEraserRemovesClickedHighlightAnnotation() throws {
+        let pdf = makePDF(pageTexts: ["Highlighted text"])
+        let page = try XCTUnwrap(pdf.page(at: 0))
+        let highlight = PDFAnnotation(
+            bounds: CGRect(x: 72, y: 650, width: 140, height: 18),
+            forType: .highlight,
+            withProperties: nil
+        )
+        page.addAnnotation(highlight)
+        let viewModel = WorkspaceViewModel(
+            document: WorkspaceDocument(),
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+
+        let erased = viewModel.eraseMarkupAnnotation(at: CGPoint(x: 90, y: 660), on: page)
+
+        XCTAssertTrue(erased)
+        XCTAssertFalse(page.annotations.contains(highlight))
+    }
 }
 
 private func firstDescendant<T: NSView>(of type: T.Type, in view: NSView) -> T? {
@@ -1552,6 +1645,7 @@ private func makeInlineEditorFixture() throws -> InlineEditorFixture {
     var committed: InlineTextEditorOverlay.EditResult?
     let overlay = InlineTextEditorOverlay(
         frame: pdfView.bounds,
+        viewModel: WorkspaceViewModel(document: WorkspaceDocument()),
         pdfView: pdfView,
         page: page,
         pageRef: pageRef,

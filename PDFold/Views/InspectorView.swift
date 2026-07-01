@@ -104,11 +104,21 @@ private struct InspectorTabPicker: View {
 private struct InspectorInfoView: View {
     var viewModel: WorkspaceViewModel
 
+    private var visualSignatureCount: Int {
+        viewModel.document.workspace.signatures.filter { !$0.isCryptographic }.count
+    }
+
+    private var digitalSignatureCount: Int {
+        viewModel.document.workspace.signatures.filter(\.isCryptographic).count
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: .dsLG) {
             InspectorRow(label: "Documents",   value: "\(viewModel.document.workspace.documents.count)")
             InspectorRow(label: "Total pages", value: "\(viewModel.document.workspace.pageOrder.count)")
             InspectorRow(label: "Signatures",  value: "\(viewModel.document.workspace.signatures.count)")
+            InspectorRow(label: "Visual",      value: "\(visualSignatureCount)")
+            InspectorRow(label: "Digital",     value: "\(digitalSignatureCount)")
             InspectorRow(label: "Tags",        value: "\(viewModel.document.workspace.tags.count)")
             InspectorRow(label: "Comments",    value: "\(viewModel.document.workspace.comments.count)")
             InspectorRow(label: "Created",     value: viewModel.document.workspace.createdAt.formatted(

@@ -119,7 +119,20 @@ final class WorkspaceDocument: ReferenceFileDocument {
             return (member, pdf)
         }
         let flat = PDFKitEngine().concatenate(documents: docs, includeBanners: false)
-        return PDFSerializer.data(from: flat)
+        guard let pdfData = PDFSerializer.data(from: flat) else { return nil }
+
+        let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
+        guard !visualPlacements.isEmpty else { return pdfData }
+
+        do {
+            return try SignatureExportBaker.bake(placements: visualPlacements, into: pdfData) { placement in
+                snapshot.workspace.pageOrder.firstIndex { $0.id == placement.pageRefId }
+            }
+        } catch SigningError.notImplemented {
+            return pdfData
+        } catch {
+            return nil
+        }
     }
 
     func fileWrapper(snapshot: WorkspacePackage, configuration: WriteConfiguration) throws -> FileWrapper {

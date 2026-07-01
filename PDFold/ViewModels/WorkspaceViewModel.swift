@@ -65,6 +65,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
     case note      = "note.text"
     case editText  = "textformat"
     case ink       = "pencil.tip"
+    case eraser    = "eraser"
     case underline = "underline"
     case strikeout = "strikethrough"
     case signature = "signature"
@@ -77,6 +78,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
         case .note:      return "Note"
         case .editText:  return "Replace Text"
         case .ink:       return "Ink"
+        case .eraser:    return "Eraser"
         case .underline: return "Underline"
         case .strikeout: return "Strikeout"
         case .signature: return "Signature"
@@ -90,6 +92,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
         case .note:      return "note.text"
         case .editText:  return "textformat"
         case .ink:       return "pencil.tip"
+        case .eraser:    return "eraser"
         case .underline: return "underline"
         case .strikeout: return "strikethrough"
         case .signature: return "signature"
@@ -103,6 +106,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
         case .note:      return "Click the page to add a sticky note, or click an existing note to edit it."
         case .editText:  return "Click a word to place a matched replacement, or click blank space to add text."
         case .ink:       return "Draw freehand marks on the page."
+        case .eraser:    return "Click a highlight, underline, or strikeout to remove it."
         case .underline: return "Select PDF text to underline it."
         case .strikeout: return "Select PDF text to strike it out."
         case .signature: return "Place a saved signature on the page."
@@ -112,7 +116,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
     var isColorable: Bool {
         switch self {
         case .highlight, .note, .editText, .ink, .underline, .strikeout: return true
-        case .none, .signature: return false
+        case .none, .eraser, .signature: return false
         }
     }
 
@@ -141,6 +145,7 @@ final class WorkspaceViewModel {
     var searchResults: [PDFSelection] = []
     var searchResultIndex: Int = -1
     var pendingSignatureData: Data? = nil
+    var pendingSignatureOptions: PendingSignaturePlacementOptions? = nil
     var selectedPageRefID: UUID? = nil
     var draggedPageRefID: UUID? = nil
     var editingStatus: EditingStatus? = nil
@@ -171,6 +176,8 @@ final class WorkspaceViewModel {
     private let processingEngine: PDFProcessingEngine
     private let textAnalysisEngine = PDFTextAnalysisEngine()
     private var textAnalysisCache: [UUID: PDFTextPageAnalysis] = [:]
+    private var pendingSigningIdentity: (any SigningIdentity)?
+    private var signingIdentitiesByPlacementID: [UUID: any SigningIdentity] = [:]
     /// Raw PDF bytes captured ONCE when each member is first loaded or attached.
     /// Never mutated during editing — used as the immutable base for page regeneration
     /// so multiple edits on the same page always start from the original content.
@@ -207,6 +214,34 @@ final class WorkspaceViewModel {
             lhs.message == rhs.message &&
             lhs.isError == rhs.isError
         }
+    }
+
+    struct PendingSignaturePlacementOptions: Equatable {
+        var kind: SignaturePlacement.Kind
+        var signerName: String?
+        var signerIdentityRef: String?
+        var reason: String?
+        var location: String?
+        var contactInfo: String?
+        var subFilter: String?
+        var timestampRequested: Bool
+
+        static var visualTyped: PendingSignaturePlacementOptions {
+            PendingSignaturePlacementOptions(
+                kind: .visualTyped,
+                signerName: nil,
+                signerIdentityRef: nil,
+                reason: nil,
+                location: nil,
+                contactInfo: nil,
+                subFilter: nil,
+                timestampRequested: false
+            )
+        }
+    }
+
+    var hasCryptographicSignaturePlacement: Bool {
+        document.workspace.signatures.contains { $0.isCryptographic }
     }
 
     // MARK: - Init
@@ -565,8 +600,16 @@ final class WorkspaceViewModel {
         document.workspace.modifiedAt = Date()
     }
 
-    func markAnnotationsModified() {
+    func markAnnotationsModified(warnAboutSignatureInvalidation: Bool = true) {
         markWorkspaceModified()
+        if warnAboutSignatureInvalidation {
+            warnIfEditingWouldInvalidateSignatures()
+        }
+    }
+
+    private func warnIfEditingWouldInvalidateSignatures() {
+        guard hasCryptographicSignaturePlacement else { return }
+        editingStatus = .warning("Editing after a digital signature invalidates existing signatures.")
     }
 
     func selectPage(_ ref: PageRef) {
@@ -795,6 +838,7 @@ final class WorkspaceViewModel {
 
         rebuild()
         markWorkspaceModified()
+        warnIfEditingWouldInvalidateSignatures()
 
         undoManager?.registerUndo(withTarget: self) { vm in
             vm.restoreInlineTextEditSnapshot(previousSnapshot, actionName: "Edit PDF Text")
@@ -984,6 +1028,41 @@ final class WorkspaceViewModel {
         undoManager?.setActionName("Delete Annotation")
     }
 
+    @discardableResult
+    func eraseMarkupAnnotation(at pagePoint: CGPoint, on page: PDFPage) -> Bool {
+        guard let ann = erasableMarkupAnnotation(at: pagePoint, on: page) else {
+            showEditMessage("Click a highlight, underline, or strikeout to erase it.", isError: true)
+            return false
+        }
+        page.removeAnnotation(ann)
+        if selectedAnnotation === ann {
+            selectedAnnotation = nil
+        }
+        markAnnotationsModified()
+        undoManager?.registerUndo(withTarget: self) { vm in
+            page.addAnnotation(ann)
+            vm.selectedAnnotation = ann
+        }
+        undoManager?.setActionName("Erase Markup")
+        return true
+    }
+
+    private func erasableMarkupAnnotation(at pagePoint: CGPoint, on page: PDFPage) -> PDFAnnotation? {
+        page.annotations.reversed().first { annotation in
+            Self.isErasableMarkup(annotation) &&
+                annotation.bounds.insetBy(dx: -3, dy: -3).contains(pagePoint)
+        }
+    }
+
+    private static func isErasableMarkup(_ annotation: PDFAnnotation) -> Bool {
+        switch annotation.type {
+        case "Highlight", "Underline", "StrikeOut":
+            return true
+        default:
+            return false
+        }
+    }
+
     private func sanitizeInkAnnotations(in pdf: PDFDocument) {
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
@@ -1052,8 +1131,66 @@ final class WorkspaceViewModel {
 
     // MARK: - Signature
 
+    func beginVisualSignaturePlacement(imageData: Data,
+                                       kind: SignaturePlacement.Kind,
+                                       signerName: String?) {
+        pendingSignatureData = imageData
+        pendingSignatureOptions = PendingSignaturePlacementOptions(
+            kind: kind,
+            signerName: signerName,
+            signerIdentityRef: nil,
+            reason: nil,
+            location: nil,
+            contactInfo: nil,
+            subFilter: nil,
+            timestampRequested: false
+        )
+        currentTool = .signature
+        isShowingSignaturePalette = false
+    }
+
+    func beginCryptographicSignaturePlacement(imageData: Data,
+                                              signerName: String,
+                                              signerIdentityRef: String?,
+                                              reason: String?,
+                                              location: String?,
+                                              contactInfo: String?,
+                                              timestampRequested: Bool,
+                                              identity: (any SigningIdentity)? = nil) {
+        pendingSignatureData = imageData
+        pendingSigningIdentity = identity
+        pendingSignatureOptions = PendingSignaturePlacementOptions(
+            kind: .cryptographic,
+            signerName: signerName,
+            signerIdentityRef: signerIdentityRef,
+            reason: reason,
+            location: location,
+            contactInfo: contactInfo,
+            subFilter: "ETSI.CAdES.detached",
+            timestampRequested: timestampRequested
+        )
+        currentTool = .signature
+        isShowingSignaturePalette = false
+    }
+
+    func resolveSigningIdentity(reference: String, signerName: String) throws -> any SigningIdentity {
+        switch reference {
+        case "p12":
+            return try importPKCS12SigningIdentity()
+        case "keychain":
+            return try chooseKeychainSigningIdentity()
+        case "self-signed":
+            let request = SelfSignedIdentityRequest(commonName: signerName)
+            return try SelfSignedSigningIdentityProvider.generate(request: request)
+        default:
+            throw SigningError.missingIdentity
+        }
+    }
+
     func placeSignature(imageData: Data, at pagePoint: CGPoint, on page: PDFPage, size: CGSize = CGSize(width: 120, height: 48)) {
         guard let refID = pageRefID(for: page) else { return }
+        let options = pendingSignatureOptions ?? .visualTyped
+        let identity = pendingSigningIdentity
         let bounds = CGRect(
             x: pagePoint.x - size.width / 2,
             y: pagePoint.y - size.height / 2,
@@ -1063,28 +1200,209 @@ final class WorkspaceViewModel {
             pageRefId: refID,
             imageData: imageData,
             rect: bounds,
-            signedAt: Date()
+            kind: options.kind,
+            signerName: options.signerName,
+            signedAt: Date(),
+            signerIdentityRef: options.signerIdentityRef,
+            reason: options.reason,
+            location: options.location,
+            contactInfo: options.contactInfo,
+            subFilter: options.subFilter,
+            timestampApplied: false
         )
         document.workspace.signatures.append(placement)
-        markAnnotationsModified()
+        if options.kind == .cryptographic, let identity {
+            signingIdentitiesByPlacementID[placement.id] = identity
+        }
+        markAnnotationsModified(warnAboutSignatureInvalidation: options.kind != .cryptographic)
+        pendingSigningIdentity = nil
 
-        // Render as a stamp annotation for display
         if let image = NSImage(data: imageData) {
-            let ann = PDFAnnotation(bounds: bounds, forType: .stamp, withProperties: nil)
-            ann.setValue(image, forAnnotationKey: .widgetValue)
+            let ann = SignatureImageAnnotation(bounds: bounds, image: image)
             page.addAnnotation(ann)
             let placementID = placement.id
             undoManager?.registerUndo(withTarget: self) { vm in
                 page.removeAnnotation(ann)
                 vm.document.workspace.signatures.removeAll { $0.id == placementID }
+                vm.signingIdentitiesByPlacementID.removeValue(forKey: placementID)
             }
         } else {
             let placementID = placement.id
             undoManager?.registerUndo(withTarget: self) { vm in
                 vm.document.workspace.signatures.removeAll { $0.id == placementID }
+                vm.signingIdentitiesByPlacementID.removeValue(forKey: placementID)
             }
         }
         undoManager?.setActionName("Place Signature")
+    }
+
+    func signAndExportCryptographicPDF(timestampRequested: Bool) {
+        guard let placement = document.workspace.signatures.last(where: { $0.isCryptographic }) else {
+            showEditMessage("Place a certificate signature before signing.", isError: true)
+            return
+        }
+        let identity: any SigningIdentity
+        do {
+            guard let resolvedIdentity = signingIdentitiesByPlacementID[placement.id] else {
+                throw SigningError.missingIdentity
+            }
+            identity = resolvedIdentity
+        } catch SigningError.missingIdentity {
+            exportError = ExportError(message: "Choose or import a signing identity before exporting a digital signature.")
+            return
+        } catch {
+            exportError = ExportError(message: "pdFold could not prepare the signing identity: \(error.localizedDescription)")
+            return
+        }
+        guard let pageIndex = pageIndex(forSignaturePlacement: placement) else {
+            exportError = ExportError(message: "pdFold could not locate the page for that signature.")
+            return
+        }
+
+        let snapshot = WorkspacePackage(workspace: document.workspace, memberPDFData: currentPDFData())
+        guard let pdfData = document.exportedPDFData(from: snapshot) else {
+            exportError = ExportError(message: "pdFold could not prepare the PDF for signing.")
+            return
+        }
+
+        let targetURL: URL
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.nameFieldStringValue = "\(safeFilename(document.workspace.title))-signed.pdf"
+        panel.title = "Sign & Export PDF"
+        guard panel.runModal() == .OK, let chosenURL = panel.url else { return }
+        targetURL = chosenURL
+
+        let field = SignatureFieldSpec(
+            pageIndex: pageIndex,
+            rect: placement.rect,
+            signerName: placement.signerName ?? "Signer",
+            reason: placement.reason,
+            location: placement.location,
+            contactInfo: placement.contactInfo,
+            subFilter: placement.subFilter ?? "ETSI.CAdES.detached"
+        )
+
+        do {
+            var timestampWasApplied = false
+            var timestampFallbackMessage: String?
+            let signedData = try PDFIncrementalSigner().sign(pdf: pdfData, field: field, appearance: nil) { byteRangeBytes in
+                if timestampRequested {
+                    return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity) { signatureValue in
+                        do {
+                            let token = try Self.fetchTimestampSynchronously(for: signatureValue).cmsTimeStampToken
+                            timestampWasApplied = true
+                            return token
+                        } catch {
+                            timestampFallbackMessage = "Timestamp authority unavailable; exported as PAdES B-B without trusted timestamp."
+                            return nil
+                        }
+                    }
+                }
+                return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity, timestamp: nil)
+            }
+            try signedData.write(to: targetURL, options: .atomic)
+            if let index = document.workspace.signatures.firstIndex(where: { $0.id == placement.id }) {
+                document.workspace.signatures[index].timestampApplied = timestampWasApplied
+            }
+            if let timestampFallbackMessage {
+                editingStatus = .warning(timestampFallbackMessage)
+            }
+        } catch SigningError.notImplemented {
+            exportError = ExportError(message: "Digital signing is not available in this build yet.")
+        } catch SigningError.missingIdentity {
+            exportError = ExportError(message: "Choose or import a signing identity before exporting a digital signature.")
+        } catch {
+            exportError = ExportError(message: "pdFold could not sign the PDF: \(error.localizedDescription)")
+        }
+    }
+
+    private func pageIndex(forSignaturePlacement placement: SignaturePlacement) -> Int? {
+        document.workspace.pageOrder.firstIndex { $0.id == placement.pageRefId }
+    }
+
+    private static func fetchTimestampSynchronously(for signatureValue: Data) throws -> TimeStampToken {
+        let semaphore = DispatchSemaphore(value: 0)
+        final class TimestampBox {
+            var result: Result<TimeStampToken, Error>?
+        }
+        let box = TimestampBox()
+
+        Task.detached {
+            do {
+                box.result = .success(try await TimestampClient().fetchTimestamp(for: signatureValue))
+            } catch {
+                box.result = .failure(error)
+            }
+            semaphore.signal()
+        }
+
+        semaphore.wait()
+        switch box.result {
+        case .success(let token):
+            return token
+        case .failure(let error):
+            throw error
+        case nil:
+            throw SigningError.timestampUnavailable
+        }
+    }
+
+    private func importPKCS12SigningIdentity() throws -> any SigningIdentity {
+        let panel = NSOpenPanel()
+        panel.title = "Import Digital ID"
+        panel.prompt = "Import"
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = ["p12", "pfx"].compactMap { UTType(filenameExtension: $0) }
+        guard panel.runModal() == .OK, let url = panel.url else {
+            throw SigningError.missingIdentity
+        }
+        let passphrase = try promptForPKCS12Passphrase()
+        return try PKCS12SigningIdentityProvider.importIdentity(from: url) { passphrase }
+    }
+
+    private func chooseKeychainSigningIdentity() throws -> any SigningIdentity {
+        let identities = try KeychainSigningIdentityProvider.identities()
+        guard !identities.isEmpty else {
+            throw SigningError.missingIdentity
+        }
+        guard identities.count > 1 else {
+            return identities[0]
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Choose Keychain Digital ID"
+        alert.informativeText = "Select the certificate-backed identity to use for this PDF signature."
+        alert.addButton(withTitle: "Choose")
+        alert.addButton(withTitle: "Cancel")
+
+        let popup = NSPopUpButton(frame: CGRect(x: 0, y: 0, width: 360, height: 28), pullsDown: false)
+        for identity in identities {
+            popup.addItem(withTitle: identity.commonName ?? "Untitled Digital ID")
+        }
+        alert.accessoryView = popup
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            throw SigningError.missingIdentity
+        }
+        return identities[max(0, popup.indexOfSelectedItem)]
+    }
+
+    private func promptForPKCS12Passphrase() throws -> String {
+        let alert = NSAlert()
+        alert.messageText = "Digital ID Password"
+        alert.informativeText = "Enter the password for the selected .p12/.pfx Digital ID."
+        alert.addButton(withTitle: "Unlock")
+        alert.addButton(withTitle: "Cancel")
+
+        let field = NSSecureTextField(frame: CGRect(x: 0, y: 0, width: 320, height: 24))
+        alert.accessoryView = field
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            throw SigningError.missingIdentity
+        }
+        return field.stringValue
     }
 
     private func pageRefID(for page: PDFPage) -> UUID? {
@@ -1164,8 +1482,8 @@ final class WorkspaceViewModel {
     }
 
     func saveFlattenedPDF(to url: URL? = nil) {
-        let exportDoc = engine.concatenate(documents: loadedPDFs, includeBanners: false)
-        guard let pdfData = PDFSerializer.data(from: exportDoc) else {
+        let snapshot = WorkspacePackage(workspace: document.workspace, memberPDFData: currentPDFData())
+        guard let pdfData = document.exportedPDFData(from: snapshot) else {
             exportError = ExportError(message: "pdFold could not serialize the PDF for saving. Try exporting individual documents first.")
             return
         }
@@ -1685,5 +2003,28 @@ private extension CGRect {
             abs(minY - other.minY) <= tolerance &&
             abs(width - other.width) <= tolerance &&
             abs(height - other.height) <= tolerance
+    }
+}
+
+private final class SignatureImageAnnotation: PDFAnnotation {
+    private let signatureImage: NSImage
+
+    init(bounds: CGRect, image: NSImage) {
+        self.signatureImage = image
+        super.init(bounds: bounds, forType: .stamp, withProperties: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        return nil
+    }
+
+    override func draw(with box: PDFDisplayBox, in context: CGContext) {
+        guard let cgImage = signatureImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return
+        }
+        context.saveGState()
+        context.interpolationQuality = .high
+        context.draw(cgImage, in: bounds)
+        context.restoreGState()
     }
 }

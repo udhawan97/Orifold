@@ -221,7 +221,7 @@ private struct AnnotationToolPicker: View {
     @State private var hoverTask: Task<Void, Never>?
 
     private let tools: [AnnotationTool] = [
-        .none, .highlight, .note, .editText, .ink, .underline, .strikeout
+        .none, .highlight, .note, .editText, .ink, .eraser, .underline, .strikeout
     ]
 
     var body: some View {
