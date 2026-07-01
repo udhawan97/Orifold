@@ -3,7 +3,7 @@ import PDFKit
 import XCTest
 @testable import PDFold
 
-// Acceptance tests for the digital-signature feature (see SIGNING_SPEC.md).
+// Acceptance tests for the digital-signature feature (see docs/signing/SIGNING_SPEC.md).
 //
 // These are RED on purpose: every signing primitive currently throws
 // `SigningError.notImplemented`. Codex's job is to make each of these pass WITHOUT

@@ -6,7 +6,7 @@ import PDFKit
 // MARK: - Signing walking skeleton
 //
 // These are the SHARED CONTRACTS for the digital-signature feature. Every module
-// (see SIGNING_SPEC.md) codes against the types below so parallel subagents don't
+// (see docs/signing/SIGNING_SPEC.md) codes against the types below so parallel subagents don't
 // collide on interfaces. Every implementation currently throws `.notImplemented`;
 // the acceptance tests in Tests/PDFoldTests/PDFSigningTests.swift are RED until the
 // modules are built out. Do NOT change these signatures without updating the spec

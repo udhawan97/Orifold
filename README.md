@@ -332,6 +332,8 @@ Install or Update pdFold.command
   Compatibility Terminal installer/updater
 Uninstall pdFold.command
   Compatibility Terminal uninstaller
+docs/signing/
+  Certificate guide, signing implementation spec, and external verification notes
 ```
 
 ## Developer Notes

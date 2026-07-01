@@ -8,7 +8,7 @@ typealias Certificate = X509.Certificate
 #else
 /// DER-backed stand-in used until the package wires in swift-certificates.
 ///
-/// Module A exposes the same `Certificate` name promised by SIGNING_SPEC.md so
+/// Module A exposes the same `Certificate` name promised by docs/signing/SIGNING_SPEC.md so
 /// downstream signing code can be written now. When the X509 product is added to
 /// Package.swift this becomes `X509.Certificate` through the conditional typealias
 /// above.

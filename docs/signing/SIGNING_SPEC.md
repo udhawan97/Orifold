@@ -4,9 +4,9 @@ Authentic, industry-standard PDF digital signatures for pdFold (macOS / Swift / 
 Build with `swift build`; test with `swift test`. Xcode is NOT installed — do not use xcodebuild.
 
 This spec is the shared contract for parallel subagents. The Swift interfaces already
-exist as a compiling **walking skeleton** in [`PDFold/Signing/SigningContracts.swift`](PDFold/Signing/SigningContracts.swift);
+exist as a compiling **walking skeleton** in [`PDFold/Signing/SigningContracts.swift`](../../PDFold/Signing/SigningContracts.swift);
 every method throws `SigningError.notImplemented`. The acceptance tests in
-[`Tests/PDFoldTests/PDFSigningTests.swift`](Tests/PDFoldTests/PDFSigningTests.swift) are
+[`Tests/PDFoldTests/PDFSigningTests.swift`](../../Tests/PDFoldTests/PDFSigningTests.swift) are
 RED until you implement the modules. **Make them pass without weakening any assertion.**
 
 ## Two tiers, one appearance
@@ -70,9 +70,9 @@ guide so it stays accurate.
 > pdFold never charges for signing — you buy the certificate directly from the provider, then import
 > the `.p12` file here."*
 
-The full acquisition steps + provider links live in `CERTIFICATE_GUIDE.md` at the repo root — bundle
-that file and keep the two in sync. Do NOT hardcode a different set of links in Swift; load/echo the
-guide so there is a single source of truth.
+The full acquisition steps + provider links live in `docs/signing/CERTIFICATE_GUIDE.md`; the app
+bundles `PDFold/Resources/CERTIFICATE_GUIDE.md`, which must stay in sync. Do NOT hardcode a
+different set of links in Swift; load/echo the guide so there is a single source of truth.
 
 ## Module B — CMSSignatureBuilder  (files: `PDFold/Signing/CMS/`)
 Hand-build a **detached CMS SignedData** (RFC 5652) as DER with swift-asn1 + swift-certificates.
@@ -167,7 +167,7 @@ Files: `PDFold/Views/SignaturePalette.swift`, `PDFold/Models/SignaturePlacement.
 - Make the whole `swift test` suite green, including `PDFSigningTests.swift`. Add tests for
   self-signed generate→sign→verify, TSA-offline fallback, wrong-passphrase, large/linearized/
   xref-stream/encrypted PDFs.
-- External validation (paste exact output into `VERIFICATION.md`):
+- External validation (paste exact output into `docs/signing/VERIFICATION.md`):
   `pdfsig signed.pdf` reports a valid signature; `openssl asn1parse` / `openssl cms -verify` on the
   extracted `/Contents`; open in macOS Preview and Adobe Reader and confirm the signature panel shows
   the appearance + validity.
@@ -176,4 +176,4 @@ Files: `PDFold/Views/SignaturePalette.swift`, `PDFold/Models/SignaturePlacement.
 ## Definition of done
 `swift build` green; full `swift test` green; a self-signed round-trip verifies in `pdfsig`; a
 `.p12`-signed PDF shows valid in Adobe/Preview; a placed visual signature survives export → reopen;
-freehand draw removed; `VERIFICATION.md` written with real command output.
+freehand draw removed; `docs/signing/VERIFICATION.md` written with real command output.

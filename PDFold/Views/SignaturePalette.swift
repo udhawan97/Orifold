@@ -408,7 +408,7 @@ enum CertificateGuideResource {
         let fallbackRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         for fallbackURL in [
             fallbackRoot.appendingPathComponent("PDFold/Resources/CERTIFICATE_GUIDE.md"),
-            fallbackRoot.appendingPathComponent("CERTIFICATE_GUIDE.md")
+            fallbackRoot.appendingPathComponent("docs/signing/CERTIFICATE_GUIDE.md")
         ] {
             if let text = try? String(contentsOf: fallbackURL, encoding: .utf8) {
                 return text

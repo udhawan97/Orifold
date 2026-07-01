@@ -61,7 +61,7 @@ Reading:
 - **Signature Type: ETSI.CAdES.detached** → real PAdES, not legacy CMS.
 - **Certificate issuer is unknown** → EXPECTED for a self-signed ID. This is the "valid, identity
   not verified" state; a CA-issued (AATL) cert or a one-time manual trust removes it. See
-  `CERTIFICATE_GUIDE.md`.
+  `docs/signing/CERTIFICATE_GUIDE.md`.
 - The `NSS_Init failed: ... bad database` line is poppler's empty trust store, not a signature
   error — it does not affect cryptographic validity.
 
