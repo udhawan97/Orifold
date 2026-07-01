@@ -707,6 +707,21 @@ final class WorkspaceViewModel {
            let existingOp = document.workspace.pageEditStates[stateIndex].operations.first(where: { $0.sourceBlockID == sourceBlock.id }) {
             operation.sourceBounds = existingOp.sourceBounds
         }
+        // Anchor the replacement to the ORIGINAL text's page-space location instead of the
+        // live editor's on-screen box. The editor's textView frame, round-tripped through
+        // PDFView→page coordinate conversion, reliably reports the correct SIZE but a wrong
+        // ORIGIN — it placed replacements ~25pt off (onto the line above), and the erase
+        // patch (sourceBounds ∪ editedBounds) then wiped that neighboring line out, which
+        // is the "ruined formatting" users saw. sourceBounds comes straight from text
+        // analysis in page space, so pin the top-left to it and keep only the width the
+        // caller measured (so a longer replacement still fits); measuredBounds then grows
+        // the box downward from the original line's top edge to fit the new text.
+        operation.editedBounds = CGRect(
+            x: operation.sourceBounds.minX,
+            y: operation.sourceBounds.minY,
+            width: max(operation.sourceBounds.width, editedBounds.width),
+            height: operation.sourceBounds.height
+        )
         operation.editedBounds = PDFEditedPageRenderer.measuredBounds(for: operation)
         if let stateIndex = document.workspace.pageEditStates.firstIndex(where: { $0.pageRefID == pageRef.id }) {
             document.workspace.pageEditStates[stateIndex].operations.removeAll { $0.sourceBlockID == sourceBlock.id }

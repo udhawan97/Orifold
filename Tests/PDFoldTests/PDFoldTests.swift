@@ -411,6 +411,48 @@ final class PDFTextEditingRedesignTests: XCTestCase {
     }
 }
 
+final class InlineTextEditPlacementTests: XCTestCase {
+    /// Regression: the live editor's textView frame, converted PDFView→page, reported the
+    /// right size but a wrong (too-high) origin — placing the replacement ~25pt above the
+    /// original line and erasing the neighboring line ("ruined formatting"). The stored
+    /// operation must anchor to the original text's page-space location (sourceBounds),
+    /// ignoring the editor origin, so the replacement lands on the line it replaced.
+    func testReplacementAnchorsToOriginalLineNotEditorDerivedOrigin() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+
+        let sourceBounds = CGRect(x: 34, y: 610, width: 470, height: 13)
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id, text: "Original text", bounds: sourceBounds,
+            lines: [], fontName: "Helvetica-Bold", fontSize: 8, textColor: .documentText,
+            rotation: 0, baseline: 610, confidence: .high)
+
+        // Simulate the bad view→page conversion: an editedBounds shifted 26pt UP from source.
+        let badEditedBounds = CGRect(x: 34, y: 636, width: 447, height: 24)
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0], sourceBlock: sourceBlock,
+            replacementText: "Cloud & DevOps: AWS, Azure, CI/CD, observability",
+            editedBounds: badEditedBounds, fontName: "Helvetica-Bold", fontSize: 8,
+            textColor: .black, alignment: .left))
+
+        let stored = try XCTUnwrap(viewModel.document.workspace.pageEditStates.first?.operations.first)
+        // Top edge (maxY in page space) must sit on the original line, not 26pt above it.
+        XCTAssertEqual(stored.editedBounds.maxY, sourceBounds.maxY, accuracy: 0.5,
+                       "replacement top must anchor to original line top, not the editor origin")
+        XCTAssertEqual(stored.editedBounds.minX, sourceBounds.minX, accuracy: 0.5)
+        // Grows downward, so its top must not exceed the original's top.
+        XCTAssertLessThanOrEqual(stored.editedBounds.maxY, sourceBounds.maxY + 0.5)
+        // The erase patch (source ∪ edited) must stay tight to the one line — not span the
+        // ~50pt band that wiped the neighbor before.
+        XCTAssertLessThan(stored.sourceBounds.union(stored.editedBounds).height, 30)
+    }
+}
+
 final class DocumentImportConverterTests: XCTestCase {
     func testPlainTextImportCreatesExtractablePDF() throws {
         let data = Data("Hello PDFold\nSecond line".utf8)

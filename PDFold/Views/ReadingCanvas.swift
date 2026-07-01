@@ -1002,7 +1002,12 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         self.block = block
         self.completion = completion
         editorFontName = block.fontName
-        editorFontSize = max(8, block.fontSize)
+        // Preserve the ORIGINAL detected point size so edited text renders at the same size
+        // as the surrounding document. A hard `max(8, …)` floor here inflated smaller body
+        // text (6–8pt is common in dense resumes/footnotes), which both changed the visible
+        // size and — because the box grows downward to fit the taller glyphs — pushed the
+        // replacement onto the line below. Only guard against a non-positive/garbage detection.
+        editorFontSize = block.fontSize > 0 ? block.fontSize : 12
         editorTextColor = block.textColor.nsColor
         super.init(frame: frame)
         setup()
@@ -1107,7 +1112,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         sizeLabel.frame = CGRect(x: 154, y: 12, width: 34, height: 18)
         toolbar.addSubview(sizeLabel)
 
-        sizeStepper.minValue = 6
+        sizeStepper.minValue = 4
         sizeStepper.maxValue = 96
         sizeStepper.integerValue = Int(round(editorFontSize))
         sizeStepper.target = self
