@@ -887,9 +887,10 @@ final class WorkspaceViewModel {
         // the same page don't stack erase patches on top of previously-regenerated content.
         // Fall back to current memberPDFData if the original snapshot is unavailable.
         let baseData = originalMemberPDFData[pageRef.memberDocId] ?? document.memberPDFData[pageRef.memberDocId]
+        let originalPageIndex = pageRef.sourcePageIndex >= 0 ? pageRef.sourcePageIndex : localIdx
         guard let baseData,
               let basePDF = PDFDocument(data: baseData),
-              let basePage = basePDF.page(at: localIdx) else {
+              let basePage = basePDF.page(at: originalPageIndex) else {
             showEditMessage("pdFold could not access the original page for editing.", isError: true)
             return false
         }
@@ -1764,7 +1765,12 @@ final class WorkspaceViewModel {
     }
 
     private func exportPageImages(as format: WorkspaceExportFormat) {
-        let exportDoc = engine.concatenate(documents: loadedPDFs, includeBanners: false)
+        let snapshot = WorkspacePackage(workspace: document.workspace, memberPDFData: currentPDFData())
+        guard let exportData = document.exportedPDFData(from: snapshot),
+              let exportDoc = PDFDocument(data: exportData) else {
+            exportError = ExportError(message: "pdFold could not prepare pages for image export.")
+            return
+        }
         guard exportDoc.pageCount > 0 else {
             exportError = ExportError(message: "There are no pages to export.")
             return

@@ -33,6 +33,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
         .odt,
         .rtf,
         .plainText,
+        .text,
         .markdown,
         .csv,
         .json,
@@ -88,7 +89,8 @@ final class WorkspaceDocument: ReferenceFileDocument {
     }
 
     private func importPDFDocument(_ pdf: PDFDocument, filename: String) throws {
-        guard let pdfData = pdf.dataRepresentation() else {
+        let comments = Self.commentsMetadata(from: pdf)
+        guard let pdfData = PDFSerializer.data(from: pdf) else {
             throw DocumentImportConverter.ConversionError.renderingFailed
         }
 
@@ -101,7 +103,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
         workspace.title = displayName.isEmpty ? "Untitled Workspace" : displayName
         workspace.documents = [member]
         workspace.pageOrder = refs
-        workspace.comments = Self.commentsMetadata(from: pdf)
+        workspace.comments = comments
         memberPDFData[member.id] = pdfData
     }
 
@@ -148,7 +150,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
         var comments: [WorkspaceComment] = []
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
-            for annotation in page.annotations {
+            for annotation in Array(page.annotations) {
                 guard let rawValue = annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) as? String else {
                     continue
                 }
@@ -164,13 +166,17 @@ final class WorkspaceDocument: ReferenceFileDocument {
     }
 
     private static func embedMetadata(in data: Data, workspace: Workspace) -> Data? {
-        guard !workspace.comments.isEmpty,
-              let pdf = PDFDocument(data: data),
-              let metadataData = try? JSONEncoder().encode(PDFoldMetadata(comments: workspace.comments)),
-              let metadataString = String(data: metadataData, encoding: .utf8) else {
+        guard let pdf = PDFDocument(data: data) else {
             return data
         }
-        removeMetadataAnnotations(from: pdf)
+        let removedExistingMetadata = removeMetadataAnnotations(from: pdf)
+        guard !workspace.comments.isEmpty else {
+            return removedExistingMetadata ? PDFSerializer.data(from: pdf) : data
+        }
+        guard let metadataData = try? JSONEncoder().encode(PDFoldMetadata(comments: workspace.comments)),
+              let metadataString = String(data: metadataData, encoding: .utf8) else {
+            return removedExistingMetadata ? PDFSerializer.data(from: pdf) : data
+        }
         guard let firstPage = pdf.page(at: 0) else { return data }
         let annotation = PDFAnnotation(
             bounds: CGRect(x: -10, y: -10, width: 1, height: 1),
@@ -185,13 +191,17 @@ final class WorkspaceDocument: ReferenceFileDocument {
         return PDFSerializer.data(from: pdf)
     }
 
-    private static func removeMetadataAnnotations(from pdf: PDFDocument) {
+    @discardableResult
+    private static func removeMetadataAnnotations(from pdf: PDFDocument) -> Bool {
+        var removed = false
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
-            for annotation in page.annotations where annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) != nil {
+            for annotation in Array(page.annotations) where annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) != nil {
                 page.removeAnnotation(annotation)
+                removed = true
             }
         }
+        return removed
     }
 
     func fileWrapper(snapshot: WorkspacePackage, configuration: WriteConfiguration) throws -> FileWrapper {

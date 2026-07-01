@@ -367,6 +367,7 @@ build_from_source() {
     fi
     write_info_plist
     build_icon
+    cp "$PROJECT_ROOT/CERTIFICATE_GUIDE.md" "$STAGED_APP/Contents/Resources/CERTIFICATE_GUIDE.md"
     cp "$PROJECT_ROOT/PDFold/Resources/PDFold.entitlements" "$STAGED_APP/Contents/Resources/PDFold.entitlements"
     /usr/bin/xattr -cr "$STAGED_APP" 2>/dev/null || true
     verify_required_frameworks "$STAGED_APP"

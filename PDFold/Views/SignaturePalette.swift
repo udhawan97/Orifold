@@ -398,9 +398,11 @@ enum CertificateGuideResource {
     static let shortPopoverCopy = "Signing in pdFold is free. A signature made with a self-signed or Keychain ID is valid and tamper-evident, but recipients will see 'identity not verified' until they trust it once. To have Adobe Acrobat/Reader trust your identity automatically, you need a CA-issued Digital ID from a trusted provider (an 'AATL' certificate). These are a paid third-party product (~US $180–600/yr). pdFold never charges for signing — you buy the certificate directly from the provider, then import the `.p12` file here."
 
     static func guideText() -> String {
-        if let url = Bundle.module.url(forResource: "CERTIFICATE_GUIDE", withExtension: "md"),
-           let text = try? String(contentsOf: url, encoding: .utf8) {
-            return text
+        for bundle in guideBundles() {
+            if let url = bundle.url(forResource: "CERTIFICATE_GUIDE", withExtension: "md"),
+               let text = try? String(contentsOf: url, encoding: .utf8) {
+                return text
+            }
         }
 
         let fallbackURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
@@ -410,6 +412,14 @@ enum CertificateGuideResource {
         }
 
         return "CERTIFICATE_GUIDE.md could not be loaded."
+    }
+
+    private static func guideBundles() -> [Bundle] {
+        var bundles = [Bundle.main]
+        #if SWIFT_PACKAGE
+        bundles.append(.module)
+        #endif
+        return bundles
     }
 
     static func acquisitionGuideText() -> String {

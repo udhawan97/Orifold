@@ -18,6 +18,15 @@ settings:
 packages:
   PDFiumBinary:
     path: Packages/PDFiumBinary
+  swift-crypto:
+    url: https://github.com/apple/swift-crypto.git
+    from: 3.0.0
+  swift-asn1:
+    url: https://github.com/apple/swift-asn1.git
+    from: 1.0.0
+  swift-certificates:
+    url: https://github.com/apple/swift-certificates.git
+    from: 1.0.0
 
 targets:
   PDFold:
@@ -30,9 +39,16 @@ targets:
           - Resources/Info.plist
     resources:
       - path: PDFold/Resources/Assets.xcassets
+      - path: CERTIFICATE_GUIDE.md
     dependencies:
       - package: PDFiumBinary
         product: PDFium
+      - package: swift-crypto
+        product: Crypto
+      - package: swift-asn1
+        product: SwiftASN1
+      - package: swift-certificates
+        product: X509
     info:
       path: PDFold/Resources/Info.plist
       properties:

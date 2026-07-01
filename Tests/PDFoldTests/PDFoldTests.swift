@@ -401,6 +401,48 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertTrue(viewModel.loadedPDFs.first?.1.stringValue.contains("Replacement text") ?? false)
     }
 
+    func testInlineTextEditAfterPageMoveUsesOriginalSourcePage() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["First page original", "Second page original"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+
+        XCTAssertTrue(viewModel.movePage(fixture.refs[1], toIndex: 0))
+
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[1].id,
+            text: "Second page original",
+            bounds: CGRect(x: 70, y: 700, width: 170, height: 24),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 700,
+            confidence: .high
+        )
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[1],
+            sourceBlock: sourceBlock,
+            replacementText: "Edited second page",
+            editedBounds: CGRect(x: 70, y: 700, width: 190, height: 28),
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .black,
+            alignment: .left
+        ))
+
+        let movedPageText = viewModel.loadedPDFs.first?.1.page(at: 0)?.string ?? ""
+        XCTAssertTrue(movedPageText.contains("Edited second page"))
+        XCTAssertFalse(movedPageText.contains("First page original"))
+    }
+
     func testInlineTextEditUndoRedoRestoresRenderedPDFAndEditState() throws {
         let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
         let document = WorkspaceDocument()
@@ -1376,6 +1418,10 @@ final class PDFProcessingEngineTests: XCTestCase {
 final class WorkspaceDocumentTests: XCTestCase {
     func testWritableContentTypesOnlyOfferPDF() {
         XCTAssertEqual(WorkspaceDocument.writableContentTypes, [.pdf])
+    }
+
+    func testReadableContentTypesAcceptGenericText() {
+        XCTAssertTrue(WorkspaceDocument.readableContentTypes.contains(.text))
     }
 
     func testAppInfoPlistDoesNotAdvertiseWorkspaceSaveFormat() throws {
