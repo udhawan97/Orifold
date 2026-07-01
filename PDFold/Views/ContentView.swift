@@ -220,21 +220,32 @@ private struct AnnotationToolPicker: View {
     @State private var popoverTool: AnnotationTool?
     @State private var hoverTask: Task<Void, Never>?
 
-    private let tools: [AnnotationTool] = [
-        .none, .highlight, .note, .editText, .ink, .eraser, .underline, .strikeout
+    // Grouped by behavior so related tools sit together: selection, then
+    // text markup (+ the eraser that undoes it), then free-form page content.
+    private let toolGroups: [[AnnotationTool]] = [
+        [.none],
+        [.highlight, .underline, .strikeout, .eraser],
+        [.note, .ink, .editText]
     ]
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(tools) { tool in
-                toolButton(tool)
-                .popover(isPresented: popoverBinding(for: tool), arrowEdge: .bottom) {
-                    AnnotationToolPopover(tool: tool)
+            ForEach(toolGroups.indices, id: \.self) { groupIndex in
+                if groupIndex > 0 {
+                    Divider()
+                        .frame(height: 22)
+                        .padding(.horizontal, 3)
                 }
-                .onHover { isHovered in
-                    updatePopoverHover(isHovered, for: tool)
+                ForEach(toolGroups[groupIndex]) { tool in
+                    toolButton(tool)
+                    .popover(isPresented: popoverBinding(for: tool), arrowEdge: .bottom) {
+                        AnnotationToolPopover(tool: tool)
+                    }
+                    .onHover { isHovered in
+                        updatePopoverHover(isHovered, for: tool)
+                    }
+                    .help(tool.label)
                 }
-                .help(tool.label)
             }
 
             if viewModel.currentTool.isColorable {
