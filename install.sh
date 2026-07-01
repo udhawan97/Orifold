@@ -1,6 +1,8 @@
 #!/bin/zsh
 set -euo pipefail
 
+PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+
 APP_NAME="PDFold"
 REPO="udhawan97/PDFold"
 RAW_BASE="https://raw.githubusercontent.com/$REPO/main"
@@ -29,7 +31,7 @@ fail() {
 
 [[ "$(uname -s)" == "Darwin" ]] || fail "$APP_NAME only runs on macOS."
 
-mkdir -p "$WORK_DIR"
+/bin/mkdir -p "$WORK_DIR"
 
 print_step "Installing or updating $APP_NAME"
 print_note "Trying the prebuilt app first. No Xcode or Command Line Tools needed."
@@ -62,8 +64,8 @@ if ! command -v swift >/dev/null 2>&1; then
 fi
 
 print_step "Downloading source"
-rm -rf "$SRC_DIR"
-mkdir -p "$SRC_DIR"
+/bin/rm -rf "$SRC_DIR"
+/bin/mkdir -p "$SRC_DIR"
 
 if command -v git >/dev/null 2>&1; then
     git clone --depth 1 "https://github.com/$REPO.git" "$SRC_DIR"

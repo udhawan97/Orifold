@@ -1,6 +1,8 @@
 #!/bin/zsh
 set -euo pipefail
 
+PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+
 APP_NAME="PDFold"
 BUNDLE_ID="com.ud.PDFold"
 INSTALL_CACHE="$HOME/.pdfold"
@@ -11,6 +13,7 @@ LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
 LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
 
 KEEP_USER_DATA=0
+REMOVE_ERRORS=()
 
 usage() {
     cat <<USAGE
@@ -39,8 +42,23 @@ remove_path() {
     local path="$1"
     [[ -n "$path" && "$path" != "/" ]] || return 0
     if [[ -e "$path" || -L "$path" ]]; then
-        rm -rf "$path"
-        print_note "Removed $path"
+        if /bin/rm -rf "$path" 2>/dev/null; then
+            print_note "Removed $path"
+            return 0
+        fi
+
+        /usr/bin/osascript - "$path" >/dev/null 2>&1 <<'APPLESCRIPT' || true
+on run argv
+    tell application "Finder" to delete POSIX file (item 1 of argv)
+end run
+APPLESCRIPT
+
+        if [[ ! -e "$path" && ! -L "$path" ]]; then
+            print_note "Removed $path"
+        else
+            REMOVE_ERRORS+=("$path")
+            print_note "Could not remove $path"
+        fi
     fi
 }
 
@@ -69,13 +87,23 @@ done
 printf "%s Uninstaller\n" "$APP_NAME"
 printf "=================\n"
 
-if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
     print_step "Closing $APP_NAME"
     /usr/bin/osascript -e "tell application \"$APP_NAME\" to quit" >/dev/null 2>&1 || true
     for _ in {1..20}; do
-        pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
-        sleep 0.25
+        /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
+        /bin/sleep 0.25
     done
+    if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+        /usr/bin/pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+        for _ in {1..20}; do
+            /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
+            /bin/sleep 0.25
+        done
+    fi
+    if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+        /usr/bin/pkill -9 -x "$APP_NAME" >/dev/null 2>&1 || true
+    fi
 fi
 
 print_step "Removing installed app and commands"
@@ -95,6 +123,16 @@ if [[ $KEEP_USER_DATA -eq 0 ]]; then
     remove_path "$HOME/Library/Saved Application State/$BUNDLE_ID.savedState"
 else
     print_step "Keeping PDFold app data"
+fi
+
+if [[ ${#REMOVE_ERRORS[@]} -gt 0 ]]; then
+    printf "\n%s install artifacts were removed, but some app data is protected by macOS and could not be removed automatically:\n" "$APP_NAME" >&2
+    for path in "${REMOVE_ERRORS[@]}"; do
+        printf "  %s\n" "$path" >&2
+    done
+    printf "\nSaved .pdfoldproj workspace files were not removed.\n" >&2
+    printf "Remove those paths from Finder, or grant Terminal Full Disk Access and run this uninstaller again.\n" >&2
+    exit 1
 fi
 
 cat <<MESSAGE

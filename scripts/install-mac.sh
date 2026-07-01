@@ -1,6 +1,8 @@
 #!/bin/zsh
 set -euo pipefail
 
+PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+
 APP_NAME="PDFold"
 REPO="udhawan97/PDFold"
 RELEASE_TAG="release-v3"
@@ -79,7 +81,7 @@ fail() {
 }
 
 cleanup() {
-    [[ -n "${STAGE_ROOT:-}" && -d "$STAGE_ROOT" ]] && rm -rf "$STAGE_ROOT"
+    [[ -n "${STAGE_ROOT:-}" && -d "$STAGE_ROOT" ]] && /bin/rm -rf "$STAGE_ROOT"
 }
 trap cleanup EXIT
 
@@ -119,7 +121,7 @@ done
 
 [[ "$(uname -s)" == "Darwin" ]] || fail "$APP_NAME only runs on macOS."
 
-mkdir -p "$BUILD_DIR" "$STAGE_ROOT"
+/bin/mkdir -p "$BUILD_DIR" "$STAGE_ROOT"
 cat > "$LOG_FILE" <<LOG
 PDFold install log
 Project: $PROJECT_ROOT
@@ -193,35 +195,37 @@ capture_launch_diagnostics() {
 install_staged_app() {
     [[ -d "$STAGED_APP" ]] || fail "No staged app bundle was prepared."
 
-    if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+    if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
         print_step "Closing the currently running app"
         /usr/bin/osascript -e "tell application \"$APP_NAME\" to quit" >/dev/null 2>&1 || true
         for _ in {1..20}; do
-            pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
-            sleep 0.25
+            /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
+            /bin/sleep 0.25
         done
     fi
 
     print_step "Copying app to $INSTALLED_APP"
-    mkdir -p "$INSTALL_DIR"
-    rm -rf "$INSTALLED_APP"
+    /bin/mkdir -p "$INSTALL_DIR"
+    /bin/rm -rf "$INSTALLED_APP"
     /usr/bin/ditto --norsrc "$STAGED_APP" "$INSTALLED_APP"
     /usr/bin/xattr -cr "$INSTALLED_APP" 2>/dev/null || true
     verify_app_bundle "$INSTALLED_APP"
 
     print_step "Refreshing Desktop commands"
     if [[ -d "$HOME/Desktop" ]]; then
-        rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_UPDATER"
+        /bin/rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_UPDATER"
         cat > "$DESKTOP_LAUNCHER" <<'LAUNCHER'
 #!/bin/zsh
 set -euo pipefail
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
+PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | /bin/zsh
 LAUNCHER
         chmod +x "$DESKTOP_LAUNCHER" 2>/dev/null || print_note "Could not make the Desktop launcher executable."
         cat > "$DESKTOP_UNINSTALLER" <<'UNINSTALLER'
 #!/bin/zsh
 set -euo pipefail
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | zsh
+PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | /bin/zsh
 UNINSTALLER
         chmod +x "$DESKTOP_UNINSTALLER" 2>/dev/null || print_note "Could not make the Desktop uninstaller executable."
     else
@@ -231,8 +235,8 @@ UNINSTALLER
     if [[ $OPEN_AFTER_INSTALL -eq 1 ]]; then
         print_step "Opening $APP_NAME"
         open "$INSTALLED_APP" || fail "The app was installed, but macOS could not open it."
-        sleep 1
-        if ! pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+        /bin/sleep 1
+        if ! /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
             capture_launch_diagnostics
             fail "$APP_NAME opened but did not remain running. Check the install log for recent macOS launch diagnostics."
         fi
@@ -247,12 +251,12 @@ install_prebuilt_release() {
 
     print_step "Downloading prebuilt $APP_NAME"
     /usr/bin/curl -fL "$zip_url" -o "$zip_path" >>"$LOG_FILE" 2>&1 || return 1
-    mkdir -p "$unzip_dir"
+    /bin/mkdir -p "$unzip_dir"
     /usr/bin/ditto -x -k "$zip_path" "$unzip_dir" >>"$LOG_FILE" 2>&1 || return 1
     found_app="$(find "$unzip_dir" -maxdepth 3 -name "$APP_NAME.app" -type d -print -quit)"
     [[ -n "$found_app" ]] || printf "Prebuilt zip did not contain %s.app\n" "$APP_NAME" >>"$LOG_FILE"
     [[ -n "$found_app" ]] || return 1
-    rm -rf "$STAGED_APP"
+    /bin/rm -rf "$STAGED_APP"
     /usr/bin/ditto --norsrc "$found_app" "$STAGED_APP"
     /usr/bin/xattr -cr "$STAGED_APP" 2>/dev/null || true
     verify_app_bundle "$STAGED_APP"
@@ -264,7 +268,7 @@ build_icon() {
     local source_dir iconset
     source_dir="$PROJECT_ROOT/PDFold/Resources/Assets.xcassets/AppIcon.appiconset"
     iconset="$STAGE_ROOT/AppIcon.iconset"
-    mkdir -p "$iconset"
+    /bin/mkdir -p "$iconset"
 
     cp "$source_dir/AppIcon-16.png" "$iconset/icon_16x16.png"
     cp "$source_dir/AppIcon-32.png" "$iconset/icon_16x16@2x.png"
@@ -299,7 +303,7 @@ build_from_source() {
 
     if [[ $CLEAN_BUILD -eq 1 ]]; then
         print_step "Cleaning local SwiftPM build output"
-        rm -rf "$PROJECT_ROOT/.build/release" "$PROJECT_ROOT/.build/checkouts" "$PROJECT_ROOT/.build/repositories"
+        /bin/rm -rf "$PROJECT_ROOT/.build/release" "$PROJECT_ROOT/.build/checkouts" "$PROJECT_ROOT/.build/repositories"
     fi
 
     print_step "Building $APP_NAME with SwiftPM"
@@ -313,8 +317,8 @@ build_from_source() {
     [[ -x "$built_binary" ]] || fail "Build completed, but the $APP_NAME executable was not created."
 
     print_step "Assembling app bundle"
-    rm -rf "$STAGED_APP"
-    mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Frameworks" "$STAGED_APP/Contents/Resources"
+    /bin/rm -rf "$STAGED_APP"
+    /bin/mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Frameworks" "$STAGED_APP/Contents/Resources"
     cp "$built_binary" "$STAGED_APP/Contents/MacOS/$APP_NAME"
     if [[ -d "$(dirname "$built_binary")/PDFium.framework" ]]; then
         print_debug "Embedding PDFium.framework"
@@ -340,7 +344,7 @@ write_package() {
     package_dir="$(cd "$(dirname "$PACKAGE_PATH")" && pwd)"
     package_abs="$package_dir/$(basename "$PACKAGE_PATH")"
     print_step "Writing release zip"
-    rm -f "$package_abs"
+    /bin/rm -f "$package_abs"
     (cd "$STAGE_ROOT" && /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$APP_NAME.app" "$package_abs")
     print_note "Package: $package_abs"
 }
