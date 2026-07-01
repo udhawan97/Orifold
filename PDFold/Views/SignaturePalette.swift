@@ -297,7 +297,7 @@ private struct SignaturePreview: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
-                .fill(Color.dsCard)
+                .fill(Color.white)
             if let data, let image = NSImage(data: data) {
                 Image(nsImage: image)
                     .resizable()
@@ -313,7 +313,7 @@ private struct SignaturePreview: View {
         .frame(height: 104)
         .overlay {
             RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
-                .strokeBorder(Color.dsSeparator, lineWidth: 1)
+                .strokeBorder(Color.dsSeparator.opacity(0.75), lineWidth: 1)
         }
     }
 }

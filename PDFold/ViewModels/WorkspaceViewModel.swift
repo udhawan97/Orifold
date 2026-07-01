@@ -184,6 +184,7 @@ final class WorkspaceViewModel {
     private var originalMemberPDFData: [UUID: Data] = [:]
     static let textReplacementAnnotationKey = PDFAnnotationKey(rawValue: "/PDFoldTextReplacement")
     static let draftTextAnnotationKey = PDFAnnotationKey(rawValue: "/PDFoldDraftText")
+    static let signaturePlacementAnnotationKey = PDFAnnotationKey(rawValue: "/PDFoldSignaturePlacementID")
 
     struct ImportError: Identifiable {
         let id = UUID()
@@ -1018,11 +1019,23 @@ final class WorkspaceViewModel {
             showEditWarning(.annotationCreationFailed)
             return
         }
+        let removedSignature = signaturePlacement(for: ann)
+        let removedIdentity = removedSignature.flatMap { signingIdentitiesByPlacementID[$0.id] }
         page.removeAnnotation(ann)
+        if let removedSignature {
+            document.workspace.signatures.removeAll { $0.id == removedSignature.id }
+            signingIdentitiesByPlacementID.removeValue(forKey: removedSignature.id)
+        }
         selectedAnnotation = nil
         markAnnotationsModified()
         undoManager?.registerUndo(withTarget: self) { vm in
             page.addAnnotation(ann)
+            if let removedSignature {
+                vm.document.workspace.signatures.append(removedSignature)
+                if let removedIdentity {
+                    vm.signingIdentitiesByPlacementID[removedSignature.id] = removedIdentity
+                }
+            }
             vm.selectedAnnotation = ann
         }
         undoManager?.setActionName("Delete Annotation")
@@ -1187,8 +1200,9 @@ final class WorkspaceViewModel {
         }
     }
 
-    func placeSignature(imageData: Data, at pagePoint: CGPoint, on page: PDFPage, size: CGSize = CGSize(width: 120, height: 48)) {
-        guard let refID = pageRefID(for: page) else { return }
+    @discardableResult
+    func placeSignature(imageData: Data, at pagePoint: CGPoint, on page: PDFPage, size: CGSize = CGSize(width: 120, height: 48)) -> PDFAnnotation? {
+        guard let refID = pageRefID(for: page) else { return nil }
         let options = pendingSignatureOptions ?? .visualTyped
         let identity = pendingSigningIdentity
         let bounds = CGRect(
@@ -1218,8 +1232,9 @@ final class WorkspaceViewModel {
         pendingSigningIdentity = nil
 
         if let image = NSImage(data: imageData) {
-            let ann = SignatureImageAnnotation(bounds: bounds, image: image)
+            let ann = SignatureImageAnnotation(bounds: bounds, image: image, placementID: placement.id)
             page.addAnnotation(ann)
+            selectedAnnotation = ann
             let placementID = placement.id
             undoManager?.registerUndo(withTarget: self) { vm in
                 page.removeAnnotation(ann)
@@ -1228,12 +1243,80 @@ final class WorkspaceViewModel {
             }
         } else {
             let placementID = placement.id
-            undoManager?.registerUndo(withTarget: self) { vm in
-                vm.document.workspace.signatures.removeAll { $0.id == placementID }
-                vm.signingIdentitiesByPlacementID.removeValue(forKey: placementID)
-            }
+            document.workspace.signatures.removeAll { $0.id == placementID }
+            signingIdentitiesByPlacementID.removeValue(forKey: placementID)
+            return nil
         }
         undoManager?.setActionName("Place Signature")
+        return selectedAnnotation
+    }
+
+    func signaturePlacementID(for annotation: PDFAnnotation) -> UUID? {
+        if let id = (annotation as? SignatureImageAnnotation)?.placementID {
+            return id
+        }
+        if let value = annotation.value(forAnnotationKey: Self.signaturePlacementAnnotationKey) as? String {
+            return UUID(uuidString: value)
+        }
+        return nil
+    }
+
+    func signaturePlacement(for annotation: PDFAnnotation) -> SignaturePlacement? {
+        guard let id = signaturePlacementID(for: annotation) else { return nil }
+        return document.workspace.signatures.first { $0.id == id }
+    }
+
+    @discardableResult
+    func updateSignaturePlacement(for annotation: PDFAnnotation,
+                                  to proposedBounds: CGRect,
+                                  registerUndoFrom oldBounds: CGRect? = nil) -> CGRect {
+        guard let page = annotation.page,
+              let placementID = signaturePlacementID(for: annotation),
+              let index = document.workspace.signatures.firstIndex(where: { $0.id == placementID }) else {
+            return annotation.bounds
+        }
+
+        let bounds = constrainedSignatureBounds(proposedBounds, on: page)
+        let previousBounds = oldBounds ?? document.workspace.signatures[index].rect
+        let shouldRegisterUndo = oldBounds.map { !$0.isApproximatelyEqual(to: bounds) } ?? false
+        guard !annotation.bounds.isApproximatelyEqual(to: bounds) ||
+              !(document.workspace.signatures[index].rect.isApproximatelyEqual(to: bounds)) ||
+              shouldRegisterUndo else {
+            return bounds
+        }
+
+        annotation.bounds = bounds
+        document.workspace.signatures[index].rect = bounds
+        let warn = document.workspace.signatures[index].kind != .cryptographic
+        markAnnotationsModified(warnAboutSignatureInvalidation: warn)
+
+        if shouldRegisterUndo {
+            undoManager?.registerUndo(withTarget: self) { vm in
+                vm.updateSignaturePlacement(for: annotation, to: previousBounds, registerUndoFrom: bounds)
+            }
+            undoManager?.setActionName("Move Signature")
+        }
+        return bounds
+    }
+
+    private func constrainedSignatureBounds(_ bounds: CGRect, on page: PDFPage) -> CGRect {
+        let pageBounds = page.bounds(for: .cropBox)
+        var result = bounds.standardized
+        result.size.width = min(max(result.width, 24), pageBounds.width)
+        result.size.height = min(max(result.height, 12), pageBounds.height)
+        if result.minX < pageBounds.minX {
+            result.origin.x = pageBounds.minX
+        }
+        if result.maxX > pageBounds.maxX {
+            result.origin.x = pageBounds.maxX - result.width
+        }
+        if result.minY < pageBounds.minY {
+            result.origin.y = pageBounds.minY
+        }
+        if result.maxY > pageBounds.maxY {
+            result.origin.y = pageBounds.maxY - result.height
+        }
+        return result
     }
 
     func signAndExportCryptographicPDF(timestampRequested: Bool) {
@@ -2007,11 +2090,14 @@ private extension CGRect {
 }
 
 private final class SignatureImageAnnotation: PDFAnnotation {
+    let placementID: UUID
     private let signatureImage: NSImage
 
-    init(bounds: CGRect, image: NSImage) {
+    init(bounds: CGRect, image: NSImage, placementID: UUID) {
+        self.placementID = placementID
         self.signatureImage = image
         super.init(bounds: bounds, forType: .stamp, withProperties: nil)
+        setValue(placementID.uuidString, forAnnotationKey: WorkspaceViewModel.signaturePlacementAnnotationKey)
     }
 
     required init?(coder: NSCoder) {

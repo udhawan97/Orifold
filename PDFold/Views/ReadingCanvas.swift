@@ -172,6 +172,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         // Wire up delete key handler
         view.onDeleteKey = { [weak coordinator = context.coordinator] in
             coordinator?.viewModel.deleteSelectedAnnotation()
+            coordinator?.refreshSignatureOverlay()
         }
         view.onSelectionCommitted = { [weak coordinator = context.coordinator] in
             coordinator?.commitCurrentMarkupSelection()
@@ -190,6 +191,12 @@ struct PDFViewRepresentable: NSViewRepresentable {
         overlay.autoresizingMask = [.width, .height]
         overlay.isHidden = true
         view.addSubview(overlay)
+
+        let signatureOverlay = context.coordinator.signatureOverlay
+        signatureOverlay.frame = view.bounds
+        signatureOverlay.autoresizingMask = [.width, .height]
+        signatureOverlay.isHidden = true
+        view.addSubview(signatureOverlay)
 
         // Notifications
         NotificationCenter.default.addObserver(
@@ -220,9 +227,14 @@ struct PDFViewRepresentable: NSViewRepresentable {
             context.coordinator,
             selector: #selector(Coordinator.pageChanged(_:)),
             name: .PDFViewPageChanged, object: view)
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.pdfViewGeometryChanged(_:)),
+            name: .PDFViewScaleChanged, object: view)
 
         context.coordinator.pdfView = view
         context.coordinator.setupInkOverlay()
+        context.coordinator.setupSignatureOverlay()
         return view
     }
 
@@ -233,6 +245,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         context.coordinator.viewModel = viewModel
         context.coordinator.inkOverlay.isHidden = (viewModel.currentTool != .ink)
         context.coordinator.inkOverlay.inkColor = viewModel.inkColor
+        context.coordinator.refreshSignatureOverlay()
         // Switching to a different tool (e.g. clicking Highlight) without clicking Done
         // first must not silently drop whatever text is still being edited.
         if viewModel.currentTool != .editText {
@@ -246,6 +259,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         var viewModel: WorkspaceViewModel
         weak var pdfView: PDFoldPDFView?
         let inkOverlay = InkOverlayView()
+        let signatureOverlay = SignatureSelectionOverlayView()
         private weak var inlineEditor: InlineTextEditorOverlay?
         private var notePopover: NSPopover?
 
@@ -310,6 +324,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             case .signature:
                 if let signatureData = viewModel.pendingSignatureData {
                     viewModel.placeSignature(imageData: signatureData, at: pagePoint, on: page)
+                    refreshSignatureOverlay()
                 } else {
                     viewModel.isShowingSignaturePalette = true
                 }
@@ -318,8 +333,10 @@ struct PDFViewRepresentable: NSViewRepresentable {
             case .none:
                 // Track clicked annotation for Delete-key deletion
                 viewModel.selectedAnnotation = page.annotation(at: pagePoint)
+                refreshSignatureOverlay()
             default:
                 viewModel.selectedAnnotation = nil
+                refreshSignatureOverlay()
             }
         }
 
@@ -481,12 +498,14 @@ struct PDFViewRepresentable: NSViewRepresentable {
             guard let selection = notification.object as? PDFSelection else { return }
             pdfView?.go(to: selection)
             pdfView?.setCurrentSelection(selection, animate: true)
+            refreshSignatureOverlay()
         }
 
         @objc func jumpToPageIndex(_ notification: Notification) {
             guard let idx = notification.object as? Int,
                   let page = pdfView?.document?.page(at: idx) else { return }
             pdfView?.go(to: page)
+            refreshSignatureOverlay()
         }
 
         @objc func printDocument(_ notification: Notification) {
@@ -504,12 +523,18 @@ struct PDFViewRepresentable: NSViewRepresentable {
 
         @objc func zoomFit(_ notification: Notification) {
             pdfView?.autoScales = true
+            refreshSignatureOverlay()
         }
 
         @objc func pageChanged(_ notification: Notification) {
             guard let pdfView, let doc = pdfView.document,
                   let page = pdfView.currentPage else { return }
             viewModel.currentPageNumber = viewModel.workspacePageNumber(for: page, in: doc)
+            refreshSignatureOverlay()
+        }
+
+        @objc func pdfViewGeometryChanged(_ notification: Notification) {
+            refreshSignatureOverlay()
         }
 
         func setupInkOverlay() {
@@ -519,6 +544,30 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 let pagePath = convertOverlayPath(overlayPath, pdfView: pdfView, page: page)
                 viewModel.addInkStroke(path: pagePath, on: page)
                 inkOverlay.clearCommittedPaths()
+            }
+        }
+
+        func setupSignatureOverlay() {
+            signatureOverlay.onBoundsChanged = { [weak self] annotation, proposedBounds, oldBounds in
+                guard let self else { return proposedBounds }
+                let applied = self.viewModel.updateSignaturePlacement(
+                    for: annotation,
+                    to: proposedBounds,
+                    registerUndoFrom: oldBounds
+                )
+                self.pdfView?.setNeedsDisplay(self.pdfView?.bounds ?? .zero)
+                return applied
+            }
+        }
+
+        func refreshSignatureOverlay() {
+            guard let pdfView else { return }
+            signatureOverlay.pdfView = pdfView
+            if let annotation = viewModel.selectedAnnotation,
+               viewModel.signaturePlacementID(for: annotation) != nil {
+                signatureOverlay.select(annotation)
+            } else {
+                signatureOverlay.clearSelection()
             }
         }
 
@@ -568,6 +617,212 @@ final class PDFoldPDFView: PDFView {
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
         onSelectionCommitted?()
+    }
+}
+
+final class SignatureSelectionOverlayView: NSView {
+    weak var pdfView: PDFView?
+    var onBoundsChanged: ((PDFAnnotation, CGRect, CGRect?) -> CGRect)?
+
+    private weak var annotation: PDFAnnotation?
+    private var dragMode: DragMode?
+    private var initialMousePoint: CGPoint = .zero
+    private var initialFrame: CGRect = .zero
+    private var initialPageBounds: CGRect?
+    private let handleSize: CGFloat = 9
+    private let minimumViewSize = CGSize(width: 28, height: 18)
+
+    override var isOpaque: Bool { false }
+
+    func select(_ annotation: PDFAnnotation) {
+        self.annotation = annotation
+        isHidden = false
+        needsDisplay = true
+    }
+
+    func clearSelection() {
+        annotation = nil
+        dragMode = nil
+        initialPageBounds = nil
+        isHidden = true
+        needsDisplay = true
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !isHidden,
+              alphaValue > 0,
+              interactionFrame()?.contains(point) == true else { return nil }
+        return self
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard let frame = selectionFrame() else { return }
+
+        NSColor.dsAccentNS.setStroke()
+        let outline = NSBezierPath(rect: frame)
+        outline.lineWidth = 1.5
+        outline.stroke()
+
+        NSColor.white.setFill()
+        NSColor.dsAccentNS.setStroke()
+        for rect in handleRects(for: frame).values {
+            let handle = NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
+            handle.lineWidth = 1
+            handle.fill()
+            handle.stroke()
+        }
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard let frame = selectionFrame() else { return }
+        addCursorRect(frame, cursor: .openHand)
+        for (handle, rect) in handleRects(for: frame) {
+            addCursorRect(rect.insetBy(dx: -4, dy: -4), cursor: handle.cursor)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let frame = selectionFrame(),
+              let annotation else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        initialMousePoint = point
+        initialFrame = frame
+        initialPageBounds = annotation.bounds
+        if let handle = handle(at: point, in: frame) {
+            dragMode = .resize(handle)
+            handle.cursor.set()
+        } else {
+            dragMode = .move
+            NSCursor.closedHand.set()
+        }
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let dragMode,
+              let annotation,
+              let pdfView,
+              let page = annotation.page else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        let delta = CGPoint(x: point.x - initialMousePoint.x, y: point.y - initialMousePoint.y)
+        let proposedFrame: CGRect
+        switch dragMode {
+        case .move:
+            proposedFrame = initialFrame.offsetBy(dx: delta.x, dy: delta.y)
+        case .resize(let handle):
+            proposedFrame = resizedFrame(initialFrame, handle: handle, delta: delta)
+        }
+        let proposedPageBounds = pdfView.convert(proposedFrame.standardized, to: page).standardized
+        _ = onBoundsChanged?(annotation, proposedPageBounds, nil)
+        needsDisplay = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard let annotation,
+              let pdfView,
+              let page = annotation.page,
+              let oldBounds = initialPageBounds else {
+            dragMode = nil
+            initialPageBounds = nil
+            NSCursor.arrow.set()
+            return
+        }
+        let currentFrame = pdfView.convert(annotation.bounds, from: page).standardized
+        let currentPageBounds = pdfView.convert(currentFrame, to: page).standardized
+        _ = onBoundsChanged?(annotation, currentPageBounds, oldBounds)
+        dragMode = nil
+        initialPageBounds = nil
+        NSCursor.arrow.set()
+        needsDisplay = true
+    }
+
+    private func selectionFrame() -> CGRect? {
+        guard let annotation,
+              let page = annotation.page,
+              let pdfView else { return nil }
+        return pdfView.convert(annotation.bounds, from: page).standardized
+    }
+
+    private func interactionFrame() -> CGRect? {
+        selectionFrame()?.insetBy(dx: -12, dy: -12)
+    }
+
+    private func handle(at point: CGPoint, in frame: CGRect) -> ResizeHandle? {
+        handleRects(for: frame).first { _, rect in
+            rect.insetBy(dx: -5, dy: -5).contains(point)
+        }?.key
+    }
+
+    private func handleRects(for frame: CGRect) -> [ResizeHandle: CGRect] {
+        let half = handleSize / 2
+        func rect(center: CGPoint) -> CGRect {
+            CGRect(x: center.x - half, y: center.y - half, width: handleSize, height: handleSize)
+        }
+        return [
+            .topLeft: rect(center: CGPoint(x: frame.minX, y: frame.maxY)),
+            .top: rect(center: CGPoint(x: frame.midX, y: frame.maxY)),
+            .topRight: rect(center: CGPoint(x: frame.maxX, y: frame.maxY)),
+            .right: rect(center: CGPoint(x: frame.maxX, y: frame.midY)),
+            .bottomRight: rect(center: CGPoint(x: frame.maxX, y: frame.minY)),
+            .bottom: rect(center: CGPoint(x: frame.midX, y: frame.minY)),
+            .bottomLeft: rect(center: CGPoint(x: frame.minX, y: frame.minY)),
+            .left: rect(center: CGPoint(x: frame.minX, y: frame.midY))
+        ]
+    }
+
+    private func resizedFrame(_ frame: CGRect, handle: ResizeHandle, delta: CGPoint) -> CGRect {
+        var minX = frame.minX
+        var maxX = frame.maxX
+        var minY = frame.minY
+        var maxY = frame.maxY
+
+        if handle.movesLeft { minX += delta.x }
+        if handle.movesRight { maxX += delta.x }
+        if handle.movesBottom { minY += delta.y }
+        if handle.movesTop { maxY += delta.y }
+
+        if maxX - minX < minimumViewSize.width {
+            if handle.movesLeft {
+                minX = maxX - minimumViewSize.width
+            } else {
+                maxX = minX + minimumViewSize.width
+            }
+        }
+        if maxY - minY < minimumViewSize.height {
+            if handle.movesBottom {
+                minY = maxY - minimumViewSize.height
+            } else {
+                maxY = minY + minimumViewSize.height
+            }
+        }
+
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    private enum DragMode {
+        case move
+        case resize(ResizeHandle)
+    }
+
+    private enum ResizeHandle: CaseIterable {
+        case topLeft, top, topRight, right, bottomRight, bottom, bottomLeft, left
+
+        var movesLeft: Bool { self == .topLeft || self == .bottomLeft || self == .left }
+        var movesRight: Bool { self == .topRight || self == .bottomRight || self == .right }
+        var movesTop: Bool { self == .topLeft || self == .top || self == .topRight }
+        var movesBottom: Bool { self == .bottomLeft || self == .bottom || self == .bottomRight }
+
+        var cursor: NSCursor {
+            switch self {
+            case .left, .right:
+                return .resizeLeftRight
+            case .top, .bottom:
+                return .resizeUpDown
+            case .topLeft, .bottomRight, .topRight, .bottomLeft:
+                return .crosshair
+            }
+        }
     }
 }
 
