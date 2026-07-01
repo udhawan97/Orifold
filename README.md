@@ -188,9 +188,10 @@ pdFold release v4 is a release-hardened local-first macOS app for collecting sca
 | 🧽 | Safer page regeneration | Replacements rebuild from pristine original pages, erase only original text bounds with sampled local background, and preserve annotations |
 | 🔠 | Font and size fidelity | PDFium font-size readings are checked against actual glyph ink, with better handling for scaled content streams and Carlito/Calibri-style documents |
 | 🔏 | Authentic PDF signatures | Add PDF digital signatures with signing identities, CMS packaging, timestamp support, appearance rendering, and regression coverage |
-| 🖊️ | Signature workflow polish | Signature placement, drawn signature handling, and signature input behavior are tightened for the latest release target |
+| 🖊️ | Signature workflow polish | Signature placement, drawn signature handling, certificate guide loading, and signature input behavior are tightened for the latest release target |
 | ↩️ | Undo/redo reliability | Inline PDF text edits now restore rendered PDF bytes and edit-state metadata in both directions |
-| 💾 | PDF save path | App metadata is bumped to build `4`, with tests guarding PDF save/export metadata behavior |
+| 💾 | PDF save path | Standard saves write flat PDF output, clear stale hidden comment metadata, and keep export formats available |
+| 🧰 | Xcode project parity | The checked-in Xcode project now includes signing sources, Swift package products, shared test scheme metadata, and bundled release resources |
 | 🚀 | Release automation | `release-v*` tags now trigger the release workflow and publish the tagged build as the latest GitHub release |
 
 ### Carried Forward From v3
@@ -315,7 +316,8 @@ PDFold/
   Document/        macOS document package read/write support
   Engine/          PDF loading, conversion, composition, manifests, export helpers
   Models/          Workspace, page, annotation, comment, and signature data models
-  Resources/       App metadata, entitlements, and asset catalogs
+  Resources/       App metadata, entitlements, asset catalogs, and the certificate guide
+  Signing/         Signing identities, CMS construction, timestamping, and verification helpers
   ViewModels/      Workspace state, document operations, search, export, undo
   Views/           SwiftUI interface components
 scripts/
@@ -346,6 +348,13 @@ Build with SwiftPM:
 swift build
 ```
 
+Build and test with Xcode:
+
+```zsh
+xcodebuild build -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+```
+
 Create the same release zip used by GitHub Releases:
 
 ```zsh
@@ -368,6 +377,8 @@ Release v4 also includes practical guardrails around failure-prone paths:
 
 - Inline PDF text edits rebuild from pristine source pages, preserve existing annotations, and store undo/redo snapshots for rendered PDF bytes and edit metadata.
 - Digital-signature flows cover signing identity loading, CMS signature construction, timestamp requests, signature appearance rendering, and verification harnesses.
+- Certificate guidance is bundled inside the app resources so signing help is available from SwiftPM builds, Xcode builds, tests, and packaged installs.
+- PDF save/export strips stale hidden workspace-comment metadata before writing a flat PDF, so removed comments do not silently survive in later exports.
 - A supplemental PDFium processing backend performs a non-blocking validation smoke check before PDFKit proceeds with the normal import path.
 - Files larger than 512 MB are rejected before loading to avoid memory pressure from accidental giant imports.
 - PDF serialization failures preserve existing package data or report an actionable import error instead of writing broken workspace state.
@@ -422,6 +433,8 @@ zsh -n "Uninstall pdFold.command"
 plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
 swift build
 swift test
+xcodebuild build -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
 ```
 

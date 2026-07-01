@@ -53,6 +53,9 @@ jobs:
       - name: Swift Package build
         run: swift build
 
+      - name: Swift Package tests
+        run: swift test
+
       - name: Xcode build
         run: |
           xcodebuild \
@@ -65,10 +68,24 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Xcode tests
+        run: |
+          xcodebuild \
+            -project PDFold.xcodeproj \
+            -scheme PDFold \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$RUNNER_TEMP/PDFoldDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/PDFoldTests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
       - name: Upload Xcode result bundle
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: PDFold-xcresult
-          path: ${{ runner.temp }}/PDFold.xcresult
+          name: PDFold-xcresults
+          path: |
+            ${{ runner.temp }}/PDFold.xcresult
+            ${{ runner.temp }}/PDFoldTests.xcresult
           if-no-files-found: ignore

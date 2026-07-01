@@ -1218,6 +1218,10 @@ final class DocumentImportConverterTests: XCTestCase {
     }
 
     func testHTMLImportPaginatesTallContentToLetterPages() throws {
+        guard ProcessInfo.processInfo.environment["XCODE_SCHEME_NAME"] == nil else {
+            throw XCTSkip("Xcode's test runner can hang WebKit HTML rendering; SwiftPM covers this conversion path.")
+        }
+
         let html = """
         <!doctype html>
         <html><body><main style="height: 1800px">Tall import</main></body></html>
@@ -1425,11 +1429,7 @@ final class WorkspaceDocumentTests: XCTestCase {
     }
 
     func testAppInfoPlistDoesNotAdvertiseWorkspaceSaveFormat() throws {
-        let plistURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("PDFold/Resources/Info.plist")
+        let plistURL = try appInfoPlistURL(sourceFile: #filePath)
         let plistData = try Data(contentsOf: plistURL)
         let plist = try XCTUnwrap(
             PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any]
@@ -1461,6 +1461,38 @@ final class WorkspaceDocumentTests: XCTestCase {
 
         XCTAssertEqual(snapshot.memberPDFData[memberID], expectedPDFData)
         XCTAssertNotEqual(snapshot.memberPDFData[memberID], stalePDFData)
+    }
+
+    func testExportStripsStaleWorkspaceCommentMetadataWhenCommentsAreCleared() throws {
+        let fixture = try makeMemberWithPDF(name: "Comments", pageTexts: ["body"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        document.workspace.comments = [WorkspaceComment(body: "Remove me")]
+
+        let commentedData = try XCTUnwrap(document.exportedPDFData(from: try document.snapshot(contentType: .pdf)))
+        XCTAssertEqual(try workspaceCommentMetadataValues(in: commentedData).count, 1)
+
+        document.memberPDFData[fixture.member.id] = commentedData
+        document.workspace.comments = []
+
+        let clearedData = try XCTUnwrap(document.exportedPDFData(from: try document.snapshot(contentType: .pdf)))
+        XCTAssertTrue(try workspaceCommentMetadataValues(in: clearedData).isEmpty)
+    }
+
+    private func workspaceCommentMetadataValues(in data: Data) throws -> [String] {
+        let key = PDFAnnotationKey(rawValue: "/PDFoldWorkspaceComments")
+        let pdf = try XCTUnwrap(PDFDocument(data: data))
+        XCTAssertGreaterThan(pdf.pageCount, 0)
+        var values: [String] = []
+        for pageIndex in 0..<pdf.pageCount {
+            guard let page = pdf.page(at: pageIndex) else { continue }
+            values += page.annotations.compactMap { annotation in
+                annotation.value(forAnnotationKey: key) as? String
+            }
+        }
+        return values
     }
 }
 
@@ -1795,6 +1827,32 @@ private func firstDescendant<T: NSView>(of type: T.Type, in view: NSView) -> T? 
         }
     }
     return nil
+}
+
+private func appInfoPlistURL(sourceFile: String) throws -> URL {
+    let environment = ProcessInfo.processInfo.environment
+    let sourceRoot = URL(fileURLWithPath: sourceFile)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    var candidateRoots = ["SRCROOT", "PROJECT_DIR"]
+        .compactMap { environment[$0] }
+        .map(URL.init(fileURLWithPath:)) + [sourceRoot]
+    var parent = sourceRoot
+    while parent.path != parent.deletingLastPathComponent().path {
+        parent = parent.deletingLastPathComponent()
+        candidateRoots.append(parent)
+    }
+
+    for root in candidateRoots {
+        let plistURL = root.appendingPathComponent("PDFold/Resources/Info.plist")
+        if FileManager.default.fileExists(atPath: plistURL.path) {
+            return plistURL
+        }
+    }
+
+    XCTFail("Could not locate PDFold/Resources/Info.plist from Xcode or SwiftPM source roots.")
+    throw CocoaError(.fileNoSuchFile)
 }
 
 private func makeMemberPDF(name: String, pageTexts: [String]) -> (MemberDocument, PDFDocument) {

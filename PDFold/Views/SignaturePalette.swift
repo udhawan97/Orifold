@@ -405,21 +405,64 @@ enum CertificateGuideResource {
             }
         }
 
-        let fallbackURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("CERTIFICATE_GUIDE.md")
-        if let text = try? String(contentsOf: fallbackURL, encoding: .utf8) {
-            return text
+        let fallbackRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        for fallbackURL in [
+            fallbackRoot.appendingPathComponent("PDFold/Resources/CERTIFICATE_GUIDE.md"),
+            fallbackRoot.appendingPathComponent("CERTIFICATE_GUIDE.md")
+        ] {
+            if let text = try? String(contentsOf: fallbackURL, encoding: .utf8) {
+                return text
+            }
         }
 
         return "CERTIFICATE_GUIDE.md could not be loaded."
     }
 
     private static func guideBundles() -> [Bundle] {
-        var bundles = [Bundle.main]
+        var bundles: [Bundle] = []
+        var seenPaths: Set<String> = []
+        func appendBundle(_ bundle: Bundle?) {
+            guard let bundle else { return }
+            let path = bundle.bundleURL.standardizedFileURL.path
+            guard seenPaths.insert(path).inserted else { return }
+            bundles.append(bundle)
+        }
+
+        appendBundle(Bundle.main)
+        appendBundle(Bundle(identifier: "com.ud.PDFold"))
+
+        let environment = ProcessInfo.processInfo.environment
+        if let productsDir = environment["BUILT_PRODUCTS_DIR"] {
+            appendBundle(appBundle(at: URL(fileURLWithPath: productsDir).appendingPathComponent("pdFold.app")))
+        }
+        if let bundleLoader = environment["BUNDLE_LOADER"] {
+            let loaderURL = URL(fileURLWithPath: bundleLoader)
+            appendBundle(appBundle(at: loaderURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()))
+        }
+        if let siblingAppURL = siblingAppBundleURL(for: Bundle.main.bundleURL) {
+            appendBundle(appBundle(at: siblingAppURL))
+        }
+        if let testBundle = Bundle.allBundles.first(where: { $0.bundleURL.pathExtension == "xctest" }),
+           let siblingAppURL = siblingAppBundleURL(for: testBundle.bundleURL) {
+            appendBundle(appBundle(at: siblingAppURL))
+        }
         #if SWIFT_PACKAGE
-        bundles.append(.module)
+        appendBundle(.module)
         #endif
         return bundles
+    }
+
+    private static func appBundle(at url: URL) -> Bundle? {
+        guard let bundle = Bundle(url: url),
+              bundle.bundleIdentifier == "com.ud.PDFold" else {
+            return nil
+        }
+        return bundle
+    }
+
+    private static func siblingAppBundleURL(for bundleURL: URL) -> URL? {
+        let appURL = bundleURL.deletingLastPathComponent().appendingPathComponent("pdFold.app")
+        return FileManager.default.fileExists(atPath: appURL.path) ? appURL : nil
     }
 
     static func acquisitionGuideText() -> String {

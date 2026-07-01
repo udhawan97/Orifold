@@ -1,4 +1,4 @@
-name: pdFold
+name: PDFold
 options:
   bundleIdPrefix: com.ud
   deploymentTarget:
@@ -39,7 +39,7 @@ targets:
           - Resources/Info.plist
     resources:
       - path: PDFold/Resources/Assets.xcassets
-      - path: CERTIFICATE_GUIDE.md
+      - path: PDFold/Resources/CERTIFICATE_GUIDE.md
     dependencies:
       - package: PDFiumBinary
         product: PDFium
@@ -124,3 +124,15 @@ targets:
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: ""
+        BUNDLE_LOADER: "$(BUILT_PRODUCTS_DIR)/pdFold.app/Contents/MacOS/pdFold.debug.dylib"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks $(BUILT_PRODUCTS_DIR)/pdFold.app/Contents/MacOS"
+
+schemes:
+  PDFold:
+    build:
+      targets:
+        PDFold: all
+    test:
+      targets:
+        - PDFoldTests

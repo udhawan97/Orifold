@@ -6,7 +6,7 @@ Tag: `release-v4`
 
 Target: latest commit tagged by `release-v4`
 
-Release title: `pdFold release-v4 - inline editing, digital signatures, and save fidelity`
+Release title: `pdFold release-v4 - inline editing, digital signatures, and Xcode build parity`
 
 Asset to upload: `pdFold.zip`
 
@@ -18,7 +18,7 @@ Build the asset with:
 
 ## Release Notes
 
-# Inline PDF Text Editing, Digital Signatures, and PDF Save Metadata
+# Inline PDF Text Editing, Digital Signatures, and Xcode Build Parity
 
 **Release:** Latest release  
 **Release date:** July 1, 2026  
@@ -30,7 +30,7 @@ Build the asset with:
 
 pdFold release-v4 focuses on the editing and signing paths that matter most in dense real-world PDFs: click existing text, edit it in place, sign documents, and export a PDF that keeps the original page stable.
 
-The local-first document workspace, installer, automatic update flow, clean uninstall command, PDFium validation, and multi-format export from v3 remain intact. Version 4 hardens inline PDF text editing, PDF save metadata, authentic PDF signatures, release automation, and regression coverage so the app behaves more like a serious Mac PDF workflow tool.
+The local-first document workspace, installer, automatic update flow, clean uninstall command, PDFium validation, and multi-format export from v3 remain intact. Version 4 hardens inline PDF text editing, PDF save metadata, authentic PDF signatures, bundled signing guidance, Xcode project parity, release automation, and regression coverage so the app behaves more like a serious Mac PDF workflow tool.
 
 This is primarily a **PDF editing fidelity, signature, export integrity, and release automation release**.
 
@@ -87,7 +87,9 @@ Inline PDF text edits now restore both rendered bytes and edit metadata.
 
 - Undo restores prior PDF bytes and page edit state.
 - Redo replays the edited PDF bytes and operation state.
-- Save-as-PDF and `.pdfold` package snapshots continue to export from copied pages, preserving the live page-sharing invariant.
+- Standard macOS saves now write flat PDF output while keeping the existing export options available.
+- PDF export strips stale hidden workspace-comment metadata before writing, so removed comments do not silently survive in later exported PDFs.
+- Save and export snapshots continue to export from copied pages, preserving the live page-sharing invariant.
 - App metadata is bumped to `CFBundleShortVersionString` `3.0` and `CFBundleVersion` `4`.
 
 ---
@@ -99,7 +101,7 @@ release-v4 adds a native signing path for PDF deliverables.
 - Signing contracts, identity providers, CMS signature construction, and timestamp request support are included in the app codebase.
 - Signature appearances render consistently for placed signatures.
 - The signing path has focused regression coverage for CMS packaging, timestamp handling, appearance rendering, and PDF signing behavior.
-- Certificate setup and verification notes are documented for maintainers.
+- Certificate setup and verification guidance is bundled as an app resource and loads in SwiftPM, Xcode, and packaged app layouts.
 
 ---
 
@@ -117,6 +119,8 @@ The latest release target includes the follow-up signature fixes after the origi
 
 release-v4 also tightens the release path.
 
+- The checked-in Xcode project now includes signing sources, signing tests, Swift package products, bundled certificate-guide resources, and a shared `PDFold` scheme for build/test verification.
+- Xcode tests use the app debug dylib without launching the full app, while SwiftPM continues to cover the WebKit HTML pagination path.
 - `release-v*` tags now trigger the release workflow.
 - Tagged releases publish `pdFold.zip` and are marked as the latest GitHub release.
 - Rolling `pdFold-latest` builds still refresh from `main`, but no longer steal the latest-release pointer from versioned releases.
@@ -168,6 +172,8 @@ zsh -n "Uninstall pdFold.command"
 plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
 swift build
 swift test
+xcodebuild build -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
 ```
 
@@ -227,6 +233,8 @@ Commits:
 
 - Confirm `PDFold/Resources/Info.plist` is `3.0` / `4`.
 - Confirm `project.yml` is `3.0` / `4`.
+- Confirm `PDFold/Resources/CERTIFICATE_GUIDE.md` is included in SwiftPM resources, Xcode app resources, and installer packaging.
+- Confirm the Xcode project includes the signing source files, signing tests, Swift package products, and shared `PDFold` test scheme.
 - Run the verification commands above.
 - Confirm the `release-v4` tag points at the intended release commit locally and on `origin`.
 - Confirm the GitHub release for `release-v4` is marked latest and contains `pdFold.zip`.
