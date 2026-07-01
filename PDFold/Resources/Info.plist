@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>PDFold</string>
+	<string>pdFold</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -14,7 +14,7 @@
 				<string>pdfoldproj</string>
 			</array>
 			<key>CFBundleTypeName</key>
-			<string>PDFold Workspace</string>
+			<string>pdFold Workspace</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSItemContentTypes</key>
@@ -180,7 +180,7 @@
 				<string>com.apple.package</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>PDFold Workspace</string>
+			<string>pdFold Workspace</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.ud.PDFold.pdfoldproj</string>
 			<key>UTTypeTagSpecification</key>

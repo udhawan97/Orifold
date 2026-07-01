@@ -145,12 +145,12 @@ private struct BottomBarBrand: View {
     var body: some View {
         HStack(spacing: .dsXS) {
             AppIconMark(size: 16)
-            Text("PDFold v3 workspace")
+            Text("pdFold v3 workspace")
                 .font(.system(size: 11, weight: .medium, design: .serif))
                 .foregroundStyle(Color.dsTextTertiary)
                 .lineLimit(1)
         }
-        .accessibilityLabel("PDFold version 3 workspace")
+        .accessibilityLabel("pdFold version 3 workspace")
     }
 }
 

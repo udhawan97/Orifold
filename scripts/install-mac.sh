@@ -3,7 +3,8 @@ set -euo pipefail
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
-APP_NAME="PDFold"
+APP_NAME="pdFold"
+LEGACY_APP_NAME="PDFold"
 REPO="udhawan97/PDFold"
 RELEASE_TAG="release-v3"
 CONFIGURATION="release"
@@ -27,15 +28,20 @@ STAGE_ROOT="${TMPDIR:-/tmp}/pdfold-install-$$"
 STAGED_APP="$STAGE_ROOT/$APP_NAME.app"
 INSTALL_DIR="$HOME/Applications"
 INSTALLED_APP="$INSTALL_DIR/$APP_NAME.app"
+LEGACY_INSTALLED_APP="$INSTALL_DIR/$LEGACY_APP_NAME.app"
 DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME.command"
 DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $APP_NAME.command"
 LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
 LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
+OLD_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME.command"
+OLD_DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $LEGACY_APP_NAME.command"
+OLD_LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME"
+OLD_LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $LEGACY_APP_NAME.command"
 RELEASE_API="https://api.github.com/repos/$REPO/releases/tags/$RELEASE_TAG"
 
 usage() {
     cat <<USAGE
-PDFold installer
+pdFold installer
 
 Usage:
   scripts/install-mac.sh [options]
@@ -49,7 +55,7 @@ Options:
   --package-only   With --package, build the zip without installing locally.
   --help           Show this help.
 
-Re-running this script updates PDFold.
+Re-running this script updates pdFold.
 USAGE
 }
 
@@ -123,7 +129,7 @@ done
 
 /bin/mkdir -p "$BUILD_DIR" "$STAGE_ROOT"
 cat > "$LOG_FILE" <<LOG
-PDFold install log
+pdFold install log
 Project: $PROJECT_ROOT
 Started: $(date)
 macOS: $(sw_vers -productVersion 2>/dev/null || printf "unknown")
@@ -133,13 +139,14 @@ LOG
 
 latest_release_zip_url() {
     print_debug "Checking release API: $RELEASE_API"
-    /usr/bin/python3 - "$RELEASE_API" "$LOG_FILE" <<'PY'
+    /usr/bin/python3 - "$RELEASE_API" "$LOG_FILE" "$APP_NAME.zip" <<'PY'
 import json
 import sys
 import urllib.request
 
 url = sys.argv[1]
 log_file = sys.argv[2]
+asset_name = sys.argv[3]
 try:
     with urllib.request.urlopen(url, timeout=20) as response:
         data = json.load(response)
@@ -149,12 +156,12 @@ except Exception as error:
     sys.exit(1)
 
 for asset in data.get("assets", []):
-    if asset.get("name") == "PDFold.zip" and asset.get("browser_download_url"):
+    if asset.get("name") == asset_name and asset.get("browser_download_url"):
         print(asset["browser_download_url"])
         sys.exit(0)
 with open(log_file, "a", encoding="utf-8") as log:
     available = ", ".join(asset.get("name", "<unnamed>") for asset in data.get("assets", [])) or "none"
-    log.write(f"No PDFold.zip asset found. Available assets: {available}\n")
+    log.write(f"No {asset_name} asset found. Available assets: {available}\n")
 sys.exit(1)
 PY
 }
@@ -206,14 +213,15 @@ install_staged_app() {
 
     print_step "Copying app to $INSTALLED_APP"
     /bin/mkdir -p "$INSTALL_DIR"
-    /bin/rm -rf "$INSTALLED_APP"
+    /bin/rm -rf "$INSTALLED_APP" "$LEGACY_INSTALLED_APP"
     /usr/bin/ditto --norsrc "$STAGED_APP" "$INSTALLED_APP"
     /usr/bin/xattr -cr "$INSTALLED_APP" 2>/dev/null || true
     verify_app_bundle "$INSTALLED_APP"
 
     print_step "Refreshing Desktop commands"
     if [[ -d "$HOME/Desktop" ]]; then
-        /bin/rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_UPDATER"
+        /bin/rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_UPDATER" \
+            "$OLD_DESKTOP_LAUNCHER" "$OLD_DESKTOP_UNINSTALLER" "$OLD_LEGACY_DESKTOP_LAUNCHER" "$OLD_LEGACY_DESKTOP_UPDATER"
         cat > "$DESKTOP_LAUNCHER" <<'LAUNCHER'
 #!/bin/zsh
 set -euo pipefail
@@ -246,7 +254,7 @@ UNINSTALLER
 install_prebuilt_release() {
     local zip_url zip_path unzip_dir found_app
     zip_url="$(latest_release_zip_url)" || return 1
-    zip_path="$STAGE_ROOT/PDFold.zip"
+    zip_path="$STAGE_ROOT/$APP_NAME.zip"
     unzip_dir="$STAGE_ROOT/prebuilt"
 
     print_step "Downloading prebuilt $APP_NAME"
@@ -364,7 +372,7 @@ MESSAGE
     fi
 
     if [[ $PREBUILT_ONLY -eq 1 ]]; then
-        fail "No prebuilt GitHub release asset named PDFold.zip is available for $RELEASE_TAG yet."
+        fail "No prebuilt GitHub release asset named $APP_NAME.zip is available for $RELEASE_TAG yet."
     fi
 
     print_note "No prebuilt release was available. Building from source instead."

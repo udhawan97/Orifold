@@ -1,4 +1,4 @@
-name: PDFold
+name: pdFold
 options:
   bundleIdPrefix: com.ud
   deploymentTarget:
@@ -36,7 +36,7 @@ targets:
     info:
       path: PDFold/Resources/Info.plist
       properties:
-        CFBundleDisplayName: PDFold
+        CFBundleDisplayName: pdFold
         CFBundleShortVersionString: "3.0"
         CFBundleVersion: "3"
         NSHumanReadableCopyright: "Copyright © 2026. MIT License."
@@ -45,7 +45,7 @@ targets:
         CFBundleIconName: AppIcon
         CFBundleDocumentTypes:
           - CFBundleTypeExtensions: [pdfoldproj]
-            CFBundleTypeName: PDFold Workspace
+            CFBundleTypeName: pdFold Workspace
             CFBundleTypeRole: Editor
             LSItemContentTypes: [com.ud.PDFold.pdfoldproj]
           - CFBundleTypeExtensions: [pdf]
@@ -80,7 +80,7 @@ targets:
             LSItemContentTypes: [public.image, public.png, public.jpeg, com.compuserve.gif, public.tiff, public.heic, com.microsoft.bmp, org.webmproject.webp]
         UTExportedTypeDeclarations:
           - UTTypeConformsTo: [com.apple.package]
-            UTTypeDescription: PDFold Workspace
+            UTTypeDescription: pdFold Workspace
             UTTypeIdentifier: com.ud.PDFold.pdfoldproj
             UTTypeTagSpecification:
               public.filename-extension: [pdfoldproj]
@@ -91,7 +91,7 @@ targets:
         com.apple.security.files.user-selected.read-write: true
     settings:
       base:
-        PRODUCT_NAME: PDFold
+        PRODUCT_NAME: pdFold
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         INFOPLIST_FILE: PDFold/Resources/Info.plist

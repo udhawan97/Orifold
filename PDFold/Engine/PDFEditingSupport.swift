@@ -14,21 +14,21 @@ enum PDFTextEditWarning: Equatable {
     var message: String {
         switch self {
         case .emptySelection:
-            return "PDFold could not find editable text at that location."
+            return "pdFold could not find editable text at that location."
         case .invalidSelectionBounds:
-            return "That PDF text selection has invalid bounds, so PDFold added a normal text box instead."
+            return "That PDF text selection has invalid bounds, so pdFold added a normal text box instead."
         case .invalidAnnotationBounds:
             return "That annotation has invalid geometry and could not be edited safely."
         case .annotationCreationFailed:
-            return "PDFold could not create an annotation on that page."
+            return "pdFold could not create an annotation on that page."
         case .unsupportedReplacement:
-            return "PDFold could not safely replace that PDF text. A normal text box was added instead."
+            return "pdFold could not safely replace that PDF text. A normal text box was added instead."
         case .serializationFailed:
-            return "PDFold could not serialize the edited PDF. Your workspace remains open."
+            return "pdFold could not serialize the edited PDF. Your workspace remains open."
         case .colorConversionFailed:
-            return "PDFold could not preserve the original text color, so it used the default document text color."
+            return "pdFold could not preserve the original text color, so it used the default document text color."
         case .fontConversionFailed:
-            return "PDFold could not preserve the original font, so it used a system font."
+            return "pdFold could not preserve the original font, so it used a system font."
         }
     }
 }

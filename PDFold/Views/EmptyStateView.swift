@@ -15,7 +15,7 @@ struct EmptyStateView: View {
                     AppIconMark(size: 80)
 
                     VStack(spacing: 6) {
-                        Text("PDFold")
+                        Text("pdFold")
                             .font(.dsDisplay(size: 36))
                             .foregroundStyle(Color.dsTextPrimary)
                         Text("Fold scattered pages into one polished PDF.")
@@ -95,7 +95,7 @@ struct EmptyStateView: View {
                 guard !urls.isEmpty else {
                     viewModel.importError = WorkspaceViewModel.ImportError(
                         fileName: "Dropped Files",
-                        message: "PDFold could not find a supported document in that drop."
+                        message: "pdFold could not find a supported document in that drop."
                     )
                     return
                 }

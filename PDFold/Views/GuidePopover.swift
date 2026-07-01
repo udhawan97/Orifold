@@ -23,7 +23,7 @@ struct AppIconButton: View {
             AppIconMark(size: size)
         }
         .buttonStyle(.plain)
-        .help("About PDFold")
+        .help("About pdFold")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             AppAboutPopover(isPresented: $isPresented)
         }
@@ -40,7 +40,7 @@ struct AppBrandLockup: View {
         HStack(spacing: .dsSM) {
             AppIconMark(size: iconSize)
             VStack(alignment: .leading, spacing: 2) {
-                Text("PDFold")
+                Text("pdFold")
                     .font(.system(size: titleSize, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.dsTextPrimary)
                 if let subtitle {
@@ -58,7 +58,7 @@ struct AppBrandLockup: View {
     var compact: some View {
         HStack(spacing: .dsXS) {
             AppIconMark(size: iconSize)
-            Text("PDFold")
+            Text("pdFold")
                 .font(.system(size: titleSize, weight: .semibold, design: .serif))
                 .foregroundStyle(Color.dsTextPrimary)
         }

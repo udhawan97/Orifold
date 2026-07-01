@@ -242,7 +242,7 @@ final class WorkspaceViewModel {
                 } else if let existingData = self.document.memberPDFData[member.id] {
                     // Surface a blocking, actionable error — do not silently drop edits.
                     self.exportError = ExportError(
-                        message: "PDFold couldn\u{2019}t serialize \u{201C}\(member.displayName)\u{201D}; your edits to it weren\u{2019}t saved. Use \u{201C}Save as PDF\u{2026}\u{201D} (\u{2318}\u{21E7}S) to preserve your work."
+                        message: "pdFold couldn\u{2019}t serialize \u{201C}\(member.displayName)\u{201D}; your edits to it weren\u{2019}t saved. Use \u{201C}Save as PDF\u{2026}\u{201D} (\u{2318}\u{21E7}S) to preserve your work."
                     )
                     result[member.id] = existingData
                 }
@@ -305,7 +305,7 @@ final class WorkspaceViewModel {
         guard let data = PDFSerializer.data(from: pdf) else {
             importError = ImportError(
                 fileName: url.lastPathComponent,
-                message: "PDFold could not prepare this file for saving. Try exporting it to PDF first, then import the exported file."
+                message: "pdFold could not prepare this file for saving. Try exporting it to PDF first, then import the exported file."
             )
             return
         }
@@ -669,7 +669,7 @@ final class WorkspaceViewModel {
         guard let lookup = memberPDF(for: pageRef),
               let localIdx = localIndex(ref: pageRef, memberIndex: lookup.documentIndex),
               lookup.pdf.page(at: localIdx) != nil else {
-            showEditMessage("PDFold could not locate that page for inline editing.", isError: true)
+            showEditMessage("pdFold could not locate that page for inline editing.", isError: true)
             return false
         }
         // Always regenerate from the original (pre-edit) page so that multiple edits on
@@ -679,7 +679,7 @@ final class WorkspaceViewModel {
         guard let baseData,
               let basePDF = PDFDocument(data: baseData),
               let basePage = basePDF.page(at: localIdx) else {
-            showEditMessage("PDFold could not access the original page for editing.", isError: true)
+            showEditMessage("pdFold could not access the original page for editing.", isError: true)
             return false
         }
 
@@ -713,7 +713,7 @@ final class WorkspaceViewModel {
         guard let operations = document.workspace.pageEditStates.first(where: { $0.pageRefID == pageRef.id })?.operations,
               let regenerated = PDFEditedPageRenderer.regeneratedPage(from: basePage, applying: operations) else {
             document.workspace.pageEditStates = previousEditStates
-            showEditMessage("PDFold could not regenerate that edited page. The original page is unchanged.", isError: true)
+            showEditMessage("pdFold could not regenerate that edited page. The original page is unchanged.", isError: true)
             return false
         }
 
@@ -1064,7 +1064,7 @@ final class WorkspaceViewModel {
     func saveFlattenedPDF(to url: URL? = nil) {
         let exportDoc = engine.concatenate(documents: loadedPDFs, includeBanners: false)
         guard let pdfData = PDFSerializer.data(from: exportDoc) else {
-            exportError = ExportError(message: "PDFold could not serialize the PDF for saving. Try exporting individual documents first.")
+            exportError = ExportError(message: "pdFold could not serialize the PDF for saving. Try exporting individual documents first.")
             return
         }
 
@@ -1090,7 +1090,7 @@ final class WorkspaceViewModel {
         do {
             try pdfData.write(to: targetURL, options: .atomic)
         } catch {
-            exportError = ExportError(message: "PDFold could not save the PDF: \(error.localizedDescription)")
+            exportError = ExportError(message: "pdFold could not save the PDF: \(error.localizedDescription)")
         }
     }
 
@@ -1103,13 +1103,13 @@ final class WorkspaceViewModel {
             )
             saveData(data, as: .word)
         } catch {
-            exportError = ExportError(message: "PDFold could not create the Word export: \(error.localizedDescription)")
+            exportError = ExportError(message: "pdFold could not create the Word export: \(error.localizedDescription)")
         }
     }
 
     private func exportPlainText() {
         guard let data = plainTextForDocumentExport().data(using: .utf8) else {
-            exportError = ExportError(message: "PDFold could not encode the text export.")
+            exportError = ExportError(message: "pdFold could not encode the text export.")
             return
         }
         saveData(data, as: .text)
@@ -1117,7 +1117,7 @@ final class WorkspaceViewModel {
 
     private func exportMarkdown() {
         guard let data = markdownForDocumentExport().data(using: .utf8) else {
-            exportError = ExportError(message: "PDFold could not encode the Markdown export.")
+            exportError = ExportError(message: "pdFold could not encode the Markdown export.")
             return
         }
         saveData(data, as: .markdown)
@@ -1126,7 +1126,7 @@ final class WorkspaceViewModel {
     private func exportHTML() {
         let html = htmlForDocumentExport()
         guard let data = html.data(using: .utf8) else {
-            exportError = ExportError(message: "PDFold could not encode the HTML export.")
+            exportError = ExportError(message: "pdFold could not encode the HTML export.")
             return
         }
         saveData(data, as: .html)
@@ -1157,7 +1157,7 @@ final class WorkspaceViewModel {
                 try data.write(to: folderURL.appendingPathComponent(filename), options: .atomic)
             }
         } catch {
-            exportError = ExportError(message: "PDFold could not export page images: \(error.localizedDescription)")
+            exportError = ExportError(message: "pdFold could not export page images: \(error.localizedDescription)")
         }
     }
 
@@ -1172,7 +1172,7 @@ final class WorkspaceViewModel {
         do {
             try data.write(to: url, options: .atomic)
         } catch {
-            exportError = ExportError(message: "PDFold could not write the \(format.menuTitle) export: \(error.localizedDescription)")
+            exportError = ExportError(message: "pdFold could not write the \(format.menuTitle) export: \(error.localizedDescription)")
         }
     }
 
@@ -1379,7 +1379,7 @@ final class WorkspaceViewModel {
         let invalid = CharacterSet(charactersIn: "/\\:?%*|\"<>").union(.controlCharacters)
         let filtered = value.unicodeScalars.map { invalid.contains($0) ? "-" : String($0) }.joined()
         let trimmed = filtered.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "PDFold Export" : trimmed
+        return trimmed.isEmpty ? "pdFold Export" : trimmed
     }
 
     private struct ExportFailure: LocalizedError {

@@ -25,7 +25,7 @@ private struct AboutCommandButton: View {
     @State private var isPresented = false
 
     var body: some View {
-        Button("About PDFold") { isPresented = true }
+        Button("About pdFold") { isPresented = true }
             .popover(isPresented: $isPresented) {
                 AppAboutPopover(isPresented: $isPresented)
             }

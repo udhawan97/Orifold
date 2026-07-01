@@ -164,7 +164,7 @@
   <g transform="translate(188 580)">
     <rect width="904" height="64" rx="24" fill="#08251C" stroke="#166534"/>
     <circle cx="30" cy="22" r="6" fill="#22C55E"/>
-    <text x="50" y="26" class="caption">Launch/update: PDFold.command checks the latest release before opening.</text>
+    <text x="50" y="26" class="caption">Launch/update: pdFold.command checks the latest release before opening.</text>
     <circle cx="30" cy="44" r="6" fill="#22C55E"/>
     <text x="50" y="48" class="caption">Clean uninstall: removes app artifacts while saved workspaces stay user-owned.</text>
   </g>

@@ -74,7 +74,7 @@
 		547E4E8F72DEE08FB7A66472 /* PDFEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFEngine.swift; sourceTree = "<group>"; };
 		60A8C841F2BC6480B83C84F1 /* PDFoldTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFoldTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		677794D3780601477BBBAFFE /* PDFTextAnalysisEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextAnalysisEngine.swift; sourceTree = "<group>"; };
-		7E5FBDD597A2A46452637450 /* PDFold.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PDFold.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7E5FBDD597A2A46452637450 /* pdFold.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = pdFold.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		86F4A0911CD68D8A0B97F04D /* PDFiumProcessingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFiumProcessingEngine.swift; sourceTree = "<group>"; };
 		8C6A8B10628B4B01844F44D7 /* PDFSerializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFSerializer.swift; sourceTree = "<group>"; };
 		92C4739CB79025BE3763E623 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
@@ -196,7 +196,7 @@
 		B573FD802240F2101341CA22 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7E5FBDD597A2A46452637450 /* PDFold.app */,
+				7E5FBDD597A2A46452637450 /* pdFold.app */,
 				60A8C841F2BC6480B83C84F1 /* PDFoldTests.xctest */,
 			);
 			name = Products;
@@ -276,8 +276,8 @@
 			packageProductDependencies = (
 				D37166FA4DD4A051F56167F0 /* PDFium */,
 			);
-			productName = PDFold;
-			productReference = 7E5FBDD597A2A46452637450 /* PDFold.app */;
+			productName = pdFold;
+			productReference = 7E5FBDD597A2A46452637450 /* pdFold.app */;
 			productType = "com.apple.product-type.application";
 		};
 		D098066C554110139A6C838C /* PDFoldTests */ = {
@@ -423,7 +423,7 @@
 				INFOPLIST_FILE = PDFold/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				PRODUCT_NAME = PDFold;
+				PRODUCT_NAME = pdFold;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
 			};
@@ -505,7 +505,7 @@
 				PRODUCT_NAME = PDFoldTests;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFold.app/Contents/MacOS/PDFold";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/pdFold.app/Contents/MacOS/pdFold";
 			};
 			name = Debug;
 		};
@@ -520,7 +520,7 @@
 				INFOPLIST_FILE = PDFold/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				PRODUCT_NAME = PDFold;
+				PRODUCT_NAME = pdFold;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
 			};
@@ -609,7 +609,7 @@
 				PRODUCT_NAME = PDFoldTests;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFold.app/Contents/MacOS/PDFold";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/pdFold.app/Contents/MacOS/pdFold";
 			};
 			name = Release;
 		};

@@ -86,7 +86,7 @@ struct SignaturePalette: View {
         .alert("Digital Signature", isPresented: $isShowingDigitalSignatureNotice) {
             Button("OK") {}
         } message: {
-            Text("A standards-compliant PDF digital signature needs certificate-backed signing with a PDF /Sig field, /ByteRange, and CMS signature data. PDFKit cannot create that directly, so PDFold keeps this separate from local drawn signatures until a signing engine is added.")
+            Text("A standards-compliant PDF digital signature needs certificate-backed signing with a PDF /Sig field, /ByteRange, and CMS signature data. PDFKit cannot create that directly, so pdFold keeps this separate from local drawn signatures until a signing engine is added.")
         }
     }
 }

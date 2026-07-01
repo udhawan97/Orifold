@@ -155,7 +155,7 @@
     <text x="46" y="538" class="body">and clean uninstall.</text>
     <g transform="translate(46 562)">
       <rect x="0" y="0" width="116" height="26" rx="13" fill="#08251C" stroke="#166534"/>
-      <text x="58" y="18" text-anchor="middle" class="chip" fill="#86EFAC">PDFold.command</text>
+      <text x="58" y="18" text-anchor="middle" class="chip" fill="#86EFAC">pdFold.command</text>
       <rect x="0" y="36" width="116" height="26" rx="13" fill="#08251C" stroke="#166534"/>
       <text x="58" y="54" text-anchor="middle" class="chip" fill="#86EFAC">Uninstall</text>
     </g>

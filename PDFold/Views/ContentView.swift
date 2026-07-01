@@ -200,7 +200,7 @@ struct ContentView: View {
             guard !urls.isEmpty else {
                 viewModel.importError = WorkspaceViewModel.ImportError(
                     fileName: "Dropped Files",
-                    message: "PDFold could not find a supported document in that drop."
+                    message: "pdFold could not find a supported document in that drop."
                 )
                 return
             }

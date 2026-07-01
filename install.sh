@@ -3,7 +3,7 @@ set -euo pipefail
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
-APP_NAME="PDFold"
+APP_NAME="pdFold"
 REPO="udhawan97/PDFold"
 RAW_BASE="https://raw.githubusercontent.com/$REPO/main"
 WORK_DIR="$HOME/.pdfold"

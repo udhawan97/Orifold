@@ -1,10 +1,10 @@
 <br>
 
 <p align="center">
-  <img src="docs/assets/pdfold-icon.png" alt="PDFold app icon" width="200">
+  <img src="docs/assets/pdfold-icon.png" alt="pdFold app icon" width="200">
 </p>
 
-<h1 align="center">PDFold</h1>
+<h1 align="center">pdFold</h1>
 
 <p align="center">
   <em>A native macOS workspace for turning scattered documents into one organized PDF workflow.</em>
@@ -62,7 +62,7 @@ Paste this into Terminal:
 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
 ```
 
-The installer downloads the latest prebuilt app, places it in `~/Applications/PDFold.app`, and adds Desktop commands for launching/updating and clean uninstall.
+The installer downloads the latest prebuilt app, places it in `~/Applications/pdFold.app`, and adds Desktop commands for launching/updating and clean uninstall.
 
 No Xcode. No GitHub account. No compile step. Just paste, install, and get back to the documents.
 
@@ -182,8 +182,8 @@ PDFold v3 is a release-hardened local-first macOS app for collecting scattered d
 
 |  | Area | Release Update |
 | --- | --- | --- |
-| 🔄 | Automatic updates | The Desktop **PDFold.command** launcher checks the latest GitHub release every time it opens the app |
-| 🧹 | Clean uninstall | The installer now creates **Uninstall PDFold.command** for removing the app, generated commands, installer cache, and PDFold app data |
+| 🔄 | Automatic updates | The Desktop **pdFold.command** launcher checks the latest GitHub release every time it opens the app |
+| 🧹 | Clean uninstall | The installer now creates **Uninstall pdFold.command** for removing the app, generated commands, installer cache, and pdFold app data |
 | 🧪 | PDF processing backend | PDF imports pass through an injectable `PDFProcessingEngine`, with PDFium validation and a PDFKit fallback path |
 | 🧭 | Simpler setup | The old separate update command is treated as a legacy artifact and cleaned up by install/update/uninstall scripts |
 | 📝 | Release docs | README setup, update, uninstall, quality, and troubleshooting guidance now match the v3 install flow |
@@ -211,11 +211,11 @@ Paste one command into Terminal:
 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
 ```
 
-The installer downloads the latest prebuilt `PDFold.zip` from GitHub Releases, installs `PDFold.app` to `~/Applications`, creates self-updating launch and uninstall Desktop commands, removes download quarantine metadata, and opens the app.
+The installer downloads the latest prebuilt `pdFold.zip` from GitHub Releases, installs `pdFold.app` to `~/Applications`, creates self-updating launch and uninstall Desktop commands, removes download quarantine metadata, and opens the app.
 
 The normal path does not require Xcode, Apple's Command Line Tools, a package manager, or a GitHub account. The installer is intentionally uneventful, which is exactly how installers should behave.
 
-Important release note: the zero-compile installer depends on a published GitHub release containing `PDFold.zip`. If no prebuilt release is available, the installer falls back to a source build and macOS may ask for Apple's free Command Line Tools.
+Important release note: the zero-compile installer depends on a published GitHub release containing `pdFold.zip`. If no prebuilt release is available, the installer falls back to a source build and macOS may ask for Apple's free Command Line Tools.
 
 For detailed install diagnostics, run the same command with verbose logging enabled:
 
@@ -235,7 +235,7 @@ cd PDFold
 
 ## Updating The App
 
-Double-click **PDFold.command** on the Desktop. The launcher checks for the latest release, refreshes the installed app when needed, and then opens PDFold.
+Double-click **pdFold.command** on the Desktop. The launcher checks for the latest release, refreshes the installed app when needed, and then opens pdFold.
 
 You can also paste the installer command again:
 
@@ -243,11 +243,11 @@ You can also paste the installer command again:
 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
 ```
 
-If PDFold is already installed, the updater closes the running app if needed, replaces `~/Applications/PDFold.app`, refreshes the Desktop launcher, removes quarantine metadata, and opens the updated app.
+If PDFold is already installed, the updater closes the running app if needed, replaces `~/Applications/pdFold.app`, refreshes the Desktop launcher, removes quarantine metadata, and opens the updated app.
 
 ## Uninstalling The App
 
-Double-click **Uninstall PDFold.command** on the Desktop to remove the installed app, generated Desktop commands, installer cache, and PDFold app data.
+Double-click **Uninstall pdFold.command** on the Desktop to remove the installed app, generated Desktop commands, installer cache, and pdFold app data.
 
 Saved `.pdfoldproj` workspace files are not removed. To keep app support, preferences, caches, and sandbox data too, run:
 
@@ -280,18 +280,18 @@ The local script can install a release build, package a release zip, or build fr
 |  | Requirement | Version |
 | --- | --- | --- |
 | 🍎 | macOS | 14 Sonoma or newer |
-| 📦 | Normal install | Published `PDFold.zip` release |
+| 📦 | Normal install | Published `pdFold.zip` release |
 | 🧰 | Source build fallback | Apple Command Line Tools with Swift 5.9+ |
 
 <details>
 <summary>Why might Command Line Tools appear?</summary>
 
-The normal installer downloads a prebuilt `.app`. If no release artifact is available, PDFold falls back to a source build with SwiftPM, which requires Apple's free Command Line Tools. Full Xcode is not required.
+The normal installer downloads a prebuilt `.app`. If no release artifact is available, pdFold falls back to a source build with SwiftPM, which requires Apple's free Command Line Tools. Full Xcode is not required.
 </details>
 
 ## Daily Workflow
 
-1. Launch PDFold.
+1. Launch pdFold.
 2. Drag in PDFs, Word documents, text files, web exports, data files, or images.
 3. Reorder documents and pages until the workspace matches the story you need to tell.
 4. Highlight, annotate, add notes, tag the workspace, capture comments, or place a drawn signature.
@@ -313,14 +313,14 @@ PDFold/
 scripts/
   install-mac.command  Compatibility double-click installer
   install-mac.sh       Release-first installer, source builder, and release packager
-  uninstall-mac.sh     Clean uninstaller for installed app artifacts and PDFold app data
+  uninstall-mac.sh     Clean uninstaller for installed app artifacts and pdFold app data
 install.sh
   Hosted one-line bootstrap
-Install or Update PDFold.app
+Install or Update pdFold.app
   Finder installer/updater that bypasses Terminal shell startup
-Install or Update PDFold.command
+Install or Update pdFold.command
   Compatibility Terminal installer/updater
-Uninstall PDFold.command
+Uninstall pdFold.command
   Compatibility Terminal uninstaller
 ```
 
@@ -341,7 +341,7 @@ swift build
 Create the same release zip used by GitHub Releases:
 
 ```zsh
-./scripts/install-mac.sh --package-only --package /tmp/PDFold.zip
+./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
 ```
 
 Install from the current source checkout without opening the app:
@@ -352,7 +352,7 @@ Install from the current source checkout without opening the app:
 
 ## Privacy & Security
 
-PDFold is local-first by design. Documents are opened, edited, saved, and exported on your machine.
+pdFold is local-first by design. Documents are opened, edited, saved, and exported on your machine.
 
 The app uses macOS sandboxing and file access through user-selected documents. Its new PDF processing backend runs locally for import validation; it is not a remote upload service. In plain English: PDFold works with the files you hand it, not your entire digital attic.
 
@@ -385,7 +385,7 @@ Before shipping a build, verify both the developer path and the human-with-docum
 | --- | --- | --- |
 | ✅ | Build | `swift build` completes |
 | 🧪 | Installer smoke test | `./scripts/install-mac.sh --no-open` installs the release or builds, signs, installs, and refreshes Desktop commands |
-| 📦 | Release package | `./scripts/install-mac.sh --package-only --package /tmp/PDFold.zip` creates the release artifact |
+| 📦 | Release package | `./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip` creates the release artifact |
 | 📥 | Import | Drag-and-drop works with supported file types |
 | 🧪 | Processing backend | PDFium validation runs when available, and PDFKit fallback remains usable |
 | 🔑 | Protected PDFs | Password-protected PDFs show the unlock flow |
@@ -407,11 +407,11 @@ zsh -n install.sh
 zsh -n scripts/install-mac.sh
 zsh -n scripts/uninstall-mac.sh
 zsh -n scripts/install-mac.command
-zsh -n "Install or Update PDFold.command"
-zsh -n "Uninstall PDFold.command"
-plutil -lint "Install or Update PDFold.app/Contents/Info.plist"
+zsh -n "Install or Update pdFold.command"
+zsh -n "Uninstall pdFold.command"
+plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
 swift build
-./scripts/install-mac.sh --package-only --package /tmp/PDFold.zip
+./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
 ```
 
 ## Roadmap
@@ -448,10 +448,10 @@ Use the Quick Start command from Terminal, or download the repository first and 
 Open Terminal in the project folder and run:
 
 ```zsh
-chmod +x "Install or Update PDFold.command" "Uninstall PDFold.command" "Install or Update PDFold.app/Contents/MacOS/PDFoldInstaller" scripts/install-mac.sh scripts/install-mac.command scripts/uninstall-mac.sh
+chmod +x "Install or Update pdFold.command" "Uninstall pdFold.command" "Install or Update pdFold.app/Contents/MacOS/PDFoldInstaller" scripts/install-mac.sh scripts/install-mac.command scripts/uninstall-mac.sh
 ```
 
-Then double-click `Install or Update PDFold.app` again from Finder.
+Then double-click `Install or Update pdFold.app` again from Finder.
 </details>
 
 <details>
@@ -465,7 +465,7 @@ Install Apple's free Command Line Tools from the macOS prompt, then run the inst
 <details>
 <summary>The Desktop launcher does not open the app</summary>
 
-Run the installer again. It refreshes `~/Applications/PDFold.app` and recreates the Desktop launcher.
+Run the installer again. It refreshes `~/Applications/pdFold.app` and recreates the Desktop launcher.
 
 For more detail, run the installer with verbose logging:
 
@@ -477,7 +477,7 @@ PDFOLD_INSTALL_VERBOSE=1 curl -fsSL https://raw.githubusercontent.com/udhawan97/
 <details>
 <summary>macOS warns the app is from an unidentified developer</summary>
 
-PDFold release builds are ad-hoc signed but not notarized. The installer removes download quarantine from the installed app. If macOS still warns, open it from Finder, then use **Open** from the security prompt.
+pdFold release builds are ad-hoc signed but not notarized. The installer removes download quarantine from the installed app. If macOS still warns, open it from Finder, then use **Open** from the security prompt.
 
 Fully silent Gatekeeper behavior requires Apple Developer ID signing and notarization, which is listed on the roadmap.
 </details>
@@ -485,7 +485,7 @@ Fully silent Gatekeeper behavior requires Apple Developer ID signing and notariz
 <details>
 <summary>The app did not update</summary>
 
-Double-click **PDFold.command** on the Desktop, or paste the Quick Start command again.
+Double-click **pdFold.command** on the Desktop, or paste the Quick Start command again.
 
 For a fully fresh developer source build:
 
@@ -499,7 +499,7 @@ For a fully fresh developer source build:
 
 Open `.build/install.log` in the project folder. It contains the latest installer/build output.
 
-When using the README install command, the prebuilt release attempt is also logged at `~/.pdfold/prebuilt-install.log`. If PDFold opens and immediately exits, the installer records recent macOS launch diagnostics in the install log before failing.
+When using the README install command, the prebuilt release attempt is also logged at `~/.pdfold/prebuilt-install.log`. If pdFold opens and immediately exits, the installer records recent macOS launch diagnostics in the install log before failing.
 
 You can also run the installer from Terminal to keep the output visible:
 
@@ -510,4 +510,4 @@ You can also run the installer from Terminal to keep the output visible:
 
 ## License
 
-PDFold is available under the [MIT License](LICENSE).
+pdFold is available under the [MIT License](LICENSE).

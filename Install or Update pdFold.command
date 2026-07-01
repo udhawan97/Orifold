@@ -3,10 +3,10 @@ set -u
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
-APP_NAME="PDFold"
+APP_NAME="pdFold"
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 INSTALLER="$SCRIPT_DIR/scripts/install-mac.sh"
-INSTALLER_APP="$SCRIPT_DIR/Install or Update PDFold.app"
+INSTALLER_APP="$SCRIPT_DIR/Install or Update pdFold.app"
 LOG_FILE="$SCRIPT_DIR/.build/install.log"
 
 printf "\033]0;%s Installer\007" "$APP_NAME"

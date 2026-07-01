@@ -86,7 +86,7 @@ enum DocumentImportConverter {
         case ConversionError.unreadableDocument:
             return "The file could not be read. It may be corrupt, encrypted, or incomplete."
         case ConversionError.renderingFailed:
-            return "The file opened, but PDFold could not render it into a PDF."
+            return "The file opened, but pdFold could not render it into a PDF."
         case ConversionError.renderTimedOut:
             return "The file took too long to render. Try exporting it to PDF from its original app, then import the PDF."
         case ConversionError.fileTooLarge(let byteCount):
@@ -96,11 +96,11 @@ enum DocumentImportConverter {
         case ConversionError.fileTypeTooLarge(let typeDescription, let actualBytes, let limitBytes):
             let actual = byteCountFormatter.string(fromByteCount: actualBytes)
             let limit = byteCountFormatter.string(fromByteCount: limitBytes)
-            return "This \(typeDescription) file is \(actual), which is larger than PDFold can safely convert directly (\(limit)). Try exporting it to PDF first, then import the PDF."
+            return "This \(typeDescription) file is \(actual), which is larger than pdFold can safely convert directly (\(limit)). Try exporting it to PDF first, then import the PDF."
         case ConversionError.htmlRenderedTooLarge(let pageEstimate, let maxPages):
-            return "This HTML file would render to about \(pageEstimate) pages, which is over PDFold's \(maxPages)-page HTML conversion limit. Try printing or exporting it to PDF from a browser, then import the PDF."
+            return "This HTML file would render to about \(pageEstimate) pages, which is over pdFold's \(maxPages)-page HTML conversion limit. Try printing or exporting it to PDF from a browser, then import the PDF."
         case ConversionError.documentRenderedTooLarge(let maxPages):
-            return "This file would render to more than \(maxPages) pages, so PDFold stopped the import before creating a partial PDF. Try exporting it to PDF first, then import the PDF."
+            return "This file would render to more than \(maxPages) pages, so pdFold stopped the import before creating a partial PDF. Try exporting it to PDF first, then import the PDF."
         default:
             return "The file could not be opened: \(error.localizedDescription)"
         }

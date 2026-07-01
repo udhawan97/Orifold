@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "PDFold",
+    name: "pdFold",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "PDFold", targets: ["PDFold"])
+        .executable(name: "pdFold", targets: ["PDFold"])
     ],
     dependencies: [
         .package(path: "Packages/PDFiumBinary")

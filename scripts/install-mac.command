@@ -1,7 +1,7 @@
 #!/bin/zsh -f
 set -u
 
-APP_NAME="PDFold"
+APP_NAME="pdFold"
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 INSTALLER="$SCRIPT_DIR/install-mac.sh"

@@ -3,27 +3,33 @@ set -euo pipefail
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
-APP_NAME="PDFold"
+APP_NAME="pdFold"
+LEGACY_APP_NAME="PDFold"
 BUNDLE_ID="com.ud.PDFold"
 INSTALL_CACHE="$HOME/.pdfold"
 INSTALLED_APP="$HOME/Applications/$APP_NAME.app"
+LEGACY_INSTALLED_APP="$HOME/Applications/$LEGACY_APP_NAME.app"
 DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME.command"
 DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $APP_NAME.command"
 LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
 LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
+OLD_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME.command"
+OLD_DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $LEGACY_APP_NAME.command"
+OLD_LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME"
+OLD_LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $LEGACY_APP_NAME.command"
 
 KEEP_USER_DATA=0
 REMOVE_ERRORS=()
 
 usage() {
     cat <<USAGE
-PDFold uninstaller
+pdFold uninstaller
 
 Usage:
   scripts/uninstall-mac.sh [options]
 
 Options:
-  --keep-user-data  Keep PDFold app support, preferences, caches, and sandbox data.
+  --keep-user-data  Keep pdFold app support, preferences, caches, and sandbox data.
   --help            Show this help.
 
 Saved .pdfoldproj workspace files are not removed.
@@ -108,21 +114,27 @@ fi
 
 print_step "Removing installed app and commands"
 remove_path "$INSTALLED_APP"
+remove_path "$LEGACY_INSTALLED_APP"
 remove_path "$DESKTOP_LAUNCHER"
 remove_path "$LEGACY_DESKTOP_LAUNCHER"
 remove_path "$LEGACY_DESKTOP_UPDATER"
 remove_path "$DESKTOP_UNINSTALLER"
+remove_path "$OLD_DESKTOP_LAUNCHER"
+remove_path "$OLD_DESKTOP_UNINSTALLER"
+remove_path "$OLD_LEGACY_DESKTOP_LAUNCHER"
+remove_path "$OLD_LEGACY_DESKTOP_UPDATER"
 remove_path "$INSTALL_CACHE"
 
 if [[ $KEEP_USER_DATA -eq 0 ]]; then
-    print_step "Removing PDFold app data"
+    print_step "Removing pdFold app data"
     remove_path "$HOME/Library/Application Support/$APP_NAME"
+    remove_path "$HOME/Library/Application Support/$LEGACY_APP_NAME"
     remove_path "$HOME/Library/Containers/$BUNDLE_ID"
     remove_path "$HOME/Library/Preferences/$BUNDLE_ID.plist"
     remove_path "$HOME/Library/Caches/$BUNDLE_ID"
     remove_path "$HOME/Library/Saved Application State/$BUNDLE_ID.savedState"
 else
-    print_step "Keeping PDFold app data"
+    print_step "Keeping pdFold app data"
 fi
 
 if [[ ${#REMOVE_ERRORS[@]} -gt 0 ]]; then
