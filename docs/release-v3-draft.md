@@ -1,4 +1,4 @@
-# PDFold v3.0 Release Draft
+# pdFold v3.0 Release Draft
 
 ## GitHub Release Fields
 
@@ -6,7 +6,7 @@ Tag: `v3.0`
 
 Target: `main`
 
-Release title: `PDFold v3.0 - automatic updates and clean uninstall`
+Release title: `pdFold v3.0 - automatic updates and clean uninstall`
 
 Asset to upload: `pdFold.zip`
 
@@ -18,16 +18,16 @@ Build the asset with:
 
 ## Release Notes
 
-PDFold v3.0 keeps the local-first document workspace from v2, adds a supplemental local PDF processing backend, and improves the install lifecycle: normal launches now check for updates automatically, and users get a dedicated clean uninstall command.
+pdFold v3.0 keeps the local-first document workspace from v2, adds a supplemental local PDF processing backend, and improves the install lifecycle: normal launches now check for updates automatically, and users get a dedicated clean uninstall command.
 
 ### What's Changed
 
 - Automatic update check on launch: the Desktop `pdFold.command` launcher runs the installer/updater every time it opens pdFold, so users do not need a separate update command.
 - Clean uninstall command: installs now create `Uninstall pdFold.command` on the Desktop.
 - Local PDF processing backend: PDF imports now flow through an injectable `PDFProcessingEngine`, with PDFium-backed validation and a PDFKit fallback path.
-- Uninstaller script: `scripts/uninstall-mac.sh` removes `~/Applications/pdFold.app`, generated Desktop commands, the `~/.pdfold` installer cache, PDFold app support data, preferences, caches, saved state, and sandbox container data.
+- Uninstaller script: `scripts/uninstall-mac.sh` removes `~/Applications/pdFold.app`, generated Desktop commands, the `~/.pdfold` installer cache, pdFold app support data, preferences, caches, saved state, and sandbox container data.
 - User files are preserved: saved `.pdfoldproj` workspace documents are not removed by uninstall.
-- Legacy cleanup: install/update/uninstall flows remove the old `Update pdFold.command` artifact.
+- Legacy cleanup: install/update/uninstall flows remove the old `Update PDFold.command` artifact.
 - Release metadata bumped to `CFBundleShortVersionString` `3.0` and `CFBundleVersion` `3`.
 - README setup, update, uninstall, quality, and troubleshooting sections now match the v3 flow.
 
@@ -47,7 +47,7 @@ After installing v3, double-click `pdFold.command` on the Desktop. It checks the
 
 Double-click `Uninstall pdFold.command` on the Desktop.
 
-To keep PDFold app support, preferences, caches, and sandbox data:
+To keep pdFold app support, preferences, caches, and sandbox data:
 
 ```zsh
 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data

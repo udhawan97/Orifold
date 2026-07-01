@@ -6,7 +6,6 @@ PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 APP_NAME="pdFold"
 LEGACY_APP_NAME="PDFold"
 REPO="udhawan97/PDFold"
-RELEASE_TAG="release-v3"
 CONFIGURATION="release"
 OPEN_AFTER_INSTALL=1
 CLEAN_BUILD=0
@@ -37,7 +36,9 @@ OLD_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME.command"
 OLD_DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $LEGACY_APP_NAME.command"
 OLD_LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME"
 OLD_LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $LEGACY_APP_NAME.command"
-RELEASE_API="https://api.github.com/repos/$REPO/releases/tags/$RELEASE_TAG"
+OLD_DESKTOP_INSTALLER_COMMAND="$HOME/Desktop/Install or Update $LEGACY_APP_NAME.command"
+OLD_DESKTOP_INSTALLER_APP="$HOME/Desktop/Install or Update $LEGACY_APP_NAME.app"
+RELEASE_API="https://api.github.com/repos/$REPO/releases/latest"
 
 usage() {
     cat <<USAGE
@@ -49,7 +50,7 @@ Usage:
 Options:
   --clean          Remove local SwiftPM build output before building.
   --no-open        Install/update without launching afterward.
-  --prebuilt-only  Install only from the v3 GitHub release.
+  --prebuilt-only  Install only from the latest GitHub release.
   --verbose        Print detailed install diagnostics to the console.
   --package PATH   Build and write a distributable zip to PATH.
   --package-only   With --package, build the zip without installing locally.
@@ -138,32 +139,36 @@ Verbose: $VERBOSE
 LOG
 
 latest_release_zip_url() {
+    local release_json asset_name
+    release_json="$STAGE_ROOT/release.json"
+    asset_name="$APP_NAME.zip"
     print_debug "Checking release API: $RELEASE_API"
-    /usr/bin/python3 - "$RELEASE_API" "$LOG_FILE" "$APP_NAME.zip" <<'PY'
-import json
-import sys
-import urllib.request
-
-url = sys.argv[1]
-log_file = sys.argv[2]
-asset_name = sys.argv[3]
-try:
-    with urllib.request.urlopen(url, timeout=20) as response:
-        data = json.load(response)
-except Exception as error:
-    with open(log_file, "a", encoding="utf-8") as log:
-        log.write(f"Release lookup failed: {error}\n")
-    sys.exit(1)
-
-for asset in data.get("assets", []):
-    if asset.get("name") == asset_name and asset.get("browser_download_url"):
-        print(asset["browser_download_url"])
-        sys.exit(0)
-with open(log_file, "a", encoding="utf-8") as log:
-    available = ", ".join(asset.get("name", "<unnamed>") for asset in data.get("assets", [])) or "none"
-    log.write(f"No {asset_name} asset found. Available assets: {available}\n")
-sys.exit(1)
-PY
+    /usr/bin/curl -fsSL "$RELEASE_API" -o "$release_json" >>"$LOG_FILE" 2>&1 || {
+        printf "Release lookup failed for %s\n" "$RELEASE_API" >>"$LOG_FILE"
+        return 1
+    }
+    if ! /usr/bin/osascript -l JavaScript - "$release_json" "$asset_name" <<'JXA'
+function run(argv) {
+    ObjC.import("Foundation");
+    const text = $.NSString.stringWithContentsOfFileEncodingError(argv[0], $.NSUTF8StringEncoding, null);
+    if (!text) {
+        throw new Error("Could not read release JSON.");
+    }
+    const release = JSON.parse(ObjC.unwrap(text));
+    const assetName = argv[1];
+    const assets = release.assets || [];
+    for (const asset of assets) {
+        if (asset.name === assetName && asset.browser_download_url) {
+            return asset.browser_download_url;
+        }
+    }
+    throw new Error("Asset not found.");
+}
+JXA
+    then
+        printf "No %s asset found in the latest release.\n" "$asset_name" >>"$LOG_FILE"
+        return 1
+    fi
 }
 
 verify_required_frameworks() {
@@ -199,17 +204,33 @@ capture_launch_diagnostics() {
         --style compact >>"$LOG_FILE" 2>&1 || true
 }
 
+stop_running_app() {
+    local process_name="$1"
+    if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
+        print_step "Closing $process_name"
+        /usr/bin/osascript -e "tell application \"$process_name\" to quit" >/dev/null 2>&1 || true
+        for _ in {1..20}; do
+            /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || break
+            /bin/sleep 0.25
+        done
+        if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
+            /usr/bin/pkill -x "$process_name" >/dev/null 2>&1 || true
+            for _ in {1..20}; do
+                /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || break
+                /bin/sleep 0.25
+            done
+        fi
+        if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
+            /usr/bin/pkill -9 -x "$process_name" >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
 install_staged_app() {
     [[ -d "$STAGED_APP" ]] || fail "No staged app bundle was prepared."
 
-    if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
-        print_step "Closing the currently running app"
-        /usr/bin/osascript -e "tell application \"$APP_NAME\" to quit" >/dev/null 2>&1 || true
-        for _ in {1..20}; do
-            /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
-            /bin/sleep 0.25
-        done
-    fi
+    stop_running_app "$APP_NAME"
+    stop_running_app "$LEGACY_APP_NAME"
 
     print_step "Copying app to $INSTALLED_APP"
     /bin/mkdir -p "$INSTALL_DIR"
@@ -221,7 +242,9 @@ install_staged_app() {
     print_step "Refreshing Desktop commands"
     if [[ -d "$HOME/Desktop" ]]; then
         /bin/rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_UPDATER" \
-            "$OLD_DESKTOP_LAUNCHER" "$OLD_DESKTOP_UNINSTALLER" "$OLD_LEGACY_DESKTOP_LAUNCHER" "$OLD_LEGACY_DESKTOP_UPDATER"
+            "$OLD_DESKTOP_LAUNCHER" "$OLD_DESKTOP_UNINSTALLER" "$OLD_LEGACY_DESKTOP_LAUNCHER" "$OLD_LEGACY_DESKTOP_UPDATER" \
+            "$OLD_DESKTOP_INSTALLER_COMMAND"
+        /bin/rm -rf "$OLD_DESKTOP_INSTALLER_APP"
         cat > "$DESKTOP_LAUNCHER" <<'LAUNCHER'
 #!/bin/zsh
 set -euo pipefail
@@ -372,7 +395,7 @@ MESSAGE
     fi
 
     if [[ $PREBUILT_ONLY -eq 1 ]]; then
-        fail "No prebuilt GitHub release asset named $APP_NAME.zip is available for $RELEASE_TAG yet."
+        fail "No prebuilt GitHub release asset named $APP_NAME.zip is available in the latest release yet."
     fi
 
     print_note "No prebuilt release was available. Building from source instead."

@@ -38,18 +38,18 @@ jobs:
             --clean \
             --no-open \
             --package-only \
-            --package "$RUNNER_TEMP/PDFold.zip"
+            --package "$RUNNER_TEMP/pdFold.zip"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PDFold
-          path: ${{ runner.temp }}/PDFold.zip
+          name: pdFold
+          path: ${{ runner.temp }}/pdFold.zip
           if-no-files-found: error
 
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ runner.temp }}/PDFold.zip
+          files: ${{ runner.temp }}/pdFold.zip
           generate_release_notes: true

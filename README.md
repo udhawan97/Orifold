@@ -76,7 +76,7 @@ Open **Applications** -> **Utilities** -> **Terminal**, paste the command above,
 
 ## The Short Version
 
-PDFold is a local-first Mac app for the moment when "just send me the PDF" turns into six PDFs, two screenshots, a Word document, a form, and one file named `final_final_revised_ACTUAL.pdf`.
+pdFold is a local-first Mac app for the moment when "just send me the PDF" turns into six PDFs, two screenshots, a Word document, a form, and one file named `final_final_revised_ACTUAL.pdf`.
 
 It gives those files a calm place to live. Drop in documents, combine them into one workspace, reorder pages, add notes and markup, place signatures, search the full set, save your project, and export the result in the format you need.
 
@@ -118,7 +118,7 @@ Everything happens on your Mac. No account, no upload queue, and no mystery clou
 ## Product Flow
 
 <p align="center">
-  <img src="docs/assets/pdfold-v3-workspace-diagram.svg" alt="PDFold workspace overview showing imports, native workspace tools, markup, metadata, update flow, uninstall command, and export artifacts">
+  <img src="docs/assets/pdfold-v3-workspace-diagram.svg" alt="pdFold workspace overview showing imports, native workspace tools, markup, metadata, update flow, uninstall command, and export artifacts">
 </p>
 
 <p align="center">
@@ -144,7 +144,7 @@ flowchart LR
 ```
 
 <p align="center">
-  <img src="docs/assets/pdfold-v3-architecture-diagram.svg" alt="PDFold architecture diagram showing the SwiftUI app layer, local PDFium processing backend, PDFKit document engine, local artifacts, update and uninstall commands, and stability guards">
+  <img src="docs/assets/pdfold-v3-architecture-diagram.svg" alt="pdFold architecture diagram showing the SwiftUI app layer, local PDFium processing backend, PDFKit document engine, local artifacts, update and uninstall commands, and stability guards">
 </p>
 
 <p align="center">
@@ -159,15 +159,15 @@ flowchart LR
 
 ## Why It Matters
 
-Most PDF tools live at one of two extremes: too tiny to handle a real workflow, or so large that opening them feels like clocking in for a shift. PDFold aims for the useful middle.
+Most PDF tools live at one of two extremes: too tiny to handle a real workflow, or so large that opening them feels like clocking in for a shift. pdFold aims for the useful middle.
 
 It is built for document assembly as a workflow, not just PDF viewing as a feature. The goal is simple: take the pile, make sense of it, mark what matters, and send out one clean artifact.
 
-For reviewers, the interesting part is not just that PDFold works. It is that the app ties together product thinking, native Mac engineering, file handling, persistence, export reliability, and distribution polish into one coherent project.
+For reviewers, the interesting part is not just that pdFold works. It is that the app ties together product thinking, native Mac engineering, file handling, persistence, export reliability, and distribution polish into one coherent project.
 
 ## Release Status
 
-PDFold v3 is a release-hardened local-first macOS app for collecting scattered documents, turning them into one editable workspace, marking them up, tracking context, and exporting clean deliverables.
+pdFold v3 is a release-hardened local-first macOS app for collecting scattered documents, turning them into one editable workspace, marking them up, tracking context, and exporting clean deliverables.
 
 |  | Detail | Status |
 | --- | --- | --- |
@@ -220,7 +220,7 @@ Important release note: the zero-compile installer depends on a published GitHub
 For detailed install diagnostics, run the same command with verbose logging enabled:
 
 ```zsh
-PDFOLD_INSTALL_VERBOSE=1 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | PDFOLD_INSTALL_VERBOSE=1 zsh
 ```
 
 <details>
@@ -243,7 +243,7 @@ You can also paste the installer command again:
 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
 ```
 
-If PDFold is already installed, the updater closes the running app if needed, replaces `~/Applications/pdFold.app`, refreshes the Desktop launcher, removes quarantine metadata, and opens the updated app.
+If pdFold is already installed, the updater closes the running app if needed, replaces `~/Applications/pdFold.app`, refreshes the Desktop launcher, removes quarantine metadata, and opens the updated app.
 
 ## Uninstalling The App
 
@@ -354,7 +354,7 @@ Install from the current source checkout without opening the app:
 
 pdFold is local-first by design. Documents are opened, edited, saved, and exported on your machine.
 
-The app uses macOS sandboxing and file access through user-selected documents. Its new PDF processing backend runs locally for import validation; it is not a remote upload service. In plain English: PDFold works with the files you hand it, not your entire digital attic.
+The app uses macOS sandboxing and file access through user-selected documents. Its new PDF processing backend runs locally for import validation; it is not a remote upload service. In plain English: pdFold works with the files you hand it, not your entire digital attic.
 
 Release v3 also includes practical guardrails around failure-prone paths:
 
@@ -448,7 +448,7 @@ Use the Quick Start command from Terminal, or download the repository first and 
 Open Terminal in the project folder and run:
 
 ```zsh
-chmod +x "Install or Update pdFold.command" "Uninstall pdFold.command" "Install or Update pdFold.app/Contents/MacOS/PDFoldInstaller" scripts/install-mac.sh scripts/install-mac.command scripts/uninstall-mac.sh
+chmod +x "Install or Update pdFold.command" "Uninstall pdFold.command" "Install or Update pdFold.app/Contents/MacOS/pdFoldInstaller" scripts/install-mac.sh scripts/install-mac.command scripts/uninstall-mac.sh
 ```
 
 Then double-click `Install or Update pdFold.app` again from Finder.
@@ -470,7 +470,7 @@ Run the installer again. It refreshes `~/Applications/pdFold.app` and recreates 
 For more detail, run the installer with verbose logging:
 
 ```zsh
-PDFOLD_INSTALL_VERBOSE=1 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | PDFOLD_INSTALL_VERBOSE=1 zsh
 ```
 </details>
 

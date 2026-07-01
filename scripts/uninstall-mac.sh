@@ -17,6 +17,8 @@ OLD_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME.command"
 OLD_DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $LEGACY_APP_NAME.command"
 OLD_LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME"
 OLD_LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $LEGACY_APP_NAME.command"
+OLD_DESKTOP_INSTALLER_COMMAND="$HOME/Desktop/Install or Update $LEGACY_APP_NAME.command"
+OLD_DESKTOP_INSTALLER_APP="$HOME/Desktop/Install or Update $LEGACY_APP_NAME.app"
 
 KEEP_USER_DATA=0
 REMOVE_ERRORS=()
@@ -68,6 +70,28 @@ APPLESCRIPT
     fi
 }
 
+stop_running_app() {
+    local process_name="$1"
+    if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
+        print_step "Closing $process_name"
+        /usr/bin/osascript -e "tell application \"$process_name\" to quit" >/dev/null 2>&1 || true
+        for _ in {1..20}; do
+            /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || break
+            /bin/sleep 0.25
+        done
+        if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
+            /usr/bin/pkill -x "$process_name" >/dev/null 2>&1 || true
+            for _ in {1..20}; do
+                /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || break
+                /bin/sleep 0.25
+            done
+        fi
+        if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
+            /usr/bin/pkill -9 -x "$process_name" >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --keep-user-data)
@@ -93,24 +117,8 @@ done
 printf "%s Uninstaller\n" "$APP_NAME"
 printf "=================\n"
 
-if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
-    print_step "Closing $APP_NAME"
-    /usr/bin/osascript -e "tell application \"$APP_NAME\" to quit" >/dev/null 2>&1 || true
-    for _ in {1..20}; do
-        /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
-        /bin/sleep 0.25
-    done
-    if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
-        /usr/bin/pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-        for _ in {1..20}; do
-            /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1 || break
-            /bin/sleep 0.25
-        done
-    fi
-    if /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
-        /usr/bin/pkill -9 -x "$APP_NAME" >/dev/null 2>&1 || true
-    fi
-fi
+stop_running_app "$APP_NAME"
+stop_running_app "$LEGACY_APP_NAME"
 
 print_step "Removing installed app and commands"
 remove_path "$INSTALLED_APP"
@@ -123,6 +131,8 @@ remove_path "$OLD_DESKTOP_LAUNCHER"
 remove_path "$OLD_DESKTOP_UNINSTALLER"
 remove_path "$OLD_LEGACY_DESKTOP_LAUNCHER"
 remove_path "$OLD_LEGACY_DESKTOP_UPDATER"
+remove_path "$OLD_DESKTOP_INSTALLER_COMMAND"
+remove_path "$OLD_DESKTOP_INSTALLER_APP"
 remove_path "$INSTALL_CACHE"
 
 if [[ $KEEP_USER_DATA -eq 0 ]]; then

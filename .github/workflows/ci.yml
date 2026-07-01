@@ -38,13 +38,17 @@ jobs:
         run: |
           plutil -lint PDFold/Resources/Info.plist
           plutil -lint PDFold/Resources/PDFold.entitlements
+          plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
 
       - name: Check installer script syntax
         run: |
           zsh -n install.sh
           zsh -n scripts/install-mac.sh
           zsh -n scripts/install-mac.command
-          zsh -n "Install or Update PDFold.command"
+          zsh -n scripts/uninstall-mac.sh
+          zsh -n "Install or Update pdFold.command"
+          zsh -n "Uninstall pdFold.command"
+          zsh -n "Install or Update pdFold.app/Contents/MacOS/pdFoldInstaller"
 
       - name: Swift Package build
         run: swift build

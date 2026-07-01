@@ -1,6 +1,6 @@
 <svg width="1280" height="940" viewBox="0 0 1280 940" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">PDFold v3 Technical Architecture</title>
-  <desc id="desc">Dark-mode technical architecture diagram showing the PDFold SwiftUI app surface, workspace state, PDFium processing backend, PDFKit services, local persistence, exports, automatic update launcher, clean uninstall command, and release guardrails.</desc>
+  <title id="title">pdFold v3 Technical Architecture</title>
+  <desc id="desc">Dark-mode technical architecture diagram showing the pdFold SwiftUI app surface, workspace state, PDFium processing backend, PDFKit services, local persistence, exports, automatic update launcher, clean uninstall command, and release guardrails.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#070B14"/>
@@ -35,7 +35,7 @@
   <rect x="32" y="32" width="1216" height="876" rx="26" fill="url(#grid)"/>
   <rect x="32" y="32" width="1216" height="876" rx="26" stroke="#1F3147"/>
 
-  <text x="640" y="78" text-anchor="middle" class="title">PDFold v3 Technical Architecture</text>
+  <text x="640" y="78" text-anchor="middle" class="title">pdFold v3 Technical Architecture</text>
   <text x="640" y="108" text-anchor="middle" class="subtitle">SwiftUI document app, local PDFium validation, PDFKit composition, persistence, exports, and install lifecycle commands.</text>
 
   <g>
@@ -60,7 +60,7 @@
     <text x="30" y="62" class="body">DocumentGroup app entry, command wiring, and user-facing workspace window.</text>
     <g transform="translate(30 70)">
       <rect x="0" y="0" width="104" height="28" rx="14" fill="#082F49" stroke="#38BDF8"/>
-      <text x="52" y="19" text-anchor="middle" class="chip" fill="#BAE6FD">PDFoldApp</text>
+      <text x="52" y="19" text-anchor="middle" class="chip" fill="#BAE6FD">pdFoldApp</text>
       <rect x="116" y="0" width="132" height="28" rx="14" fill="#082F49" stroke="#38BDF8"/>
       <text x="182" y="19" text-anchor="middle" class="chip" fill="#BAE6FD">DocumentGroup</text>
     </g>
