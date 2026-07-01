@@ -19,6 +19,26 @@
             "target": "PDFold",
             "configuration": "release",
             "preLaunchTask": "swift: Build Release PDFold"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:PDFold}",
+            "name": "Debug pdFold",
+            "target": "pdFold",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug pdFold"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:PDFold}",
+            "name": "Release pdFold",
+            "target": "pdFold",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release pdFold"
         }
     ]
 }

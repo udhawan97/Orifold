@@ -558,6 +558,13 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 self.pdfView?.setNeedsDisplay(self.pdfView?.bounds ?? .zero)
                 return applied
             }
+            signatureOverlay.onDelete = { [weak self] annotation in
+                guard let self else { return }
+                self.viewModel.selectedAnnotation = annotation
+                self.viewModel.deleteSelectedAnnotation()
+                self.refreshSignatureOverlay()
+                self.pdfView?.setNeedsDisplay(self.pdfView?.bounds ?? .zero)
+            }
         }
 
         func refreshSignatureOverlay() {
@@ -623,6 +630,7 @@ final class PDFoldPDFView: PDFView {
 final class SignatureSelectionOverlayView: NSView {
     weak var pdfView: PDFView?
     var onBoundsChanged: ((PDFAnnotation, CGRect, CGRect?) -> CGRect)?
+    var onDelete: ((PDFAnnotation) -> Void)?
 
     private weak var annotation: PDFAnnotation?
     private var dragMode: DragMode?
@@ -630,6 +638,7 @@ final class SignatureSelectionOverlayView: NSView {
     private var initialFrame: CGRect = .zero
     private var initialPageBounds: CGRect?
     private let handleSize: CGFloat = 9
+    private let deleteButtonSize: CGFloat = 18
     private let minimumViewSize = CGSize(width: 28, height: 18)
 
     override var isOpaque: Bool { false }
@@ -672,12 +681,31 @@ final class SignatureSelectionOverlayView: NSView {
             handle.fill()
             handle.stroke()
         }
+
+        let deleteFrame = deleteButtonRect(for: frame)
+        NSColor.systemRed.setFill()
+        NSColor.white.setStroke()
+        let deleteCircle = NSBezierPath(ovalIn: deleteFrame)
+        deleteCircle.fill()
+        deleteCircle.lineWidth = 1
+        deleteCircle.stroke()
+
+        let inset = deleteFrame.insetBy(dx: 5.5, dy: 5.5)
+        let xPath = NSBezierPath()
+        xPath.lineWidth = 1.7
+        xPath.lineCapStyle = .round
+        xPath.move(to: CGPoint(x: inset.minX, y: inset.minY))
+        xPath.line(to: CGPoint(x: inset.maxX, y: inset.maxY))
+        xPath.move(to: CGPoint(x: inset.maxX, y: inset.minY))
+        xPath.line(to: CGPoint(x: inset.minX, y: inset.maxY))
+        xPath.stroke()
     }
 
     override func resetCursorRects() {
         super.resetCursorRects()
         guard let frame = selectionFrame() else { return }
         addCursorRect(frame, cursor: .openHand)
+        addCursorRect(deleteButtonRect(for: frame).insetBy(dx: -3, dy: -3), cursor: .pointingHand)
         for (handle, rect) in handleRects(for: frame) {
             addCursorRect(rect.insetBy(dx: -4, dy: -4), cursor: handle.cursor)
         }
@@ -687,6 +715,10 @@ final class SignatureSelectionOverlayView: NSView {
         guard let frame = selectionFrame(),
               let annotation else { return }
         let point = convert(event.locationInWindow, from: nil)
+        if deleteButtonRect(for: frame).insetBy(dx: -3, dy: -3).contains(point) {
+            onDelete?(annotation)
+            return
+        }
         initialMousePoint = point
         initialFrame = frame
         initialPageBounds = annotation.bounds
@@ -745,7 +777,16 @@ final class SignatureSelectionOverlayView: NSView {
     }
 
     private func interactionFrame() -> CGRect? {
-        selectionFrame()?.insetBy(dx: -12, dy: -12)
+        selectionFrame()?.insetBy(dx: -18, dy: -18)
+    }
+
+    private func deleteButtonRect(for frame: CGRect) -> CGRect {
+        CGRect(
+            x: frame.maxX - deleteButtonSize / 2,
+            y: frame.maxY - deleteButtonSize / 2,
+            width: deleteButtonSize,
+            height: deleteButtonSize
+        )
     }
 
     private func handle(at point: CGPoint, in frame: CGRect) -> ResizeHandle? {
@@ -1293,6 +1334,7 @@ final class NoteEditorViewController: NSViewController {
     private let patchView = NSView()
     private let toolbar = NSView()
     private let textView = InlineEditableTextView()
+    private let moveHandle = InlineMoveHandle()
     private let resizeHandle = InlineResizeHandle()
     private let familyPopup = NSPopUpButton()
     private let sizeStepper = NSStepper()
@@ -1382,14 +1424,16 @@ final class NoteEditorViewController: NSViewController {
         let point = convert(pdfViewPoint, from: pdfView)
         return textView.frame.insetBy(dx: -6, dy: -6).contains(point) ||
             toolbar.frame.insetBy(dx: -4, dy: -4).contains(point) ||
-            resizeHandle.frame.insetBy(dx: -6, dy: -6).contains(point)
+            moveHandle.frame.insetBy(dx: -6, dy: -6).contains(point) ||
+            resizeHandle.frame.insetBy(dx: -8, dy: -8).contains(point)
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard !isHidden, alphaValue > 0, bounds.contains(point) else { return nil }
-        return hitTestInteractiveSubview(toolbar, point: point, padding: 4) ??
-            hitTestInteractiveSubview(resizeHandle, point: point, padding: 6) ??
-            hitTestInteractiveSubview(textView, point: point, padding: 6)
+        return hitTestInteractiveSubview(resizeHandle, point: point, padding: 8) ??
+            hitTestInteractiveSubview(moveHandle, point: point, padding: 1) ??
+            hitTestInteractiveSubview(toolbar, point: point, padding: 4) ??
+            hitTestTextView(point)
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
@@ -1401,6 +1445,13 @@ final class NoteEditorViewController: NSViewController {
         let converted = view.convert(point, from: self)
         guard view.bounds.insetBy(dx: -padding, dy: -padding).contains(converted) else { return nil }
         return view.hitTest(point) ?? view
+    }
+
+    private func hitTestTextView(_ point: NSPoint) -> NSView? {
+        guard !textView.isHidden, textView.alphaValue > 0 else { return nil }
+        let converted = textView.convert(point, from: self)
+        guard textView.bounds.insetBy(dx: -6, dy: -6).contains(converted) else { return nil }
+        return textView
     }
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
@@ -1443,6 +1494,10 @@ final class NoteEditorViewController: NSViewController {
         textView.onMoveDrag = { [weak self] delta in
             self?.moveEditor(by: delta)
         }
+        moveHandle.onDrag = { [weak self] delta in
+            self?.moveEditor(by: delta)
+        }
+        addSubview(moveHandle)
 
         resizeHandle.onDrag = { [weak self] delta in
             self?.resizeEditor(by: delta)
@@ -1581,9 +1636,10 @@ final class NoteEditorViewController: NSViewController {
         let editorHeight = didManuallyResizeHeight
             ? max(1, sourceRect.height)
             : max(sourceRect.height + 6, displayFontSize * 1.5)
+        let editorY = didManuallyReposition ? sourceRect.minY : sourceRect.maxY - editorHeight
         let editorRect = CGRect(
             x: sourceRect.minX,
-            y: sourceRect.minY,
+            y: editorY,
             width: editorWidth,
             height: editorHeight
         )
@@ -1592,7 +1648,7 @@ final class NoteEditorViewController: NSViewController {
         textView.frame = editorRect
         updateTextContainerWidth()
         toolbar.frame = toolbarFrame(near: editorRect)
-        resizeHandle.frame = CGRect(x: editorRect.maxX - 5, y: editorRect.minY - 5, width: 10, height: 10)
+        positionEditorChrome(for: editorRect)
         resizeTextViewHeight()
     }
 
@@ -1620,7 +1676,22 @@ final class NoteEditorViewController: NSViewController {
         frame.origin.y = editorTopY - frame.height
         textView.frame = frame
         toolbar.frame = toolbarFrame(near: frame)
-        resizeHandle.frame = CGRect(x: frame.maxX - 5, y: frame.minY - 5, width: 10, height: 10)
+        positionEditorChrome(for: frame)
+    }
+
+    private func positionEditorChrome(for editorRect: CGRect) {
+        moveHandle.frame = CGRect(
+            x: editorRect.minX,
+            y: editorRect.maxY + 1,
+            width: editorRect.width,
+            height: 6
+        )
+        resizeHandle.frame = CGRect(
+            x: editorRect.maxX - 8,
+            y: editorRect.minY - 8,
+            width: 16,
+            height: 16
+        )
     }
 
     /// Grows the text box to fit what's currently typed, so a short original word (e.g.
@@ -1682,7 +1753,7 @@ final class NoteEditorViewController: NSViewController {
         textView.frame = frame
         editorTopY = frame.maxY
         toolbar.frame = toolbarFrame(near: frame)
-        resizeHandle.frame = CGRect(x: frame.maxX - 5, y: frame.minY - 5, width: 10, height: 10)
+        positionEditorChrome(for: frame)
         if let pdfView, let page {
             manualEditorPageOrigin = pdfView.convert(convert(frame, to: pdfView), to: page).standardized.origin
         }
@@ -1979,6 +2050,9 @@ final class NoteEditorViewController: NSViewController {
         var pageBounds = pdfView.convert(viewFrame, to: page).standardized
         pageBounds.size.width = max(1, pageBounds.width)
         pageBounds.size.height = max(1, pageBounds.height)
+        if !didManuallyReposition {
+            pageBounds.origin.y = block.bounds.maxY - pageBounds.height
+        }
         let result = EditResult(
             pageRef: pageRef,
             block: block,
@@ -2068,6 +2142,45 @@ final class InlineEditableTextView: NSTextView {
     }
 }
 
+final class InlineMoveHandle: NSView {
+    var onDrag: ((CGPoint) -> Void)?
+    private var lastPoint: CGPoint?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.dsAccentNS.withAlphaComponent(0.18).cgColor
+        layer?.borderColor = NSColor.dsAccentNS.withAlphaComponent(0.8).cgColor
+        layer?.borderWidth = 1
+        layer?.cornerRadius = 3
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .openHand)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        lastPoint = superview?.convert(event.locationInWindow, from: nil)
+        NSCursor.closedHand.set()
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let parent = superview else { return }
+        let point = parent.convert(event.locationInWindow, from: nil)
+        if let lastPoint {
+            onDrag?(CGPoint(x: point.x - lastPoint.x, y: point.y - lastPoint.y))
+        }
+        self.lastPoint = point
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        lastPoint = nil
+        NSCursor.arrow.set()
+    }
+}
+
 final class InlineResizeHandle: NSView {
     var onDrag: ((CGPoint) -> Void)?
     private var lastPoint: CGPoint?
@@ -2076,7 +2189,9 @@ final class InlineResizeHandle: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = NSColor.dsAccentNS.cgColor
-        layer?.cornerRadius = 5
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.9).cgColor
+        layer?.borderWidth = 1
+        layer?.cornerRadius = 8
     }
 
     required init?(coder: NSCoder) { nil }

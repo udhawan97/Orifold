@@ -178,7 +178,15 @@ struct SignaturePalette: View {
     }
 
     private var digitalSignatureData: Data? {
-        SignatureImageRenderer.render(text: trimmed(digitalSignerName), kind: .cryptographic)
+        SignatureImageRenderer.render(
+            text: trimmed(digitalSignerName),
+            kind: .cryptographic,
+            metadata: SignatureImageRenderer.Metadata(
+                signedAt: useTimestamp ? Date() : nil,
+                location: optionalTrimmed(location),
+                reason: optionalTrimmed(reason)
+            )
+        )
     }
 
     private func addTypedSignature() {
@@ -415,7 +423,15 @@ enum CertificateGuideResource {
 }
 
 private enum SignatureImageRenderer {
-    static func render(text: String, kind: SignaturePlacement.Kind) -> Data? {
+    struct Metadata {
+        var signedAt: Date?
+        var location: String?
+        var reason: String?
+    }
+
+    static func render(text: String,
+                       kind: SignaturePlacement.Kind,
+                       metadata: Metadata? = nil) -> Data? {
         guard !text.isEmpty else { return nil }
 
         let size = CGSize(width: 360, height: 140)
@@ -444,7 +460,15 @@ private enum SignatureImageRenderer {
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
 
-        let fontSize: CGFloat = kind == .visualInitials ? 78 : 52
+        let isCryptographic = kind == .cryptographic
+        let fontSize: CGFloat
+        if kind == .visualInitials {
+            fontSize = 78
+        } else if isCryptographic {
+            fontSize = 42
+        } else {
+            fontSize = 52
+        }
         let font = NSFont(name: "Snell Roundhand", size: fontSize)
             ?? NSFont.systemFont(ofSize: fontSize, weight: .regular)
         let paragraph = NSMutableParagraphStyle()
@@ -455,9 +479,48 @@ private enum SignatureImageRenderer {
             .foregroundColor: NSColor.black,
             .paragraphStyle: paragraph
         ]
-        let drawBounds = CGRect(x: 18, y: 28, width: size.width - 36, height: size.height - 44)
+        let drawBounds = isCryptographic
+            ? CGRect(x: 18, y: 58, width: size.width - 36, height: 58)
+            : CGRect(x: 18, y: 28, width: size.width - 36, height: size.height - 44)
         NSString(string: text).draw(with: drawBounds, options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attributes)
 
+        if isCryptographic, let metadata {
+            let details = detailLines(from: metadata)
+            if !details.isEmpty {
+                let detailParagraph = NSMutableParagraphStyle()
+                detailParagraph.alignment = .center
+                detailParagraph.lineBreakMode = .byTruncatingTail
+                let detailAttributes: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 11, weight: .regular),
+                    .foregroundColor: NSColor.black.withAlphaComponent(0.72),
+                    .paragraphStyle: detailParagraph
+                ]
+                let detailBounds = CGRect(x: 20, y: 20, width: size.width - 40, height: 40)
+                NSString(string: details.joined(separator: "\n")).draw(
+                    with: detailBounds,
+                    options: [.usesLineFragmentOrigin, .usesFontLeading, .truncatesLastVisibleLine],
+                    attributes: detailAttributes
+                )
+            }
+        }
+
         return bitmap.representation(using: .png, properties: [:])
+    }
+
+    private static func detailLines(from metadata: Metadata) -> [String] {
+        var lines: [String] = []
+        if let signedAt = metadata.signedAt {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            lines.append("Signed: \(formatter.string(from: signedAt))")
+        }
+        if let location = metadata.location, !location.isEmpty {
+            lines.append("Location: \(location)")
+        }
+        if let reason = metadata.reason, !reason.isEmpty {
+            lines.append("Reason: \(reason)")
+        }
+        return lines
     }
 }

@@ -1205,10 +1205,11 @@ final class WorkspaceViewModel {
         guard let refID = pageRefID(for: page) else { return nil }
         let options = pendingSignatureOptions ?? .visualTyped
         let identity = pendingSigningIdentity
+        let placementSize = options.kind == .cryptographic ? CGSize(width: 220, height: 86) : size
         let bounds = CGRect(
-            x: pagePoint.x - size.width / 2,
-            y: pagePoint.y - size.height / 2,
-            width: size.width, height: size.height
+            x: pagePoint.x - placementSize.width / 2,
+            y: pagePoint.y - placementSize.height / 2,
+            width: placementSize.width, height: placementSize.height
         )
         let placement = SignaturePlacement(
             pageRefId: refID,
