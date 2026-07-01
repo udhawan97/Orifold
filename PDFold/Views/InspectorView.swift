@@ -3,7 +3,7 @@ import PDFKit
 
 struct InspectorView: View {
     @Bindable var viewModel: WorkspaceViewModel
-    @State private var selectedTab: Tab = .info
+    @Binding var selectedTab: Tab
 
     enum Tab: String, CaseIterable {
         case info = "Info"
@@ -120,7 +120,7 @@ private struct InspectorInfoView: View {
             InspectorRow(label: "Visual",      value: "\(visualSignatureCount)")
             InspectorRow(label: "Digital",     value: "\(digitalSignatureCount)")
             InspectorRow(label: "Tags",        value: "\(viewModel.document.workspace.tags.count)")
-            InspectorRow(label: "Comments",    value: "\(viewModel.document.workspace.comments.count)")
+            InspectorRow(label: "Comments",    value: "\(viewModel.totalCommentCount)")
             InspectorRow(label: "Created",     value: viewModel.document.workspace.createdAt.formatted(
                 date: .abbreviated, time: .omitted))
         }
@@ -222,6 +222,18 @@ private struct InspectorWorkspaceCommentsView: View {
     @Bindable var viewModel: WorkspaceViewModel
     @State private var draftComment = ""
 
+    private var workspaceComments: [WorkspaceComment] {
+        viewModel.document.workspace.comments
+    }
+
+    private var noteComments: [WorkspaceViewModel.PDFNoteComment] {
+        viewModel.pdfNoteComments
+    }
+
+    private var hasComments: Bool {
+        !workspaceComments.isEmpty || !noteComments.isEmpty
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
             TextEditor(text: $draftComment)
@@ -247,13 +259,25 @@ private struct InspectorWorkspaceCommentsView: View {
             .tint(Color.dsAccent)
             .disabled(draftComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-            if viewModel.document.workspace.comments.isEmpty {
+            if !hasComments {
                 InspectorEmptyState(icon: "text.bubble", title: "No comments yet.")
             } else {
-                LazyVStack(alignment: .leading, spacing: .dsSM) {
-                    ForEach(viewModel.document.workspace.comments) { comment in
-                        WorkspaceCommentRow(comment: comment) {
-                            viewModel.removeComment(comment)
+                LazyVStack(alignment: .leading, spacing: .dsMD) {
+                    if !workspaceComments.isEmpty {
+                        InspectorSectionHeader(title: "Workspace", count: workspaceComments.count)
+                        ForEach(workspaceComments) { comment in
+                            WorkspaceCommentRow(viewModel: viewModel, comment: comment)
+                        }
+                    }
+
+                    if !noteComments.isEmpty {
+                        InspectorSectionHeader(title: "PDF Notes", count: noteComments.count)
+                        ForEach(noteComments) { note in
+                            PDFNoteCommentRow(note: note) {
+                                viewModel.jumpToNoteComment(note)
+                            } onRemove: {
+                                viewModel.removeNoteComment(note)
+                            }
                         }
                     }
                 }
@@ -265,9 +289,44 @@ private struct InspectorWorkspaceCommentsView: View {
     }
 }
 
+private struct InspectorSectionHeader: View {
+    var title: String
+    var count: Int
+
+    var body: some View {
+        HStack(spacing: .dsXS) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color.dsTextTertiary)
+            Text("\(count)")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color.dsTextSecondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.dsAccentSoft, in: Capsule())
+        }
+        .padding(.top, .dsXS)
+    }
+}
+
 private struct WorkspaceCommentRow: View {
+    @Bindable var viewModel: WorkspaceViewModel
     var comment: WorkspaceComment
-    var onRemove: () -> Void
+    @State private var isEditing = false
+    @State private var draftBody = ""
+    @State private var draftTag = ""
+
+    private let colorChoices: [(label: String, hex: String, color: Color)] = [
+        ("Dark", "#1F2933", Color.dsTextPrimary),
+        ("Blue", "#1D6FA3", Color(red: 0.114, green: 0.435, blue: 0.639)),
+        ("Red", "#B42318", Color(red: 0.706, green: 0.137, blue: 0.094)),
+        ("Green", "#087443", Color(red: 0.031, green: 0.455, blue: 0.263)),
+        ("Violet", "#6941C6", Color(red: 0.412, green: 0.255, blue: 0.776))
+    ]
+
+    private var displayedBody: String {
+        isEditing ? draftBody : comment.body
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsSM) {
@@ -276,7 +335,20 @@ private struct WorkspaceCommentRow: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.dsTextTertiary)
                 Spacer()
-                Button(action: onRemove) {
+                Button {
+                    draftBody = comment.body
+                    isEditing.toggle()
+                } label: {
+                    Image(systemName: isEditing ? "xmark" : "square.and.pencil")
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.dsTextTertiary)
+                .help(isEditing ? "Cancel edit" : "Edit comment")
+
+                Button {
+                    viewModel.removeComment(comment)
+                } label: {
                     Image(systemName: "trash")
                         .frame(width: 16, height: 16)
                 }
@@ -284,10 +356,232 @@ private struct WorkspaceCommentRow: View {
                 .foregroundStyle(Color.dsTextTertiary)
                 .help("Delete comment")
             }
-            Text(comment.body)
+
+            if isEditing {
+                TextEditor(text: $draftBody)
+                    .font(.system(size: commentFontSize(for: comment.style.textSize)))
+                    .frame(minHeight: 76)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.dsSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                            .strokeBorder(Color.dsSeparator, lineWidth: 1)
+                    }
+                Button {
+                    viewModel.updateCommentBody(comment, body: draftBody)
+                    isEditing = false
+                } label: {
+                    Label("Save", systemImage: "checkmark")
+                        .frame(maxWidth: .infinity, minHeight: 28)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.dsAccent)
+                .disabled(draftBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } else {
+                Text(displayedBody)
+                    .font(.system(
+                        size: commentFontSize(for: comment.style.textSize),
+                        weight: comment.style.isBold ? .semibold : .regular
+                    ))
+                    .italic(comment.style.isItalic)
+                    .foregroundStyle(color(fromHex: comment.style.colorHex))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            commentFormatControls
+            commentTags
+        }
+        .padding(.dsMD)
+        .background(Color.dsCard, in: RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+        .onAppear {
+            if draftBody.isEmpty {
+                draftBody = comment.body
+            }
+        }
+        .onChange(of: comment.body) { _, newValue in
+            if !isEditing {
+                draftBody = newValue
+            }
+        }
+    }
+
+    private var commentFormatControls: some View {
+        HStack(spacing: .dsSM) {
+            Button {
+                var style = comment.style
+                style.isBold.toggle()
+                viewModel.updateCommentStyle(comment, style: style)
+            } label: {
+                Image(systemName: "bold")
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(comment.style.isBold ? Color.dsAccent : Color.dsTextTertiary)
+            .help("Bold")
+
+            Button {
+                var style = comment.style
+                style.isItalic.toggle()
+                viewModel.updateCommentStyle(comment, style: style)
+            } label: {
+                Image(systemName: "italic")
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(comment.style.isItalic ? Color.dsAccent : Color.dsTextTertiary)
+            .help("Italic")
+
+            Menu {
+                ForEach(WorkspaceCommentTextSize.allCases) { size in
+                    Button(commentTextSizeLabel(size)) {
+                        var style = comment.style
+                        style.textSize = size
+                        viewModel.updateCommentStyle(comment, style: style)
+                    }
+                }
+            } label: {
+                Image(systemName: "textformat.size")
+                    .frame(width: 18, height: 18)
+            }
+            .menuStyle(.borderlessButton)
+            .help("Text size")
+
+            Menu {
+                ForEach(colorChoices, id: \.hex) { choice in
+                    Button(choice.label) {
+                        var style = comment.style
+                        style.colorHex = choice.hex
+                        viewModel.updateCommentStyle(comment, style: style)
+                    }
+                }
+            } label: {
+                Circle()
+                    .fill(color(fromHex: comment.style.colorHex))
+                    .frame(width: 14, height: 14)
+                    .overlay(Circle().strokeBorder(Color.dsSeparator, lineWidth: 1))
+                    .frame(width: 18, height: 18)
+            }
+            .menuStyle(.borderlessButton)
+            .help("Text color")
+
+            Spacer()
+        }
+    }
+
+    private var commentTags: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            if !comment.tags.isEmpty {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    ForEach(comment.tags, id: \.self) { tag in
+                        TagChip(tag: tag) {
+                            viewModel.removeTag(tag, from: comment)
+                        }
+                    }
+                }
+            }
+            HStack(spacing: .dsSM) {
+                TextField("Add tag", text: $draftTag)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.dsCaption())
+                    .onSubmit(addCommentTag)
+                Button(action: addCommentTag) {
+                    Image(systemName: "plus")
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(.bordered)
+                .disabled(draftTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .help("Add tag to comment")
+            }
+        }
+    }
+
+    private func addCommentTag() {
+        viewModel.addTag(draftTag, to: comment)
+        draftTag = ""
+    }
+
+    private func commentTextSizeLabel(_ size: WorkspaceCommentTextSize) -> String {
+        switch size {
+        case .small: return "Small"
+        case .regular: return "Regular"
+        case .large: return "Large"
+        }
+    }
+
+    private func commentFontSize(for size: WorkspaceCommentTextSize) -> CGFloat {
+        switch size {
+        case .small: return 11
+        case .regular: return 13
+        case .large: return 16
+        }
+    }
+
+    private func color(fromHex value: String) -> Color {
+        guard let nsColor = nsColor(fromHex: value) else { return Color.dsTextPrimary }
+        return Color(nsColor: nsColor)
+    }
+
+    private func nsColor(fromHex value: String) -> NSColor? {
+        var hex = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if hex.hasPrefix("#") {
+            hex.removeFirst()
+        }
+        guard hex.count == 6,
+              let raw = Int(hex, radix: 16) else {
+            return nil
+        }
+        return NSColor(
+            srgbRed: CGFloat((raw >> 16) & 0xFF) / 255,
+            green: CGFloat((raw >> 8) & 0xFF) / 255,
+            blue: CGFloat(raw & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+}
+
+private struct PDFNoteCommentRow: View {
+    var note: WorkspaceViewModel.PDFNoteComment
+    var onJump: () -> Void
+    var onRemove: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Page \(note.pageNumber)", systemImage: "note.text")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.dsTextTertiary)
+                Spacer()
+                Button(action: onJump) {
+                    Image(systemName: "arrowshape.turn.up.right")
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.dsTextTertiary)
+                .help("Show note")
+
+                Button(action: onRemove) {
+                    Image(systemName: "trash")
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.dsTextTertiary)
+                .help("Delete note")
+            }
+
+            Text(note.body)
                 .font(.dsBody())
                 .foregroundStyle(Color.dsTextPrimary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Text(note.memberName)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.dsTextTertiary)
+                .lineLimit(1)
         }
         .padding(.dsMD)
         .background(Color.dsCard, in: RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))

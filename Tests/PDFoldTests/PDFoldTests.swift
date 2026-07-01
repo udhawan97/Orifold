@@ -46,6 +46,23 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(workspace.comments.isEmpty)
     }
 
+    func testLegacyWorkspaceCommentDecodesWithStyleAndTagDefaults() throws {
+        let json = """
+        {
+          "body": "Legacy note"
+        }
+        """
+
+        let comment = try JSONDecoder().decode(WorkspaceComment.self, from: Data(json.utf8))
+
+        XCTAssertEqual(comment.body, "Legacy note")
+        XCTAssertFalse(comment.style.isBold)
+        XCTAssertFalse(comment.style.isItalic)
+        XCTAssertEqual(comment.style.textSize, .regular)
+        XCTAssertEqual(comment.style.colorHex, "#1F2933")
+        XCTAssertTrue(comment.tags.isEmpty)
+    }
+
     func testRectBackedModelsRoundTripThroughCodable() throws {
         let memberID = UUID()
         let pageRef = PageRef(
@@ -471,6 +488,32 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertTrue(pageText.contains("a substantially longer replacement phrase"), "replacement text was clipped: \(pageText)")
     }
 
+    func testInlineTextEditErasesCommittedEditedBoundsSoNearbyTextDoesNotBleedThrough() throws {
+        let pdf = makeTwoLinePDF()
+        let page = try XCTUnwrap(pdf.page(at: 0))
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: CGRect(x: 72, y: 686, width: 42, height: 18),
+            editedBounds: CGRect(x: 72, y: 626, width: 260, height: 78),
+            replacementText: "Replacement",
+            fontName: "Helvetica",
+            fontSize: 14,
+            textColor: .documentText,
+            alignment: .left
+        )
+
+        let regenerated = try XCTUnwrap(PDFEditedPageRenderer.regeneratedPage(from: page, applying: [operation]))
+        let bitmap = try renderedBitmap(for: regenerated)
+        let staleTextSample = try XCTUnwrap(bitmap.colorAt(x: 128, y: 792 - 650)?.usingColorSpace(.deviceRGB))
+
+        XCTAssertGreaterThan(
+            staleTextSample.brightnessComponent,
+            0.9,
+            "stale text under the grown replacement edit box should be cleared"
+        )
+    }
+
     func testMeasuredBoundsGrowsDownwardFromAFixedTopEdge() throws {
         // The live inline editor grows downward from a fixed top as typed text wraps
         // (InlineTextEditorOverlay.resizeTextViewHeight pins editorTopY and drops the
@@ -619,12 +662,23 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             textColor: .black,
             alignment: .left
         ))
+        document.workspace.comments = [
+            WorkspaceComment(body: "Persistent exported comment", tags: ["Saved"])
+        ]
 
         let snapshot = try document.snapshot(contentType: .pdf)
         let exportedData = try XCTUnwrap(document.exportedPDFData(from: snapshot))
         let exportedPDF = try XCTUnwrap(PDFDocument(data: exportedData))
+        let metadataAnnotation = try XCTUnwrap(exportedPDF.page(at: 0)?.annotations.first {
+            $0.value(forAnnotationKey: PDFAnnotationKey(rawValue: "/PDFoldWorkspaceComments")) != nil
+        })
+        let commentsMetadata = try XCTUnwrap(
+            metadataAnnotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: "/PDFoldWorkspaceComments")) as? String
+        )
 
         XCTAssertTrue(exportedPDF.stringValue.contains("Saved through PDF writer"))
+        XCTAssertTrue(commentsMetadata.contains("Persistent exported comment"))
+        XCTAssertTrue(commentsMetadata.contains("Saved"))
     }
 
     func testEditableTextBlockFallsBackToInlineInsertionWithoutWarning() throws {
@@ -675,6 +729,73 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         let savedNote = try XCTUnwrap(savedPage.annotations.first(where: { $0.type == "Text" }))
 
         XCTAssertEqual(savedNote.contents, "Cloud stuff to check")
+    }
+
+    func testPDFNoteCommentsIndexAndRemoveStickyNotes() throws {
+        let fixture = try makeMemberWithPDF(name: "Notes", pageTexts: ["Sticky note target"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let page = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
+
+        let annotation = viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page)
+        annotation.contents = "Check this paragraph"
+        annotation.setValue(false, forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey)
+
+        let note = try XCTUnwrap(viewModel.pdfNoteComments.first)
+        XCTAssertEqual(note.body, "Check this paragraph")
+        XCTAssertEqual(note.memberName, "Notes")
+        XCTAssertEqual(note.pageNumber, 1)
+        XCTAssertEqual(viewModel.totalCommentCount, 1)
+
+        viewModel.removeNoteComment(note)
+
+        XCTAssertTrue(viewModel.pdfNoteComments.isEmpty)
+        XCTAssertFalse(page.annotations.contains(annotation))
+    }
+
+    func testCommentExportsIncludeWorkspaceCommentsTagsStyleAndPDFNotes() throws {
+        let fixture = try makeMemberWithPDF(name: "Notes", pageTexts: ["Sticky note target"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        document.workspace.comments = [
+            WorkspaceComment(
+                body: "Needs legal review",
+                style: WorkspaceCommentStyle(isBold: true, isItalic: true, textSize: .large, colorHex: "#B42318"),
+                tags: ["Legal", "Urgent"]
+            )
+        ]
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let page = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
+        let annotation = viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page)
+        annotation.contents = "PDF note survives export"
+        annotation.setValue(false, forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey)
+
+        let plainText = viewModel.plainTextForDocumentExport()
+        let markdown = viewModel.markdownForDocumentExport()
+        let html = viewModel.htmlForDocumentExport()
+        let attributed = viewModel.attributedTextForDocumentExport()
+
+        XCTAssertTrue(plainText.contains("Needs legal review"))
+        XCTAssertTrue(plainText.contains("Tags: Legal, Urgent"))
+        XCTAssertTrue(plainText.contains("PDF note survives export"))
+        XCTAssertTrue(markdown.contains("***Needs legal review***"))
+        XCTAssertTrue(markdown.contains("PDF note, page 1, Notes"))
+        XCTAssertTrue(html.contains("Needs legal review"))
+        XCTAssertTrue(html.contains("font-weight: 700"))
+        XCTAssertTrue(html.contains("Legal"))
+        XCTAssertTrue(attributed.string.contains("Needs legal review"))
+        XCTAssertTrue(attributed.string.contains("PDF note survives export"))
     }
 
     func testInkStrokeStoresPathRelativeToAnnotationBounds() throws {
@@ -934,8 +1055,8 @@ final class InlineTextEditPlacementTests: XCTestCase {
         let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
         let moveHandle = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: InlineMoveHandle) in true })
         let resizeHandle = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: InlineResizeHandle) in true })
-        let redColorButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.toolTip == "Text color: Red"
+        let colorPopup = try XCTUnwrap(findSubview(in: fixture.overlay) { (popup: NSPopUpButton) in
+            popup.toolTip == "Text color"
         })
 
         let donePoint = doneButton.convert(NSPoint(x: doneButton.bounds.midX, y: doneButton.bounds.midY), to: fixture.overlay)
@@ -943,11 +1064,11 @@ final class InlineTextEditPlacementTests: XCTestCase {
         let textPoint = textView.convert(NSPoint(x: textView.bounds.midX, y: textView.bounds.minY + 6), to: fixture.overlay)
         let movePoint = moveHandle.convert(NSPoint(x: moveHandle.bounds.midX, y: moveHandle.bounds.midY), to: fixture.overlay)
         let resizePoint = resizeHandle.convert(NSPoint(x: resizeHandle.bounds.midX, y: resizeHandle.bounds.midY), to: fixture.overlay)
-        let redPoint = redColorButton.convert(NSPoint(x: redColorButton.bounds.midX, y: redColorButton.bounds.midY), to: fixture.overlay)
+        let colorPoint = colorPopup.convert(NSPoint(x: colorPopup.bounds.midX, y: colorPopup.bounds.midY), to: fixture.overlay)
 
         XCTAssertTrue(fixture.overlay.hitTest(donePoint) is NSButton)
         XCTAssertTrue(fixture.overlay.hitTest(sizePoint) is NSTextField)
-        XCTAssertTrue(fixture.overlay.hitTest(redPoint) is NSButton)
+        XCTAssertTrue(fixture.overlay.hitTest(colorPoint) is NSPopUpButton)
         let textHit = fixture.overlay.hitTest(textPoint)
         XCTAssertTrue(textHit is NSTextView, "Expected text view hit, got \(String(describing: textHit))")
         XCTAssertTrue(fixture.overlay.hitTest(movePoint) is InlineMoveHandle)
@@ -973,18 +1094,41 @@ final class InlineTextEditPlacementTests: XCTestCase {
 
     func testInlineEditorCommitsSelectedTextColorWhenDoneIsPressed() throws {
         let fixture = try makeInlineEditorFixture()
-        let redColorButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.toolTip == "Text color: Red"
+        let colorPopup = try XCTUnwrap(findSubview(in: fixture.overlay) { (popup: NSPopUpButton) in
+            popup.toolTip == "Text color"
         })
         let doneButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "Done"
         })
 
-        redColorButton.performClick(nil)
+        colorPopup.selectItem(withTitle: "Red")
+        colorPopup.sendAction(colorPopup.action, to: colorPopup.target)
         doneButton.performClick(nil)
 
         let edit = try XCTUnwrap(fixture.committedEdit())
         XCTAssertTrue(colorsApproximatelyEqual(edit.textColor, .systemRed, tolerance: 0.025))
+    }
+
+    func testInlineEditorColorMenuIncludesDefaultsAndDetectedDocumentColors() throws {
+        let detectedColor = NSColor(srgbRed: 0.42, green: 0.22, blue: 0.74, alpha: 1)
+        let fixture = try makeInlineEditorFixture(textColor: CodableColor(nsColor: detectedColor))
+        let colorPopup = try XCTUnwrap(findSubview(in: fixture.overlay) { (popup: NSPopUpButton) in
+            popup.toolTip == "Text color"
+        })
+        let titles = colorPopup.itemTitles
+
+        XCTAssertEqual(Array(titles.prefix(5)), ["Black", "White", "Red", "Blue", "Green"])
+        XCTAssertTrue(titles.contains("Detected #6B38BD"))
+
+        colorPopup.selectItem(withTitle: "Detected #6B38BD")
+        colorPopup.sendAction(colorPopup.action, to: colorPopup.target)
+        let doneButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Done"
+        })
+        doneButton.performClick(nil)
+
+        let edit = try XCTUnwrap(fixture.committedEdit())
+        XCTAssertTrue(colorsApproximatelyEqual(edit.textColor, detectedColor, tolerance: 0.025))
     }
 
     func testInlineEditorDefaultsBlankInsertedTextToVisibleColor() throws {
@@ -998,7 +1142,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
         doneButton.performClick(nil)
 
         let edit = try XCTUnwrap(fixture.committedEdit())
-        XCTAssertTrue(colorsApproximatelyEqual(edit.textColor, .dsTextPrimaryNS, tolerance: 0.025))
+        XCTAssertTrue(colorsApproximatelyEqual(edit.textColor, .black, tolerance: 0.025))
     }
 
     func testInlineEditorCommitsTextContentTopEdge() throws {
@@ -1029,6 +1173,26 @@ final class DocumentImportConverterTests: XCTestCase {
         XCTAssertEqual(pdf.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String, "notes")
         XCTAssertTrue(pdf.stringValue.contains("Hello PDFold"))
         XCTAssertTrue(pdf.stringValue.contains("Second line"))
+    }
+
+    func testHTMLImportPaginatesTallContentToLetterPages() throws {
+        let html = """
+        <!doctype html>
+        <html><body><main style="height: 1800px">Tall import</main></body></html>
+        """
+
+        let pdf = try DocumentImportConverter.pdfDocument(
+            from: Data(html.utf8),
+            contentType: .html,
+            filename: "tall.html",
+            baseURL: nil
+        )
+
+        XCTAssertGreaterThan(pdf.pageCount, 1)
+        XCTAssertTrue(pdf.stringValue.contains("Tall import"))
+        let firstPage = try XCTUnwrap(pdf.page(at: 0))
+        XCTAssertEqual(firstPage.bounds(for: .mediaBox).width, 612, accuracy: 0.5)
+        XCTAssertEqual(firstPage.bounds(for: .mediaBox).height, 792, accuracy: 0.5)
     }
 
     func testOversizedTextImportReturnsTypedLimitError() {
@@ -1263,9 +1427,19 @@ final class WorkspaceViewModelTests: XCTestCase {
         viewModel.addTag("   ")
         viewModel.addComment("  Needs review  ")
         viewModel.addComment("\n\t")
+        let comment = viewModel.document.workspace.comments[0]
+        viewModel.addTag(" #Priority ", to: comment)
+        viewModel.addTag("priority", to: comment)
+        var style = WorkspaceCommentStyle()
+        style.isBold = true
+        style.textSize = .large
+        style.colorHex = "#B42318"
+        viewModel.updateCommentStyle(comment, style: style)
 
         XCTAssertEqual(viewModel.document.workspace.tags, ["Finance"])
         XCTAssertEqual(viewModel.document.workspace.comments.map(\.body), ["Needs review"])
+        XCTAssertEqual(viewModel.document.workspace.comments[0].tags, ["Priority"])
+        XCTAssertEqual(viewModel.document.workspace.comments[0].style, style)
     }
 
     func testPageOperationsKeepWorkspaceAndPDFInSync() throws {
@@ -1641,6 +1815,17 @@ private func makeConsecutiveBulletsPDF() -> PDFDocument {
     return PDFDocument(data: view.dataWithPDF(inside: view.bounds))!
 }
 
+private func makeTwoLinePDF() -> PDFDocument {
+    let view = TwoLineFixturePageView(frame: CGRect(x: 0, y: 0, width: 612, height: 792))
+    return PDFDocument(data: view.dataWithPDF(inside: view.bounds))!
+}
+
+private func renderedBitmap(for page: PDFPage) throws -> NSBitmapImageRep {
+    let thumbnail = page.thumbnail(of: CGSize(width: 612, height: 792), for: .mediaBox)
+    let tiff = try thumbnail.tiffRepresentation.unwrap()
+    return try NSBitmapImageRep(data: tiff).unwrap()
+}
+
 private struct InlineEditorFixture {
     let pdfView: PDFoldPDFView
     let page: PDFPage
@@ -1749,6 +1934,29 @@ private final class TextFixturePageView: NSView {
                 .foregroundColor: NSColor.black
             ]
         )
+    }
+}
+
+private final class TwoLineFixturePageView: NSView {
+    override var isFlipped: Bool { false }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        bounds.fill()
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont(name: "Helvetica", size: 14) ?? NSFont.systemFont(ofSize: 14),
+            .foregroundColor: NSColor.black
+        ]
+        NSString(string: "Short").draw(at: CGPoint(x: 72, y: 690), withAttributes: attributes)
+        NSString(string: "Stale lower line").draw(at: CGPoint(x: 72, y: 650), withAttributes: attributes)
     }
 }
 

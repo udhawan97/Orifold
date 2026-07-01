@@ -241,8 +241,50 @@ final class WorkspaceViewModel {
         }
     }
 
+    struct PDFNoteComment: Identifiable {
+        var id: String
+        var pageRef: PageRef
+        var pageNumber: Int
+        var memberName: String
+        var annotation: PDFAnnotation
+
+        var body: String {
+            annotation.contents?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+    }
+
     var hasCryptographicSignaturePlacement: Bool {
         document.workspace.signatures.contains { $0.isCryptographic }
+    }
+
+    var pdfNoteComments: [PDFNoteComment] {
+        var notes: [PDFNoteComment] = []
+        for (member, pdf) in loadedPDFs {
+            for localPageIndex in 0..<pdf.pageCount {
+                guard let page = pdf.page(at: localPageIndex),
+                      member.pageRefs.indices.contains(localPageIndex),
+                      let pageRef = document.workspace.pageOrder.first(where: { $0.id == member.pageRefs[localPageIndex] })
+                else { continue }
+
+                let workspacePageNumber = (document.workspace.pageOrder.firstIndex(where: { $0.id == pageRef.id }) ?? localPageIndex) + 1
+                for (annotationIndex, annotation) in page.annotations.enumerated() where annotation.type == "Text" {
+                    let body = annotation.contents?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    guard !body.isEmpty else { continue }
+                    notes.append(PDFNoteComment(
+                        id: "\(pageRef.id.uuidString)-\(annotationIndex)-\(Int(annotation.bounds.minX))-\(Int(annotation.bounds.minY))",
+                        pageRef: pageRef,
+                        pageNumber: workspacePageNumber,
+                        memberName: member.displayName,
+                        annotation: annotation
+                    ))
+                }
+            }
+        }
+        return notes
+    }
+
+    var totalCommentCount: Int {
+        document.workspace.comments.count + pdfNoteComments.count
     }
 
     // MARK: - Init
@@ -589,6 +631,91 @@ final class WorkspaceViewModel {
             vm.markWorkspaceModified()
         }
         undoManager?.setActionName("Remove Comment")
+    }
+
+    func updateCommentBody(_ comment: WorkspaceComment, body rawBody: String) {
+        let body = rawBody.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty,
+              let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
+              document.workspace.comments[index].body != body else {
+            return
+        }
+        var updated = document.workspace.comments[index]
+        updated.body = body
+        replaceComment(at: index, with: updated, actionName: "Edit Comment")
+    }
+
+    func updateCommentStyle(_ comment: WorkspaceComment, style: WorkspaceCommentStyle) {
+        guard let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
+              document.workspace.comments[index].style != style else {
+            return
+        }
+        var updated = document.workspace.comments[index]
+        updated.style = style
+        replaceComment(at: index, with: updated, actionName: "Format Comment")
+    }
+
+    func addTag(_ rawTag: String, to comment: WorkspaceComment) {
+        let tag = normalizedTag(rawTag)
+        guard !tag.isEmpty,
+              let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
+              !document.workspace.comments[index].tags.contains(where: { $0.localizedCaseInsensitiveCompare(tag) == .orderedSame }) else {
+            return
+        }
+        var updated = document.workspace.comments[index]
+        updated.tags.append(tag)
+        replaceComment(at: index, with: updated, actionName: "Tag Comment")
+    }
+
+    func removeTag(_ tag: String, from comment: WorkspaceComment) {
+        guard let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
+              document.workspace.comments[index].tags.contains(tag) else {
+            return
+        }
+        var updated = document.workspace.comments[index]
+        updated.tags.removeAll { $0 == tag }
+        replaceComment(at: index, with: updated, actionName: "Untag Comment")
+    }
+
+    private func replaceComment(at index: Int, with updated: WorkspaceComment, actionName: String) {
+        guard document.workspace.comments.indices.contains(index) else { return }
+        let previous = document.workspace.comments[index]
+        document.workspace.comments[index] = updated
+        markWorkspaceModified()
+        undoManager?.registerUndo(withTarget: self) { vm in
+            vm.restoreComment(previous, actionName: actionName)
+        }
+        undoManager?.setActionName(actionName)
+    }
+
+    private func restoreComment(_ comment: WorkspaceComment, actionName: String) {
+        guard let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }) else { return }
+        let inverse = document.workspace.comments[index]
+        document.workspace.comments[index] = comment
+        markWorkspaceModified()
+        undoManager?.registerUndo(withTarget: self) { vm in
+            vm.restoreComment(inverse, actionName: actionName)
+        }
+        undoManager?.setActionName(actionName)
+    }
+
+    func jumpToNoteComment(_ note: PDFNoteComment) {
+        selectedAnnotation = note.annotation
+        selectPage(note.pageRef)
+    }
+
+    func removeNoteComment(_ note: PDFNoteComment) {
+        guard let page = note.annotation.page else { return }
+        page.removeAnnotation(note.annotation)
+        if selectedAnnotation === note.annotation {
+            selectedAnnotation = nil
+        }
+        markAnnotationsModified()
+        undoManager?.registerUndo(withTarget: self) { vm in
+            page.addAnnotation(note.annotation)
+            vm.markAnnotationsModified()
+        }
+        undoManager?.setActionName("Remove Note")
     }
 
     private func normalizedTag(_ value: String) -> String {
@@ -1680,7 +1807,7 @@ final class WorkspaceViewModel {
         }
     }
 
-    private func attributedTextForDocumentExport() -> NSAttributedString {
+    func attributedTextForDocumentExport() -> NSAttributedString {
         let output = NSMutableAttributedString()
         let headingAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.boldSystemFont(ofSize: 18),
@@ -1691,8 +1818,10 @@ final class WorkspaceViewModel {
             .foregroundColor: NSColor.labelColor
         ]
 
+        appendAttributedComments(to: output, headingAttributes: headingAttributes, bodyAttributes: bodyAttributes)
+
         for (index, item) in loadedPDFs.enumerated() {
-            if index > 0 {
+            if output.length > 0 || index > 0 {
                 output.append(NSAttributedString(string: "\n\n"))
             }
             output.append(NSAttributedString(string: item.0.displayName + "\n", attributes: headingAttributes))
@@ -1702,14 +1831,18 @@ final class WorkspaceViewModel {
         return output.length == 0 ? NSAttributedString(string: " ") : output
     }
 
-    private func plainTextForDocumentExport() -> String {
-        loadedPDFs.map { member, pdf in
+    func plainTextForDocumentExport() -> String {
+        var sections: [String] = []
+        if let comments = plainTextCommentsSection() {
+            sections.append(comments)
+        }
+        sections += loadedPDFs.map { member, pdf in
             "\(member.displayName)\n\(String(repeating: "=", count: max(3, member.displayName.count)))\n\n\(text(from: pdf))"
         }
-        .joined(separator: "\n\n")
+        return sections.joined(separator: "\n\n")
     }
 
-    private func markdownForDocumentExport() -> String {
+    func markdownForDocumentExport() -> String {
         let title = markdownHeadingEscaped(document.workspace.title)
         var sections: [String] = ["# \(title)"]
 
@@ -1719,8 +1852,8 @@ final class WorkspaceViewModel {
         if !document.workspace.tags.isEmpty {
             metadata.append("- Tags: \(document.workspace.tags.map(markdownInlineEscaped).joined(separator: ", "))")
         }
-        if !document.workspace.comments.isEmpty {
-            metadata.append("- Comments: \(document.workspace.comments.count)")
+        if totalCommentCount > 0 {
+            metadata.append("- Comments: \(totalCommentCount)")
         }
         sections.append("""
         ## Workspace Summary
@@ -1728,16 +1861,8 @@ final class WorkspaceViewModel {
         \(metadata.joined(separator: "\n"))
         """)
 
-        if !document.workspace.comments.isEmpty {
-            let comments = document.workspace.comments.map { comment in
-                "- \(markdownInlineEscaped(comment.body))"
-            }
-            .joined(separator: "\n")
-            sections.append("""
-            ## Workspace Comments
-
-            \(comments)
-            """)
+        if let comments = markdownCommentsSection() {
+            sections.append(comments)
         }
 
         let documents = loadedPDFs.map { member, pdf in
@@ -1754,7 +1879,7 @@ final class WorkspaceViewModel {
         return sections.joined(separator: "\n\n") + "\n"
     }
 
-    private func htmlForDocumentExport() -> String {
+    func htmlForDocumentExport() -> String {
         let body = loadedPDFs.map { member, pdf in
             """
             <section>
@@ -1775,14 +1900,183 @@ final class WorkspaceViewModel {
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 48px; color: #111; }
             section { margin-bottom: 40px; }
             h1 { font-size: 22px; margin-bottom: 12px; }
+            h2 { font-size: 18px; margin: 0 0 14px; }
             pre { white-space: pre-wrap; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+            .comment { border-left: 3px solid #d4d7dc; padding: 8px 0 8px 12px; margin: 0 0 14px; }
+            .comment-meta { color: #667085; font-size: 12px; margin-bottom: 4px; }
+            .tag { display: inline-block; border: 1px solid #d0d5dd; border-radius: 999px; padding: 1px 7px; margin-right: 4px; font-size: 11px; color: #344054; }
           </style>
         </head>
         <body>
+        \(htmlCommentsSection())
         \(body)
         </body>
         </html>
         """
+    }
+
+    private struct CommentExportItem {
+        var title: String
+        var body: String
+        var tags: [String]
+        var style: WorkspaceCommentStyle
+        var createdAt: Date?
+    }
+
+    private var commentExportItems: [CommentExportItem] {
+        let workspaceItems = document.workspace.comments.map { comment in
+            CommentExportItem(
+                title: comment.createdAt.formatted(date: .abbreviated, time: .shortened),
+                body: comment.body,
+                tags: comment.tags,
+                style: comment.style,
+                createdAt: comment.createdAt
+            )
+        }
+        let noteItems = pdfNoteComments.map { note in
+            CommentExportItem(
+                title: "PDF note, page \(note.pageNumber), \(note.memberName)",
+                body: note.body,
+                tags: [],
+                style: WorkspaceCommentStyle(),
+                createdAt: nil
+            )
+        }
+        return workspaceItems + noteItems
+    }
+
+    private func appendAttributedComments(to output: NSMutableAttributedString,
+                                          headingAttributes: [NSAttributedString.Key: Any],
+                                          bodyAttributes: [NSAttributedString.Key: Any]) {
+        let comments = commentExportItems
+        guard !comments.isEmpty else { return }
+        output.append(NSAttributedString(string: "Comments\n", attributes: headingAttributes))
+        output.append(NSAttributedString(string: "--------\n\n", attributes: bodyAttributes))
+        for (index, item) in comments.enumerated() {
+            if index > 0 {
+                output.append(NSAttributedString(string: "\n\n", attributes: bodyAttributes))
+            }
+            output.append(NSAttributedString(string: item.title + "\n", attributes: bodyAttributes))
+            if !item.tags.isEmpty {
+                output.append(NSAttributedString(
+                    string: "Tags: \(item.tags.joined(separator: ", "))\n",
+                    attributes: bodyAttributes
+                ))
+            }
+            output.append(NSAttributedString(string: item.body, attributes: attributedCommentAttributes(for: item.style)))
+        }
+    }
+
+    private func attributedCommentAttributes(for style: WorkspaceCommentStyle) -> [NSAttributedString.Key: Any] {
+        var traits: NSFontTraitMask = []
+        if style.isBold { traits.insert(.boldFontMask) }
+        if style.isItalic { traits.insert(.italicFontMask) }
+        let size = commentPointSize(for: style.textSize)
+        let baseFont = NSFont.systemFont(ofSize: size)
+        let font = NSFontManager.shared.convert(baseFont, toHaveTrait: traits)
+        return [
+            .font: font,
+            .foregroundColor: nsColor(fromHex: style.colorHex) ?? NSColor.labelColor
+        ]
+    }
+
+    private func plainTextCommentsSection() -> String? {
+        let comments = commentExportItems
+        guard !comments.isEmpty else { return nil }
+        let rows = comments.map { item in
+            var lines: [String] = [item.title]
+            if !item.tags.isEmpty {
+                lines.append("Tags: \(item.tags.joined(separator: ", "))")
+            }
+            lines.append(item.body)
+            return lines.joined(separator: "\n")
+        }
+        return "Comments\n========\n\n" + rows.joined(separator: "\n\n")
+    }
+
+    private func markdownCommentsSection() -> String? {
+        let comments = commentExportItems
+        guard !comments.isEmpty else { return nil }
+        let rows = comments.map { item in
+            var line = "- **\(markdownInlineEscaped(item.title))**: \(markdownFormattedCommentBody(item.body, style: item.style))"
+            if !item.tags.isEmpty {
+                line += " _Tags: \(item.tags.map(markdownInlineEscaped).joined(separator: ", "))_"
+            }
+            return line
+        }
+        return "## Comments\n\n" + rows.joined(separator: "\n")
+    }
+
+    private func htmlCommentsSection() -> String {
+        let comments = commentExportItems
+        guard !comments.isEmpty else { return "" }
+        let rows = comments.map { item in
+            let tags = item.tags.map { "<span class=\"tag\">\(htmlEscaped($0))</span>" }.joined(separator: " ")
+            let tagLine = tags.isEmpty ? "" : "<div>\(tags)</div>"
+            return """
+            <div class="comment">
+              <div class="comment-meta">\(htmlEscaped(item.title))</div>
+              <div style="\(htmlStyle(for: item.style))">\(htmlEscaped(item.body).replacingOccurrences(of: "\n", with: "<br>"))</div>
+              \(tagLine)
+            </div>
+            """
+        }
+        .joined(separator: "\n")
+        return """
+        <section>
+          <h2>Comments</h2>
+          \(rows)
+        </section>
+        """
+    }
+
+    private func markdownFormattedCommentBody(_ body: String, style: WorkspaceCommentStyle) -> String {
+        var value = markdownInlineEscaped(body)
+        if style.isBold && style.isItalic {
+            value = "***\(value)***"
+        } else if style.isBold {
+            value = "**\(value)**"
+        } else if style.isItalic {
+            value = "*\(value)*"
+        }
+        return value
+    }
+
+    private func htmlStyle(for style: WorkspaceCommentStyle) -> String {
+        let weight = style.isBold ? "font-weight: 700;" : ""
+        let italic = style.isItalic ? "font-style: italic;" : ""
+        let size = "font-size: \(Int(commentPointSize(for: style.textSize)))px;"
+        let color = "color: \(safeCommentColorHex(style.colorHex));"
+        return [weight, italic, size, color].filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    private func commentPointSize(for size: WorkspaceCommentTextSize) -> CGFloat {
+        switch size {
+        case .small: return 11
+        case .regular: return 13
+        case .large: return 16
+        }
+    }
+
+    private func safeCommentColorHex(_ value: String) -> String {
+        nsColor(fromHex: value) == nil ? "#1F2933" : value
+    }
+
+    private func nsColor(fromHex value: String) -> NSColor? {
+        var hex = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if hex.hasPrefix("#") {
+            hex.removeFirst()
+        }
+        guard hex.count == 6,
+              let raw = Int(hex, radix: 16) else {
+            return nil
+        }
+        return NSColor(
+            srgbRed: CGFloat((raw >> 16) & 0xFF) / 255,
+            green: CGFloat((raw >> 8) & 0xFF) / 255,
+            blue: CGFloat(raw & 0xFF) / 255,
+            alpha: 1
+        )
     }
 
     private func text(from pdf: PDFDocument) -> String {

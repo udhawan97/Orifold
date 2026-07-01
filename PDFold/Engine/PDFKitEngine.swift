@@ -203,11 +203,51 @@ enum DocumentImportConverter {
             baseURL: baseURL,
             maxPages: maxRenderedHTMLPages
         )
-        guard let document = PDFDocument(data: pdfData) else { throw ConversionError.renderingFailed }
+        let paginatedData = try paginateRenderedHTMLPDFData(pdfData)
+        guard let document = PDFDocument(data: paginatedData) else { throw ConversionError.renderingFailed }
         document.documentAttributes = [
             PDFDocumentAttribute.titleAttribute: URL(fileURLWithPath: title).deletingPathExtension().lastPathComponent
         ]
         return document
+    }
+
+    private static func paginateRenderedHTMLPDFData(_ data: Data) throws -> Data {
+        guard let source = PDFDocument(data: data), source.pageCount > 0 else {
+            throw ConversionError.renderingFailed
+        }
+
+        let pageSize = HTMLPDFRenderer.pageSize
+        let output = NSMutableData()
+        var mediaBox = CGRect(origin: .zero, size: pageSize)
+        guard let consumer = CGDataConsumer(data: output as CFMutableData),
+              let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+            throw ConversionError.renderingFailed
+        }
+
+        for pageIndex in 0..<source.pageCount {
+            guard let sourcePage = source.page(at: pageIndex) else { continue }
+            let sourceBox = sourcePage.bounds(for: .mediaBox)
+            guard sourceBox.width > 0, sourceBox.height > 0 else { continue }
+
+            let sliceCount = max(1, Int(ceil(sourceBox.height / pageSize.height)))
+            for sliceIndex in 0..<sliceCount {
+                context.beginPDFPage(nil)
+                context.saveGState()
+                context.setFillColor(NSColor.white.cgColor)
+                context.fill(mediaBox)
+                context.clip(to: mediaBox)
+
+                let topOffset = max(0, sourceBox.height - CGFloat(sliceIndex + 1) * pageSize.height)
+                context.translateBy(x: -sourceBox.minX, y: -sourceBox.minY - topOffset)
+                sourcePage.draw(with: .mediaBox, to: context)
+                context.restoreGState()
+                context.endPDFPage()
+            }
+        }
+
+        context.closePDF()
+        guard output.length > 0 else { throw ConversionError.renderingFailed }
+        return output as Data
     }
 
     private static func loadAttributedString(
@@ -421,7 +461,7 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
     private let webView: WKWebView
     private var state = RenderState.pending
 
-    private static let pageSize = CGSize(width: 612, height: 792)
+    fileprivate static let pageSize = CGSize(width: 612, height: 792)
 
     static func render(
         html: String,

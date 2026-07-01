@@ -19,6 +19,11 @@ struct WorkspacePackage {
 
 final class WorkspaceDocument: ReferenceFileDocument {
     typealias Snapshot = WorkspacePackage
+    private static let workspaceCommentsAnnotationKey = PDFAnnotationKey(rawValue: "/PDFoldWorkspaceComments")
+
+    private struct PDFoldMetadata: Codable {
+        var comments: [WorkspaceComment]
+    }
 
     static let importableContentTypes: [UTType] = [
         .pdf,
@@ -96,6 +101,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
         workspace.title = displayName.isEmpty ? "Untitled Workspace" : displayName
         workspace.documents = [member]
         workspace.pageOrder = refs
+        workspace.comments = Self.commentsMetadata(from: pdf)
         memberPDFData[member.id] = pdfData
     }
 
@@ -122,16 +128,69 @@ final class WorkspaceDocument: ReferenceFileDocument {
         guard let pdfData = PDFSerializer.data(from: flat) else { return nil }
 
         let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
-        guard !visualPlacements.isEmpty else { return pdfData }
+        guard !visualPlacements.isEmpty else {
+            return Self.embedMetadata(in: pdfData, workspace: snapshot.workspace) ?? pdfData
+        }
 
         do {
-            return try SignatureExportBaker.bake(placements: visualPlacements, into: pdfData) { placement in
+            let bakedData = try SignatureExportBaker.bake(placements: visualPlacements, into: pdfData) { placement in
                 snapshot.workspace.pageOrder.firstIndex { $0.id == placement.pageRefId }
             }
+            return Self.embedMetadata(in: bakedData, workspace: snapshot.workspace) ?? bakedData
         } catch SigningError.notImplemented {
-            return pdfData
+            return Self.embedMetadata(in: pdfData, workspace: snapshot.workspace) ?? pdfData
         } catch {
             return nil
+        }
+    }
+
+    private static func commentsMetadata(from pdf: PDFDocument) -> [WorkspaceComment] {
+        var comments: [WorkspaceComment] = []
+        for pageIndex in 0..<pdf.pageCount {
+            guard let page = pdf.page(at: pageIndex) else { continue }
+            for annotation in page.annotations {
+                guard let rawValue = annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) as? String else {
+                    continue
+                }
+                if comments.isEmpty,
+                   let data = rawValue.data(using: .utf8),
+                   let metadata = try? JSONDecoder().decode(PDFoldMetadata.self, from: data) {
+                    comments = metadata.comments
+                }
+                page.removeAnnotation(annotation)
+            }
+        }
+        return comments
+    }
+
+    private static func embedMetadata(in data: Data, workspace: Workspace) -> Data? {
+        guard !workspace.comments.isEmpty,
+              let pdf = PDFDocument(data: data),
+              let metadataData = try? JSONEncoder().encode(PDFoldMetadata(comments: workspace.comments)),
+              let metadataString = String(data: metadataData, encoding: .utf8) else {
+            return data
+        }
+        removeMetadataAnnotations(from: pdf)
+        guard let firstPage = pdf.page(at: 0) else { return data }
+        let annotation = PDFAnnotation(
+            bounds: CGRect(x: -10, y: -10, width: 1, height: 1),
+            forType: .freeText,
+            withProperties: nil
+        )
+        annotation.color = .clear
+        annotation.fontColor = .clear
+        annotation.contents = nil
+        annotation.setValue(metadataString, forAnnotationKey: workspaceCommentsAnnotationKey)
+        firstPage.addAnnotation(annotation)
+        return PDFSerializer.data(from: pdf)
+    }
+
+    private static func removeMetadataAnnotations(from pdf: PDFDocument) {
+        for pageIndex in 0..<pdf.pageCount {
+            guard let page = pdf.page(at: pageIndex) else { continue }
+            for annotation in page.annotations where annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) != nil {
+                page.removeAnnotation(annotation)
+            }
         }
     }
 

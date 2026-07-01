@@ -4,13 +4,16 @@ import UniformTypeIdentifiers
 
 struct SidebarView: View {
     var viewModel: WorkspaceViewModel
+    var onImportDrop: ([NSItemProvider]) -> Bool = { _ in false }
     @State private var expandedDocs: Set<UUID> = []
+    @State private var isImportDropTargeted = false
 
     var body: some View {
         List {
             SidebarBrandMasthead(
                 documentCount: viewModel.document.workspace.documents.count,
-                pageCount: viewModel.document.workspace.pageOrder.count
+                pageCount: viewModel.document.workspace.pageOrder.count,
+                commentCount: viewModel.totalCommentCount
             )
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
@@ -28,6 +31,38 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(Color.dsSurface)
+        .overlay { importDropOverlay }
+        .onDrop(
+            of: WorkspaceDocument.importableContentTypes + [.fileURL],
+            isTargeted: $isImportDropTargeted,
+            perform: onImportDrop
+        )
+    }
+
+    private var importDropOverlay: some View {
+        RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+            .strokeBorder(Color.dsAccent.opacity(isImportDropTargeted ? 0.55 : 0), lineWidth: 1.5)
+            .background {
+                if isImportDropTargeted {
+                    ZStack {
+                        Color.dsAccent.opacity(0.08)
+                        VStack(spacing: .dsSM) {
+                            Image(systemName: "tray.and.arrow.down.fill")
+                                .font(.system(size: 26, weight: .light))
+                                .symbolRenderingMode(.hierarchical)
+                            Text("Drop to add documents")
+                                .font(.dsHeadline())
+                        }
+                        .foregroundStyle(Color.dsAccent)
+                        .padding(.horizontal, .dsLG)
+                        .padding(.vertical, .dsMD)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+                    }
+                }
+            }
+            .padding(.dsSM)
+            .allowsHitTesting(false)
+            .animation(.easeInOut(duration: 0.15), value: isImportDropTargeted)
     }
 }
 
@@ -36,6 +71,7 @@ struct SidebarView: View {
 private struct SidebarBrandMasthead: View {
     var documentCount: Int
     var pageCount: Int
+    var commentCount: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
@@ -49,6 +85,7 @@ private struct SidebarBrandMasthead: View {
             HStack(spacing: .dsSM) {
                 SidebarMetric(value: "\(documentCount)", label: documentCount == 1 ? "file" : "files")
                 SidebarMetric(value: "\(pageCount)", label: pageCount == 1 ? "page" : "pages")
+                SidebarMetric(value: "\(commentCount)", label: commentCount == 1 ? "comment" : "comments")
             }
         }
         .padding(.dsMD)

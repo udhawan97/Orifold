@@ -8,6 +8,7 @@ struct ReadingCanvas: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ZoomPageBar(viewModel: viewModel)
             ZStack(alignment: .top) {
                 PDFViewRepresentable(viewModel: viewModel)
                 if let status = viewModel.editingStatus {
@@ -24,7 +25,6 @@ struct ReadingCanvas: View {
                     }
                 }
             }
-            ZoomPageBar(viewModel: viewModel)
         }
         .animation(.easeInOut(duration: 0.18), value: viewModel.editingStatus?.id)
     }
@@ -134,7 +134,7 @@ private struct ZoomPageBar: View {
         .padding(.horizontal, .dsLG)
         .padding(.vertical, 6)
         .background(Color.dsSurface)
-        .overlay(alignment: .top) {
+        .overlay(alignment: .bottom) {
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
         }
         .accessibilityElement(children: .contain)
@@ -1351,11 +1351,12 @@ final class NoteEditorViewController: NSViewController {
     private let boldButton = NSButton(title: "B", target: nil, action: nil)
     private let italicButton = NSButton(title: "I", target: nil, action: nil)
     private let alignControl = NSSegmentedControl(labels: ["L", "C", "R"], trackingMode: .selectOne, target: nil, action: nil)
-    private var colorButtons: [NSButton] = []
+    private let colorPopup = NSPopUpButton()
     private var editorFontFamily: String
     private var documentFontSize: CGFloat
     private var editorFontTraits: NSFontTraitMask
     private var editorTextColor: NSColor
+    private let textColorChoices: [TextColorChoice]
     private var editorAlignment: NSTextAlignment = .left
     private var didFinish = false
     private var editorTopY: CGFloat = 0
@@ -1371,13 +1372,21 @@ final class NoteEditorViewController: NSViewController {
     private let originalFontSize: CGFloat
     private let originalFontTraits: NSFontTraitMask
     private let originalAlignment: NSTextAlignment
-    private static let defaultInsertedTextColor = NSColor.dsTextPrimaryNS
-    private static let textColorChoices: [(name: String, color: NSColor)] = [
-        ("Dark", .dsTextPrimaryNS),
-        ("Blue", .systemBlue),
-        ("Red", .systemRed),
-        ("White", .white)
+    private static let defaultInsertedTextColor = NSColor.black
+    private static let defaultTextColorChoices: [TextColorChoice] = [
+        TextColorChoice(name: "Black", color: .black, isDetected: false),
+        TextColorChoice(name: "White", color: .white, isDetected: false),
+        TextColorChoice(name: "Red", color: .systemRed, isDetected: false),
+        TextColorChoice(name: "Blue", color: .systemBlue, isDetected: false),
+        TextColorChoice(name: "Green", color: .systemGreen, isDetected: false)
     ]
+    private static let maxDetectedTextColors = 24
+
+    private struct TextColorChoice {
+        var name: String
+        var color: NSColor
+        var isDetected: Bool
+    }
 
     init(
         frame: CGRect,
@@ -1404,6 +1413,7 @@ final class NoteEditorViewController: NSViewController {
         editorFontFamily = Self.editingFamilyName(for: initialFont, fallback: block.fontName)
         editorFontTraits = NSFontManager.shared.traits(of: initialFont).intersection([.boldFontMask, .italicFontMask])
         editorTextColor = Self.initialTextColor(for: block)
+        textColorChoices = Self.textColorChoices(for: block, document: pdfView.document, initialColor: editorTextColor)
         editorAlignment = block.alignment?.nsTextAlignment ?? .left
         originalText = block.text
         originalFontFamily = editorFontFamily
@@ -1601,19 +1611,12 @@ final class NoteEditorViewController: NSViewController {
         alignControl.frame = CGRect(x: 314, y: 8, width: 82, height: 26)
         toolbar.addSubview(alignControl)
 
-        colorButtons = Self.textColorChoices.enumerated().map { index, choice in
-            let button = NSButton(title: "", target: self, action: #selector(changeTextColor(_:)))
-            button.tag = index
-            button.toolTip = "Text color: \(choice.name)"
-            button.bezelStyle = .shadowlessSquare
-            button.isBordered = false
-            button.wantsLayer = true
-            button.layer?.backgroundColor = choice.color.cgColor
-            button.layer?.cornerRadius = 4
-            button.frame = CGRect(x: 410 + CGFloat(index) * 26, y: 10, width: 20, height: 20)
-            toolbar.addSubview(button)
-            return button
-        }
+        colorPopup.target = self
+        colorPopup.action = #selector(changeTextColor(_:))
+        colorPopup.toolTip = "Text color"
+        colorPopup.frame = CGRect(x: 410, y: 8, width: 102, height: 26)
+        populateColorPopup()
+        toolbar.addSubview(colorPopup)
 
         let signature = NSButton(title: "", target: self, action: #selector(addSignatureBox))
         signature.image = NSImage(systemSymbolName: "signature", accessibilityDescription: "Signature")
@@ -1634,7 +1637,7 @@ final class NoteEditorViewController: NSViewController {
         done.keyEquivalent = "\r"
         done.frame = CGRect(x: 640, y: 8, width: 62, height: 26)
         toolbar.addSubview(done)
-        refreshColorButtons()
+        refreshColorPopup()
         refreshSizeControls()
     }
 
@@ -1884,9 +1887,10 @@ final class NoteEditorViewController: NSViewController {
         refocusEditor()
     }
 
-    @objc private func changeTextColor(_ sender: NSButton) {
-        guard Self.textColorChoices.indices.contains(sender.tag) else { return }
-        editorTextColor = Self.textColorChoices[sender.tag].color
+    @objc private func changeTextColor(_ sender: NSPopUpButton) {
+        guard let index = sender.selectedItem?.representedObject as? Int,
+              textColorChoices.indices.contains(index) else { return }
+        editorTextColor = textColorChoices[index].color
         didChangeStyle = true
         applyFormatting()
         refocusEditor()
@@ -1901,7 +1905,7 @@ final class NoteEditorViewController: NSViewController {
 
     private func applyFormatting() {
         refreshSizeControls()
-        refreshColorButtons()
+        refreshColorPopup()
         let font = displayFont()
         textView.font = font
         textView.textColor = editorTextColor
@@ -1928,13 +1932,29 @@ final class NoteEditorViewController: NSViewController {
         sizeStepper.integerValue = Int(round(documentFontSize))
     }
 
-    private func refreshColorButtons() {
-        for (index, button) in colorButtons.enumerated() {
-            let choice = Self.textColorChoices[index]
-            let selected = Self.colorsApproximatelyEqual(editorTextColor, choice.color, tolerance: 0.025)
-            button.layer?.backgroundColor = choice.color.cgColor
-            button.layer?.borderWidth = selected ? 2.5 : 1
-            button.layer?.borderColor = (selected ? NSColor.dsAccentNS : NSColor.black.withAlphaComponent(0.24)).cgColor
+    private func populateColorPopup() {
+        colorPopup.removeAllItems()
+        var insertedSeparator = false
+        for (index, choice) in textColorChoices.enumerated() {
+            if choice.isDetected && !insertedSeparator {
+                colorPopup.menu?.addItem(.separator())
+                insertedSeparator = true
+            }
+            colorPopup.addItem(withTitle: choice.name)
+            let item = colorPopup.lastItem
+            item?.representedObject = index
+            item?.image = Self.colorSwatchImage(for: choice.color)
+        }
+    }
+
+    private func refreshColorPopup() {
+        guard let index = textColorChoices.firstIndex(where: {
+            Self.colorsApproximatelyEqual(editorTextColor, $0.color, tolerance: 0.025)
+        }) else { return }
+        for itemIndex in 0..<colorPopup.numberOfItems {
+            guard colorPopup.item(at: itemIndex)?.representedObject as? Int == index else { continue }
+            colorPopup.selectItem(at: itemIndex)
+            break
         }
     }
 
@@ -1994,6 +2014,92 @@ final class NoteEditorViewController: NSViewController {
             return defaultInsertedTextColor
         }
         return block.textColor.nsColor
+    }
+
+    private static func textColorChoices(for block: EditableTextBlock, document: PDFDocument?, initialColor: NSColor) -> [TextColorChoice] {
+        var choices = defaultTextColorChoices
+
+        func appendDetected(_ color: NSColor) {
+            let normalized = normalizedColor(color)
+            guard normalized.alphaComponent > 0.05,
+                  !choices.contains(where: { colorsApproximatelyEqual($0.color, normalized, tolerance: 0.025) }) else { return }
+            choices.append(TextColorChoice(name: "Detected \(hexString(for: normalized))", color: normalized, isDetected: true))
+        }
+
+        appendDetected(initialColor)
+        appendDetected(block.textColor.nsColor)
+        for line in block.lines {
+            for run in line.runs {
+                appendDetected(run.textColor.nsColor)
+            }
+        }
+        for color in detectedDocumentTextColors(in: document) {
+            appendDetected(color)
+        }
+        return choices
+    }
+
+    private static func detectedDocumentTextColors(in document: PDFDocument?) -> [NSColor] {
+        guard let document else { return [] }
+        var colors: [NSColor] = []
+        if let data = document.dataRepresentation() {
+            let engine = PDFTextAnalysisEngine()
+            for pageIndex in 0..<document.pageCount {
+                let page = document.page(at: pageIndex)
+                let analysis = engine.analyze(data: data, pageIndex: pageIndex, fallbackPage: page)
+                colors.append(contentsOf: analysis.blocks.map { $0.textColor.nsColor })
+                if colors.count >= maxDetectedTextColors { return colors }
+            }
+            if !colors.isEmpty { return colors }
+        }
+
+        for pageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: pageIndex),
+                  let attributed = page.attributedString,
+                  attributed.length > 0 else { continue }
+            let range = NSRange(location: 0, length: attributed.length)
+            attributed.enumerateAttribute(.foregroundColor, in: range) { value, _, _ in
+                if let color = value as? NSColor {
+                    colors.append(color)
+                }
+            }
+            if colors.count >= maxDetectedTextColors { return colors }
+        }
+        return colors
+    }
+
+    private static func normalizedColor(_ color: NSColor) -> NSColor {
+        color.usingColorSpace(.sRGB) ?? .black
+    }
+
+    private static func hexString(for color: NSColor) -> String {
+        let normalized = normalizedColor(color)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        normalized.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return String(
+            format: "#%02X%02X%02X",
+            Int(round(red * 255)),
+            Int(round(green * 255)),
+            Int(round(blue * 255))
+        )
+    }
+
+    private static func colorSwatchImage(for color: NSColor) -> NSImage {
+        let size = NSSize(width: 14, height: 14)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        let rect = NSRect(origin: .zero, size: size).insetBy(dx: 1, dy: 1)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3)
+        normalizedColor(color).setFill()
+        path.fill()
+        NSColor.black.withAlphaComponent(0.28).setStroke()
+        path.lineWidth = 1
+        path.stroke()
+        image.unlockFocus()
+        return image
     }
 
     private static func colorsApproximatelyEqual(_ lhs: NSColor, _ rhs: NSColor, tolerance: CGFloat) -> Bool {

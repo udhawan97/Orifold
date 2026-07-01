@@ -6,8 +6,10 @@ struct ContentView: View {
     var document: WorkspaceDocument
     @State private var viewModel: WorkspaceViewModel
     @State private var showInspector = false
+    @State private var inspectorTab: InspectorView.Tab = .info
     @State private var showTOC = false
     @State private var isWorkspaceDropTargeted = false
+    @State private var isNavigationDropTargeted = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(\.undoManager) private var undoManager
 
@@ -22,14 +24,14 @@ struct ContentView: View {
                 EmptyStateView(viewModel: viewModel)
             } else {
                 NavigationSplitView(columnVisibility: $columnVisibility) {
-                    SidebarView(viewModel: viewModel)
+                    SidebarView(viewModel: viewModel, onImportDrop: handleDrop)
                         .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 320)
                 } detail: {
                     HStack(spacing: 0) {
                         ReadingCanvas(viewModel: viewModel)
                         if showInspector {
                             Rectangle().fill(Color.dsSeparator).frame(width: 0.5)
-                            InspectorView(viewModel: viewModel)
+                            InspectorView(viewModel: viewModel, selectedTab: $inspectorTab)
                                 .frame(width: 280)
                         }
                     }
@@ -99,6 +101,7 @@ struct ContentView: View {
             Button { openFiles() } label: {
                 Label("Add Files", systemImage: "plus.circle")
             }
+            .acceptsImportDrops(perform: handleDrop)
             .help("Add files (⌘O)")
             .keyboardShortcut("o", modifiers: .command)
         }
@@ -106,6 +109,7 @@ struct ContentView: View {
         // Center: annotation tools + color swatch
         ToolbarItem(placement: .principal) {
             AnnotationToolPicker(viewModel: viewModel)
+                .acceptsImportDrops(isTargeted: $isNavigationDropTargeted, showsHighlight: true, perform: handleDrop)
         }
 
         // Trailing primary: Share + Inspector
@@ -123,12 +127,23 @@ struct ContentView: View {
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
+            .acceptsImportDrops(perform: handleDrop)
             .help("Export / Print (⌘⇧E)")
             .keyboardShortcut("e", modifiers: [.command, .shift])
+
+            Button {
+                inspectorTab = .comments
+                showInspector = true
+            } label: {
+                Label("Comments", systemImage: "text.bubble")
+            }
+            .acceptsImportDrops(perform: handleDrop)
+            .help("Add and view comments")
 
             Button { showInspector.toggle() } label: {
                 Label("Inspector", systemImage: "sidebar.right")
             }
+            .acceptsImportDrops(perform: handleDrop)
             .help("Toggle inspector")
         }
 
@@ -139,6 +154,7 @@ struct ContentView: View {
             Button { showTOC.toggle() } label: {
                 Label("Contents", systemImage: "list.bullet.rectangle.portrait")
             }
+            .acceptsImportDrops(perform: handleDrop)
             .help("Table of contents")
 
             Button {
@@ -147,15 +163,18 @@ struct ContentView: View {
             } label: {
                 Label("Signature", systemImage: "signature")
             }
+            .acceptsImportDrops(perform: handleDrop)
             .help("Place signature")
 
             Button { viewModel.isShowingSearch.toggle() } label: {
                 Label("Search", systemImage: "magnifyingglass")
             }
+            .acceptsImportDrops(perform: handleDrop)
             .help("Search (⌘F)")
             .keyboardShortcut("f", modifiers: .command)
 
             GuideButton(autoShow: true)
+                .acceptsImportDrops(perform: handleDrop)
         }
     }
 
@@ -575,5 +594,44 @@ private extension Array where Element == URL {
             let key = url.isFileURL ? url.standardizedFileURL.path : url.absoluteString
             return seen.insert(key).inserted
         }
+    }
+}
+
+private extension View {
+    func acceptsImportDrops(
+        isTargeted: Binding<Bool>? = nil,
+        showsHighlight: Bool = false,
+        perform: @escaping ([NSItemProvider]) -> Bool
+    ) -> some View {
+        modifier(ImportDropTargetModifier(
+            isTargeted: isTargeted,
+            showsHighlight: showsHighlight,
+            perform: perform
+        ))
+    }
+}
+
+private struct ImportDropTargetModifier: ViewModifier {
+    var isTargeted: Binding<Bool>?
+    var showsHighlight: Bool
+    var perform: ([NSItemProvider]) -> Bool
+
+    func body(content: Content) -> some View {
+        content
+            .contentShape(Rectangle())
+            .overlay {
+                if showsHighlight, isTargeted?.wrappedValue == true {
+                    RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous)
+                        .strokeBorder(Color.dsAccent.opacity(0.65), lineWidth: 1.5)
+                        .background(Color.dsAccent.opacity(0.08), in: RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous))
+                        .allowsHitTesting(false)
+                }
+            }
+            .animation(.easeInOut(duration: 0.15), value: isTargeted?.wrappedValue ?? false)
+            .onDrop(
+                of: WorkspaceDocument.importableContentTypes + [.fileURL],
+                isTargeted: isTargeted,
+                perform: perform
+            )
     }
 }

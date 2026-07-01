@@ -22,7 +22,7 @@ enum PDFEditedPageRenderer {
         page.draw(with: .mediaBox, to: context)
 
         for operation in operations {
-            let eraseBounds = operation.sourceLineBounds.isEmpty ? [operation.sourceBounds] : operation.sourceLineBounds
+            let eraseBounds = eraseBounds(for: operation)
             for sourceBounds in eraseBounds {
                 drawErasePatch(for: sourceBounds, on: page, in: context)
             }
@@ -40,6 +40,11 @@ enum PDFEditedPageRenderer {
         }
         newPage.rotation = page.rotation
         return newPage
+    }
+
+    private static func eraseBounds(for operation: PDFTextEditOperation) -> [CGRect] {
+        let sourceBounds = operation.sourceLineBounds.isEmpty ? [operation.sourceBounds] : operation.sourceLineBounds
+        return sourceBounds + [operation.editedBounds]
     }
 
     private static func drawErasePatch(for sourceBounds: CGRect, on page: PDFPage, in context: CGContext) {
