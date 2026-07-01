@@ -346,7 +346,8 @@ struct PDFViewRepresentable: NSViewRepresentable {
                     showNoteEditor(for: ann, near: rect, in: pdfView)
                 } else {
                     // Place new note and immediately open editor
-                    let ann = viewModel.addNote(at: pagePoint, on: page)
+                    guard let ann = viewModel.addNote(at: pagePoint, on: page),
+                          ann.page != nil else { return }
                     let rect = pdfView.convert(ann.bounds, from: page)
                     showNoteEditor(for: ann, near: rect, in: pdfView)
                 }

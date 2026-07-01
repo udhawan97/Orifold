@@ -390,6 +390,10 @@ final class WorkspaceViewModel {
         if !loadedPDFs.isEmpty { rebuild() }
     }
 
+    deinit {
+        cancelPendingSearch()
+    }
+
     // MARK: - Import
 
     func importFiles(urls: [URL]) {
@@ -435,6 +439,9 @@ final class WorkspaceViewModel {
         await MainActor.run {
             self.rebuild()
             self.isImporting = false
+            if self.pendingPasswordPDF != nil {
+                self.isShowingPasswordPrompt = true
+            }
         }
     }
 
@@ -486,7 +493,9 @@ final class WorkspaceViewModel {
         if pdf.isLocked {
             pendingPasswordURL = url
             pendingPasswordPDF = pdf
-            isShowingPasswordPrompt = true
+            if !isImporting {
+                isShowingPasswordPrompt = true
+            }
             return
         }
         attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload)
@@ -1377,10 +1386,8 @@ final class WorkspaceViewModel {
     }
 
     @discardableResult
-    func addNote(at pagePoint: CGPoint, on page: PDFPage) -> PDFAnnotation {
-        guard canPerformMutatingAction() else {
-            return PDFAnnotation(bounds: .zero, forType: .text, withProperties: nil)
-        }
+    func addNote(at pagePoint: CGPoint, on page: PDFPage) -> PDFAnnotation? {
+        guard canPerformMutatingAction() else { return nil }
         let size: CGFloat = 24
         let bounds = CGRect(x: pagePoint.x - size / 2, y: pagePoint.y - size / 2,
                             width: size, height: size)

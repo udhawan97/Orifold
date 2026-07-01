@@ -1,6 +1,7 @@
 import SwiftUI
 import PDFKit
 import UniformTypeIdentifiers
+import AppKit
 
 struct ContentView: View {
     var document: WorkspaceDocument
@@ -12,6 +13,11 @@ struct ContentView: View {
     @State private var isNavigationDropTargeted = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
 
     init(document: WorkspaceDocument) {
         self.document = document
@@ -43,7 +49,7 @@ struct ContentView: View {
                                 .frame(width: 280)
                         }
                     }
-                    .animation(.easeInOut(duration: 0.18), value: showInspector)
+                    .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: showInspector)
                     .overlay { workspaceDropOverlay }
                     .onDrop(
                         of: WorkspaceDocument.importableContentTypes + [.fileURL],
@@ -55,9 +61,10 @@ struct ContentView: View {
                 .toolbar { mainToolbar }
             }
         }
-        .animation(.easeInOut(duration: 0.18), value: viewModel.memberDocuments.isEmpty)
+        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.memberDocuments.isEmpty)
         .tint(Color.dsAccent)
         .overlay(alignment: .bottomTrailing) { PetOverlay().padding(18) }
+        .focusedSceneValue(\.pdfoldIsImporting, viewModel.isImporting)
         .onAppear { viewModel.undoManager = undoManager }
         .onChange(of: undoManager) { _, um in viewModel.undoManager = um }
         .onChange(of: viewModel.selectedCommentID) { _, newValue in
@@ -200,7 +207,7 @@ struct ContentView: View {
             }
             .padding(.dsMD)
             .allowsHitTesting(false)
-            .animation(.easeInOut(duration: 0.15), value: isWorkspaceDropTargeted)
+            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isWorkspaceDropTargeted)
     }
 
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
@@ -230,7 +237,12 @@ struct ContentView: View {
 private struct AnnotationToolPicker: View {
     @Bindable var viewModel: WorkspaceViewModel
     @State private var hoveredTool: AnnotationTool?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var selectionNamespace
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
 
     // Keep the highest-frequency creation tools up front as distinct services,
     // then selection, text markup (+ eraser), and free-form page content.
@@ -265,7 +277,7 @@ private struct AnnotationToolPicker: View {
         )
         .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 2)
         .help("Annotation tool")
-        .animation(.spring(response: 0.22, dampingFraction: 0.9), value: viewModel.currentTool)
+        .animation(shouldReduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.9), value: viewModel.currentTool)
     }
 
     private func toolGroup(_ tools: [AnnotationTool], style: ToolGroupStyle) -> some View {
@@ -712,6 +724,11 @@ private struct ImportDropTargetModifier: ViewModifier {
     var isTargeted: Binding<Bool>?
     var showsHighlight: Bool
     var perform: ([NSItemProvider]) -> Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
 
     func body(content: Content) -> some View {
         content
@@ -724,7 +741,7 @@ private struct ImportDropTargetModifier: ViewModifier {
                         .allowsHitTesting(false)
                 }
             }
-            .animation(.easeInOut(duration: 0.15), value: isTargeted?.wrappedValue ?? false)
+            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isTargeted?.wrappedValue ?? false)
             .onDrop(
                 of: WorkspaceDocument.importableContentTypes + [.fileURL],
                 isTargeted: isTargeted,

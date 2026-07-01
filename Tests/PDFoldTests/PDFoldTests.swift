@@ -809,7 +809,7 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         )
         let page = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
 
-        let annotation = viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page)
+        let annotation = try XCTUnwrap(viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page))
         XCTAssertEqual(annotation.value(forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey) as? Bool, true)
 
         annotation.contents = "Cloud stuff to check"
@@ -836,7 +836,7 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         )
         let page = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
 
-        let annotation = viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page)
+        let annotation = try XCTUnwrap(viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page))
         annotation.contents = "Check this paragraph"
         annotation.setValue(false, forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey)
 
@@ -870,7 +870,7 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             processingEngine: PDFKitProcessingEngineFallback()
         )
         let page = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
-        let annotation = viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page)
+        let annotation = try XCTUnwrap(viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page))
         annotation.contents = "PDF note survives export"
         annotation.setValue(false, forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey)
 
