@@ -15,6 +15,8 @@ struct WorkspacePackage {
     var workspace: Workspace
     /// Raw PDF bytes keyed by MemberDocument.id; annotations are baked in.
     var memberPDFData: [UUID: Data]
+    /// Original rich/text imports keyed by MemberDocument.id for faithful non-PDF export.
+    var sourcePayloads: [UUID: SourceDocumentPayload] = [:]
 }
 
 final class WorkspaceDocument: ReferenceFileDocument {
@@ -23,6 +25,18 @@ final class WorkspaceDocument: ReferenceFileDocument {
 
     private struct PDFoldMetadata: Codable {
         var comments: [WorkspaceComment]
+        var sourcePayloads: [UUID: SourceDocumentPayload] = [:]
+
+        init(comments: [WorkspaceComment] = [], sourcePayloads: [UUID: SourceDocumentPayload] = [:]) {
+            self.comments = comments
+            self.sourcePayloads = sourcePayloads
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            comments = try c.decodeIfPresent([WorkspaceComment].self, forKey: .comments) ?? []
+            sourcePayloads = try c.decodeIfPresent([UUID: SourceDocumentPayload].self, forKey: .sourcePayloads) ?? [:]
+        }
     }
 
     static let importableContentTypes: [UTType] = [
@@ -51,6 +65,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
     // trigger a save because the framework had no signal that anything changed.
     @Published var workspace: Workspace
     @Published var memberPDFData: [UUID: Data] = [:]
+    @Published var sourcePayloads: [UUID: SourceDocumentPayload] = [:]
 
     /// ViewModel sets this so snapshot() can capture live annotation state.
     var currentPDFDataProvider: (() -> [UUID: Data])?
@@ -79,17 +94,17 @@ final class WorkspaceDocument: ReferenceFileDocument {
     }
 
     private func importFileData(_ data: Data, filename: String, contentType: UTType) throws {
-        let pdf = try DocumentImportConverter.pdfDocument(
+        let imported = try DocumentImportConverter.importedDocument(
             from: data,
             contentType: contentType,
             filename: filename,
             baseURL: nil
         )
-        try importPDFDocument(pdf, filename: filename)
+        try importPDFDocument(imported.pdfDocument, filename: filename, sourcePayload: imported.sourcePayload)
     }
 
-    private func importPDFDocument(_ pdf: PDFDocument, filename: String) throws {
-        let comments = Self.commentsMetadata(from: pdf)
+    private func importPDFDocument(_ pdf: PDFDocument, filename: String, sourcePayload: SourceDocumentPayload?) throws {
+        let metadata = Self.metadata(from: pdf)
         guard let pdfData = PDFSerializer.data(from: pdf) else {
             throw DocumentImportConverter.ConversionError.renderingFailed
         }
@@ -103,15 +118,24 @@ final class WorkspaceDocument: ReferenceFileDocument {
         workspace.title = displayName.isEmpty ? "Untitled Workspace" : displayName
         workspace.documents = [member]
         workspace.pageOrder = refs
-        workspace.comments = comments
+        workspace.comments = metadata.comments
         memberPDFData[member.id] = pdfData
+        if let sourcePayload {
+            sourcePayloads[member.id] = sourcePayload
+        } else if let savedPayload = metadata.sourcePayloads[member.id] ?? metadata.sourcePayloads.values.first {
+            sourcePayloads[member.id] = savedPayload
+        }
+    }
+
+    func importPDFDocumentForTesting(_ pdf: PDFDocument, filename: String) throws {
+        try importPDFDocument(pdf, filename: filename, sourcePayload: nil)
     }
 
     // MARK: - Snapshot (called on main thread before write)
 
     func snapshot(contentType: UTType) throws -> WorkspacePackage {
         let pdfData = currentPDFDataProvider?() ?? memberPDFData
-        return WorkspacePackage(workspace: workspace, memberPDFData: pdfData)
+        return WorkspacePackage(workspace: workspace, memberPDFData: pdfData, sourcePayloads: sourcePayloads)
     }
 
     // MARK: - Write
@@ -131,49 +155,50 @@ final class WorkspaceDocument: ReferenceFileDocument {
 
         let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
         guard !visualPlacements.isEmpty else {
-            return Self.embedMetadata(in: pdfData, workspace: snapshot.workspace) ?? pdfData
+            return Self.embedMetadata(in: pdfData, workspace: snapshot.workspace, sourcePayloads: snapshot.sourcePayloads) ?? pdfData
         }
 
         do {
             let bakedData = try SignatureExportBaker.bake(placements: visualPlacements, into: pdfData) { placement in
                 snapshot.workspace.pageOrder.firstIndex { $0.id == placement.pageRefId }
             }
-            return Self.embedMetadata(in: bakedData, workspace: snapshot.workspace) ?? bakedData
+            return Self.embedMetadata(in: bakedData, workspace: snapshot.workspace, sourcePayloads: snapshot.sourcePayloads) ?? bakedData
         } catch SigningError.notImplemented {
-            return Self.embedMetadata(in: pdfData, workspace: snapshot.workspace) ?? pdfData
+            return Self.embedMetadata(in: pdfData, workspace: snapshot.workspace, sourcePayloads: snapshot.sourcePayloads) ?? pdfData
         } catch {
             return nil
         }
     }
 
-    private static func commentsMetadata(from pdf: PDFDocument) -> [WorkspaceComment] {
-        var comments: [WorkspaceComment] = []
+    private static func metadata(from pdf: PDFDocument) -> PDFoldMetadata {
+        var metadata = PDFoldMetadata()
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
             for annotation in Array(page.annotations) {
                 guard let rawValue = annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) as? String else {
                     continue
                 }
-                if comments.isEmpty,
+                if metadata.comments.isEmpty,
+                   metadata.sourcePayloads.isEmpty,
                    let data = rawValue.data(using: .utf8),
-                   let metadata = try? JSONDecoder().decode(PDFoldMetadata.self, from: data) {
-                    comments = metadata.comments
+                   let decoded = try? JSONDecoder().decode(PDFoldMetadata.self, from: data) {
+                    metadata = decoded
                 }
                 page.removeAnnotation(annotation)
             }
         }
-        return comments
+        return metadata
     }
 
-    private static func embedMetadata(in data: Data, workspace: Workspace) -> Data? {
+    private static func embedMetadata(in data: Data, workspace: Workspace, sourcePayloads: [UUID: SourceDocumentPayload]) -> Data? {
         guard let pdf = PDFDocument(data: data) else {
             return data
         }
         let removedExistingMetadata = removeMetadataAnnotations(from: pdf)
-        guard !workspace.comments.isEmpty else {
+        guard !workspace.comments.isEmpty || !sourcePayloads.isEmpty else {
             return removedExistingMetadata ? PDFSerializer.data(from: pdf) : data
         }
-        guard let metadataData = try? JSONEncoder().encode(PDFoldMetadata(comments: workspace.comments)),
+        guard let metadataData = try? JSONEncoder().encode(PDFoldMetadata(comments: workspace.comments, sourcePayloads: sourcePayloads)),
               let metadataString = String(data: metadataData, encoding: .utf8) else {
             return removedExistingMetadata ? PDFSerializer.data(from: pdf) : data
         }

@@ -64,9 +64,16 @@ final class PDFKitEngine: PDFEngine {
 }
 
 enum DocumentImportConverter {
+    struct ImportedDocument {
+        var pdfDocument: PDFDocument
+        var sourcePayload: SourceDocumentPayload?
+    }
+
     enum ConversionError: Error {
         case unsupportedType
         case unreadableDocument
+        case emptyDocument
+        case binaryDataMislabelledAsText
         case renderingFailed
         case renderTimedOut
         case fileTooLarge(Int64)
@@ -80,6 +87,7 @@ enum DocumentImportConverter {
     private static let maxTextImportBytes: Int64 = 50 * 1024 * 1024
     private static let maxImageImportBytes: Int64 = 100 * 1024 * 1024
     private static let maxRichDocumentImportBytes: Int64 = 100 * 1024 * 1024
+    private static let maxUnknownPreSniffBytes: Int64 = 100 * 1024 * 1024
     static let maxRenderedHTMLPages = 300
     static let maxRenderedTextPages = 500
 
@@ -95,6 +103,10 @@ enum DocumentImportConverter {
             return "This file type is not supported yet."
         case ConversionError.unreadableDocument:
             return "The file could not be read. It may be corrupt, encrypted, or incomplete."
+        case ConversionError.emptyDocument:
+            return "The file is empty."
+        case ConversionError.binaryDataMislabelledAsText:
+            return "This looks like binary data, not a supported text document. Check the file type and try again."
         case ConversionError.renderingFailed:
             return "The file opened, but pdFold could not render it into a PDF."
         case ConversionError.renderTimedOut:
@@ -117,56 +129,139 @@ enum DocumentImportConverter {
     }
 
     static func pdfDocument(from url: URL) throws -> PDFDocument {
+        try importedDocument(from: url).pdfDocument
+    }
+
+    static func importedDocument(from url: URL) throws -> ImportedDocument {
         guard url.isFileURL else { throw ConversionError.unsupportedType }
         let resourceType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
-        let type = resourceType ?? UTType(filenameExtension: url.pathExtension) ?? .data
+        let suggestedType = resourceType ?? UTType(filenameExtension: url.pathExtension) ?? .data
         if let byteCount = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-            try validateByteCount(Int64(byteCount), contentType: type)
+            try validateByteCount(Int64(byteCount), contentType: suggestedType)
+            if SourceDocumentFormat(contentType: suggestedType) == nil,
+               !suggestedType.conforms(to: .pdf),
+               !suggestedType.conforms(to: .image),
+               Int64(byteCount) > maxUnknownPreSniffBytes {
+                throw ConversionError.fileTypeTooLarge(
+                    typeDescription: "unknown",
+                    actualBytes: Int64(byteCount),
+                    limitBytes: maxUnknownPreSniffBytes
+                )
+            }
         }
         let data = try Data(contentsOf: url)
-        return try pdfDocument(
+        let detectedType = detectedContentType(data: data, suggestedContentType: suggestedType, filename: url.lastPathComponent)
+        return try importedDocument(
             from: data,
-            contentType: type,
+            contentType: detectedType,
             filename: url.lastPathComponent,
             // Let HTML resolve relative CSS and image URLs the same way it would
             // when opened directly in a browser.
-            baseURL: type.conforms(to: .html) ? url.deletingLastPathComponent() : nil
+            baseURL: detectedType.conforms(to: .html) ? url.deletingLastPathComponent() : nil
         )
     }
 
     static func pdfDocument(from data: Data, contentType: UTType, filename: String, baseURL: URL?) throws -> PDFDocument {
-        try validateByteCount(Int64(data.count), contentType: contentType)
+        try importedDocument(from: data, contentType: contentType, filename: filename, baseURL: baseURL).pdfDocument
+    }
 
-        if contentType.conforms(to: .pdf) {
+    static func importedDocument(from data: Data, contentType: UTType, filename: String, baseURL: URL?) throws -> ImportedDocument {
+        let detectedType = detectedContentType(data: data, suggestedContentType: contentType, filename: filename)
+        try validateByteCount(Int64(data.count), contentType: detectedType)
+
+        if data.isEmpty && !detectedType.conforms(to: .plainText) && !detectedType.conforms(to: .text) {
+            throw ConversionError.emptyDocument
+        }
+
+        if detectedType.conforms(to: .pdf) {
             guard let document = PDFDocument(data: data) else { throw ConversionError.unreadableDocument }
-            return document
+            return ImportedDocument(pdfDocument: document, sourcePayload: nil)
         }
-        if contentType.conforms(to: .image) {
-            return try renderImage(data, title: filename)
+        if detectedType.conforms(to: .image) {
+            return ImportedDocument(pdfDocument: try renderImage(data, title: filename), sourcePayload: nil)
         }
 
-        if contentType.conforms(to: .html) {
-            return try renderHTML(data, title: filename, baseURL: baseURL)
+        if detectedType.conforms(to: .html) {
+            let plainHTML = try decodeText(data)
+            let pdf = try renderHTML(data, title: filename, baseURL: baseURL)
+            return ImportedDocument(
+                pdfDocument: pdf,
+                sourcePayload: sourcePayload(
+                    for: data,
+                    contentType: detectedType,
+                    filename: filename,
+                    attributedString: NSAttributedString(string: plainHTML),
+                    plainText: plainHTML
+                )
+            )
         }
 
         let attributedString: NSAttributedString
-        if contentType.conforms(to: .docx) {
+        if detectedType.conforms(to: .docx) {
             attributedString = try loadAttributedString(from: data, documentType: .officeOpenXML, baseURL: baseURL)
-        } else if contentType.conforms(to: .wordDoc) {
+        } else if detectedType.conforms(to: .wordDoc) {
             attributedString = try loadAttributedString(from: data, documentType: .docFormat, baseURL: baseURL)
-        } else if contentType.conforms(to: .odt) {
+        } else if detectedType.conforms(to: .odt) {
             attributedString = try loadAttributedString(from: data, documentType: .openDocument, baseURL: baseURL)
-        } else if contentType.conforms(to: .rtf) {
+        } else if detectedType.conforms(to: .rtf) {
             attributedString = try loadAttributedString(from: data, documentType: .rtf, baseURL: baseURL)
-        } else if contentType.conforms(to: .markdown) {
+        } else if detectedType.conforms(to: .markdown) {
             attributedString = try loadMarkdown(from: data, baseURL: baseURL)
-        } else if isPlainTextLike(contentType) {
+        } else if isPlainTextLike(detectedType) {
             attributedString = try loadPlainText(from: data)
         } else {
             throw ConversionError.unsupportedType
         }
 
-        return try renderAttributedString(attributedString, title: filename)
+        let pdf = try renderAttributedString(attributedString, title: filename)
+        return ImportedDocument(
+            pdfDocument: pdf,
+            sourcePayload: sourcePayload(
+                for: data,
+                contentType: detectedType,
+                filename: filename,
+                attributedString: attributedString,
+                plainText: isPlainTextLike(detectedType) || detectedType.conforms(to: .markdown) ? (try? decodeText(data)) : nil
+            )
+        )
+    }
+
+    static func detectedContentType(data: Data, suggestedContentType: UTType, filename: String) -> UTType {
+        if let strongType = stronglyDetectedContentType(data: data, suggestedContentType: suggestedContentType, filename: filename) {
+            return strongType
+        }
+        if looksLikeMarkdown(data) {
+            return .markdown
+        }
+        if SourceDocumentFormat(contentType: suggestedContentType) != nil || suggestedContentType.conforms(to: .pdf) || suggestedContentType.conforms(to: .image) {
+            return suggestedContentType
+        }
+        if let extensionType = UTType(filenameExtension: URL(fileURLWithPath: filename).pathExtension),
+           SourceDocumentFormat(contentType: extensionType) != nil || extensionType.conforms(to: .pdf) || extensionType.conforms(to: .image) {
+            return extensionType
+        }
+        if isDecodableText(data), !looksLikeBinary(data) {
+            return .plainText
+        }
+        return suggestedContentType
+    }
+
+    private static func sourcePayload(
+        for data: Data,
+        contentType: UTType,
+        filename: String,
+        attributedString: NSAttributedString,
+        plainText: String?
+    ) -> SourceDocumentPayload? {
+        guard let format = SourceDocumentFormat(contentType: contentType) else { return nil }
+        return SourceDocumentPayload(
+            format: format,
+            originalFilename: filename,
+            originalContentTypeIdentifier: contentType.identifier,
+            originalData: data,
+            richTextRTFData: SourceDocumentPayload.richTextRTFData(from: attributedString),
+            plainText: plainText
+        )
     }
 
     private static func validateByteCount(_ byteCount: Int64, contentType: UTType) throws {
@@ -293,6 +388,9 @@ enum DocumentImportConverter {
     }
 
     private static func decodeText(_ data: Data) throws -> String {
+        if looksLikeBinary(data) {
+            throw ConversionError.binaryDataMislabelledAsText
+        }
         let encodings: [String.Encoding] = [.utf8, .utf16, .utf16LittleEndian, .utf16BigEndian, .isoLatin1, .macOSRoman]
         for encoding in encodings {
             if let string = String(data: data, encoding: encoding) {
@@ -300,6 +398,90 @@ enum DocumentImportConverter {
             }
         }
         throw ConversionError.unreadableDocument
+    }
+
+    private static func stronglyDetectedContentType(data: Data, suggestedContentType: UTType, filename: String) -> UTType? {
+        guard !data.isEmpty else { return nil }
+        if data.starts(with: Data("%PDF".utf8)) {
+            return .pdf
+        }
+        if data.starts(with: Data([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])) {
+            let extensionType = UTType(filenameExtension: URL(fileURLWithPath: filename).pathExtension)
+            return suggestedContentType.conforms(to: .wordDoc) || extensionType?.conforms(to: .wordDoc) == true ? .wordDoc : nil
+        }
+        if data.starts(with: Data("{\\rtf".utf8)) {
+            return .rtf
+        }
+        if data.starts(with: Data([0x50, 0x4B, 0x03, 0x04])) ||
+            data.starts(with: Data([0x50, 0x4B, 0x05, 0x06])) ||
+            data.starts(with: Data([0x50, 0x4B, 0x07, 0x08])) {
+            if containsASCII("word/document.xml", in: data) ||
+                containsASCII("application/vnd.openxmlformats-officedocument.wordprocessingml.document", in: data) {
+                return .docx
+            }
+            if containsASCII("mimetypeapplication/vnd.oasis.opendocument.text", in: data) ||
+                containsASCII("application/vnd.oasis.opendocument.text", in: data) ||
+                containsASCII("content.xml", in: data) && containsASCII("office:document-content", in: data) {
+                return .odt
+            }
+        }
+        if looksLikeHTML(data) {
+            return .html
+        }
+        return nil
+    }
+
+    private static func containsASCII(_ needle: String, in data: Data) -> Bool {
+        data.range(of: Data(needle.utf8)) != nil
+    }
+
+    private static func looksLikeHTML(_ data: Data) -> Bool {
+        guard let prefix = String(data: data.prefix(4096), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        else { return false }
+        return prefix.hasPrefix("<!doctype html") ||
+            prefix.hasPrefix("<html") ||
+            prefix.contains("<html") ||
+            prefix.contains("<body") ||
+            prefix.contains("<head")
+    }
+
+    private static func looksLikeMarkdown(_ data: Data) -> Bool {
+        guard let text = String(data: data.prefix(16 * 1024), encoding: .utf8), !looksLikeBinary(data) else {
+            return false
+        }
+        let lines = text.split(whereSeparator: \.isNewline)
+        guard !lines.isEmpty else { return false }
+        let markdownMarkers = lines.filter { line in
+            line.hasPrefix("# ") ||
+                line.hasPrefix("## ") ||
+                line.hasPrefix("- ") ||
+                line.hasPrefix("* ") ||
+                line.hasPrefix("> ") ||
+                line.contains("](") ||
+                line.contains("**") ||
+                line.contains("__")
+        }
+        return markdownMarkers.count >= min(1, lines.count)
+    }
+
+    private static func isDecodableText(_ data: Data) -> Bool {
+        guard !data.isEmpty else { return true }
+        return String(data: data, encoding: .utf8) != nil ||
+            String(data: data, encoding: .utf16) != nil ||
+            String(data: data, encoding: .isoLatin1) != nil
+    }
+
+    private static func looksLikeBinary(_ data: Data) -> Bool {
+        guard !data.isEmpty else { return false }
+        let sample = data.prefix(8192)
+        if sample.contains(0) { return true }
+        let controlCount = sample.reduce(0) { count, byte in
+            if byte == 9 || byte == 10 || byte == 13 { return count }
+            return byte < 32 ? count + 1 : count
+        }
+        return Double(controlCount) / Double(sample.count) > 0.05
     }
 
     private static func isPlainTextLike(_ contentType: UTType) -> Bool {
@@ -502,7 +684,7 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         let preferences = WKWebpagePreferences()
-        preferences.allowsContentJavaScript = true
+        preferences.allowsContentJavaScript = false
         configuration.defaultWebpagePreferences = preferences
 
         webView = WKWebView(frame: CGRect(origin: .zero, size: Self.pageSize), configuration: configuration)
@@ -517,6 +699,7 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
         let deadline = Date().addingTimeInterval(timeout)
         while case .pending = state {
             if Date() >= deadline {
+                webView.stopLoading()
                 throw DocumentImportConverter.ConversionError.renderTimedOut
             }
             RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))

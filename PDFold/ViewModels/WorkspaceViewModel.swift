@@ -7,6 +7,9 @@ import UniformTypeIdentifiers
 enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
     case pdf
     case word
+    case legacyWord
+    case odt
+    case rtf
     case text
     case markdown
     case html
@@ -19,6 +22,9 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
         switch self {
         case .pdf: return "PDF (.pdf)"
         case .word: return "Word (.docx)"
+        case .legacyWord: return "Word 97-2004 (.doc)"
+        case .odt: return "OpenDocument Text (.odt)"
+        case .rtf: return "Rich Text (.rtf)"
         case .text: return "Text (.txt)"
         case .markdown: return "Markdown (.md)"
         case .html: return "HTML (.html)"
@@ -31,6 +37,9 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
         switch self {
         case .pdf: return "pdf"
         case .word: return "docx"
+        case .legacyWord: return "doc"
+        case .odt: return "odt"
+        case .rtf: return "rtf"
         case .text: return "txt"
         case .markdown: return "md"
         case .html: return "html"
@@ -43,6 +52,9 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
         switch self {
         case .pdf: return .pdf
         case .word: return UTType(filenameExtension: "docx") ?? .data
+        case .legacyWord: return .wordDoc
+        case .odt: return .odt
+        case .rtf: return .rtf
         case .text: return .plainText
         case .markdown: return .markdown
         case .html: return .html
@@ -54,7 +66,7 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
     var exportsDirectory: Bool {
         switch self {
         case .png, .jpeg: return true
-        case .pdf, .word, .text, .markdown, .html: return false
+        case .pdf, .word, .legacyWord, .odt, .rtf, .text, .markdown, .html: return false
         }
     }
 }
@@ -349,9 +361,9 @@ final class WorkspaceViewModel {
             if isSecurityScoped { url.stopAccessingSecurityScopedResource() }
         }
 
-        let pdf: PDFDocument
+        let imported: DocumentImportConverter.ImportedDocument
         do {
-            pdf = try engine.loadDocument(from: url)
+            imported = try DocumentImportConverter.importedDocument(from: url)
         } catch {
             importError = ImportError(
                 fileName: fileName,
@@ -359,25 +371,26 @@ final class WorkspaceViewModel {
             )
             return
         }
+        let pdf = imported.pdfDocument
         if pdf.isLocked {
             pendingPasswordURL = url
             pendingPasswordPDF = pdf
             isShowingPasswordPrompt = true
             return
         }
-        attachPDF(pdf, from: url)
+        attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload)
     }
 
     func unlock(pdf: PDFDocument, password: String, url: URL) -> Bool {
         guard pdf.unlock(withPassword: password) else { return false }
         smokeValidatePDFData(pdf.dataRepresentation(), password: password)
-        attachPDF(pdf, from: url)
+        attachPDF(pdf, from: url, sourcePayload: nil)
         pendingPasswordPDF = nil
         rebuild()
         return true
     }
 
-    private func attachPDF(_ pdf: PDFDocument, from url: URL) {
+    private func attachPDF(_ pdf: PDFDocument, from url: URL, sourcePayload: SourceDocumentPayload? = nil) {
         sanitizeInkAnnotations(in: pdf)
 
         guard let data = PDFSerializer.data(from: pdf) else {
@@ -396,6 +409,9 @@ final class WorkspaceViewModel {
         document.workspace.documents.append(member)
         document.workspace.pageOrder.append(contentsOf: refs)
         document.memberPDFData[member.id] = data
+        if let sourcePayload {
+            document.sourcePayloads[member.id] = sourcePayload
+        }
         originalMemberPDFData[member.id] = data
         memberSourceURLs[member.id] = url
         loadedPDFs.append((member, pdf))
@@ -486,6 +502,7 @@ final class WorkspaceViewModel {
         document.workspace.documents.removeAll { removedIds.contains($0.id) }
         document.workspace.pageEditStates.removeAll { removedPageRefIDs.contains($0.pageRefID) }
         removedIds.forEach { document.memberPDFData.removeValue(forKey: $0) }
+        removedIds.forEach { document.sourcePayloads.removeValue(forKey: $0) }
         loadedPDFs.removeAll { removedIds.contains($0.0.id) }
         rebuildPageOrder()
         rebuild()
@@ -496,6 +513,7 @@ final class WorkspaceViewModel {
         var documents: [MemberDocument]
         var pageOrder: [PageRef]
         var pdfData: [UUID: Data]
+        var sourcePayloads: [UUID: SourceDocumentPayload]
     }
 
     private struct InlineTextEditSnapshot {
@@ -507,7 +525,8 @@ final class WorkspaceViewModel {
         OrderSnapshot(
             documents: document.workspace.documents,
             pageOrder: document.workspace.pageOrder,
-            pdfData: currentPDFData()
+            pdfData: currentPDFData(),
+            sourcePayloads: document.sourcePayloads
         )
     }
 
@@ -515,6 +534,7 @@ final class WorkspaceViewModel {
         document.workspace.documents = snapshot.documents
         document.workspace.pageOrder = snapshot.pageOrder
         document.memberPDFData = snapshot.pdfData
+        document.sourcePayloads = snapshot.sourcePayloads
         loadedPDFs = snapshot.documents.compactMap { member in
             guard let data = snapshot.pdfData[member.id],
                   let pdf = PDFDocument(data: data) else { return nil }
@@ -905,6 +925,7 @@ final class WorkspaceViewModel {
             sourceBlockID: sourceBlock.id,
             sourceBounds: sourceBlock.bounds,
             sourceLineBounds: sourceBlock.lines.map(\.bounds),
+            sourceText: sourceBlock.text,
             editedBounds: editedBounds,
             columnBounds: sourceBlock.columnBounds,
             replacementText: replacementText,
@@ -923,6 +944,7 @@ final class WorkspaceViewModel {
            let existingOp = document.workspace.pageEditStates[stateIndex].operations.first(where: { $0.sourceBlockID == sourceBlock.id }) {
             operation.sourceBounds = existingOp.sourceBounds
             operation.sourceLineBounds = existingOp.sourceLineBounds
+            operation.sourceText = existingOp.sourceText.isEmpty ? operation.sourceText : existingOp.sourceText
             operation.columnBounds = operation.columnBounds ?? existingOp.columnBounds
             operation.didManuallyReposition = operation.didManuallyReposition || existingOp.didManuallyReposition
             operation.didManuallyResizeWidth = operation.didManuallyResizeWidth || existingOp.didManuallyResizeWidth
@@ -1687,7 +1709,13 @@ final class WorkspaceViewModel {
         case .pdf:
             exportPlainPDF()
         case .word:
-            exportWordDocument()
+            exportRichDocument(as: .word)
+        case .legacyWord:
+            exportRichDocument(as: .legacyWord)
+        case .odt:
+            exportRichDocument(as: .odt)
+        case .rtf:
+            exportRichDocument(as: .rtf)
         case .text:
             exportPlainText()
         case .markdown:
@@ -1750,43 +1778,40 @@ final class WorkspaceViewModel {
         }
     }
 
-    private func exportWordDocument() -> Bool {
-        let attributed = attributedTextForDocumentExport()
+    private func exportRichDocument(as format: WorkspaceExportFormat) -> Bool {
         do {
-            let data = try attributed.data(
-                from: NSRange(location: 0, length: attributed.length),
-                documentAttributes: [.documentType: NSAttributedString.DocumentType.officeOpenXML]
-            )
-            return saveData(data, as: .word)
+            return saveData(try dataForWorkspaceExport(as: format), as: format)
         } catch {
-            exportError = ExportError(message: "pdFold could not create the Word export: \(error.localizedDescription)")
+            exportError = ExportError(message: userMessage(for: error, exporting: format))
             return false
         }
     }
 
     private func exportPlainText() -> Bool {
-        guard let data = plainTextForDocumentExport().data(using: .utf8) else {
-            exportError = ExportError(message: "pdFold could not encode the text export.")
+        do {
+            return saveData(try dataForWorkspaceExport(as: .text), as: .text)
+        } catch {
+            exportError = ExportError(message: userMessage(for: error, exporting: .text))
             return false
         }
-        return saveData(data, as: .text)
     }
 
     private func exportMarkdown() -> Bool {
-        guard let data = markdownForDocumentExport().data(using: .utf8) else {
-            exportError = ExportError(message: "pdFold could not encode the Markdown export.")
+        do {
+            return saveData(try dataForWorkspaceExport(as: .markdown), as: .markdown)
+        } catch {
+            exportError = ExportError(message: userMessage(for: error, exporting: .markdown))
             return false
         }
-        return saveData(data, as: .markdown)
     }
 
     private func exportHTML() -> Bool {
-        let html = htmlForDocumentExport()
-        guard let data = html.data(using: .utf8) else {
-            exportError = ExportError(message: "pdFold could not encode the HTML export.")
+        do {
+            return saveData(try dataForWorkspaceExport(as: .html), as: .html)
+        } catch {
+            exportError = ExportError(message: userMessage(for: error, exporting: .html))
             return false
         }
-        return saveData(data, as: .html)
     }
 
     private func exportPageImages(as format: WorkspaceExportFormat) -> Bool {
@@ -1842,7 +1867,282 @@ final class WorkspaceViewModel {
         }
     }
 
+    enum ExportBuildError: Error {
+        case unsupportedFormat
+        case unsupportedRichTextFormat
+        case cannotMapEdit(memberName: String, sourceText: String)
+        case ambiguousSourceText(memberName: String, sourceText: String)
+        case pdfOnlyEditsCannotMap(memberName: String)
+        case editedPackageFormatRequiresPDF(formatName: String)
+        case cannotEncode(formatName: String)
+    }
+
+    func dataForWorkspaceExport(as format: WorkspaceExportFormat) throws -> Data {
+        if let sourceData = try sourcePreservingDataForWorkspaceExport(as: format) {
+            return sourceData
+        }
+
+        switch format {
+        case .word, .legacyWord, .odt, .rtf:
+            guard let documentType = sourceFormat(for: format)?.documentType else {
+                throw ExportBuildError.unsupportedRichTextFormat
+            }
+            let attributed = try richAttributedTextForDocumentExport()
+            return try attributed.data(
+                from: NSRange(location: 0, length: attributed.length),
+                documentAttributes: [.documentType: documentType]
+            )
+        case .text:
+            guard let data = plainTextForDocumentExport().data(using: .utf8) else {
+                throw ExportBuildError.cannotEncode(formatName: format.menuTitle)
+            }
+            return data
+        case .markdown:
+            guard let data = markdownForDocumentExport().data(using: .utf8) else {
+                throw ExportBuildError.cannotEncode(formatName: format.menuTitle)
+            }
+            return data
+        case .html:
+            guard let data = htmlForDocumentExport().data(using: .utf8) else {
+                throw ExportBuildError.cannotEncode(formatName: format.menuTitle)
+            }
+            return data
+        case .pdf, .png, .jpeg:
+            throw ExportBuildError.unsupportedFormat
+        }
+    }
+
+    private func sourcePreservingDataForWorkspaceExport(as format: WorkspaceExportFormat) throws -> Data? {
+        guard !hasWorkspaceExportAdditions,
+              loadedPDFs.count == 1,
+              let member = loadedPDFs.first?.0,
+              let payload = document.sourcePayloads[member.id],
+              let targetFormat = sourceFormat(for: format),
+              payload.format == targetFormat else {
+            return nil
+        }
+
+        if hasPDFOnlyEdits(for: member) {
+            throw ExportBuildError.pdfOnlyEditsCannotMap(memberName: member.displayName)
+        }
+
+        let edits = inlineTextEdits(for: member)
+        guard !edits.isEmpty else { return payload.originalData }
+
+        switch targetFormat {
+        case .markdown, .html, .plainText:
+            guard let original = payload.originalString else { return nil }
+            let edited = try applyTextEdits(edits, to: original, memberName: member.displayName)
+            guard let data = edited.data(using: .utf8) else {
+                throw ExportBuildError.cannotEncode(formatName: format.menuTitle)
+            }
+            return data
+        case .docx, .wordDoc, .odt:
+            throw ExportBuildError.editedPackageFormatRequiresPDF(formatName: format.menuTitle)
+        case .rtf:
+            guard let documentType = targetFormat.documentType,
+                  let attributed = payload.attributedString()?.mutableCopy() as? NSMutableAttributedString else {
+                return nil
+            }
+            try applyTextEdits(edits, to: attributed, memberName: member.displayName)
+            return try attributed.data(
+                from: NSRange(location: 0, length: attributed.length),
+                documentAttributes: [.documentType: documentType]
+            )
+        }
+    }
+
+    private var hasWorkspaceExportAdditions: Bool {
+        !document.workspace.comments.isEmpty ||
+            !document.workspace.tags.isEmpty ||
+            pdfNoteComments.contains { !$0.body.isEmpty }
+    }
+
+    private func sourceFormat(for format: WorkspaceExportFormat) -> SourceDocumentFormat? {
+        switch format {
+        case .word: return .docx
+        case .legacyWord: return .wordDoc
+        case .odt: return .odt
+        case .rtf: return .rtf
+        case .text: return .plainText
+        case .markdown: return .markdown
+        case .html: return .html
+        case .pdf, .png, .jpeg: return nil
+        }
+    }
+
+    private func inlineTextEdits(for member: MemberDocument) -> [PDFTextEditOperation] {
+        let pageRefIDs = Set(member.pageRefs)
+        return document.workspace.pageEditStates
+            .filter { pageRefIDs.contains($0.pageRefID) }
+            .flatMap(\.operations)
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private func hasPDFOnlyEdits(for member: MemberDocument) -> Bool {
+        guard document.sourcePayloads[member.id] != nil,
+              let loaded = loadedPDFs.first(where: { $0.0.id == member.id }) else {
+            return false
+        }
+        let pdf = loaded.1
+        for pageIndex in 0..<pdf.pageCount {
+            guard let page = pdf.page(at: pageIndex) else { continue }
+            for annotation in page.annotations {
+                if annotation.value(forAnnotationKey: Self.draftTextAnnotationKey) != nil ||
+                    annotation.value(forAnnotationKey: Self.textReplacementAnnotationKey) != nil ||
+                    annotation.type == "FreeText" ||
+                    annotation.type == "Ink" ||
+                    annotation.type == "Highlight" ||
+                    annotation.type == "Underline" ||
+                    annotation.type == "StrikeOut" {
+                    return true
+                }
+                if let contents = annotation.contents?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !contents.isEmpty {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private func applyTextEdits(_ edits: [PDFTextEditOperation], to original: String, memberName: String) throws -> String {
+        var output = original
+        for edit in edits where !edit.replacementText.isEmpty || !edit.sourceText.isEmpty {
+            if edit.sourceText.isEmpty {
+                output += output.hasSuffix("\n") ? edit.replacementText : "\n\(edit.replacementText)"
+                continue
+            }
+            let ranges = ranges(of: edit.sourceText, in: output)
+            guard ranges.count == 1 else {
+                if ranges.isEmpty {
+                    throw ExportBuildError.cannotMapEdit(memberName: memberName, sourceText: edit.sourceText)
+                }
+                throw ExportBuildError.ambiguousSourceText(memberName: memberName, sourceText: edit.sourceText)
+            }
+            guard let range = ranges.first else {
+                throw ExportBuildError.cannotMapEdit(memberName: memberName, sourceText: edit.sourceText)
+            }
+            output.replaceSubrange(range, with: edit.replacementText)
+        }
+        return output
+    }
+
+    private func applyTextEdits(_ edits: [PDFTextEditOperation], to attributed: NSMutableAttributedString, memberName: String) throws {
+        for edit in edits where !edit.replacementText.isEmpty || !edit.sourceText.isEmpty {
+            if edit.sourceText.isEmpty {
+                let separator = attributed.string.hasSuffix("\n") ? "" : "\n"
+                attributed.append(NSAttributedString(string: "\(separator)\(edit.replacementText)", attributes: attributes(for: edit)))
+                continue
+            }
+            let ranges = nsRanges(of: edit.sourceText, in: attributed.string)
+            guard ranges.count == 1 else {
+                if ranges.isEmpty {
+                    throw ExportBuildError.cannotMapEdit(memberName: memberName, sourceText: edit.sourceText)
+                }
+                throw ExportBuildError.ambiguousSourceText(memberName: memberName, sourceText: edit.sourceText)
+            }
+            guard let range = ranges.first else {
+                throw ExportBuildError.cannotMapEdit(memberName: memberName, sourceText: edit.sourceText)
+            }
+            attributed.replaceCharacters(in: range, with: NSAttributedString(string: edit.replacementText, attributes: attributes(for: edit)))
+        }
+    }
+
+    private func ranges(of needle: String, in haystack: String) -> [Range<String.Index>] {
+        guard !needle.isEmpty else { return [] }
+        var ranges: [Range<String.Index>] = []
+        var searchStart = haystack.startIndex
+        while searchStart < haystack.endIndex,
+              let range = haystack.range(of: needle, range: searchStart..<haystack.endIndex) {
+            ranges.append(range)
+            searchStart = range.upperBound
+        }
+        return ranges
+    }
+
+    private func nsRanges(of needle: String, in haystack: String) -> [NSRange] {
+        ranges(of: needle, in: haystack).map { NSRange($0, in: haystack) }
+    }
+
+    private func attributes(for edit: PDFTextEditOperation) -> [NSAttributedString.Key: Any] {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = edit.alignment.nsTextAlignment
+        return [
+            .font: NSFont(name: edit.fontName, size: edit.fontSize) ?? NSFont.systemFont(ofSize: edit.fontSize),
+            .foregroundColor: edit.textColor.nsColor,
+            .paragraphStyle: paragraph
+        ]
+    }
+
+    private func userMessage(for error: Error, exporting format: WorkspaceExportFormat) -> String {
+        switch error {
+        case ExportBuildError.cannotMapEdit(let memberName, let sourceText):
+            let preview = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let detail = preview.isEmpty ? "." : ": \"\(preview)\"."
+            return "pdFold could not map an edit in \"\(memberName)\" back to the original \(format.menuTitle) source\(detail) Export as PDF to preserve the visual edit, or edit text that exists in the original document."
+        case ExportBuildError.ambiguousSourceText(let memberName, let sourceText):
+            let preview = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let detail = preview.isEmpty ? "." : ": \"\(preview)\"."
+            return "pdFold found more than one matching source text in \"\(memberName)\"\(detail) Export as PDF to preserve the visual edit."
+        case ExportBuildError.pdfOnlyEditsCannotMap(let memberName):
+            return "pdFold found PDF-only annotations or text boxes in \"\(memberName)\". Export as PDF to preserve those visual edits."
+        case ExportBuildError.editedPackageFormatRequiresPDF(let formatName):
+            return "pdFold can preserve the original \(formatName) bytes when unchanged, but edited package exports are not faithful enough yet. Export as PDF to preserve the edit."
+        case ExportBuildError.cannotEncode(let formatName):
+            return "pdFold could not encode the \(formatName) export."
+        case ExportBuildError.unsupportedRichTextFormat:
+            return "pdFold does not have a rich-text writer for \(format.menuTitle)."
+        default:
+            return "pdFold could not create the \(format.menuTitle) export: \(error.localizedDescription)"
+        }
+    }
+
+    func richAttributedTextForDocumentExport() throws -> NSAttributedString {
+        let output = NSMutableAttributedString()
+        let headingAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.boldSystemFont(ofSize: 18),
+            .foregroundColor: NSColor.labelColor
+        ]
+        let bodyAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 12),
+            .foregroundColor: NSColor.labelColor
+        ]
+
+        appendAttributedComments(to: output, headingAttributes: headingAttributes, bodyAttributes: bodyAttributes)
+
+        let shouldAddMemberHeadings = hasWorkspaceExportAdditions || loadedPDFs.count != 1
+        for (index, item) in loadedPDFs.enumerated() {
+            let member = item.0
+            if output.length > 0 || (index > 0 && shouldAddMemberHeadings) {
+                output.append(NSAttributedString(string: "\n\n"))
+            }
+            if shouldAddMemberHeadings {
+                output.append(NSAttributedString(string: member.displayName + "\n", attributes: headingAttributes))
+                output.append(NSAttributedString(string: String(repeating: "-", count: max(3, member.displayName.count)) + "\n\n", attributes: bodyAttributes))
+            }
+
+            let memberAttributed: NSMutableAttributedString
+            if let payload = document.sourcePayloads[member.id],
+               let attributed = payload.attributedString()?.mutableCopy() as? NSMutableAttributedString {
+                memberAttributed = attributed
+            } else {
+                memberAttributed = NSMutableAttributedString(string: text(from: item.1), attributes: bodyAttributes)
+            }
+            try applyTextEdits(inlineTextEdits(for: member), to: memberAttributed, memberName: member.displayName)
+            output.append(memberAttributed)
+        }
+        return output.length == 0 ? NSAttributedString(string: " ") : output
+    }
+
     func attributedTextForDocumentExport() -> NSAttributedString {
+        if let attributed = try? richAttributedTextForDocumentExport() {
+            return attributed
+        }
+        return flattenedAttributedTextForDocumentExport()
+    }
+
+    private func flattenedAttributedTextForDocumentExport() -> NSAttributedString {
         let output = NSMutableAttributedString()
         let headingAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.boldSystemFont(ofSize: 18),
@@ -1867,6 +2167,10 @@ final class WorkspaceViewModel {
     }
 
     func plainTextForDocumentExport() -> String {
+        if let data = try? sourcePreservingDataForWorkspaceExport(as: .text),
+           let sourceText = String(data: data, encoding: .utf8) {
+            return sourceText
+        }
         var sections: [String] = []
         if let comments = plainTextCommentsSection() {
             sections.append(comments)
@@ -1878,6 +2182,10 @@ final class WorkspaceViewModel {
     }
 
     func markdownForDocumentExport() -> String {
+        if let data = try? sourcePreservingDataForWorkspaceExport(as: .markdown),
+           let sourceMarkdown = String(data: data, encoding: .utf8) {
+            return sourceMarkdown
+        }
         let title = markdownHeadingEscaped(document.workspace.title)
         var sections: [String] = ["# \(title)"]
 
@@ -1915,6 +2223,10 @@ final class WorkspaceViewModel {
     }
 
     func htmlForDocumentExport() -> String {
+        if let data = try? sourcePreservingDataForWorkspaceExport(as: .html),
+           let sourceHTML = String(data: data, encoding: .utf8) {
+            return sourceHTML
+        }
         let body = loadedPDFs.map { member, pdf in
             """
             <section>
@@ -2169,7 +2481,7 @@ final class WorkspaceViewModel {
             return bitmap.representation(using: .png, properties: [:])
         case .jpeg:
             return bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.9])
-        case .pdf, .word, .text, .markdown, .html:
+        case .pdf, .word, .legacyWord, .odt, .rtf, .text, .markdown, .html:
             return nil
         }
     }

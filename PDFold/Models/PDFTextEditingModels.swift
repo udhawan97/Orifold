@@ -49,6 +49,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
     var sourceBlockID: UUID
     var sourceBounds: CGRect
     var sourceLineBounds: [CGRect] = []
+    var sourceText: String = ""
     var editedBounds: CGRect
     var columnBounds: CGRect? = nil
     var replacementText: String
@@ -63,7 +64,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
     var modifiedAt: Date = Date()
 
     enum CodingKeys: String, CodingKey {
-        case id, pageRefID, sourceBlockID, sourceBounds, sourceLineBounds, editedBounds, columnBounds
+        case id, pageRefID, sourceBlockID, sourceBounds, sourceLineBounds, sourceText, editedBounds, columnBounds
         case replacementText, fontName, fontSize, textColor, alignment
         case didManuallyReposition, didManuallyResizeWidth, didManuallyResizeHeight
         case createdAt, modifiedAt
@@ -75,6 +76,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         sourceBlockID: UUID,
         sourceBounds: CGRect,
         sourceLineBounds: [CGRect] = [],
+        sourceText: String = "",
         editedBounds: CGRect,
         columnBounds: CGRect? = nil,
         replacementText: String,
@@ -93,6 +95,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         self.sourceBlockID = sourceBlockID
         self.sourceBounds = sourceBounds
         self.sourceLineBounds = sourceLineBounds
+        self.sourceText = sourceText
         self.editedBounds = editedBounds
         self.columnBounds = columnBounds
         self.replacementText = replacementText
@@ -114,6 +117,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         sourceBlockID = try c.decode(UUID.self, forKey: .sourceBlockID)
         sourceBounds = try c.decode(CGRect.self, forKey: .sourceBounds)
         sourceLineBounds = try c.decodeIfPresent([CGRect].self, forKey: .sourceLineBounds) ?? []
+        sourceText = try c.decodeIfPresent(String.self, forKey: .sourceText) ?? ""
         editedBounds = try c.decode(CGRect.self, forKey: .editedBounds)
         columnBounds = try c.decodeIfPresent(CGRect.self, forKey: .columnBounds)
         replacementText = try c.decode(String.self, forKey: .replacementText)
