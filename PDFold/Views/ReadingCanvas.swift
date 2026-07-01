@@ -1594,6 +1594,10 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate, NSTextFieldDele
             )
             commitFrame.size.width = min(textView.frame.width, fittingWidth)
         }
+        let inset = textView.textContainerInset
+        let insetX = min(inset.width, max(0, (commitFrame.width - 1) / 2))
+        let insetY = min(inset.height, max(0, (commitFrame.height - 1) / 2))
+        commitFrame = commitFrame.insetBy(dx: insetX, dy: insetY)
         let viewFrame = convert(commitFrame, to: pdfView)
         var pageBounds = pdfView.convert(viewFrame, to: page).standardized
         pageBounds.size.width = max(1, pageBounds.width)

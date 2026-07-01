@@ -655,6 +655,32 @@ final class InlineTextEditPlacementTests: XCTestCase {
         let edit = try XCTUnwrap(fixture.committedEdit())
         XCTAssertEqual(edit.fontSize, 14, accuracy: 0.01)
     }
+
+    func testInlineEditorCommitsTextContentTopEdge() throws {
+        let fixture = try makeInlineEditorFixture()
+        let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
+        let doneButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Done"
+        })
+        let fullEditorBounds = fixture.pdfView.convert(
+            fixture.overlay.convert(textView.frame, to: fixture.pdfView),
+            to: fixture.page
+        ).standardized
+        let contentFrame = textView.frame.insetBy(
+            dx: textView.textContainerInset.width,
+            dy: textView.textContainerInset.height
+        )
+        let expectedContentBounds = fixture.pdfView.convert(
+            fixture.overlay.convert(contentFrame, to: fixture.pdfView),
+            to: fixture.page
+        ).standardized
+
+        doneButton.performClick(nil)
+
+        let edit = try XCTUnwrap(fixture.committedEdit())
+        XCTAssertLessThan(edit.editedBounds.maxY, fullEditorBounds.maxY)
+        XCTAssertEqual(edit.editedBounds.maxY, expectedContentBounds.maxY, accuracy: 0.01)
+    }
 }
 
 final class DocumentImportConverterTests: XCTestCase {
@@ -1196,6 +1222,7 @@ private func makeScaledTextPDF(text: String, fontSize: CGFloat, scale: CGFloat) 
 
 private struct InlineEditorFixture {
     let pdfView: PDFoldPDFView
+    let page: PDFPage
     let overlay: InlineTextEditorOverlay
     let committedEdit: () -> InlineTextEditorOverlay.EditResult?
 }
@@ -1235,7 +1262,7 @@ private func makeInlineEditorFixture() throws -> InlineEditorFixture {
         }
     }
     pdfView.addSubview(overlay)
-    return InlineEditorFixture(pdfView: pdfView, overlay: overlay) {
+    return InlineEditorFixture(pdfView: pdfView, page: page, overlay: overlay) {
         committed
     }
 }
