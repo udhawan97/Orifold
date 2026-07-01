@@ -911,6 +911,30 @@ final class WorkspaceViewModelTests: XCTestCase {
         XCTAssertEqual(annotation.bounds, CGRect(x: 10, y: 20, width: 80, height: 24))
     }
 
+    func testNoteEditorCommitsDraftNoteWhenDismissed() throws {
+        let pdf = makePDF(pageTexts: ["Note editor"])
+        let page = try XCTUnwrap(pdf.page(at: 0))
+        let annotation = PDFAnnotation(bounds: CGRect(x: 20, y: 20, width: 24, height: 24), forType: .text, withProperties: nil)
+        annotation.contents = ""
+        annotation.setValue(true, forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey)
+        page.addAnnotation(annotation)
+        var changeCount = 0
+        let controller = NoteEditorViewController(annotation: annotation) { _, _ in
+        } changeHandler: {
+            changeCount += 1
+        }
+
+        controller.loadViewIfNeeded()
+        let textView = try XCTUnwrap(firstDescendant(of: NSTextView.self, in: controller.view))
+        textView.string = "hello world"
+        controller.viewWillDisappear()
+
+        XCTAssertEqual(annotation.contents, "hello world")
+        XCTAssertEqual(annotation.value(forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey) as? Bool, false)
+        XCTAssertTrue(page.annotations.contains(annotation))
+        XCTAssertEqual(changeCount, 1)
+    }
+
     func testAddTextBoxRejectsMalformedPagePoint() throws {
         let pdf = makePDF(pageTexts: ["Text"])
         let page = try XCTUnwrap(pdf.page(at: 0))
@@ -924,6 +948,18 @@ final class WorkspaceViewModelTests: XCTestCase {
         XCTAssertNil(annotation)
         XCTAssertEqual(viewModel.editingStatus?.message, PDFTextEditWarning.invalidAnnotationBounds.message)
     }
+}
+
+private func firstDescendant<T: NSView>(of type: T.Type, in view: NSView) -> T? {
+    if let match = view as? T {
+        return match
+    }
+    for subview in view.subviews {
+        if let match = firstDescendant(of: type, in: subview) {
+            return match
+        }
+    }
+    return nil
 }
 
 private func makeMemberPDF(name: String, pageTexts: [String]) -> (MemberDocument, PDFDocument) {

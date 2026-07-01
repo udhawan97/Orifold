@@ -37,9 +37,9 @@ final class WorkspaceDocument: ReferenceFileDocument {
     ]
 
     static var readableContentTypes: [UTType] { [.pdfoldproj] + importableContentTypes }
-    // .pdf is listed second so macOS can autosave an imported PDF as a flat PDF
-    // (the first type, .pdfoldproj, remains the preferred format for Save As).
-    static var writableContentTypes: [UTType] { [.pdfoldproj, .pdf] }
+    // .pdf is listed first so macOS defaults Save/Save As to a flat PDF.
+    // .pdfoldproj remains available when the user explicitly wants a workspace package.
+    static var writableContentTypes: [UTType] { [.pdf, .pdfoldproj] }
 
     // @Published so SwiftUI's DocumentGroup (which observes objectWillChange to know when
     // to mark the window edited / trigger autosave) actually sees mutations made by
