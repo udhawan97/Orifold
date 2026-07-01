@@ -115,6 +115,32 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertNotEqual(block.confidence, .low)
     }
 
+    func testReconcileLigaturesPrefersPDFKitTextWhenPlausible() throws {
+        let pdf = makePDF(pageTexts: ["Generative AI strategy"])
+        let page = try XCTUnwrap(pdf.page(at: 0))
+        let fullBounds = try XCTUnwrap(page.selection(for: page.bounds(for: .mediaBox))?.bounds(for: page))
+
+        // PDFium mis-decoding a "ti" ligature glyph, as observed with real embedded fonts:
+        // "Generative" reads back as "Genera+ve". PDFKit's own selection API for the same
+        // bounds should still say "Generative", and be preferred since the lengths match.
+        let mangled = "Genera+ve AI strategy"
+        let reconciled = PDFTextAnalysisEngine.reconcileLigatures(mangled, bounds: fullBounds, sourcePage: page)
+        XCTAssertEqual(reconciled, "Generative AI strategy")
+    }
+
+    func testReconcileLigaturesFallsBackWhenPDFKitTextLooksImplausible() throws {
+        let pdf = makePDF(pageTexts: ["Generative AI strategy"])
+        let page = try XCTUnwrap(pdf.page(at: 0))
+        let fullBounds = try XCTUnwrap(page.selection(for: page.bounds(for: .mediaBox))?.bounds(for: page))
+
+        // If the PDFKit selection string is wildly different in length from PDFium's
+        // transcription (e.g. bounds accidentally picked up unrelated neighboring text),
+        // trust PDFium instead of blindly swapping in something unrelated.
+        let pdfiumText = "AB"
+        let reconciled = PDFTextAnalysisEngine.reconcileLigatures(pdfiumText, bounds: fullBounds, sourcePage: page)
+        XCTAssertEqual(reconciled, "AB")
+    }
+
     func testWorkspaceCodableRoundTripsPageEditStates() throws {
         let pageID = UUID()
         var workspace = Workspace()
@@ -180,6 +206,117 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(viewModel.document.workspace.pageEditStates.first?.operations.first?.replacementText, "Replacement text")
         XCTAssertNotNil(viewModel.loadedPDFs.first?.1.page(at: 0))
         XCTAssertTrue(viewModel.loadedPDFs.first?.1.stringValue.contains("Replacement text") ?? false)
+    }
+
+    func testInlineTextEditDoesNotClipReplacementLongerThanOriginalWord() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        // A narrow box sized for the original short word — the box a caller (or a stale
+        // live-editor frame) might still hand in even though the new text is much longer.
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id,
+            text: "text",
+            bounds: CGRect(x: 70, y: 700, width: 32, height: 18),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 14,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 700,
+            confidence: .high
+        )
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "a substantially longer replacement phrase",
+            editedBounds: CGRect(x: 70, y: 700, width: 32, height: 18),
+            fontName: "Helvetica",
+            fontSize: 14,
+            textColor: .black,
+            alignment: .left
+        ))
+
+        let pageText = viewModel.loadedPDFs.first?.1.stringValue ?? ""
+        XCTAssertTrue(pageText.contains("a substantially longer replacement phrase"), "replacement text was clipped: \(pageText)")
+    }
+
+    func testMeasuredBoundsGrowsDownwardFromAFixedTopEdge() throws {
+        // The live inline editor grows downward from a fixed top as typed text wraps
+        // (InlineTextEditorOverlay.resizeTextViewHeight pins editorTopY and drops the
+        // bottom edge). The bounds baked into the final PDF must grow the same way —
+        // growing from a fixed bottom instead pushes the replacement upward past where
+        // the user saw it while typing, colliding with whatever content sits above it
+        // (reported as edits "moving up" and overlapping the line above).
+        let originalBounds = CGRect(x: 70, y: 700, width: 120, height: 16)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: originalBounds,
+            editedBounds: originalBounds,
+            replacementText: "A much longer replacement that will wrap across two full lines",
+            fontName: "Helvetica",
+            fontSize: 14,
+            textColor: .documentText,
+            alignment: .left
+        )
+
+        let measured = PDFEditedPageRenderer.measuredBounds(for: operation)
+
+        XCTAssertGreaterThan(measured.height, originalBounds.height, "expected the box to grow for wrapped text")
+        XCTAssertEqual(measured.maxY, originalBounds.maxY, accuracy: 0.01, "top edge must stay fixed as the box grows")
+        XCTAssertLessThan(measured.minY, originalBounds.minY, "extra height must be added below the top, not above it")
+    }
+
+    func testInlineTextEditPreservesExistingAnnotationsOnTheSamePage() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let highlight = PDFAnnotation(bounds: CGRect(x: 200, y: 400, width: 80, height: 16), forType: .highlight, withProperties: nil)
+        page.addAnnotation(highlight)
+        XCTAssertEqual(page.annotations.count, 1)
+
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id,
+            text: "Original text",
+            bounds: CGRect(x: 70, y: 700, width: 120, height: 24),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 700,
+            confidence: .high
+        )
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Replacement text",
+            editedBounds: CGRect(x: 70, y: 700, width: 180, height: 28),
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .black,
+            alignment: .left
+        ))
+
+        let regeneratedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        XCTAssertEqual(regeneratedPage.annotations.count, 1, "highlight annotation was dropped by the text-edit regeneration")
+        XCTAssertEqual(regeneratedPage.annotations.first?.type, "Highlight")
     }
 
     func testWritingPDFContentTypeExportsEditedPDFInsteadOfWorkspacePackage() throws {

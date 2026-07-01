@@ -41,8 +41,13 @@ final class WorkspaceDocument: ReferenceFileDocument {
     // (the first type, .pdfoldproj, remains the preferred format for Save As).
     static var writableContentTypes: [UTType] { [.pdfoldproj, .pdf] }
 
-    var workspace: Workspace
-    var memberPDFData: [UUID: Data] = [:]
+    // @Published so SwiftUI's DocumentGroup (which observes objectWillChange to know when
+    // to mark the window edited / trigger autosave) actually sees mutations made by
+    // WorkspaceViewModel — e.g. `document.workspace.pageEditStates[...] = ...` after an
+    // inline text edit. Without this, edits could apply correctly in memory yet never
+    // trigger a save because the framework had no signal that anything changed.
+    @Published var workspace: Workspace
+    @Published var memberPDFData: [UUID: Data] = [:]
 
     /// ViewModel sets this so snapshot() can capture live annotation state.
     var currentPDFDataProvider: (() -> [UUID: Data])?
@@ -131,17 +136,25 @@ final class WorkspaceDocument: ReferenceFileDocument {
 
     // MARK: - Write
 
+    /// Flattens a snapshot into plain PDF bytes (banners stripped), the same bytes used
+    /// when macOS autosaves an imported PDF document as a flat `.pdf` file. Pulled out of
+    /// `fileWrapper` so it's independently testable — this is the exact path an inline
+    /// text edit's saved bytes go through, and it's worth being able to assert on directly.
+    func exportedPDFData(from snapshot: WorkspacePackage) -> Data? {
+        let docs: [(MemberDocument, PDFDocument)] = snapshot.workspace.documents.compactMap { member in
+            guard let data = snapshot.memberPDFData[member.id],
+                  let pdf = PDFDocument(data: data) else { return nil }
+            return (member, pdf)
+        }
+        let flat = PDFKitEngine().concatenate(documents: docs, includeBanners: false)
+        return PDFSerializer.data(from: flat)
+    }
+
     func fileWrapper(snapshot: WorkspacePackage, configuration: WriteConfiguration) throws -> FileWrapper {
         // When macOS autosaves an imported PDF document it uses .pdf as the content type.
         // Return a flat PDF file wrapper so the autosave succeeds without errors.
         if configuration.contentType.conforms(to: .pdf) {
-            let docs: [(MemberDocument, PDFDocument)] = snapshot.workspace.documents.compactMap { member in
-                guard let data = snapshot.memberPDFData[member.id],
-                      let pdf = PDFDocument(data: data) else { return nil }
-                return (member, pdf)
-            }
-            let flat = PDFKitEngine().concatenate(documents: docs, includeBanners: false)
-            guard let pdfData = PDFSerializer.data(from: flat) else {
+            guard let pdfData = exportedPDFData(from: snapshot) else {
                 throw CocoaError(.fileWriteUnknown)
             }
             return FileWrapper(regularFileWithContents: pdfData)
