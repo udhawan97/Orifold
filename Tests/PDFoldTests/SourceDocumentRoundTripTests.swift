@@ -89,6 +89,58 @@ final class SourceDocumentRoundTripTests: XCTestCase {
         }
     }
 
+    func testLiveInlineTextUpdatesRenderedPDFFromSupportedSourceFormats() throws {
+        for sample in try makeSupportedSamples() {
+            let viewModel = try makeViewModel(
+                data: sample.data,
+                contentType: sample.format.contentType,
+                filename: "sample.\(sample.format.fileExtension)"
+            )
+            let member = try XCTUnwrap(viewModel.loadedPDFs.first?.0, sample.format.rawValue)
+            let memberPDF = try XCTUnwrap(viewModel.loadedPDFs.first?.1, sample.format.rawValue)
+            let page = try XCTUnwrap(memberPDF.page(at: 0), sample.format.rawValue)
+            let pageRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first, sample.format.rawValue)
+            let pdfData = try XCTUnwrap(viewModel.document.memberPDFData[member.id], sample.format.rawValue)
+            let analysis = PDFTextAnalysisEngine().analyze(
+                data: pdfData,
+                pageIndex: 0,
+                pageRefID: pageRef.id,
+                fallbackPage: page
+            )
+            let sourceBlock = try XCTUnwrap(
+                analysis.blocks.first { $0.text.localizedCaseInsensitiveContains("Bold item") },
+                sample.format.rawValue
+            )
+            let editedBounds = CGRect(
+                x: sourceBlock.bounds.minX,
+                y: sourceBlock.bounds.minY,
+                width: max(sourceBlock.bounds.width, 160),
+                height: max(sourceBlock.bounds.height, 18)
+            )
+            let replacement = "Live update \(sample.format.rawValue)"
+
+            XCTAssertTrue(viewModel.applyInlineTextEdit(
+                pageRef: pageRef,
+                sourceBlock: sourceBlock,
+                replacementText: replacement,
+                editedBounds: editedBounds,
+                fontName: sourceBlock.fontName,
+                fontSize: sourceBlock.fontSize,
+                textColor: sourceBlock.textColor.nsColor,
+                alignment: sourceBlock.alignment?.nsTextAlignment ?? .left
+            ), sample.format.rawValue)
+
+            let operation = try XCTUnwrap(viewModel.document.workspace.pageEditStates.first?.operations.first, sample.format.rawValue)
+            let updatedData = try XCTUnwrap(viewModel.document.memberPDFData[member.id], sample.format.rawValue)
+            let updatedPDF = try XCTUnwrap(PDFDocument(data: updatedData), sample.format.rawValue)
+
+            XCTAssertTrue(updatedPDF.string?.contains(replacement) == true, sample.format.rawValue)
+            XCTAssertEqual(operation.fontName, sourceBlock.fontName, sample.format.rawValue)
+            XCTAssertEqual(operation.fontSize, sourceBlock.fontSize, accuracy: 0.01, sample.format.rawValue)
+            XCTAssertGreaterThanOrEqual(operation.editedBounds.width + 0.01, sourceBlock.bounds.width, sample.format.rawValue)
+        }
+    }
+
     func testEditedPackageFormatsFailCleanlyInsteadOfLossyRewrite() throws {
         for sample in try makeSupportedSamples() where [.docx, .wordDoc, .odt].contains(sample.format) {
             let viewModel = try makeViewModel(

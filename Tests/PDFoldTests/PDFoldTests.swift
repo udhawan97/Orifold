@@ -1150,6 +1150,32 @@ final class InlineTextEditPlacementTests: XCTestCase {
         XCTAssertEqual(edit.fontSize, 14, accuracy: 0.01)
     }
 
+    func testInlineEditorDoneWithoutChangesCancelsInsteadOfCommitting() throws {
+        let fixture = try makeInlineEditorFixture()
+        let doneButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Done"
+        })
+
+        doneButton.performClick(nil)
+
+        XCTAssertNil(fixture.committedEdit())
+    }
+
+    func testInlineEditorSameSizeFieldDoesNotCreateNoOpCommit() throws {
+        let fixture = try makeInlineEditorFixture()
+        let sizeField = try XCTUnwrap(findSubview(in: fixture.overlay) { (field: NSTextField) in
+            field.toolTip == "Font size" && field.isEditable
+        })
+        let doneButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Done"
+        })
+
+        sizeField.stringValue = "8"
+        doneButton.performClick(nil)
+
+        XCTAssertNil(fixture.committedEdit())
+    }
+
     func testInlineEditorCommitsSelectedTextColorWhenDoneIsPressed() throws {
         let fixture = try makeInlineEditorFixture()
         let colorPopup = try XCTUnwrap(findSubview(in: fixture.overlay) { (popup: NSPopUpButton) in
@@ -1165,6 +1191,24 @@ final class InlineTextEditPlacementTests: XCTestCase {
 
         let edit = try XCTUnwrap(fixture.committedEdit())
         XCTAssertTrue(colorsApproximatelyEqual(edit.textColor, .systemRed, tolerance: 0.025))
+    }
+
+    func testInlineEditorStyleOnlyCommitPreservesOriginalTextBounds() throws {
+        let fixture = try makeInlineEditorFixture()
+        let colorPopup = try XCTUnwrap(findSubview(in: fixture.overlay) { (popup: NSPopUpButton) in
+            popup.toolTip == "Text color"
+        })
+        let doneButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Done"
+        })
+
+        colorPopup.selectItem(withTitle: "Red")
+        colorPopup.sendAction(colorPopup.action, to: colorPopup.target)
+        doneButton.performClick(nil)
+
+        let edit = try XCTUnwrap(fixture.committedEdit())
+        XCTAssertGreaterThanOrEqual(edit.editedBounds.width, 160)
+        XCTAssertGreaterThanOrEqual(edit.editedBounds.height, 16)
     }
 
     func testInlineEditorColorMenuIncludesDefaultsAndDetectedDocumentColors() throws {
@@ -1205,10 +1249,12 @@ final class InlineTextEditPlacementTests: XCTestCase {
 
     func testInlineEditorCommitsTextContentTopEdge() throws {
         let fixture = try makeInlineEditorFixture()
+        let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
         let doneButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "Done"
         })
 
+        textView.string = "Changed text"
         doneButton.performClick(nil)
 
         let edit = try XCTUnwrap(fixture.committedEdit())

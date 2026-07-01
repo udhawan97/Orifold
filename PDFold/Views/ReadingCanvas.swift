@@ -1849,6 +1849,11 @@ final class NoteEditorViewController: NSViewController {
 
     private func setDocumentFontSize(_ size: CGFloat) {
         let clamped = min(max(size, CGFloat(sizeStepper.minValue)), CGFloat(sizeStepper.maxValue))
+        guard abs(documentFontSize - clamped) >= 0.01 else {
+            documentFontSize = clamped
+            refreshSizeControls()
+            return
+        }
         documentFontSize = clamped
         didChangeStyle = true
         applyFormatting()
@@ -2235,8 +2240,17 @@ final class NoteEditorViewController: NSViewController {
         var pageBounds = pdfView.convert(viewFrame, to: page).standardized
         pageBounds.size.width = max(1, pageBounds.width)
         pageBounds.size.height = max(1, pageBounds.height)
+        let sourcePageBounds = block.bounds.standardized
+        if !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if !didManuallyResizeWidth {
+                pageBounds.size.width = max(pageBounds.width, sourcePageBounds.width)
+            }
+            if !didManuallyResizeHeight {
+                pageBounds.size.height = max(pageBounds.height, sourcePageBounds.height)
+            }
+        }
         if !didManuallyReposition {
-            pageBounds.origin.y = block.bounds.maxY - pageBounds.height
+            pageBounds.origin.y = sourcePageBounds.maxY - pageBounds.height
         }
         let result = EditResult(
             pageRef: pageRef,
