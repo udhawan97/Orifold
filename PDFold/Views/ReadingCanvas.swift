@@ -277,7 +277,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         @objc func handleClick(_ gesture: NSClickGestureRecognizer) {
             guard let pdfView else { return }
             let viewPoint = gesture.location(in: pdfView)
-            guard let page = pdfView.page(for: viewPoint, nearest: false),
+            guard let page = pdfView.page(for: viewPoint, nearest: true),
                   !(page is BoundaryPage) else { return }
             let pagePoint = pdfView.convert(viewPoint, to: page)
 
@@ -1200,10 +1200,10 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
     @objc private func commitButton() {
         guard !didFinish, let pdfView, let page else { return }
         didFinish = true
-        let livePageBounds = pdfView.convert(textView.frame, to: page).standardized
-        var pageBounds = block.bounds
-        pageBounds.size.width = max(24, livePageBounds.width)
-        pageBounds.size.height = max(block.bounds.height, livePageBounds.height)
+        // Two-step conversion: overlay-local → pdfView space → PDF page space.
+        // Avoids relying on the overlay's frame origin always being (0,0).
+        let viewFrame = convert(textView.frame, to: pdfView)
+        let pageBounds = pdfView.convert(viewFrame, to: page)
         let result = EditResult(
             pageRef: pageRef,
             block: block,

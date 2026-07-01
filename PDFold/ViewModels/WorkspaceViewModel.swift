@@ -720,14 +720,24 @@ final class WorkspaceViewModel {
         lookup.pdf.removePage(at: localIdx)
         lookup.pdf.insert(regenerated, at: localIdx)
         textAnalysisCache.removeValue(forKey: pageRef.id)
-        // Rebuild immediately so the edit is visible regardless of serialization outcome.
+
+        // Serialize the mutated member PDF and load a completely fresh
+        // PDFDocument from those bytes before calling rebuild(). This
+        // gives PDFKit brand-new PDFPage objects so it cannot reuse
+        // any render cache from the previous version of the page.
+        let serialized = PDFSerializer.data(from: lookup.pdf)
+        if let serialized, let freshPDF = PDFDocument(data: serialized) {
+            document.memberPDFData[pageRef.memberDocId] = serialized
+            loadedPDFs[lookup.documentIndex] = (loadedPDFs[lookup.documentIndex].0, freshPDF)
+        } else {
+            NSLog("[PDFold] Warning: could not reload fresh PDF after inline edit on page %@; using mutated document in place.", pageRef.id.uuidString)
+            if let serialized {
+                document.memberPDFData[pageRef.memberDocId] = serialized
+            }
+        }
+
         rebuild()
         markWorkspaceModified()
-        if let data = PDFSerializer.data(from: lookup.pdf) {
-            document.memberPDFData[pageRef.memberDocId] = data
-        } else {
-            NSLog("[PDFold] Warning: serialization failed after inline edit on page %@; edit is visible — pageEditStates will be used to re-render on re-open", pageRef.id.uuidString)
-        }
 
         undoManager?.registerUndo(withTarget: self) { vm in
             vm.document.workspace.pageEditStates = previousEditStates
