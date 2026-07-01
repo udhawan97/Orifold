@@ -26,6 +26,7 @@
 		7D86C0C61FC456E2CF865899 /* PDFEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547E4E8F72DEE08FB7A66472 /* PDFEngine.swift */; };
 		8118B9E40222205B59BFEA95 /* MemberDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21406CD791971A026B6A285 /* MemberDocument.swift */; };
 		8A1F027988EBF4B20A3AD22F /* PDFiumProcessingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F4A0911CD68D8A0B97F04D /* PDFiumProcessingEngine.swift */; };
+		8C6A8B11628B4B01844F44D7 /* PDFSerializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C6A8B10628B4B01844F44D7 /* PDFSerializer.swift */; };
 		976F39BDDA9E42A215D88353 /* WorkspaceDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04448B1CCE672C13D52392B1 /* WorkspaceDocument.swift */; };
 		97C573B73A6CC4FCA36ACFC6 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45D6F51A2DFB7D860374B43 /* SearchView.swift */; };
 		A702AC2A31C336379A406B19 /* PDFium in Frameworks */ = {isa = PBXBuildFile; productRef = B658BB444C31753D3E86321A /* PDFium */; };
@@ -75,6 +76,7 @@
 		677794D3780601477BBBAFFE /* PDFTextAnalysisEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextAnalysisEngine.swift; sourceTree = "<group>"; };
 		7E5FBDD597A2A46452637450 /* PDFold.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PDFold.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		86F4A0911CD68D8A0B97F04D /* PDFiumProcessingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFiumProcessingEngine.swift; sourceTree = "<group>"; };
+		8C6A8B10628B4B01844F44D7 /* PDFSerializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFSerializer.swift; sourceTree = "<group>"; };
 		92C4739CB79025BE3763E623 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		9304378D6348FB81960551B5 /* PageRef.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRef.swift; sourceTree = "<group>"; };
 		93C213D7BF6D3264E18EB458 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -211,6 +213,7 @@
 				9CAC778D374332BD668C7F87 /* PDFKitEngine.swift */,
 				CE11D0D8194ACC0F233D75BB /* PDFKitProcessingEngineFallback.swift */,
 				07E5D3EE703AA0F550391D68 /* PDFProcessingEngine.swift */,
+				8C6A8B10628B4B01844F44D7 /* PDFSerializer.swift */,
 				677794D3780601477BBBAFFE /* PDFTextAnalysisEngine.swift */,
 			);
 			path = Engine;
@@ -379,6 +382,7 @@
 				156D6EBE77E5EEE483A69866 /* PDFKitEngine.swift in Sources */,
 				5867B323DC0FF0CDFF2B9A17 /* PDFKitProcessingEngineFallback.swift in Sources */,
 				21659EE9F3589A5587F30A8F /* PDFProcessingEngine.swift in Sources */,
+				8C6A8B11628B4B01844F44D7 /* PDFSerializer.swift in Sources */,
 				72AD59A7D606FC755BFA6D5C /* PDFTextAnalysisEngine.swift in Sources */,
 				5FE51300054CFB230513A859 /* PDFTextEditingModels.swift in Sources */,
 				8A1F027988EBF4B20A3AD22F /* PDFiumProcessingEngine.swift in Sources */,

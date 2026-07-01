@@ -131,17 +131,21 @@ final class WorkspaceDocument: ReferenceFileDocument {
 
     // MARK: - Write
 
+    func exportedPDFData(from snapshot: WorkspacePackage) -> Data? {
+        let docs: [(MemberDocument, PDFDocument)] = snapshot.workspace.documents.compactMap { member in
+            guard let data = snapshot.memberPDFData[member.id],
+                  let pdf = PDFDocument(data: data) else { return nil }
+            return (member, pdf)
+        }
+        let flat = PDFKitEngine().concatenate(documents: docs, includeBanners: false)
+        return PDFSerializer.data(from: flat)
+    }
+
     func fileWrapper(snapshot: WorkspacePackage, configuration: WriteConfiguration) throws -> FileWrapper {
         // When macOS autosaves an imported PDF document it uses .pdf as the content type.
         // Return a flat PDF file wrapper so the autosave succeeds without errors.
         if configuration.contentType.conforms(to: .pdf) {
-            let docs: [(MemberDocument, PDFDocument)] = snapshot.workspace.documents.compactMap { member in
-                guard let data = snapshot.memberPDFData[member.id],
-                      let pdf = PDFDocument(data: data) else { return nil }
-                return (member, pdf)
-            }
-            let flat = PDFKitEngine().concatenate(documents: docs, includeBanners: false)
-            guard let pdfData = PDFSerializer.data(from: flat) else {
+            guard let pdfData = exportedPDFData(from: snapshot) else {
                 throw CocoaError(.fileWriteUnknown)
             }
             return FileWrapper(regularFileWithContents: pdfData)
