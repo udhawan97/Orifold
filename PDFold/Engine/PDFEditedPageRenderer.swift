@@ -22,7 +22,11 @@ enum PDFEditedPageRenderer {
         page.draw(with: .mediaBox, to: context)
 
         for operation in operations {
-            drawErasePatch(for: operation.sourceBounds, in: context)
+            // Erase the union of where the text used to be and where it ends up — a
+            // replacement that measures taller/wider than the original can extend beyond
+            // sourceBounds, and anything outside the erased patch shows through underneath
+            // the new glyphs instead of being covered by it.
+            drawErasePatch(for: operation.sourceBounds.union(operation.editedBounds), in: context)
         }
         for operation in operations {
             drawReplacement(operation, in: context)
@@ -85,13 +89,40 @@ enum PDFEditedPageRenderer {
             .foregroundColor: operation.textColor.nsColor,
             .paragraphStyle: paragraph
         ]
-        let measured = (operation.replacementText as NSString).boundingRect(
-            with: CGSize(width: operation.editedBounds.width, height: CGFloat.infinity),
+        let text = operation.replacementText as NSString
+
+        // Word-wrap can't break a single unbreakable run (e.g. one long word), so a
+        // replacement wider than the current box would otherwise get silently clipped by
+        // the CTFrame below instead of wrapping. Grow the width to fit one line of the
+        // text first (capped so it can't run off an average page), then measure height
+        // against that final width. This is a safety net — the live editor already keeps
+        // its box wide enough as the user types, so this mainly matters for edits that
+        // arrive with a stale/undersized box.
+        let unwrapped = text.boundingRect(
+            with: CGSize(width: .greatestFiniteMagnitude, height: font.pointSize * 2),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: attributes
         )
+        let maxWidth: CGFloat = 620
+        let width = min(max(operation.editedBounds.width, min(ceil(unwrapped.width) + 6, maxWidth)), maxWidth)
+
+        let measured = text.boundingRect(
+            with: CGSize(width: width, height: CGFloat.infinity),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes
+        )
+        let height = max(operation.editedBounds.height, ceil(measured.height) + 4)
+
+        // Anchor to the box's TOP edge, matching the live inline editor — which grows
+        // downward from a fixed top as text wraps (InlineTextEditorOverlay.resizeTextViewHeight).
+        // PDF page space is y-up, so leaving origin.y untouched while growing height would
+        // instead push the box (and the text drawn inside it) upward past where the user
+        // saw it while typing, into whatever content sits above.
+        let topY = operation.editedBounds.maxY
         var bounds = operation.editedBounds
-        bounds.size.height = max(operation.editedBounds.height, ceil(measured.height) + 4)
+        bounds.size.width = width
+        bounds.size.height = height
+        bounds.origin.y = topY - height
         return bounds
     }
 }

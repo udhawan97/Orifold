@@ -237,6 +237,11 @@ struct PDFViewRepresentable: NSViewRepresentable {
         context.coordinator.viewModel = viewModel
         context.coordinator.inkOverlay.isHidden = (viewModel.currentTool != .ink)
         context.coordinator.inkOverlay.inkColor = viewModel.inkColor
+        // Switching to a different tool (e.g. clicking Highlight) without clicking Done
+        // first must not silently drop whatever text is still being edited.
+        if viewModel.currentTool != .editText {
+            context.coordinator.finishInlineEditingIfNeeded()
+        }
     }
 
     // MARK: - Coordinator
@@ -254,6 +259,10 @@ struct PDFViewRepresentable: NSViewRepresentable {
 
         deinit {
             NotificationCenter.default.removeObserver(self)
+        }
+
+        func finishInlineEditingIfNeeded() {
+            inlineEditor?.finishForHandoff()
         }
 
         @objc func selectionChanged(_ notification: Notification) {
@@ -295,7 +304,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
                     showNoteEditor(for: ann, near: rect, in: pdfView)
                 }
             case .editText:
-                inlineEditor?.cancel()
+                inlineEditor?.finishForHandoff()
                 if let target = viewModel.editableTextBlock(at: pagePoint, on: page, in: pdfView.document) {
                     showInlineTextEditor(for: target.block, pageRef: target.pageRef, on: page, in: pdfView)
                 }
@@ -368,7 +377,9 @@ struct PDFViewRepresentable: NSViewRepresentable {
         }
 
         private func showInlineTextEditor(for block: EditableTextBlock, pageRef: PageRef, on page: PDFPage, in pdfView: PDFoldPDFView) {
-            inlineEditor?.cancel()
+            // Callers are expected to finish (commit or cancel) any previously open editor
+            // before calling this — see the `.editText` handleClick case.
+            assert(inlineEditor == nil, "a previous inline editor should already be finished")
             let editor = InlineTextEditorOverlay(
                 frame: pdfView.bounds,
                 pdfView: pdfView,
@@ -975,6 +986,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
     private var editorAlignment: NSTextAlignment = .left
     private var didFinish = false
     private var editorTopY: CGFloat = 0
+    private var didManuallyResizeWidth = false
 
     init(
         frame: CGRect,
@@ -990,7 +1002,12 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         self.block = block
         self.completion = completion
         editorFontName = block.fontName
-        editorFontSize = max(8, block.fontSize)
+        // Preserve the ORIGINAL detected point size so edited text renders at the same size
+        // as the surrounding document. A hard `max(8, …)` floor here inflated smaller body
+        // text (6–8pt is common in dense resumes/footnotes), which both changed the visible
+        // size and — because the box grows downward to fit the taller glyphs — pushed the
+        // replacement onto the line below. Only guard against a non-positive/garbage detection.
+        editorFontSize = block.fontSize > 0 ? block.fontSize : 12
         editorTextColor = block.textColor.nsColor
         super.init(frame: frame)
         setup()
@@ -1072,6 +1089,11 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
 
     private func setupToolbar() {
         let families = ["Helvetica", "Times", "Courier", "Avenir", "Menlo"]
+        // Capture bold/italic from the detected font BEFORE the family list below
+        // collapses e.g. "Times New Roman Bold" down to the generic "Times" entry, so the
+        // toggle buttons (and applyFormatting()) can still reconstruct the right weight.
+        let detectedFont = NSFont(name: editorFontName, size: editorFontSize) ?? .systemFont(ofSize: editorFontSize)
+        let detectedTraits = NSFontManager.shared.traits(of: detectedFont)
         familyPopup.addItems(withTitles: families)
         if let match = families.first(where: { editorFontName.localizedCaseInsensitiveContains($0) }) {
             familyPopup.selectItem(withTitle: match)
@@ -1090,7 +1112,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         sizeLabel.frame = CGRect(x: 154, y: 12, width: 34, height: 18)
         toolbar.addSubview(sizeLabel)
 
-        sizeStepper.minValue = 6
+        sizeStepper.minValue = 4
         sizeStepper.maxValue = 96
         sizeStepper.integerValue = Int(round(editorFontSize))
         sizeStepper.target = self
@@ -1103,6 +1125,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         boldButton.setButtonType(.toggle)
         boldButton.bezelStyle = .rounded
         boldButton.font = .boldSystemFont(ofSize: 12)
+        boldButton.state = detectedTraits.contains(.boldFontMask) ? .on : .off
         boldButton.frame = CGRect(x: 222, y: 8, width: 32, height: 26)
         toolbar.addSubview(boldButton)
 
@@ -1111,6 +1134,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         italicButton.setButtonType(.toggle)
         italicButton.bezelStyle = .rounded
         italicButton.font = NSFontManager.shared.convert(NSFont.systemFont(ofSize: 12), toHaveTrait: .italicFontMask)
+        italicButton.state = detectedTraits.contains(.italicFontMask) ? .on : .off
         italicButton.frame = CGRect(x: 258, y: 8, width: 32, height: 26)
         toolbar.addSubview(italicButton)
 
@@ -1160,6 +1184,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
     }
 
     private func resizeTextViewHeight() {
+        autoFitWidthIfNeeded()
         guard let layoutManager = textView.layoutManager,
               let textContainer = textView.textContainer else { return }
         layoutManager.ensureLayout(for: textContainer)
@@ -1173,7 +1198,36 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         resizeHandle.frame = CGRect(x: frame.maxX - 5, y: frame.minY - 5, width: 10, height: 10)
     }
 
+    /// Grows the text box to fit what's currently typed, so a short original word (e.g.
+    /// "Hi") replaced with a much longer phrase doesn't get word-wrapped/clipped inside a
+    /// box still sized for the original text. No-ops once the user has manually dragged
+    /// the resize handle, so an explicit width choice is always respected.
+    private func autoFitWidthIfNeeded() {
+        guard !didManuallyResizeWidth, let pdfView, let page else { return }
+        let font = textView.font ?? NSFont(name: editorFontName, size: editorFontSize) ?? .systemFont(ofSize: editorFontSize)
+        let text = textView.string.isEmpty ? " " : textView.string
+        let unwrapped = (text as NSString).boundingRect(
+            with: CGSize(width: .greatestFiniteMagnitude, height: font.pointSize * 2),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font]
+        )
+        let desired = ceil(unwrapped.width) + textView.textContainerInset.width * 2 + 6
+
+        let pageViewBounds = pdfView.convert(page.bounds(for: .cropBox), from: page).standardized
+        let maxAvailable = max(120, pageViewBounds.maxX - textView.frame.minX - 12)
+        let maxWidth = min(620, maxAvailable)
+        let minWidth: CGFloat = 48
+        let newWidth = min(max(minWidth, desired), maxWidth)
+
+        guard abs(newWidth - textView.frame.width) > 0.5 else { return }
+        var frame = textView.frame
+        frame.size.width = newWidth
+        textView.frame = frame
+        textView.textContainer?.containerSize = NSSize(width: newWidth - textView.textContainerInset.width * 2, height: .infinity)
+    }
+
     private func resizeEditor(by deltaX: CGFloat) {
+        didManuallyResizeWidth = true
         var frame = textView.frame
         frame.size.width = max(48, frame.width + deltaX)
         textView.frame = frame
@@ -1227,13 +1281,33 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         resizeTextViewHeight()
     }
 
-    @objc private func commitButton() {
+    /// Commits the pending edit (same as pressing Done) if there's something worth saving,
+    /// otherwise cancels cleanly. Called when the user starts editing a different block
+    /// while this one is still open, so switching targets saves in-progress work instead
+    /// of silently discarding it — clicking away should behave like Adobe/most editors,
+    /// not like an implicit "undo everything I just typed."
+    func finishForHandoff() {
+        guard !didFinish else { return }
+        if textView.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            cancel()
+        } else {
+            commitButton()
+        }
+    }
+
+    @objc fileprivate func commitButton() {
         guard !didFinish, let pdfView, let page else { return }
         didFinish = true
-        // Two-step conversion: overlay-local → pdfView space → PDF page space.
-        // Avoids relying on the overlay's frame origin always being (0,0).
+        // Use the live editor box's own position AND size, converted to page space —
+        // not just its size merged onto the original (pre-edit) block position. The box
+        // commonly moves (its top-anchored height grows as text wraps) and re-using the
+        // stale origin here placed the replacement text somewhere the user never saw it.
+        // Two-step conversion (overlay-local → pdfView space → PDF page space) avoids
+        // relying on the overlay's frame origin always being (0,0).
         let viewFrame = convert(textView.frame, to: pdfView)
-        let pageBounds = pdfView.convert(viewFrame, to: page)
+        var pageBounds = pdfView.convert(viewFrame, to: page).standardized
+        pageBounds.size.width = max(24, pageBounds.width)
+        pageBounds.size.height = max(24, pageBounds.height)
         let result = EditResult(
             pageRef: pageRef,
             block: block,
