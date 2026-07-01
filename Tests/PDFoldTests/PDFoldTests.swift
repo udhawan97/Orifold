@@ -526,8 +526,24 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             alignment: .left
         ))
 
-        let pageText = viewModel.loadedPDFs.first?.1.stringValue ?? ""
-        XCTAssertTrue(pageText.contains("a substantially longer replacement phrase"), "replacement text was clipped: \(pageText)")
+        let operation = try XCTUnwrap(viewModel.document.workspace.pageEditStates.first?.operations.first)
+        XCTAssertGreaterThan(operation.editedBounds.width, sourceBlock.bounds.width)
+
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let bitmap = try renderedBitmap(for: page)
+        let extendedReplacementBounds = operation.editedBounds.intersection(
+            CGRect(
+                x: sourceBlock.bounds.maxX + 8,
+                y: operation.editedBounds.minY,
+                width: operation.editedBounds.width - sourceBlock.bounds.width - 8,
+                height: operation.editedBounds.height
+            )
+        )
+        XCTAssertGreaterThan(
+            darkPixelCount(in: extendedReplacementBounds, bitmap: bitmap),
+            0,
+            "replacement text should render beyond the original narrow source bounds"
+        )
     }
 
     func testInlineTextEditErasesCommittedEditedBoundsSoNearbyTextDoesNotBleedThrough() throws {
@@ -1928,6 +1944,28 @@ private func renderedBitmap(for page: PDFPage) throws -> NSBitmapImageRep {
     let thumbnail = page.thumbnail(of: CGSize(width: 612, height: 792), for: .mediaBox)
     let tiff = try thumbnail.tiffRepresentation.unwrap()
     return try NSBitmapImageRep(data: tiff).unwrap()
+}
+
+private func darkPixelCount(in pdfRect: CGRect, bitmap: NSBitmapImageRep) -> Int {
+    let rect = pdfRect.standardized
+    guard rect.width > 0, rect.height > 0 else { return 0 }
+
+    let minX = max(0, Int(floor(rect.minX)))
+    let maxX = min(bitmap.pixelsWide - 1, Int(ceil(rect.maxX)))
+    let minY = max(0, Int(floor(CGFloat(bitmap.pixelsHigh) - rect.maxY)))
+    let maxY = min(bitmap.pixelsHigh - 1, Int(ceil(CGFloat(bitmap.pixelsHigh) - rect.minY)))
+    guard minX <= maxX, minY <= maxY else { return 0 }
+
+    var count = 0
+    for y in minY...maxY {
+        for x in minX...maxX {
+            guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { continue }
+            if color.brightnessComponent < 0.45 {
+                count += 1
+            }
+        }
+    }
+    return count
 }
 
 private struct InlineEditorFixture {
