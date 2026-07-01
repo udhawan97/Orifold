@@ -168,6 +168,8 @@ final class PDFTextAnalysisEngine {
         let family: String
         if lower.contains("georgia") {
             family = "Georgia"
+        } else if lower.contains("carlito") || lower.contains("calibri") {
+            family = "Arial"
         } else if lower.contains("times") || lower.contains("garamond") || lower.contains("cambria") || lower.contains("minion") || lower.contains("serif") {
             family = "Times New Roman"
         } else if lower.contains("courier") || lower.contains("consolas") || lower.contains("mono") {
@@ -371,21 +373,31 @@ final class PDFTextAnalysisEngine {
         return sorted[sorted.count / 2]
     }
 
-    /// FPDFText_GetFontSize is unreliable for some glyphs — implausible/tiny values are
-    /// common for CoreText-drawn replacement text (which expresses scale via the text
-    /// matrix rather than the `Tf` operand PDFium reads), and even turn up occasionally in
-    /// a PDF's own original embedded font. Prefer the median of whatever OTHER glyphs on
-    /// this same line reported a plausible size, since size is uniform within a run/line —
-    /// only fall back to estimating from the line's own measured bounding-box height (never
-    /// a flat guessed constant) when literally none of the line's glyphs reported one.
+    /// FPDFText_GetFontSize is unreliable for some glyphs and for pages that apply a text
+    /// scale through the content stream CTM: PDFium can report the nominal `Tf` size while
+    /// the glyph boxes are visibly smaller in page space. Prefer reported sizes only when
+    /// they agree with the actual ink height; otherwise use an ink-derived effective size.
     private func resolveLineFontSize(_ samples: [CharacterSample], lineBounds: CGRect) -> CGFloat {
         let validSizes = samples.compactMap(\.reportedFontSize).filter { $0.isFinite && $0 > 0 }
+        let inkEstimatedSize = effectiveFontSize(fromInkHeight: lineBounds.height)
         if !validSizes.isEmpty {
-            return median(validSizes)
+            let reported = median(validSizes)
+            guard inkEstimatedSize > 0 else { return reported }
+            let upperPlausible = inkEstimatedSize * 1.25
+            let lowerPlausible = inkEstimatedSize * 0.65
+            if reported > upperPlausible || reported < lowerPlausible {
+                return inkEstimatedSize
+            }
+            return reported
         }
-        guard lineBounds.height > 0 else { return 12 }
-        // A line's full glyph bounding-box height (ascenders through descenders) is
-        // typically ~1.2x the nominal font size for common fonts.
-        return lineBounds.height / 1.2
+        return inkEstimatedSize > 0 ? inkEstimatedSize : 12
+    }
+
+    private func effectiveFontSize(fromInkHeight inkHeight: CGFloat) -> CGFloat {
+        guard inkHeight.isFinite, inkHeight > 0 else { return 0 }
+        // For common PDF fonts, the union of visible glyph boxes in a line is usually a bit
+        // shorter than the nominal point size. 1.15 keeps replacement glyphs visually close
+        // to the source ink without accepting unscaled nominal sizes from CTM-scaled pages.
+        return max(4, inkHeight * 1.15)
     }
 }

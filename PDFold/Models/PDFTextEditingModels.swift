@@ -36,6 +36,7 @@ struct EditableTextBlock: Codable, Identifiable, Equatable {
     var fontName: String
     var fontSize: CGFloat
     var textColor: CodableColor
+    var alignment: CodableTextAlignment? = nil
     var rotation: CGFloat
     var baseline: CGFloat
     var confidence: PDFTextEditConfidence

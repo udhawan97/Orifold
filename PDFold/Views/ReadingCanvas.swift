@@ -983,17 +983,18 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
     private let boldButton = NSButton(title: "B", target: nil, action: nil)
     private let italicButton = NSButton(title: "I", target: nil, action: nil)
     private let alignControl = NSSegmentedControl(labels: ["L", "C", "R"], trackingMode: .selectOne, target: nil, action: nil)
-    private var editorFontName: String
-    private var editorFontSize: CGFloat
+    private var editorFontFamily: String
+    private var documentFontSize: CGFloat
     private var editorFontTraits: NSFontTraitMask
     private var editorTextColor: NSColor
     private var editorAlignment: NSTextAlignment = .left
     private var didFinish = false
     private var editorTopY: CGFloat = 0
     private var didManuallyResizeWidth = false
+    private var manualEditorPageWidth: CGFloat?
     private var didChangeStyle = false
     private let originalText: String
-    private let originalFontName: String
+    private let originalFontFamily: String
     private let originalFontSize: CGFloat
     private let originalFontTraits: NSFontTraitMask
     private let originalAlignment: NSTextAlignment
@@ -1016,14 +1017,15 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         // text (6–8pt is common in dense resumes/footnotes), which both changed the visible
         // size and — because the box grows downward to fit the taller glyphs — pushed the
         // replacement onto the line below. Only guard against a non-positive/garbage detection.
-        editorFontSize = block.fontSize > 0 ? block.fontSize : 12
-        let initialFont = NSFont(name: block.fontName, size: editorFontSize) ?? .systemFont(ofSize: editorFontSize)
-        editorFontName = Self.editingFamilyName(for: initialFont, fallback: block.fontName)
+        documentFontSize = block.fontSize > 0 ? block.fontSize : 12
+        let initialFont = NSFont(name: block.fontName, size: documentFontSize) ?? .systemFont(ofSize: documentFontSize)
+        editorFontFamily = Self.editingFamilyName(for: initialFont, fallback: block.fontName)
         editorFontTraits = NSFontManager.shared.traits(of: initialFont).intersection([.boldFontMask, .italicFontMask])
         editorTextColor = block.textColor.nsColor
+        editorAlignment = block.alignment?.nsTextAlignment ?? .left
         originalText = block.text
-        originalFontName = editorFontName
-        originalFontSize = editorFontSize
+        originalFontFamily = editorFontFamily
+        originalFontSize = documentFontSize
         originalFontTraits = editorFontTraits
         originalAlignment = editorAlignment
         super.init(frame: frame)
@@ -1032,6 +1034,10 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     func beginEditing() {
         window?.makeFirstResponder(textView)
@@ -1108,17 +1114,23 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         toolbar.layer?.shadowOffset = CGSize(width: 0, height: -2)
         addSubview(toolbar)
         setupToolbar()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(pdfViewScaleChanged(_:)),
+            name: .PDFViewScaleChanged,
+            object: pdfView
+        )
         applyFormatting()
     }
 
     private func setupToolbar() {
-        let families = ["Helvetica", "Times", "Courier", "Avenir", "Menlo"]
+        let families = Self.fontFamilyMenuItems(originalFamily: editorFontFamily)
         familyPopup.addItems(withTitles: families)
-        if let match = families.first(where: { editorFontName.localizedCaseInsensitiveCompare($0) == .orderedSame }) {
+        if let match = families.first(where: { editorFontFamily.localizedCaseInsensitiveCompare($0) == .orderedSame }) {
             familyPopup.selectItem(withTitle: match)
-            editorFontName = match
+            editorFontFamily = match
         } else {
-            familyPopup.insertItem(withTitle: editorFontName, at: 0)
+            familyPopup.insertItem(withTitle: editorFontFamily, at: 0)
             familyPopup.selectItem(at: 0)
         }
         familyPopup.target = self
@@ -1133,7 +1145,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
 
         sizeStepper.minValue = 4
         sizeStepper.maxValue = 96
-        sizeStepper.integerValue = Int(round(editorFontSize))
+        sizeStepper.integerValue = Int(round(documentFontSize))
         sizeStepper.target = self
         sizeStepper.action = #selector(changeSize(_:))
         sizeStepper.frame = CGRect(x: 190, y: 8, width: 18, height: 26)
@@ -1159,7 +1171,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
 
         alignControl.target = self
         alignControl.action = #selector(changeAlignment(_:))
-        alignControl.selectedSegment = 0
+        alignControl.selectedSegment = selectedAlignmentSegment()
         alignControl.frame = CGRect(x: 302, y: 8, width: 82, height: 26)
         toolbar.addSubview(alignControl)
 
@@ -1180,15 +1192,28 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         guard let pdfView, let page else { return }
         let sourceRect = pdfView.convert(block.bounds, from: page)
         let minWidth: CGFloat = block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 180 : 156
+        let editorWidth: CGFloat
+        if let manualEditorPageWidth {
+            let manualPageRect = CGRect(
+                x: block.bounds.minX,
+                y: block.bounds.minY,
+                width: manualEditorPageWidth,
+                height: max(block.bounds.height, 1)
+            )
+            editorWidth = max(minWidth, pdfView.convert(manualPageRect, from: page).standardized.width)
+        } else {
+            editorWidth = max(minWidth, sourceRect.width)
+        }
         let editorRect = CGRect(
             x: sourceRect.minX,
             y: sourceRect.minY,
-            width: max(minWidth, sourceRect.width),
-            height: max(sourceRect.height + 6, editorFontSize * 1.5)
+            width: editorWidth,
+            height: max(sourceRect.height + 6, displayFontSize * 1.5)
         )
         editorTopY = editorRect.maxY
         patchView.frame = sourceRect.insetBy(dx: -2, dy: -2)
         textView.frame = editorRect
+        updateTextContainerWidth()
         toolbar.frame = toolbarFrame(near: editorRect)
         resizeHandle.frame = CGRect(x: editorRect.maxX - 5, y: editorRect.minY - 5, width: 10, height: 10)
         resizeTextViewHeight()
@@ -1209,7 +1234,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         layoutManager.ensureLayout(for: textContainer)
         let used = layoutManager.usedRect(for: textContainer)
         var frame = textView.frame
-        let minimumHeight = max(24, ceil(editorFontSize * 1.55))
+        let minimumHeight = max(24, ceil(displayFontSize * 1.55))
         frame.size.height = max(minimumHeight, ceil(used.height + textView.textContainerInset.height * 2 + 4))
         frame.origin.y = editorTopY - frame.height
         textView.frame = frame
@@ -1223,7 +1248,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
     /// the resize handle, so an explicit width choice is always respected.
     private func autoFitWidthIfNeeded() {
         guard !didManuallyResizeWidth, let pdfView, let page else { return }
-        let font = textView.font ?? NSFont(name: editorFontName, size: editorFontSize) ?? .systemFont(ofSize: editorFontSize)
+        let font = textView.font ?? displayFont()
         let text = textView.string.isEmpty ? " " : textView.string
         let desired = fittingTextViewWidth(for: text, font: font, minimumWidth: visualMinimumEditorWidth)
 
@@ -1237,7 +1262,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         var frame = textView.frame
         frame.size.width = newWidth
         textView.frame = frame
-        textView.textContainer?.containerSize = NSSize(width: newWidth - textView.textContainerInset.width * 2, height: .infinity)
+        updateTextContainerWidth()
     }
 
     private var visualMinimumEditorWidth: CGFloat {
@@ -1262,7 +1287,10 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         var frame = textView.frame
         frame.size.width = max(48, frame.width + deltaX)
         textView.frame = frame
-        textView.textContainer?.containerSize = NSSize(width: frame.width - textView.textContainerInset.width * 2, height: CGFloat.infinity)
+        updateTextContainerWidth()
+        if let pdfView, let page {
+            manualEditorPageWidth = pdfView.convert(convert(frame, to: pdfView), to: page).standardized.width
+        }
         resizeTextViewHeight()
     }
 
@@ -1271,14 +1299,14 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
     }
 
     @objc private func changeFamily(_ sender: NSPopUpButton) {
-        editorFontName = sender.titleOfSelectedItem ?? editorFontName
+        editorFontFamily = sender.titleOfSelectedItem ?? editorFontFamily
         didChangeStyle = true
         applyFormatting()
         refocusEditor()
     }
 
     @objc private func changeSize(_ sender: NSStepper) {
-        editorFontSize = CGFloat(sender.integerValue)
+        documentFontSize = CGFloat(sender.integerValue)
         didChangeStyle = true
         applyFormatting()
         refocusEditor()
@@ -1325,8 +1353,8 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
     }
 
     private func applyFormatting() {
-        sizeLabel.stringValue = "\(Int(round(editorFontSize)))"
-        let font = Self.editingFont(family: editorFontName, traits: editorFontTraits, size: editorFontSize)
+        sizeLabel.stringValue = "\(Int(round(documentFontSize)))"
+        let font = displayFont()
         textView.font = font
         textView.textColor = editorTextColor
         textView.alignment = editorAlignment
@@ -1347,6 +1375,41 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         resizeTextViewHeight()
     }
 
+    @objc private func pdfViewScaleChanged(_ notification: Notification) {
+        guard !didFinish else { return }
+        layoutEditor()
+        applyFormatting()
+    }
+
+    private var displayScaleFactor: CGFloat {
+        max(pdfView?.scaleFactor ?? 1, 0.01)
+    }
+
+    private var displayFontSize: CGFloat {
+        max(1, documentFontSize * displayScaleFactor)
+    }
+
+    private func displayFont() -> NSFont {
+        Self.editingFont(family: editorFontFamily, traits: editorFontTraits, size: displayFontSize)
+    }
+
+    private func documentFont() -> NSFont {
+        Self.editingFont(family: editorFontFamily, traits: editorFontTraits, size: documentFontSize)
+    }
+
+    private func updateTextContainerWidth() {
+        let textWidth = max(1, textView.frame.width - textView.textContainerInset.width * 2)
+        textView.textContainer?.containerSize = NSSize(width: textWidth, height: CGFloat.infinity)
+    }
+
+    private func selectedAlignmentSegment() -> Int {
+        switch editorAlignment {
+        case .center: return 1
+        case .right: return 2
+        default: return 0
+        }
+    }
+
     static func editingFamilyName(for font: NSFont, fallback: String) -> String {
         if let family = font.familyName, !family.isEmpty {
             return family
@@ -1365,6 +1428,24 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
             .replacingOccurrences(of: "-Oblique", with: "")
     }
 
+    static func fontFamilyMenuItems(originalFamily: String) -> [String] {
+        var seen = Set<String>()
+        var families: [String] = []
+        func append(_ family: String) {
+            let trimmed = family.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            let key = trimmed.lowercased()
+            guard seen.insert(key).inserted else { return }
+            families.append(trimmed)
+        }
+
+        append(originalFamily)
+        NSFontManager.shared.availableFontFamilies
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+            .forEach(append)
+        return families
+    }
+
     static func editingFont(family: String, traits: NSFontTraitMask, size: CGFloat) -> NSFont {
         let manager = NSFontManager.shared
         if let matched = manager.font(
@@ -1378,6 +1459,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
 
         let base = manager.font(withFamily: family, traits: [], weight: 5, size: size)
             ?? NSFont(name: family, size: size)
+            ?? NSFont(name: "Helvetica", size: size)
             ?? NSFont.systemFont(ofSize: size)
 
         var resolved = base
@@ -1423,7 +1505,7 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         // relying on the overlay's frame origin always being (0,0).
         var commitFrame = textView.frame
         if !didManuallyResizeWidth {
-            let font = textView.font ?? Self.editingFont(family: editorFontName, traits: editorFontTraits, size: editorFontSize)
+            let font = textView.font ?? displayFont()
             let fittingWidth = fittingTextViewWidth(
                 for: textView.string,
                 font: font,
@@ -1433,15 +1515,15 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         }
         let viewFrame = convert(commitFrame, to: pdfView)
         var pageBounds = pdfView.convert(viewFrame, to: page).standardized
-        pageBounds.size.width = max(24, pageBounds.width)
-        pageBounds.size.height = max(24, pageBounds.height)
+        pageBounds.size.width = max(1, pageBounds.width)
+        pageBounds.size.height = max(1, pageBounds.height)
         let result = EditResult(
             pageRef: pageRef,
             block: block,
             text: textView.string,
             editedBounds: pageBounds,
-            fontName: textView.font?.fontName ?? editorFontName,
-            fontSize: textView.font?.pointSize ?? editorFontSize,
+            fontName: documentFont().fontName,
+            fontSize: documentFontSize,
             textColor: editorTextColor,
             alignment: editorAlignment
         )
@@ -1453,8 +1535,8 @@ final class InlineTextEditorOverlay: NSView, NSTextViewDelegate {
         let trimmed = textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return true }
         return textView.string == originalText &&
-            editorFontName == originalFontName &&
-            abs(editorFontSize - originalFontSize) < 0.01 &&
+            editorFontFamily == originalFontFamily &&
+            abs(documentFontSize - originalFontSize) < 0.01 &&
             editorFontTraits == originalFontTraits &&
             editorAlignment == originalAlignment &&
             !didChangeStyle

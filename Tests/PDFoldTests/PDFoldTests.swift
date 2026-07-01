@@ -115,6 +115,21 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertNotEqual(block.confidence, .low)
     }
 
+    func testPDFTextAnalysisUsesVisibleFontSizeForScaledContentStreams() throws {
+        let nominalFontSize: CGFloat = 24
+        let pdf = makeScaledTextPDF(text: "Scaled inline text", fontSize: nominalFontSize, scale: 0.5)
+        let data = try pdf.dataRepresentation().unwrap()
+        let engine = PDFTextAnalysisEngine()
+        let page = try XCTUnwrap(pdf.page(at: 0))
+
+        let analysis = engine.analyze(data: data, pageIndex: 0, pageRefID: UUID(), fallbackPage: page)
+        let block = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Scaled") })
+        let inkHeight = try XCTUnwrap(block.lines.first?.runs.first?.bounds.height)
+
+        XCTAssertLessThan(block.fontSize, nominalFontSize * 0.8)
+        XCTAssertEqual(block.fontSize, max(4, inkHeight * 1.15), accuracy: 1.0)
+    }
+
     func testReconcileLigaturesPrefersPDFKitTextWhenPlausible() throws {
         let pdf = makePDF(pageTexts: ["Generative AI strategy"])
         let page = try XCTUnwrap(pdf.page(at: 0))
@@ -206,6 +221,53 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(viewModel.document.workspace.pageEditStates.first?.operations.first?.replacementText, "Replacement text")
         XCTAssertNotNil(viewModel.loadedPDFs.first?.1.page(at: 0))
         XCTAssertTrue(viewModel.loadedPDFs.first?.1.stringValue.contains("Replacement text") ?? false)
+    }
+
+    func testInlineTextEditUndoRedoRestoresRenderedPDFAndEditState() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id,
+            text: "Original text",
+            bounds: CGRect(x: 70, y: 700, width: 120, height: 24),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 700,
+            confidence: .high
+        )
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Redoable replacement",
+            editedBounds: CGRect(x: 70, y: 700, width: 190, height: 28),
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .black,
+            alignment: .left
+        ))
+        XCTAssertTrue(viewModel.loadedPDFs.first?.1.stringValue.contains("Redoable replacement") ?? false)
+        XCTAssertEqual(viewModel.document.workspace.pageEditStates.first?.operations.count, 1)
+
+        undoManager.undo()
+        XCTAssertFalse(viewModel.loadedPDFs.first?.1.stringValue.contains("Redoable replacement") ?? true)
+        XCTAssertTrue(viewModel.document.workspace.pageEditStates.isEmpty)
+
+        undoManager.redo()
+        XCTAssertTrue(viewModel.loadedPDFs.first?.1.stringValue.contains("Redoable replacement") ?? false)
+        XCTAssertEqual(viewModel.document.workspace.pageEditStates.first?.operations.first?.replacementText, "Redoable replacement")
     }
 
     func testInlineTextEditDoesNotClipReplacementLongerThanOriginalWord() throws {
@@ -456,12 +518,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
         XCTAssertTrue(NSFontManager.shared.traits(of: bold).contains(.boldFontMask))
     }
 
-    /// Regression: the live editor's textView frame, converted PDFView→page, reported the
-    /// right size but a wrong (too-high) origin — placing the replacement ~25pt above the
-    /// original line and erasing the neighboring line ("ruined formatting"). The stored
-    /// operation must anchor to the original text's page-space location (sourceBounds),
-    /// ignoring the editor origin, so the replacement lands on the line it replaced.
-    func testReplacementAnchorsToOriginalLineNotEditorDerivedOrigin() throws {
+    func testInlineTextEditHonorsCommittedEditorGeometry() throws {
         let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
         let document = WorkspaceDocument()
         document.workspace.documents = [fixture.member]
@@ -475,25 +532,92 @@ final class InlineTextEditPlacementTests: XCTestCase {
             lines: [], fontName: "Helvetica-Bold", fontSize: 8, textColor: .documentText,
             rotation: 0, baseline: 610, confidence: .high)
 
-        // Simulate the bad view→page conversion: an editedBounds shifted 26pt UP from source.
-        let badEditedBounds = CGRect(x: 34, y: 636, width: 447, height: 24)
+        let committedBounds = CGRect(x: 48, y: 584, width: 447, height: 24)
 
         XCTAssertTrue(viewModel.applyInlineTextEdit(
             pageRef: fixture.refs[0], sourceBlock: sourceBlock,
-            replacementText: "Cloud & DevOps: AWS, Azure, CI/CD, observability",
-            editedBounds: badEditedBounds, fontName: "Helvetica-Bold", fontSize: 8,
+            replacementText: "Cloud and DevOps",
+            editedBounds: committedBounds, fontName: "Helvetica-Bold", fontSize: 8,
             textColor: .black, alignment: .left))
 
         let stored = try XCTUnwrap(viewModel.document.workspace.pageEditStates.first?.operations.first)
-        // Top edge (maxY in page space) must sit on the original line, not 26pt above it.
-        XCTAssertEqual(stored.editedBounds.maxY, sourceBounds.maxY, accuracy: 0.5,
-                       "replacement top must anchor to original line top, not the editor origin")
-        XCTAssertEqual(stored.editedBounds.minX, sourceBounds.minX, accuracy: 0.5)
-        // Grows downward, so its top must not exceed the original's top.
-        XCTAssertLessThanOrEqual(stored.editedBounds.maxY, sourceBounds.maxY + 0.5)
-        // The erase patch (source ∪ edited) must stay tight to the one line — not span the
-        // ~50pt band that wiped the neighbor before.
-        XCTAssertLessThan(stored.sourceBounds.union(stored.editedBounds).height, 30)
+        XCTAssertEqual(stored.sourceBounds, sourceBounds)
+        XCTAssertEqual(stored.editedBounds.minX, committedBounds.minX, accuracy: 0.01)
+        XCTAssertEqual(stored.editedBounds.minY, committedBounds.minY, accuracy: 0.01)
+        XCTAssertEqual(stored.editedBounds.width, committedBounds.width, accuracy: 0.01)
+        XCTAssertEqual(stored.editedBounds.height, committedBounds.height, accuracy: 0.01)
+    }
+
+    func testRepeatedInlineTextEditPreservesOriginalSourceBoundsButHonorsNewCommittedGeometry() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+
+        let sourceBounds = CGRect(x: 34, y: 610, width: 120, height: 13)
+        let firstCommittedBounds = CGRect(x: 48, y: 584, width: 220, height: 24)
+        let secondCommittedBounds = CGRect(x: 64, y: 560, width: 260, height: 28)
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id, text: "Original text", bounds: sourceBounds,
+            lines: [], fontName: "Helvetica", fontSize: 10, textColor: .documentText,
+            rotation: 0, baseline: 610, confidence: .high)
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0], sourceBlock: sourceBlock,
+            replacementText: "First replacement",
+            editedBounds: firstCommittedBounds, fontName: "Helvetica", fontSize: 10,
+            textColor: .black, alignment: .left))
+
+        var reeditBlock = sourceBlock
+        reeditBlock.text = "First replacement"
+        reeditBlock.bounds = firstCommittedBounds
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0], sourceBlock: reeditBlock,
+            replacementText: "Second replacement",
+            editedBounds: secondCommittedBounds, fontName: "Helvetica", fontSize: 10,
+            textColor: .black, alignment: .left))
+
+        let operations = try XCTUnwrap(viewModel.document.workspace.pageEditStates.first?.operations)
+        XCTAssertEqual(operations.count, 1)
+        let stored = try XCTUnwrap(operations.first)
+        XCTAssertEqual(stored.sourceBounds, sourceBounds)
+        XCTAssertEqual(stored.editedBounds.minX, secondCommittedBounds.minX, accuracy: 0.01)
+        XCTAssertEqual(stored.editedBounds.minY, secondCommittedBounds.minY, accuracy: 0.01)
+        XCTAssertEqual(stored.editedBounds.width, secondCommittedBounds.width, accuracy: 0.01)
+        XCTAssertEqual(stored.editedBounds.height, secondCommittedBounds.height, accuracy: 0.01)
+    }
+
+    func testReopeningExistingInlineTextEditPreservesStoredAlignment() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+
+        let sourceBounds = CGRect(x: 34, y: 610, width: 120, height: 13)
+        let committedBounds = CGRect(x: 48, y: 584, width: 220, height: 24)
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id, text: "Original text", bounds: sourceBounds,
+            lines: [], fontName: "Helvetica", fontSize: 10, textColor: .documentText,
+            rotation: 0, baseline: 610, confidence: .high)
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0], sourceBlock: sourceBlock,
+            replacementText: "Aligned replacement",
+            editedBounds: committedBounds, fontName: "Helvetica", fontSize: 10,
+            textColor: .black, alignment: .right))
+
+        let page = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
+        let reopened = try XCTUnwrap(viewModel.editableTextBlock(
+            at: CGPoint(x: committedBounds.midX, y: committedBounds.midY),
+            on: page,
+            in: viewModel.combinedPDF
+        ))
+
+        XCTAssertEqual(reopened.block.alignment?.nsTextAlignment, .right)
     }
 }
 
@@ -1000,6 +1124,16 @@ private func makePDF(pageTexts: [String]) -> PDFDocument {
     return document
 }
 
+private func makeScaledTextPDF(text: String, fontSize: CGFloat, scale: CGFloat) -> PDFDocument {
+    let view = ScaledTextFixturePageView(
+        frame: CGRect(x: 0, y: 0, width: 612, height: 792),
+        text: text,
+        fontSize: fontSize,
+        scale: scale
+    )
+    return PDFDocument(data: view.dataWithPDF(inside: view.bounds))!
+}
+
 private func colorsApproximatelyEqual(_ lhs: NSColor?, _ rhs: NSColor, tolerance: CGFloat = 0.001) -> Bool {
     guard let left = lhs?.usingColorSpace(.sRGB),
           let right = rhs.usingColorSpace(.sRGB) else {
@@ -1045,6 +1179,41 @@ private final class TextFixturePageView: NSView {
                 .foregroundColor: NSColor.black
             ]
         )
+    }
+}
+
+private final class ScaledTextFixturePageView: NSView {
+    private let text: String
+    private let fontSize: CGFloat
+    private let contentScale: CGFloat
+
+    override var isFlipped: Bool { true }
+
+    init(frame: CGRect, text: String, fontSize: CGFloat, scale: CGFloat) {
+        self.text = text
+        self.fontSize = fontSize
+        self.contentScale = scale
+        super.init(frame: frame)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        bounds.fill()
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+        context.saveGState()
+        context.scaleBy(x: contentScale, y: contentScale)
+        NSString(string: text).draw(
+            at: CGPoint(x: 144, y: 144),
+            withAttributes: [
+                .font: NSFont(name: "Helvetica", size: fontSize) ?? NSFont.systemFont(ofSize: fontSize),
+                .foregroundColor: NSColor.black
+            ]
+        )
+        context.restoreGState()
     }
 }
 

@@ -22,11 +22,7 @@ enum PDFEditedPageRenderer {
         page.draw(with: .mediaBox, to: context)
 
         for operation in operations {
-            // Erase the union of where the text used to be and where it ends up — a
-            // replacement that measures taller/wider than the original can extend beyond
-            // sourceBounds, and anything outside the erased patch shows through underneath
-            // the new glyphs instead of being covered by it.
-            drawErasePatch(for: operation.sourceBounds.union(operation.editedBounds), in: context)
+            drawErasePatch(for: operation.sourceBounds, on: page, in: context)
         }
         for operation in operations {
             drawReplacement(operation, in: context)
@@ -43,53 +39,26 @@ enum PDFEditedPageRenderer {
         return newPage
     }
 
-    private static func drawErasePatch(for sourceBounds: CGRect, in context: CGContext) {
-        // Expand by 2.5pt on each side to ensure ascenders/descenders outside the
-        // measured text bounds are fully covered before drawing replacement text.
-        let patch = sourceBounds.insetBy(dx: -2.5, dy: -2.5)
+    private static func drawErasePatch(for sourceBounds: CGRect, on page: PDFPage, in context: CGContext) {
+        let patch = sourceBounds.standardized.insetBy(dx: -1, dy: -1)
+        guard patch.width > 0, patch.height > 0 else { return }
+
         context.saveGState()
-        context.setFillColor(NSColor.white.cgColor)
+        context.setFillColor(sampledBackgroundColor(near: sourceBounds, on: page) ?? NSColor.white.cgColor)
         context.fill(patch)
         context.restoreGState()
     }
 
     private static func drawReplacement(_ operation: PDFTextEditOperation, in context: CGContext) {
         context.saveGState()
-
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = operation.alignment.nsTextAlignment
-        paragraph.lineBreakMode = .byWordWrapping
-        let font = NSFont(name: operation.fontName, size: operation.fontSize)
-            ?? NSFont.systemFont(ofSize: operation.fontSize)
-        let framesetter = CTFramesetterCreateWithAttributedString(NSAttributedString(
-            string: operation.replacementText,
-            attributes: [
-                .font: font,
-                .foregroundColor: operation.textColor.nsColor.cgColor,
-                .paragraphStyle: paragraph
-            ]
-        ))
-        let path = CGMutablePath()
-        path.addRect(operation.editedBounds)
-        let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil)
+        let layout = ReplacementTextLayout(operation: operation)
         context.textMatrix = .identity
-        CTFrameDraw(frame, context)
-
+        layout.draw(in: context, bounds: operation.editedBounds)
         context.restoreGState()
     }
 
     static func measuredBounds(for operation: PDFTextEditOperation) -> CGRect {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = operation.alignment.nsTextAlignment
-        paragraph.lineBreakMode = .byWordWrapping
-        let font = NSFont(name: operation.fontName, size: operation.fontSize)
-            ?? NSFont.systemFont(ofSize: operation.fontSize)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: operation.textColor.nsColor,
-            .paragraphStyle: paragraph
-        ]
-        let text = operation.replacementText as NSString
+        let layout = ReplacementTextLayout(operation: operation)
 
         // Word-wrap can't break a single unbreakable run (e.g. one long word), so a
         // replacement wider than the current box would otherwise get silently clipped by
@@ -98,19 +67,11 @@ enum PDFEditedPageRenderer {
         // against that final width. This is a safety net — the live editor already keeps
         // its box wide enough as the user types, so this mainly matters for edits that
         // arrive with a stale/undersized box.
-        let unwrapped = text.boundingRect(
-            with: CGSize(width: .greatestFiniteMagnitude, height: font.pointSize * 2),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: attributes
-        )
+        let unwrapped = layout.suggestedSize(constrainedTo: CGSize(width: 10_000, height: 10_000))
         let maxWidth: CGFloat = 620
         let width = min(max(operation.editedBounds.width, min(ceil(unwrapped.width) + 6, maxWidth)), maxWidth)
 
-        let measured = text.boundingRect(
-            with: CGSize(width: width, height: CGFloat.infinity),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: attributes
-        )
+        let measured = layout.suggestedSize(constrainedTo: CGSize(width: width, height: 10_000))
         let height = max(operation.editedBounds.height, ceil(measured.height) + 4)
 
         // Anchor to the box's TOP edge, matching the live inline editor — which grows
@@ -124,5 +85,177 @@ enum PDFEditedPageRenderer {
         bounds.size.height = height
         bounds.origin.y = topY - height
         return bounds
+    }
+
+    private static func sampledBackgroundColor(near sourceBounds: CGRect, on page: PDFPage) -> CGColor? {
+        let pageBounds = page.bounds(for: .mediaBox)
+        let sampleRect = sourceBounds.standardized.insetBy(dx: -2, dy: -2).intersection(pageBounds)
+        guard sampleRect.width > 0, sampleRect.height > 0, !sampleRect.isNull else {
+            return nil
+        }
+
+        let maxPixels = 160
+        let pixelWidth = min(maxPixels, max(1, Int(ceil(sampleRect.width * 2))))
+        let pixelHeight = min(maxPixels, max(1, Int(ceil(sampleRect.height * 2))))
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixelWidth,
+            pixelsHigh: pixelHeight,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ),
+        let bitmapContext = NSGraphicsContext(bitmapImageRep: bitmap)?.cgContext else {
+            return nil
+        }
+
+        let scaleX = CGFloat(pixelWidth) / sampleRect.width
+        let scaleY = CGFloat(pixelHeight) / sampleRect.height
+        bitmapContext.saveGState()
+        bitmapContext.setFillColor(NSColor.white.cgColor)
+        bitmapContext.fill(CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
+        bitmapContext.scaleBy(x: scaleX, y: scaleY)
+        bitmapContext.translateBy(x: -sampleRect.minX, y: -sampleRect.minY)
+        page.draw(with: .mediaBox, to: bitmapContext)
+        bitmapContext.restoreGState()
+
+        var buckets: [Int: ColorBucket] = [:]
+        let sampleStep = max(1, Int(sqrt(Double(pixelWidth * pixelHeight) / 4096.0).rounded(.up)))
+        for y in stride(from: 0, to: pixelHeight, by: sampleStep) {
+            for x in stride(from: 0, to: pixelWidth, by: sampleStep) {
+                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                var red: CGFloat = 0
+                var green: CGFloat = 0
+                var blue: CGFloat = 0
+                var alpha: CGFloat = 0
+                color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                guard alpha > 0.5 else { continue }
+
+                let key = ColorBucket.key(red: red, green: green, blue: blue)
+                buckets[key, default: ColorBucket()].add(red: red, green: green, blue: blue, alpha: alpha)
+            }
+        }
+
+        return buckets.values.max { lhs, rhs in lhs.count < rhs.count }?.color.cgColor
+    }
+}
+
+private struct ReplacementTextLayout {
+    private let attributedString: NSAttributedString
+    private let framesetter: CTFramesetter
+
+    init(operation: PDFTextEditOperation) {
+        let font = NSFont(name: operation.fontName, size: operation.fontSize)
+            ?? NSFont.systemFont(ofSize: operation.fontSize)
+        let ctFont = CTFontCreateWithFontDescriptor(font.fontDescriptor as CTFontDescriptor, font.pointSize, nil)
+        let paragraph = Self.paragraphStyle(
+            alignment: operation.alignment.ctTextAlignment,
+            lineBreakMode: .byWordWrapping
+        )
+        attributedString = NSAttributedString(
+            string: operation.replacementText,
+            attributes: [
+                NSAttributedString.Key(kCTFontAttributeName as String): ctFont,
+                NSAttributedString.Key(kCTForegroundColorAttributeName as String): operation.textColor.nsColor.cgColor,
+                NSAttributedString.Key(kCTParagraphStyleAttributeName as String): paragraph
+            ]
+        )
+        framesetter = CTFramesetterCreateWithAttributedString(attributedString)
+    }
+
+    private static func paragraphStyle(alignment: CTTextAlignment, lineBreakMode: CTLineBreakMode) -> CTParagraphStyle {
+        var alignment = alignment
+        var lineBreakMode = lineBreakMode
+        return withUnsafeBytes(of: &alignment) { alignmentBytes in
+            withUnsafeBytes(of: &lineBreakMode) { lineBreakBytes in
+                let settings = [
+                    CTParagraphStyleSetting(
+                        spec: .alignment,
+                        valueSize: MemoryLayout<CTTextAlignment>.size,
+                        value: alignmentBytes.baseAddress!
+                    ),
+                    CTParagraphStyleSetting(
+                        spec: .lineBreakMode,
+                        valueSize: MemoryLayout<CTLineBreakMode>.size,
+                        value: lineBreakBytes.baseAddress!
+                    )
+                ]
+                return CTParagraphStyleCreate(settings, settings.count)
+            }
+        }
+    }
+
+    func suggestedSize(constrainedTo size: CGSize) -> CGSize {
+        guard attributedString.length > 0 else { return .zero }
+
+        return CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            CFRange(location: 0, length: attributedString.length),
+            nil,
+            size,
+            nil
+        )
+    }
+
+    func draw(in context: CGContext, bounds: CGRect) {
+        guard attributedString.length > 0, bounds.width > 0, bounds.height > 0 else { return }
+
+        let path = CGMutablePath()
+        path.addRect(bounds)
+        let frame = CTFramesetterCreateFrame(
+            framesetter,
+            CFRange(location: 0, length: attributedString.length),
+            path,
+            nil
+        )
+        CTFrameDraw(frame, context)
+    }
+}
+
+private struct ColorBucket {
+    private(set) var count: Int = 0
+    private var red: CGFloat = 0
+    private var green: CGFloat = 0
+    private var blue: CGFloat = 0
+    private var alpha: CGFloat = 0
+
+    static func key(red: CGFloat, green: CGFloat, blue: CGFloat) -> Int {
+        let r = Int((red * 255).rounded()) / 16
+        let g = Int((green * 255).rounded()) / 16
+        let b = Int((blue * 255).rounded()) / 16
+        return (r << 8) | (g << 4) | b
+    }
+
+    mutating func add(red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
+        count += 1
+        self.red += red
+        self.green += green
+        self.blue += blue
+        self.alpha += alpha
+    }
+
+    var color: NSColor {
+        guard count > 0 else { return .white }
+
+        return NSColor(
+            srgbRed: red / CGFloat(count),
+            green: green / CGFloat(count),
+            blue: blue / CGFloat(count),
+            alpha: alpha / CGFloat(count)
+        )
+    }
+}
+
+private extension CodableTextAlignment {
+    var ctTextAlignment: CTTextAlignment {
+        switch self {
+        case .left: return .left
+        case .center: return .center
+        case .right: return .right
+        }
     }
 }

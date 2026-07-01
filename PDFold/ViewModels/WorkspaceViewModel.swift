@@ -419,6 +419,11 @@ final class WorkspaceViewModel {
         var pdfData: [UUID: Data]
     }
 
+    private struct InlineTextEditSnapshot {
+        var editStates: [PageEditState]
+        var pdfData: [UUID: Data]
+    }
+
     private func captureOrderSnapshot() -> OrderSnapshot {
         OrderSnapshot(
             documents: document.workspace.documents,
@@ -454,6 +459,31 @@ final class WorkspaceViewModel {
     private func registerUndo(snapshot: OrderSnapshot, actionName: String) {
         undoManager?.registerUndo(withTarget: self) { vm in
             vm.restore(snapshot)
+        }
+        undoManager?.setActionName(actionName)
+    }
+
+    private func captureInlineTextEditSnapshot() -> InlineTextEditSnapshot {
+        InlineTextEditSnapshot(
+            editStates: document.workspace.pageEditStates,
+            pdfData: currentPDFData()
+        )
+    }
+
+    private func restoreInlineTextEditSnapshot(_ snapshot: InlineTextEditSnapshot, actionName: String) {
+        let inverse = captureInlineTextEditSnapshot()
+        document.workspace.pageEditStates = snapshot.editStates
+        document.memberPDFData = snapshot.pdfData
+        loadedPDFs = document.workspace.documents.compactMap { member in
+            guard let data = snapshot.pdfData[member.id],
+                  let pdf = PDFDocument(data: data) else { return nil }
+            return (member, pdf)
+        }
+        textAnalysisCache.removeAll()
+        rebuild()
+        markWorkspaceModified()
+        undoManager?.registerUndo(withTarget: self) { vm in
+            vm.restoreInlineTextEditSnapshot(inverse, actionName: actionName)
         }
         undoManager?.setActionName(actionName)
     }
@@ -612,6 +642,7 @@ final class WorkspaceViewModel {
                 fontName: existingOp.fontName,
                 fontSize: existingOp.fontSize,
                 textColor: existingOp.textColor,
+                alignment: existingOp.alignment,
                 rotation: 0,
                 baseline: existingOp.editedBounds.minY,
                 confidence: .high
@@ -687,8 +718,7 @@ final class WorkspaceViewModel {
             return false
         }
 
-        let previousPDFData = currentPDFData()
-        let previousEditStates = document.workspace.pageEditStates
+        let previousSnapshot = captureInlineTextEditSnapshot()
         var operation = PDFTextEditOperation(
             pageRefID: pageRef.id,
             sourceBlockID: sourceBlock.id,
@@ -701,27 +731,14 @@ final class WorkspaceViewModel {
             alignment: CodableTextAlignment(alignment)
         )
         // When updating an existing op (same sourceBlockID), preserve the original
-        // sourceBounds so the erase patch targets the true original text location even
-        // when the user re-edits a previously-placed replacement.
+        // sourceBounds so erase targeting and edit identity remain tied to the
+        // original text even when the user re-edits a previously-placed replacement.
         if let stateIndex = document.workspace.pageEditStates.firstIndex(where: { $0.pageRefID == pageRef.id }),
            let existingOp = document.workspace.pageEditStates[stateIndex].operations.first(where: { $0.sourceBlockID == sourceBlock.id }) {
             operation.sourceBounds = existingOp.sourceBounds
         }
-        // Anchor the replacement to the ORIGINAL text's page-space location instead of the
-        // live editor's on-screen box. The editor's textView frame, round-tripped through
-        // PDFView→page coordinate conversion, reliably reports the correct SIZE but a wrong
-        // ORIGIN — it placed replacements ~25pt off (onto the line above), and the erase
-        // patch (sourceBounds ∪ editedBounds) then wiped that neighboring line out, which
-        // is the "ruined formatting" users saw. sourceBounds comes straight from text
-        // analysis in page space, so pin the top-left to it and keep only the width the
-        // caller measured (so a longer replacement still fits); measuredBounds then grows
-        // the box downward from the original line's top edge to fit the new text.
-        operation.editedBounds = CGRect(
-            x: operation.sourceBounds.minX,
-            y: operation.sourceBounds.minY,
-            width: max(operation.sourceBounds.width, editedBounds.width),
-            height: operation.sourceBounds.height
-        )
+        // The live editor has already committed its page-space box. Keep that geometry
+        // intact, then let measuredBounds expand only as needed for longer text.
         operation.editedBounds = PDFEditedPageRenderer.measuredBounds(for: operation)
         if let stateIndex = document.workspace.pageEditStates.firstIndex(where: { $0.pageRefID == pageRef.id }) {
             document.workspace.pageEditStates[stateIndex].operations.removeAll { $0.sourceBlockID == sourceBlock.id }
@@ -731,7 +748,7 @@ final class WorkspaceViewModel {
         }
         guard let operations = document.workspace.pageEditStates.first(where: { $0.pageRefID == pageRef.id })?.operations,
               let regenerated = PDFEditedPageRenderer.regeneratedPage(from: basePage, applying: operations) else {
-            document.workspace.pageEditStates = previousEditStates
+            document.workspace.pageEditStates = previousSnapshot.editStates
             showEditMessage("pdFold could not regenerate that edited page. The original page is unchanged.", isError: true)
             return false
         }
@@ -765,15 +782,7 @@ final class WorkspaceViewModel {
         markWorkspaceModified()
 
         undoManager?.registerUndo(withTarget: self) { vm in
-            vm.document.workspace.pageEditStates = previousEditStates
-            vm.document.memberPDFData = previousPDFData
-            vm.loadedPDFs = vm.document.workspace.documents.compactMap { member in
-                guard let data = previousPDFData[member.id],
-                      let pdf = PDFDocument(data: data) else { return nil }
-                return (member, pdf)
-            }
-            vm.textAnalysisCache.removeAll()
-            vm.rebuild()
+            vm.restoreInlineTextEditSnapshot(previousSnapshot, actionName: "Edit PDF Text")
         }
         undoManager?.setActionName("Edit PDF Text")
         return true
