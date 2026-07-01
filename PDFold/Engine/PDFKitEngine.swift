@@ -17,10 +17,15 @@ final class PDFKitEngine: PDFEngine {
     /// their member PDFDocuments so that annotations written to a page are reflected in
     /// combinedPDF without a rebuild. Do NOT change this sharing intentionally.
     ///
-    /// The export path (`includeBanners: false`) copies each page so that inserting it
-    /// into the export document does not reassign the page's `document` back-pointer
-    /// away from the live combinedPDF, which would silently break annotation serialisation
-    /// and could corrupt dataRepresentation() on the display doc.
+    /// The export path (`includeBanners: false`) must not hand out pages that are still
+    /// live in a member PDFDocument, so the live combinedPDF retains sole ownership.
+    /// It intentionally does NOT use `PDFPage.copy()` to get there: pages produced by
+    /// `PDFEditedPageRenderer` are built from raw CGContext/CGDataConsumer PDF bytes, and
+    /// `PDFPage.copy()` on such a page silently discards all of its content (verified —
+    /// every page in the resulting document serializes as blank, not just the edited one).
+    /// Instead each member is re-serialized and re-decoded into a standalone PDFDocument;
+    /// its pages are then independent objects that were never inserted anywhere else, so
+    /// they can be moved into `combined` directly with no sharing risk and no data loss.
     func concatenate(documents: [(MemberDocument, PDFDocument)], includeBanners: Bool = true) -> PDFDocument {
         let combined = PDFDocument()
         var insertIndex = 0
@@ -35,15 +40,20 @@ final class PDFKitEngine: PDFEngine {
                 combined.insert(banner, at: insertIndex)
                 insertIndex += 1
             }
-            for i in 0..<pdf.pageCount {
-                if let page = pdf.page(at: i) {
-                    // Export: copy so the live combinedPDF retains sole ownership of the page.
-                    // Display: share the live page so annotations persist across rebuilds.
-                    if includeBanners {
+            if includeBanners {
+                // Display: share the live page so annotations persist across rebuilds.
+                for i in 0..<pdf.pageCount {
+                    if let page = pdf.page(at: i) {
                         combined.insert(page, at: insertIndex)
                         insertIndex += 1
-                    } else if let copiedPage = page.copy() as? PDFPage {
-                        combined.insert(copiedPage, at: insertIndex)
+                    }
+                }
+            } else {
+                guard let memberData = PDFSerializer.data(from: pdf),
+                      let freshMemberDoc = PDFDocument(data: memberData) else { continue }
+                for i in 0..<freshMemberDoc.pageCount {
+                    if let page = freshMemberDoc.page(at: i) {
+                        combined.insert(page, at: insertIndex)
                         insertIndex += 1
                     }
                 }

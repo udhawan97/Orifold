@@ -721,8 +721,14 @@ final class WorkspaceViewModel {
             return false
         }
 
+        // Regeneration always rebuilds from the pristine original page (so repeated edits
+        // never stack erase patches on top of each other), which would otherwise silently
+        // drop any highlight/note/ink/text-box annotations already placed on this page.
+        // Carry those over onto the freshly regenerated page.
+        let preservedAnnotations = lookup.pdf.page(at: localIdx)?.annotations ?? []
         lookup.pdf.removePage(at: localIdx)
         lookup.pdf.insert(regenerated, at: localIdx)
+        preservedAnnotations.forEach { regenerated.addAnnotation($0) }
         textAnalysisCache.removeValue(forKey: pageRef.id)
 
         // Serialize the mutated member PDF and load a completely fresh
