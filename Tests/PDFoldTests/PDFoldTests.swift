@@ -1666,6 +1666,38 @@ final class WorkspaceDocumentTests: XCTestCase {
 
         XCTAssertEqual(pdf.pageCount, 1)
         XCTAssertFalse(pdf.page(at: 0)?.annotations.contains { $0.type == "Text" && $0.contents == "Do not inject" } ?? true)
+        XCTAssertTrue(try workspaceCommentMetadataValues(in: data).isEmpty)
+    }
+
+    func testReopeningExportedAnchoredCommentDoesNotDuplicateAsPDFNote() throws {
+        let fixture = try makeMemberWithPDF(name: "Anchored", pageTexts: ["Anchor target"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        document.workspace.comments = [
+            WorkspaceComment(
+                body: "Round trip once.",
+                anchor: WorkspaceCommentAnchor(
+                    pageRefID: fixture.refs[0].id,
+                    rect: CGRect(x: 72, y: 680, width: 120, height: 24),
+                    kind: .text,
+                    snippet: "Anchor target"
+                )
+            )
+        ]
+
+        let exportedData = try XCTUnwrap(document.exportedPDFData(from: try document.snapshot(contentType: .pdf)))
+        let reopened = try WorkspaceDocument(
+            testingFile: FileWrapper(regularFileWithContents: exportedData),
+            contentType: .pdf,
+            filename: "exported.pdf"
+        )
+        let viewModel = WorkspaceViewModel(document: reopened)
+
+        XCTAssertEqual(reopened.workspace.comments.count, 1)
+        XCTAssertEqual(reopened.workspace.comments.first?.body, "Round trip once.")
+        XCTAssertTrue(viewModel.pdfNoteComments.isEmpty)
     }
 
     private func workspaceCommentMetadataValues(in data: Data) throws -> [String] {
@@ -1913,6 +1945,46 @@ final class WorkspaceViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.loadedPDFs[0].1.page(at: 0)?.rotation, 0)
     }
 
+    func testImportingBlocksEditAndPageMutations() throws {
+        let fixture = try makeMemberWithPDF(name: "Importing", pageTexts: ["Blocked edit"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+        let page = try XCTUnwrap(viewModel.loadedPDFs[0].1.page(at: 0))
+        let annotationCount = page.annotations.count
+
+        viewModel.isImporting = true
+
+        viewModel.addTag("blocked")
+        viewModel.addComment("blocked")
+        XCTAssertFalse(viewModel.movePage(fixture.refs[0], toIndex: 0))
+        XCTAssertNil(viewModel.addTextBox(at: CGPoint(x: 100, y: 100), on: page))
+        XCTAssertFalse(viewModel.applyMarkup(.underline, to: try XCTUnwrap(page.selectionForWord(at: CGPoint(x: 75, y: 720)))))
+
+        XCTAssertTrue(viewModel.document.workspace.tags.isEmpty)
+        XCTAssertTrue(viewModel.document.workspace.comments.isEmpty)
+        XCTAssertEqual(page.annotations.count, annotationCount)
+        XCTAssertEqual(viewModel.editingStatus?.message, "Finish importing before making more changes.")
+        XCTAssertEqual(viewModel.editingStatus?.isError, false)
+    }
+
+    func testImportingBlocksExistingUndoMutations() {
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+        viewModel.addTag("review")
+        XCTAssertEqual(viewModel.document.workspace.tags, ["review"])
+
+        viewModel.isImporting = true
+        undoManager.undo()
+
+        XCTAssertEqual(viewModel.document.workspace.tags, ["review"])
+        XCTAssertEqual(viewModel.editingStatus?.message, "Finish importing before making more changes.")
+        XCTAssertEqual(viewModel.editingStatus?.isError, false)
+    }
+
     @MainActor
     func testDebouncedSearchUsesLastRapidQuery() async throws {
         let document = WorkspaceDocument()
@@ -1934,6 +2006,27 @@ final class WorkspaceViewModelTests: XCTestCase {
             }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
+
+        XCTAssertFalse(viewModel.searchResults.isEmpty)
+        XCTAssertTrue(viewModel.searchResults.allSatisfy { $0.string?.localizedCaseInsensitiveContains("target") == true })
+        XCTAssertFalse(viewModel.searchResults.contains { $0.string?.localizedCaseInsensitiveContains("alpha") == true })
+    }
+
+    func testSearchSubmitUsesCurrentQueryInsteadOfStaleDebouncedResults() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "SearchSubmit", pageTexts: ["alpha only", "target only"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+
+        viewModel.searchQuery = "alpha"
+        viewModel.search(query: "alpha")
+        XCTAssertTrue(viewModel.searchResults.contains { $0.string?.localizedCaseInsensitiveContains("alpha") == true })
+
+        viewModel.searchQuery = "target"
+        viewModel.scheduleSearch(query: "target")
+        viewModel.commitSearch()
 
         XCTAssertFalse(viewModel.searchResults.isEmpty)
         XCTAssertTrue(viewModel.searchResults.allSatisfy { $0.string?.localizedCaseInsensitiveContains("target") == true })

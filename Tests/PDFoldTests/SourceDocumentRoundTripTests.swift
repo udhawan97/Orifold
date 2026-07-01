@@ -361,6 +361,63 @@ final class SourceDocumentRoundTripTests: XCTestCase {
         XCTAssertEqual(reopened.sourcePayloads.values.first?.originalData, markdown)
     }
 
+    func testExplicitFlattenedPDFSaveRestoresSourcePayloadForReopen() throws {
+        let markdown = Data("# Heading\n\n- **Bold item**\n".utf8)
+        let viewModel = try makeViewModel(data: markdown, contentType: .markdown, filename: "notes.md")
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pdFold-source-payload-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        XCTAssertTrue(viewModel.saveFlattenedPDF(to: url))
+        let saved = try Data(contentsOf: url)
+        let reopenedPDF = try XCTUnwrap(PDFDocument(data: saved))
+
+        let reopened = WorkspaceDocument()
+        try reopened.importPDFDocumentForTesting(reopenedPDF, filename: "notes.pdf")
+
+        XCTAssertEqual(reopened.sourcePayloads.values.first?.format, .markdown)
+        XCTAssertEqual(reopened.sourcePayloads.values.first?.originalData, markdown)
+    }
+
+    func testEditedFlattenedPDFDoesNotRestoreStaleSourcePayloadForReopen() throws {
+        let markdown = Data("# Heading\n\n- **Bold item**\n".utf8)
+        let viewModel = try makeViewModel(data: markdown, contentType: .markdown, filename: "notes.md")
+        let pageRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        let sourceBlock = EditableTextBlock(
+            pageRefID: pageRef.id,
+            text: "Bold item",
+            bounds: CGRect(x: 70, y: 700, width: 120, height: 24),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 700,
+            confidence: .high
+        )
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: pageRef,
+            sourceBlock: sourceBlock,
+            replacementText: "Edited item",
+            editedBounds: CGRect(x: 70, y: 700, width: 140, height: 28),
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .black,
+            alignment: .left
+        ))
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pdFold-edited-source-payload-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        XCTAssertTrue(viewModel.saveFlattenedPDF(to: url))
+        let reopenedPDF = try XCTUnwrap(PDFDocument(data: try Data(contentsOf: url)))
+
+        let reopened = WorkspaceDocument()
+        try reopened.importPDFDocumentForTesting(reopenedPDF, filename: "notes.pdf")
+
+        XCTAssertTrue(reopened.sourcePayloads.isEmpty)
+    }
+
     func testReopenedMultiSourcePDFDoesNotAttachArbitrarySourcePayload() throws {
         let document = WorkspaceDocument()
         try addImportedDocument(

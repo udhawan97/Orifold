@@ -23,6 +23,7 @@ struct WorkspacePackage {
 final class WorkspaceDocument: ReferenceFileDocument {
     typealias Snapshot = WorkspacePackage
     private static let workspaceCommentsAnnotationKey = PDFAnnotationKey(rawValue: "/PDFoldWorkspaceComments")
+    private static let bakedWorkspaceCommentAnnotationKey = PDFAnnotationKey(rawValue: "/PDFoldBakedWorkspaceComment")
     private static let commentSubjectAnnotationKey = PDFAnnotationKey(rawValue: "/Subj")
     private static let commentAnchorRectAnnotationKey = PDFAnnotationKey(rawValue: "/PDFoldCommentAnchorRect")
 
@@ -172,10 +173,12 @@ final class WorkspaceDocument: ReferenceFileDocument {
         let flat = PDFKitEngine().concatenate(documents: docs, includeBanners: false)
         guard let pdfData = PDFSerializer.data(from: flat) else { return nil }
 
+        let omitsCommentMetadata = snapshot.workspace.signatures.contains { $0.isCryptographic }
+        let sourcePayloads = Self.sourcePayloadsForPDFMetadata(from: snapshot)
         let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
         guard !visualPlacements.isEmpty else {
             let commentData = Self.applyCommentExportAdditions(to: pdfData, workspace: snapshot.workspace) ?? pdfData
-            return Self.embedMetadata(in: commentData, workspace: snapshot.workspace, sourcePayloads: snapshot.sourcePayloads) ?? commentData
+            return Self.embedMetadata(in: commentData, workspace: snapshot.workspace, sourcePayloads: sourcePayloads, omittingComments: omitsCommentMetadata) ?? commentData
         }
 
         do {
@@ -183,13 +186,69 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 snapshot.workspace.pageOrder.firstIndex { $0.id == placement.pageRefId }
             }
             let commentData = Self.applyCommentExportAdditions(to: bakedData, workspace: snapshot.workspace) ?? bakedData
-            return Self.embedMetadata(in: commentData, workspace: snapshot.workspace, sourcePayloads: snapshot.sourcePayloads) ?? commentData
+            return Self.embedMetadata(in: commentData, workspace: snapshot.workspace, sourcePayloads: sourcePayloads, omittingComments: omitsCommentMetadata) ?? commentData
         } catch SigningError.notImplemented {
             let commentData = Self.applyCommentExportAdditions(to: pdfData, workspace: snapshot.workspace) ?? pdfData
-            return Self.embedMetadata(in: commentData, workspace: snapshot.workspace, sourcePayloads: snapshot.sourcePayloads) ?? commentData
+            return Self.embedMetadata(in: commentData, workspace: snapshot.workspace, sourcePayloads: sourcePayloads, omittingComments: omitsCommentMetadata) ?? commentData
         } catch {
             return nil
         }
+    }
+
+    private static func sourcePayloadsForPDFMetadata(from snapshot: WorkspacePackage) -> [UUID: SourceDocumentPayload] {
+        guard snapshot.workspace.documents.count == 1,
+              snapshot.workspace.signatures.isEmpty,
+              snapshot.workspace.pageEditStates.isEmpty,
+              let member = snapshot.workspace.documents.first,
+              let payload = snapshot.sourcePayloads[member.id],
+              snapshot.workspace.pageOrder.map(\.id) == member.pageRefs else {
+            return [:]
+        }
+
+        if let renderedPageCount = payload.renderedPageCount,
+           renderedPageCount != member.pageRefs.count {
+            return [:]
+        }
+
+        for (expectedSourcePageIndex, pageRefID) in member.pageRefs.enumerated() {
+            guard let pageRef = snapshot.workspace.pageOrder.first(where: { $0.id == pageRefID }),
+                  pageRef.memberDocId == member.id,
+                  pageRef.sourcePageIndex == expectedSourcePageIndex,
+                  pageRef.rotation == 0 else {
+                return [:]
+            }
+        }
+
+        guard let data = snapshot.memberPDFData[member.id],
+              let pdf = PDFDocument(data: data),
+              pdf.pageCount == member.pageRefs.count else {
+            return [:]
+        }
+
+        for pageIndex in 0..<pdf.pageCount {
+            guard let page = pdf.page(at: pageIndex) else { return [:] }
+            if page.rotation != 0 { return [:] }
+            if page.annotations.contains(where: isPDFOnlyAnnotation) {
+                return [:]
+            }
+        }
+
+        return [member.id: payload]
+    }
+
+    private static func isPDFOnlyAnnotation(_ annotation: PDFAnnotation) -> Bool {
+        if annotation.type == "FreeText" ||
+            annotation.type == "Ink" ||
+            annotation.type == "Highlight" ||
+            annotation.type == "Underline" ||
+            annotation.type == "StrikeOut" {
+            return true
+        }
+        if let contents = annotation.contents?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !contents.isEmpty {
+            return true
+        }
+        return false
     }
 
     private struct PDFCommentSummaryItem {
@@ -227,6 +286,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             let annotation = PDFAnnotation(bounds: anchor.rect, forType: .text, withProperties: nil)
             annotation.contents = comment.body
             annotation.color = NSColor.systemYellow
+            annotation.setValue(true, forAnnotationKey: bakedWorkspaceCommentAnnotationKey)
             annotation.setValue(NSStringFromRect(anchor.rect), forAnnotationKey: commentAnchorRectAnnotationKey)
             if !comment.tags.isEmpty {
                 annotation.setValue(comment.tags.joined(separator: ", "), forAnnotationKey: commentSubjectAnnotationKey)
@@ -348,6 +408,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
             for annotation in Array(page.annotations) {
+                if annotation.value(forAnnotationKey: bakedWorkspaceCommentAnnotationKey) != nil {
+                    page.removeAnnotation(annotation)
+                    continue
+                }
                 guard let rawValue = annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) as? String else {
                     continue
                 }
@@ -363,15 +427,19 @@ final class WorkspaceDocument: ReferenceFileDocument {
         return metadata
     }
 
-    private static func embedMetadata(in data: Data, workspace: Workspace, sourcePayloads: [UUID: SourceDocumentPayload]) -> Data? {
+    private static func embedMetadata(in data: Data,
+                                      workspace: Workspace,
+                                      sourcePayloads: [UUID: SourceDocumentPayload],
+                                      omittingComments: Bool = false) -> Data? {
         guard let pdf = PDFDocument(data: data) else {
             return data
         }
         let removedExistingMetadata = removeMetadataAnnotations(from: pdf)
-        guard !workspace.comments.isEmpty || !sourcePayloads.isEmpty else {
+        let comments = omittingComments ? [] : workspace.comments
+        guard !comments.isEmpty || !sourcePayloads.isEmpty else {
             return removedExistingMetadata ? PDFSerializer.data(from: pdf) : data
         }
-        guard let metadataData = try? JSONEncoder().encode(PDFoldMetadata(comments: workspace.comments, sourcePayloads: sourcePayloads)),
+        guard let metadataData = try? JSONEncoder().encode(PDFoldMetadata(comments: comments, sourcePayloads: sourcePayloads)),
               let metadataString = String(data: metadataData, encoding: .utf8) else {
             return removedExistingMetadata ? PDFSerializer.data(from: pdf) : data
         }

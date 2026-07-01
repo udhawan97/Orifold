@@ -238,7 +238,7 @@ private struct AnnotationToolPicker: View {
         [.editText],
         [.signature],
         [.none],
-        [.comment],
+        [.comment, .commentRegion],
         [.highlight, .underline, .strikeout, .eraser],
         [.note, .ink]
     ]

@@ -327,6 +327,8 @@ private struct InspectorTextEditor: View {
     var minHeight: CGFloat
     var background: Color
     var font: Font
+    var focusOnAppear = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -336,6 +338,7 @@ private struct InspectorTextEditor: View {
                 .tint(Color.dsAccent)
                 .scrollContentBackground(.hidden)
                 .padding(.vertical, 8)
+                .focused($isFocused)
 
             if text.isEmpty {
                 Text(placeholder)
@@ -352,6 +355,11 @@ private struct InspectorTextEditor: View {
         .overlay {
             RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
                 .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+        .onAppear {
+            if focusOnAppear {
+                isFocused = true
+            }
         }
     }
 }
@@ -441,7 +449,8 @@ private struct WorkspaceCommentRow: View {
                     placeholder: "Edit comment...",
                     minHeight: 76,
                     background: Color.dsSurface,
-                    font: .system(size: commentFontSize(for: comment.style.textSize))
+                    font: .system(size: commentFontSize(for: comment.style.textSize)),
+                    focusOnAppear: viewModel.selectedCommentID == comment.id
                 )
                 .accessibilityLabel("Edit comment")
                 Button {
@@ -481,6 +490,9 @@ private struct WorkspaceCommentRow: View {
         .onAppear {
             if draftBody.isEmpty {
                 draftBody = comment.body
+            }
+            if comment.body.isEmpty && viewModel.selectedCommentID == comment.id {
+                isEditing = true
             }
         }
         .onChange(of: comment.body) { _, newValue in

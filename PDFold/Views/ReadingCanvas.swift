@@ -177,6 +177,9 @@ struct PDFViewRepresentable: NSViewRepresentable {
         view.onSelectionCommitted = { [weak coordinator = context.coordinator] in
             coordinator?.commitCurrentMarkupSelection()
         }
+        view.onCommentMenu = { [weak coordinator = context.coordinator] in
+            coordinator?.createCommentFromCurrentSelection()
+        }
 
         // Click gesture
         let click = NSClickGestureRecognizer(target: context.coordinator,
@@ -197,6 +200,17 @@ struct PDFViewRepresentable: NSViewRepresentable {
         signatureOverlay.autoresizingMask = [.width, .height]
         signatureOverlay.isHidden = true
         view.addSubview(signatureOverlay)
+
+        let markerOverlay = context.coordinator.commentMarkerOverlay
+        markerOverlay.frame = view.bounds
+        markerOverlay.autoresizingMask = [.width, .height]
+        view.addSubview(markerOverlay)
+
+        let regionOverlay = context.coordinator.commentRegionOverlay
+        regionOverlay.frame = view.bounds
+        regionOverlay.autoresizingMask = [.width, .height]
+        regionOverlay.isHidden = true
+        view.addSubview(regionOverlay)
 
         // Notifications
         NotificationCenter.default.addObserver(
@@ -235,6 +249,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         context.coordinator.pdfView = view
         context.coordinator.setupInkOverlay()
         context.coordinator.setupSignatureOverlay()
+        context.coordinator.setupCommentRegionOverlay()
         return view
     }
 
@@ -246,6 +261,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         context.coordinator.inkOverlay.isHidden = (viewModel.currentTool != .ink)
         context.coordinator.inkOverlay.inkColor = viewModel.inkColor
         context.coordinator.refreshSignatureOverlay()
+        context.coordinator.refreshCommentOverlays()
         // Switching to a different tool (e.g. clicking Highlight) without clicking Done
         // first must not silently drop whatever text is still being edited.
         if viewModel.currentTool != .editText {
@@ -260,6 +276,8 @@ struct PDFViewRepresentable: NSViewRepresentable {
         weak var pdfView: PDFoldPDFView?
         let inkOverlay = InkOverlayView()
         let signatureOverlay = SignatureSelectionOverlayView()
+        let commentMarkerOverlay = CommentMarkerOverlayView()
+        let commentRegionOverlay = CommentRegionOverlayView()
         private weak var inlineEditor: InlineTextEditorOverlay?
         private var notePopover: NSPopover?
 
@@ -290,12 +308,24 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 viewModel.applyMarkup(.strikeOut, to: selection)
                 pdfView.clearSelection()
             case .comment:
-                if viewModel.createAnchoredTextComment(from: selection, in: pdfView.document) != nil {
-                    pdfView.clearSelection()
-                }
+                createComment(from: selection)
             default:
                 break
             }
+        }
+
+        func createCommentFromCurrentSelection() {
+            guard let pdfView,
+                  let selection = pdfView.currentSelection,
+                  !(selection.string?.isEmpty ?? true) else { return }
+            createComment(from: selection)
+        }
+
+        private func createComment(from selection: PDFSelection) {
+            guard let pdfView,
+                  viewModel.createAnchoredTextComment(from: selection, in: pdfView.document) != nil else { return }
+            pdfView.clearSelection()
+            refreshCommentOverlays()
         }
 
         @objc func handleClick(_ gesture: NSClickGestureRecognizer) {
@@ -538,10 +568,12 @@ struct PDFViewRepresentable: NSViewRepresentable {
                   let page = pdfView.currentPage else { return }
             viewModel.currentPageNumber = viewModel.workspacePageNumber(for: page, in: doc)
             refreshSignatureOverlay()
+            refreshCommentOverlays()
         }
 
         @objc func pdfViewGeometryChanged(_ notification: Notification) {
             refreshSignatureOverlay()
+            refreshCommentOverlays()
         }
 
         func setupInkOverlay() {
@@ -574,6 +606,15 @@ struct PDFViewRepresentable: NSViewRepresentable {
             }
         }
 
+        func setupCommentRegionOverlay() {
+            commentRegionOverlay.onRegionCommitted = { [weak self] page, rect in
+                guard let self, let pdfView else { return }
+                if self.viewModel.createAnchoredRegionComment(rect: rect, on: page, in: pdfView.document) != nil {
+                    self.refreshCommentOverlays()
+                }
+            }
+        }
+
         func refreshSignatureOverlay() {
             guard let pdfView else { return }
             signatureOverlay.pdfView = pdfView
@@ -583,6 +624,16 @@ struct PDFViewRepresentable: NSViewRepresentable {
             } else {
                 signatureOverlay.clearSelection()
             }
+        }
+
+        func refreshCommentOverlays() {
+            guard let pdfView else { return }
+            commentMarkerOverlay.pdfView = pdfView
+            commentMarkerOverlay.viewModel = viewModel
+            commentMarkerOverlay.reload()
+
+            commentRegionOverlay.pdfView = pdfView
+            commentRegionOverlay.isHidden = viewModel.currentTool != .commentRegion
         }
 
         private func convertOverlayPath(_ path: NSBezierPath, pdfView: PDFView, page: PDFPage) -> NSBezierPath {
@@ -616,6 +667,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
 final class PDFoldPDFView: PDFView {
     var onDeleteKey: (() -> Void)?
     var onSelectionCommitted: (() -> Void)?
+    var onCommentMenu: (() -> Void)?
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -631,6 +683,170 @@ final class PDFoldPDFView: PDFView {
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
         onSelectionCommitted?()
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = super.menu(for: event) ?? NSMenu()
+        guard let selection = currentSelection,
+              !(selection.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) else {
+            return menu
+        }
+        if menu.items.contains(where: { $0.action == #selector(commentFromContextMenu(_:)) }) {
+            return menu
+        }
+        if !menu.items.isEmpty {
+            menu.addItem(.separator())
+        }
+        let item = NSMenuItem(title: "Comment", action: #selector(commentFromContextMenu(_:)), keyEquivalent: "")
+        item.target = self
+        menu.addItem(item)
+        return menu
+    }
+
+    @objc private func commentFromContextMenu(_ sender: Any?) {
+        onCommentMenu?()
+    }
+}
+
+final class CommentMarkerOverlayView: NSView {
+    weak var pdfView: PDFView?
+    var viewModel: WorkspaceViewModel?
+
+    private let markerSize: CGFloat = 20
+
+    override var isFlipped: Bool { false }
+
+    func reload() {
+        subviews.forEach { $0.removeFromSuperview() }
+        guard let pdfView,
+              let viewModel,
+              let document = pdfView.document else { return }
+
+        for comment in viewModel.filteredWorkspaceComments {
+            guard let anchor = comment.anchor,
+                  let pageRef = viewModel.document.workspace.pageOrder.first(where: { $0.id == anchor.pageRefID }),
+                  let pageIndex = viewModel.combinedPageIndex(for: pageRef),
+                  let page = document.page(at: pageIndex) else {
+                continue
+            }
+            let rect = pdfView.convert(anchor.rect, from: page)
+            let marker = CommentMarkerButton(commentID: comment.id)
+            marker.actionHandler = { [weak viewModel] id in
+                guard let comment = viewModel?.document.workspace.comments.first(where: { $0.id == id }) else { return }
+                viewModel?.selectedCommentID = comment.id
+            }
+            marker.frame = CGRect(
+                x: rect.maxX - markerSize * 0.45,
+                y: rect.maxY - markerSize * 0.55,
+                width: markerSize,
+                height: markerSize
+            )
+            addSubview(marker)
+        }
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        for subview in subviews.reversed() {
+            let local = convert(point, to: subview)
+            if let hit = subview.hitTest(local) {
+                return hit
+            }
+        }
+        return nil
+    }
+}
+
+private final class CommentMarkerButton: NSButton {
+    let commentID: UUID
+    var actionHandler: ((UUID) -> Void)?
+
+    init(commentID: UUID) {
+        self.commentID = commentID
+        super.init(frame: .zero)
+        image = NSImage(systemSymbolName: "text.bubble.fill", accessibilityDescription: "Comment")
+        imagePosition = .imageOnly
+        isBordered = false
+        contentTintColor = .dsAccentNS
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.88).cgColor
+        layer?.cornerRadius = 10
+        target = self
+        action = #selector(selectComment)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    @objc private func selectComment() {
+        actionHandler?(commentID)
+    }
+}
+
+final class CommentRegionOverlayView: NSView {
+    weak var pdfView: PDFView?
+    var onRegionCommitted: ((PDFPage, CGRect) -> Void)?
+
+    private var startPoint: CGPoint?
+    private var dragRect: CGRect?
+
+    override var isFlipped: Bool { false }
+
+    override func mouseDown(with event: NSEvent) {
+        startPoint = convert(event.locationInWindow, from: nil)
+        dragRect = nil
+        needsDisplay = true
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let startPoint else { return }
+        let current = convert(event.locationInWindow, from: nil)
+        dragRect = CGRect(
+            x: min(startPoint.x, current.x),
+            y: min(startPoint.y, current.y),
+            width: abs(current.x - startPoint.x),
+            height: abs(current.y - startPoint.y)
+        )
+        needsDisplay = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        defer {
+            startPoint = nil
+            dragRect = nil
+            needsDisplay = true
+        }
+        guard let pdfView,
+              let startPoint,
+              let page = pdfView.page(for: startPoint, nearest: true) else {
+            return
+        }
+        let endPoint = convert(event.locationInWindow, from: nil)
+        let pageStart = pdfView.convert(startPoint, to: page)
+        let pageEnd = pdfView.convert(endPoint, to: page)
+        let rect = CGRect(
+            x: min(pageStart.x, pageEnd.x),
+            y: min(pageStart.y, pageEnd.y),
+            width: abs(pageEnd.x - pageStart.x),
+            height: abs(pageEnd.y - pageStart.y)
+        )
+        guard rect.width >= 8, rect.height >= 8 else { return }
+        onRegionCommitted?(page, rect)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let dragRect else { return }
+        NSColor.dsAccentNS.withAlphaComponent(0.12).setFill()
+        dragRect.fill()
+        NSColor.dsAccentNS.setStroke()
+        let path = NSBezierPath(rect: dragRect)
+        path.lineWidth = 1.5
+        path.setLineDash([5, 3], count: 2, phase: 0)
+        path.stroke()
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        isHidden ? nil : self
     }
 }
 

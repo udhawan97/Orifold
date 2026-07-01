@@ -76,7 +76,7 @@ struct EmptyStateView: View {
                                 isDropTargeted ? Color.dsAccent : Color.dsSeparator,
                                 lineWidth: isDropTargeted ? 1.5 : 1
                             )
-                            .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+                            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isDropTargeted)
                     }
                     .dsElevation()
                 }
@@ -98,7 +98,7 @@ struct EmptyStateView: View {
             RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
                 .strokeBorder(Color.dsAccent.opacity(isDropTargeted ? 0.5 : 0), lineWidth: 1.5)
                 .padding(.dsMD)
-                .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+                .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isDropTargeted)
         }
         .onDrop(of: WorkspaceDocument.importableContentTypes + [.fileURL], isTargeted: $isDropTargeted) { providers in
             resolveImportURLs(from: providers) { urls in

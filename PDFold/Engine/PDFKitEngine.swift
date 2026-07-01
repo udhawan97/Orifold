@@ -265,7 +265,9 @@ enum DocumentImportConverter {
         }
 
         if !detectedType.conforms(to: .html) {
-            return try importedDocument(from: data, contentType: detectedType, filename: filename, baseURL: baseURL)
+            return try await MainActor.run {
+                try importedDocument(from: data, contentType: detectedType, filename: filename, baseURL: baseURL)
+            }
         }
 
         let plainHTML = try decodeText(data)

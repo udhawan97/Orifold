@@ -6,8 +6,13 @@ import AppKit
 struct SidebarView: View {
     var viewModel: WorkspaceViewModel
     var onImportDrop: ([NSItemProvider]) -> Bool = { _ in false }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expandedDocs: Set<UUID> = []
     @State private var isImportDropTargeted = false
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
 
     var body: some View {
         List {
@@ -63,7 +68,7 @@ struct SidebarView: View {
             }
             .padding(.dsSM)
             .allowsHitTesting(false)
-            .animation(.easeInOut(duration: 0.15), value: isImportDropTargeted)
+            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isImportDropTargeted)
     }
 }
 
@@ -354,7 +359,7 @@ struct ThumbnailCell: View {
         }
         .scaleEffect(shouldReduceMotion ? 1.0 : (isSelected ? 1.03 : 1.0))
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.12), value: isSelected)
-        .animation(.easeInOut(duration: 0.10), value: isHovered)
+        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.10), value: isHovered)
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
         .onTapGesture { viewModel.selectPage(pageRef) }

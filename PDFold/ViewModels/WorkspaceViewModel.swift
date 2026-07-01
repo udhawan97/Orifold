@@ -205,6 +205,7 @@ final class WorkspaceViewModel {
     @ObservationIgnored private var searchNotificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var activeSearchID = UUID()
     @ObservationIgnored private var pendingSearchResults: [PDFSelection] = []
+    @ObservationIgnored private var searchResultsQuery = ""
     /// Raw PDF bytes captured ONCE when each member is first loaded or attached.
     /// Never mutated during editing — used as the immutable base for page regeneration
     /// so multiple edits on the same page always start from the original content.
@@ -403,7 +404,7 @@ final class WorkspaceViewModel {
     }
 
     func addFile(from url: URL) {
-        guard !isImporting else { return }
+        guard canPerformMutatingAction() else { return }
         addFileSynchronously(from: url)
     }
 
@@ -503,6 +504,7 @@ final class WorkspaceViewModel {
     }
 
     func unlock(pdf: PDFDocument, password: String, url: URL) -> Bool {
+        guard canPerformMutatingAction() else { return false }
         guard pdf.unlock(withPassword: password) else { return false }
         smokeValidatePDFData(pdf.dataRepresentation(), password: password)
         attachPDF(pdf, from: url, sourcePayload: nil)
@@ -558,6 +560,7 @@ final class WorkspaceViewModel {
         // PDFSelections are bound to the old document; drop them so search navigation
         // doesn't jump to pages in a detached doc.
         searchResults = []
+        searchResultsQuery = ""
         searchResultIndex = -1
     }
 
@@ -696,6 +699,7 @@ final class WorkspaceViewModel {
 
     private func registerUndo(snapshot: OrderSnapshot, actionName: String) {
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.restore(snapshot)
         }
         undoManager?.setActionName(actionName)
@@ -723,6 +727,7 @@ final class WorkspaceViewModel {
         rebuild()
         markWorkspaceModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.restoreInlineTextEditSnapshot(inverse, actionName: actionName)
         }
         undoManager?.setActionName(actionName)
@@ -773,6 +778,7 @@ final class WorkspaceViewModel {
     // MARK: - Workspace metadata
 
     func addTag(_ rawValue: String) {
+        guard canPerformMutatingAction() else { return }
         let tag = normalizedTag(rawValue)
         guard !tag.isEmpty,
               !document.workspace.tags.contains(where: { $0.localizedCaseInsensitiveCompare(tag) == .orderedSame }) else {
@@ -781,6 +787,7 @@ final class WorkspaceViewModel {
         document.workspace.tags.append(tag)
         markWorkspaceModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.removeTag(tag)
         }
         undoManager?.setActionName("Add Tag")
@@ -788,10 +795,12 @@ final class WorkspaceViewModel {
     }
 
     func removeTag(_ tag: String) {
+        guard canPerformMutatingAction() else { return }
         guard let index = document.workspace.tags.firstIndex(of: tag) else { return }
         let removed = document.workspace.tags.remove(at: index)
         markWorkspaceModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.document.workspace.tags.insert(removed, at: min(index, vm.document.workspace.tags.count))
             vm.markWorkspaceModified()
         }
@@ -799,12 +808,14 @@ final class WorkspaceViewModel {
     }
 
     func addComment(_ rawBody: String) {
+        guard canPerformMutatingAction() else { return }
         let body = rawBody.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
         let comment = WorkspaceComment(body: body)
         document.workspace.comments.insert(comment, at: 0)
         markWorkspaceModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.removeComment(comment)
         }
         undoManager?.setActionName("Add Comment")
@@ -812,7 +823,8 @@ final class WorkspaceViewModel {
     }
 
     @discardableResult
-    func createAnchoredComment(body rawBody: String = "", anchor: WorkspaceCommentAnchor) -> UUID {
+    func createAnchoredComment(body rawBody: String = "", anchor: WorkspaceCommentAnchor) -> UUID? {
+        guard canPerformMutatingAction() else { return nil }
         let comment = WorkspaceComment(
             body: rawBody.trimmingCharacters(in: .whitespacesAndNewlines),
             anchor: anchor,
@@ -822,6 +834,7 @@ final class WorkspaceViewModel {
         selectedCommentID = comment.id
         markWorkspaceModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.removeComment(comment)
         }
         undoManager?.setActionName("Add Comment")
@@ -835,11 +848,27 @@ final class WorkspaceViewModel {
         return createAnchoredComment(anchor: anchor)
     }
 
+    @discardableResult
+    func createAnchoredRegionComment(rect: CGRect, on page: PDFPage, in pdfDocument: PDFDocument?) -> UUID? {
+        guard let ref = pageRef(for: page, in: pdfDocument) else { return nil }
+        let anchorRect = rect.standardized
+        guard anchorRect.width >= 8, anchorRect.height >= 8 else { return nil }
+        let anchor = WorkspaceCommentAnchor(
+            pageRefID: ref.id,
+            rect: anchorRect,
+            kind: .region,
+            snippet: nil
+        )
+        return createAnchoredComment(anchor: anchor)
+    }
+
     func removeComment(_ comment: WorkspaceComment) {
+        guard canPerformMutatingAction() else { return }
         guard let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }) else { return }
         let removed = document.workspace.comments.remove(at: index)
         markWorkspaceModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.document.workspace.comments.insert(removed, at: min(index, vm.document.workspace.comments.count))
             vm.markWorkspaceModified()
         }
@@ -847,6 +876,7 @@ final class WorkspaceViewModel {
     }
 
     func updateCommentBody(_ comment: WorkspaceComment, body rawBody: String) {
+        guard canPerformMutatingAction() else { return }
         let body = rawBody.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty,
               let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
@@ -859,6 +889,7 @@ final class WorkspaceViewModel {
     }
 
     func updateCommentStyle(_ comment: WorkspaceComment, style: WorkspaceCommentStyle) {
+        guard canPerformMutatingAction() else { return }
         guard let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
               document.workspace.comments[index].style != style else {
             return
@@ -869,6 +900,7 @@ final class WorkspaceViewModel {
     }
 
     func updateCommentResolved(_ comment: WorkspaceComment, isResolved: Bool) {
+        guard canPerformMutatingAction() else { return }
         guard let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
               document.workspace.comments[index].isResolved != isResolved else {
             return
@@ -879,6 +911,7 @@ final class WorkspaceViewModel {
     }
 
     func addTag(_ rawTag: String, to comment: WorkspaceComment) {
+        guard canPerformMutatingAction() else { return }
         let tag = normalizedTag(rawTag)
         guard !tag.isEmpty,
               let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
@@ -892,6 +925,7 @@ final class WorkspaceViewModel {
     }
 
     func removeTag(_ tag: String, from comment: WorkspaceComment) {
+        guard canPerformMutatingAction() else { return }
         guard let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
               document.workspace.comments[index].tags.contains(tag) else {
             return
@@ -907,6 +941,7 @@ final class WorkspaceViewModel {
         document.workspace.comments[index] = updated
         markWorkspaceModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.restoreComment(previous, actionName: actionName)
         }
         undoManager?.setActionName(actionName)
@@ -918,6 +953,7 @@ final class WorkspaceViewModel {
         document.workspace.comments[index] = comment
         markWorkspaceModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.restoreComment(inverse, actionName: actionName)
         }
         undoManager?.setActionName(actionName)
@@ -1020,6 +1056,7 @@ final class WorkspaceViewModel {
     }
 
     func removeNoteComment(_ note: PDFNoteComment) {
+        guard canPerformMutatingAction() else { return }
         guard let page = note.annotation.page else { return }
         page.removeAnnotation(note.annotation)
         if selectedAnnotation === note.annotation {
@@ -1027,6 +1064,7 @@ final class WorkspaceViewModel {
         }
         markAnnotationsModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             page.addAnnotation(note.annotation)
             vm.markAnnotationsModified()
         }
@@ -1049,6 +1087,10 @@ final class WorkspaceViewModel {
             return false
         }
         return true
+    }
+
+    private func canPerformUndoMutation() -> Bool {
+        canPerformMutatingAction()
     }
 
     func markAnnotationsModified(warnAboutSignatureInvalidation: Bool = true) {
@@ -1084,10 +1126,12 @@ final class WorkspaceViewModel {
     }
 
     func beginDraggingPage(_ ref: PageRef) {
+        guard canPerformMutatingAction() else { return }
         draggedPageRefID = ref.id
     }
 
     func moveDraggedPage(to targetRef: PageRef) -> Bool {
+        guard canPerformMutatingAction() else { return false }
         guard let draggedPageRefID,
               draggedPageRefID != targetRef.id,
               let sourceRef = document.workspace.pageOrder.first(where: { $0.id == draggedPageRefID }),
@@ -1200,6 +1244,7 @@ final class WorkspaceViewModel {
         didManuallyResizeWidth: Bool = false,
         didManuallyResizeHeight: Bool = false
     ) -> Bool {
+        guard canPerformMutatingAction() else { return false }
         guard let lookup = memberPDF(for: pageRef),
               let localIdx = localIndex(ref: pageRef, memberIndex: lookup.documentIndex),
               lookup.pdf.page(at: localIdx) != nil else {
@@ -1298,6 +1343,7 @@ final class WorkspaceViewModel {
         warnIfEditingWouldInvalidateSignatures()
 
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.restoreInlineTextEditSnapshot(previousSnapshot, actionName: "Edit PDF Text")
         }
         undoManager?.setActionName("Edit PDF Text")
@@ -1307,6 +1353,7 @@ final class WorkspaceViewModel {
 
     @discardableResult
     func applyHighlight(to selection: PDFSelection) -> Bool {
+        guard canPerformMutatingAction() else { return false }
         var didAddAnnotation = false
         selection.selectionsByLine().forEach { line in
             guard let page = line.pages.first else { return }
@@ -1315,7 +1362,10 @@ final class WorkspaceViewModel {
             let ann = PDFAnnotation(bounds: bounds, forType: .highlight, withProperties: nil)
             ann.color = annotationColor.withAlphaComponent(0.4)
             page.addAnnotation(ann)
-            undoManager?.registerUndo(withTarget: self) { _ in page.removeAnnotation(ann) }
+            undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation() else { return }
+                page.removeAnnotation(ann)
+            }
             didAddAnnotation = true
         }
         if didAddAnnotation {
@@ -1328,6 +1378,9 @@ final class WorkspaceViewModel {
 
     @discardableResult
     func addNote(at pagePoint: CGPoint, on page: PDFPage) -> PDFAnnotation {
+        guard canPerformMutatingAction() else {
+            return PDFAnnotation(bounds: .zero, forType: .text, withProperties: nil)
+        }
         let size: CGFloat = 24
         let bounds = CGRect(x: pagePoint.x - size / 2, y: pagePoint.y - size / 2,
                             width: size, height: size)
@@ -1337,7 +1390,10 @@ final class WorkspaceViewModel {
         ann.setValue(true, forAnnotationKey: Self.draftTextAnnotationKey)
         page.addAnnotation(ann)
         markAnnotationsModified()
-        undoManager?.registerUndo(withTarget: self) { _ in page.removeAnnotation(ann) }
+        undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
+            page.removeAnnotation(ann)
+        }
         undoManager?.setActionName("Add Note")
         PetBuddyHook.trigger(.note)
         return ann
@@ -1345,6 +1401,7 @@ final class WorkspaceViewModel {
 
     @discardableResult
     func addTextBox(at pagePoint: CGPoint, on page: PDFPage) -> PDFAnnotation? {
+        guard canPerformMutatingAction() else { return nil }
         let bounds = PDFEditingSupport.textBoxBounds(
             centeredAt: pagePoint,
             pageBounds: page.bounds(for: .cropBox)
@@ -1365,13 +1422,17 @@ final class WorkspaceViewModel {
         ann.border = border
         page.addAnnotation(ann)
         markAnnotationsModified()
-        undoManager?.registerUndo(withTarget: self) { _ in page.removeAnnotation(ann) }
+        undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
+            page.removeAnnotation(ann)
+        }
         undoManager?.setActionName("Add Text Box")
         return ann
     }
 
     @discardableResult
     func addEditableTextOverlay(from selection: PDFSelection, on page: PDFPage) -> PDFAnnotation? {
+        guard canPerformMutatingAction() else { return nil }
         guard let plan = PDFEditingSupport.replacementPlan(
             text: selection.string,
             selectionBounds: selection.bounds(for: page),
@@ -1408,7 +1469,10 @@ final class WorkspaceViewModel {
         ann.border = border
         page.addAnnotation(ann)
         markAnnotationsModified()
-        undoManager?.registerUndo(withTarget: self) { _ in page.removeAnnotation(ann) }
+        undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
+            page.removeAnnotation(ann)
+        }
         undoManager?.setActionName("Replace PDF Text")
         return ann
     }
@@ -1422,6 +1486,7 @@ final class WorkspaceViewModel {
     }
 
     func addInkStroke(path: NSBezierPath, on page: PDFPage) {
+        guard canPerformMutatingAction() else { return }
         guard path.elementCount > 1, !path.bounds.isEmpty else { return }
         let bounds = path.bounds.insetBy(dx: -2, dy: -2)
         let localPath = inkPath(path, offsetBy: CGSize(width: -bounds.minX, height: -bounds.minY))
@@ -1432,7 +1497,10 @@ final class WorkspaceViewModel {
         ann.add(localPath)
         page.addAnnotation(ann)
         markAnnotationsModified()
-        undoManager?.registerUndo(withTarget: self) { _ in page.removeAnnotation(ann) }
+        undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
+            page.removeAnnotation(ann)
+        }
         undoManager?.setActionName("Ink Stroke")
         PetBuddyHook.trigger(.ink)
     }
@@ -1475,6 +1543,7 @@ final class WorkspaceViewModel {
     }
 
     func deleteSelectedAnnotation() {
+        guard canPerformMutatingAction() else { return }
         guard let ann = selectedAnnotation, let page = ann.page else {
             showEditWarning(.annotationCreationFailed)
             return
@@ -1489,6 +1558,7 @@ final class WorkspaceViewModel {
         selectedAnnotation = nil
         markAnnotationsModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             page.addAnnotation(ann)
             if let removedSignature {
                 vm.document.workspace.signatures.append(removedSignature)
@@ -1503,6 +1573,7 @@ final class WorkspaceViewModel {
 
     @discardableResult
     func eraseMarkupAnnotation(at pagePoint: CGPoint, on page: PDFPage) -> Bool {
+        guard canPerformMutatingAction() else { return false }
         guard let ann = erasableMarkupAnnotation(at: pagePoint, on: page) else {
             showEditMessage("Click a highlight, underline, or strikeout to erase it.", isError: true)
             return false
@@ -1513,6 +1584,7 @@ final class WorkspaceViewModel {
         }
         markAnnotationsModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             page.addAnnotation(ann)
             vm.selectedAnnotation = ann
         }
@@ -1607,6 +1679,7 @@ final class WorkspaceViewModel {
     func beginVisualSignaturePlacement(imageData: Data,
                                        kind: SignaturePlacement.Kind,
                                        signerName: String?) {
+        guard canPerformMutatingAction() else { return }
         pendingSignatureData = imageData
         pendingSignatureOptions = PendingSignaturePlacementOptions(
             kind: kind,
@@ -1630,6 +1703,7 @@ final class WorkspaceViewModel {
                                               contactInfo: String?,
                                               timestampRequested: Bool,
                                               identity: (any SigningIdentity)? = nil) {
+        guard canPerformMutatingAction() else { return }
         pendingSignatureData = imageData
         pendingSigningIdentity = identity
         pendingSignatureOptions = PendingSignaturePlacementOptions(
@@ -1662,6 +1736,7 @@ final class WorkspaceViewModel {
 
     @discardableResult
     func placeSignature(imageData: Data, at pagePoint: CGPoint, on page: PDFPage, size: CGSize = CGSize(width: 120, height: 48)) -> PDFAnnotation? {
+        guard canPerformMutatingAction() else { return nil }
         guard let refID = pageRefID(for: page) else { return nil }
         let options = pendingSignatureOptions ?? .visualTyped
         let identity = pendingSigningIdentity
@@ -1698,6 +1773,7 @@ final class WorkspaceViewModel {
             selectedAnnotation = ann
             let placementID = placement.id
             undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation() else { return }
                 page.removeAnnotation(ann)
                 vm.document.workspace.signatures.removeAll { $0.id == placementID }
                 vm.signingIdentitiesByPlacementID.removeValue(forKey: placementID)
@@ -1732,6 +1808,7 @@ final class WorkspaceViewModel {
     func updateSignaturePlacement(for annotation: PDFAnnotation,
                                   to proposedBounds: CGRect,
                                   registerUndoFrom oldBounds: CGRect? = nil) -> CGRect {
+        guard canPerformMutatingAction() else { return annotation.bounds }
         guard let page = annotation.page,
               let placementID = signaturePlacementID(for: annotation),
               let index = document.workspace.signatures.firstIndex(where: { $0.id == placementID }) else {
@@ -1754,6 +1831,7 @@ final class WorkspaceViewModel {
 
         if shouldRegisterUndo {
             undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation() else { return }
                 vm.updateSignaturePlacement(for: annotation, to: previousBounds, registerUndoFrom: bounds)
             }
             undoManager?.setActionName("Move Signature")
@@ -1782,6 +1860,7 @@ final class WorkspaceViewModel {
     }
 
     func signAndExportCryptographicPDF(timestampRequested: Bool) {
+        guard canPerformMutatingAction() else { return }
         guard let placement = document.workspace.signatures.last(where: { $0.isCryptographic }) else {
             showEditMessage("Place a certificate signature before signing.", isError: true)
             return
@@ -1804,7 +1883,11 @@ final class WorkspaceViewModel {
             return
         }
 
-        let snapshot = WorkspacePackage(workspace: document.workspace, memberPDFData: currentPDFData())
+        let snapshot = WorkspacePackage(
+            workspace: document.workspace,
+            memberPDFData: currentPDFData(),
+            sourcePayloads: document.sourcePayloads
+        )
         guard let pdfData = document.exportedPDFData(from: snapshot) else {
             exportError = ExportError(message: "pdFold could not prepare the PDF for signing.")
             return
@@ -1975,9 +2058,15 @@ final class WorkspaceViewModel {
     func scheduleSearch(query: String) {
         searchDebounceTask?.cancel()
         combinedPDF.cancelFindString()
+        removeSearchObservers()
+
+        if query != searchResultsQuery {
+            finishSearch(with: [], query: query, autoJump: false)
+        }
 
         guard !query.isEmpty else {
-            finishSearch(with: [], autoJump: false)
+            activeSearchID = UUID()
+            finishSearch(with: [], query: "", autoJump: false)
             return
         }
 
@@ -1998,12 +2087,15 @@ final class WorkspaceViewModel {
 
     func commitSearch() {
         searchDebounceTask?.cancel()
+        combinedPDF.cancelFindString()
+        removeSearchObservers()
         guard !searchQuery.isEmpty else {
-            finishSearch(with: [], autoJump: false)
+            activeSearchID = UUID()
+            finishSearch(with: [], query: "", autoJump: false)
             return
         }
 
-        if !searchResults.isEmpty {
+        if searchResultsQuery == searchQuery, !searchResults.isEmpty {
             if searchResultIndex < 0 { searchResultIndex = 0 }
             jumpToSearchResult(searchResultIndex)
         } else {
@@ -2015,10 +2107,11 @@ final class WorkspaceViewModel {
         removeSearchObservers()
         searchResults = []
         searchResultIndex = -1
+        searchResultsQuery = query
         guard !query.isEmpty else { return }
         combinedPDF.cancelFindString()
         let results = combinedPDF.findString(query, withOptions: .caseInsensitive)
-        finishSearch(with: results, autoJump: autoJump)
+        finishSearch(with: results, query: query, autoJump: autoJump)
     }
 
     private func beginAsyncSearch(query: String, searchID: UUID, autoJump: Bool) {
@@ -2049,14 +2142,15 @@ final class WorkspaceViewModel {
                   self.searchQuery == query else { return }
             let results = self.pendingSearchResults
             self.removeSearchObservers()
-            self.finishSearch(with: results, autoJump: autoJump)
+            self.finishSearch(with: results, query: query, autoJump: autoJump)
         }
         searchNotificationTokens = [matchToken, endToken]
         combinedPDF.cancelFindString()
         combinedPDF.beginFindString(query, withOptions: .caseInsensitive)
     }
 
-    private func finishSearch(with results: [PDFSelection], autoJump: Bool) {
+    private func finishSearch(with results: [PDFSelection], query: String, autoJump: Bool) {
+        searchResultsQuery = query
         searchResults = results
         searchResultIndex = -1
         if !results.isEmpty {
@@ -2151,7 +2245,11 @@ final class WorkspaceViewModel {
     }
 
     private func saveFlattenedPDF(to url: URL?, triggerPet: Bool) -> Bool {
-        let snapshot = WorkspacePackage(workspace: document.workspace, memberPDFData: currentPDFData())
+        let snapshot = WorkspacePackage(
+            workspace: document.workspace,
+            memberPDFData: currentPDFData(),
+            sourcePayloads: document.sourcePayloads
+        )
         guard let pdfData = document.exportedPDFData(from: snapshot) else {
             exportError = ExportError(message: "pdFold could not serialize the PDF for saving. Try exporting individual documents first.")
             return false
@@ -2225,7 +2323,11 @@ final class WorkspaceViewModel {
     }
 
     private func exportPageImages(as format: WorkspaceExportFormat) -> Bool {
-        let snapshot = WorkspacePackage(workspace: document.workspace, memberPDFData: currentPDFData())
+        let snapshot = WorkspacePackage(
+            workspace: document.workspace,
+            memberPDFData: currentPDFData(),
+            sourcePayloads: document.sourcePayloads
+        )
         guard let exportData = document.exportedPDFData(from: snapshot),
               let exportDoc = PDFDocument(data: exportData) else {
             exportError = ExportError(message: "pdFold could not prepare pages for image export.")
@@ -3111,6 +3213,7 @@ final class WorkspaceViewModel {
         rebuild()
         markWorkspaceModified()
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.setRotation(for: ref, to: before, actionName: actionName)
         }
         undoManager?.setActionName(actionName)
@@ -3142,6 +3245,7 @@ final class WorkspaceViewModel {
         rebuild()
 
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.restore(snapshot)
         }
         undoManager?.setActionName("Delete Page")
@@ -3176,6 +3280,7 @@ final class WorkspaceViewModel {
         rebuild()
 
         undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
             vm.restore(snapshot)
         }
         undoManager?.setActionName("Move Page")
@@ -3186,6 +3291,7 @@ final class WorkspaceViewModel {
 
     @discardableResult
     func applyMarkup(_ type: PDFAnnotationSubtype, to selection: PDFSelection) -> Bool {
+        guard canPerformMutatingAction() else { return false }
         var didAddAnnotation = false
         selection.selectionsByLine().forEach { line in
             guard let page = line.pages.first else { return }
@@ -3194,7 +3300,10 @@ final class WorkspaceViewModel {
             let ann = PDFAnnotation(bounds: bounds, forType: type, withProperties: nil)
             ann.color = annotationColor.withAlphaComponent(0.8)
             page.addAnnotation(ann)
-            undoManager?.registerUndo(withTarget: self) { _ in page.removeAnnotation(ann) }
+            undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation() else { return }
+                page.removeAnnotation(ann)
+            }
             didAddAnnotation = true
         }
         if didAddAnnotation {
