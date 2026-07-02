@@ -28,8 +28,8 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
         case .text: return "Text (.txt)"
         case .markdown: return "Markdown (.md)"
         case .html: return "HTML (.html)"
-        case .png: return "PNG Images (.png)"
-        case .jpeg: return "JPEG Images (.jpg)"
+        case .png: return "PNG images (.png)"
+        case .jpeg: return "JPEG images (.jpg)"
         }
     }
 
@@ -148,6 +148,73 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
 }
 
 @Observable
+final class WorkspaceOperationProgress {
+    var title = ""
+    var detail = ""
+    var fraction: Double = 0
+    var isActive = false
+    var isCancellable = false
+
+    func start(title: String, detail: String = "", isCancellable: Bool = true) {
+        self.title = title
+        self.detail = detail
+        self.fraction = 0
+        self.isActive = true
+        self.isCancellable = isCancellable
+    }
+
+    func update(fraction: Double, detail: String? = nil) {
+        self.fraction = min(max(fraction, 0), 1)
+        if let detail {
+            self.detail = detail
+        }
+    }
+
+    func finish() {
+        title = ""
+        detail = ""
+        fraction = 0
+        isActive = false
+        isCancellable = false
+    }
+}
+
+private final class OperationCancellationToken: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+
+    var isCancelled: Bool {
+        lock.lock()
+        let value = cancelled
+        lock.unlock()
+        return value
+    }
+}
+
+private final class ProgressUpdateThrottle: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastUpdate = Date.distantPast
+    private let interval: TimeInterval = 0.1
+
+    func shouldEmit(_ fraction: Double) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        let now = Date()
+        guard fraction >= 1 || now.timeIntervalSince(lastUpdate) >= interval else {
+            return false
+        }
+        lastUpdate = now
+        return true
+    }
+}
+
+@Observable
 final class WorkspaceViewModel {
     var document: WorkspaceDocument
     var combinedPDF: PDFDocument = PDFDocument()
@@ -184,6 +251,11 @@ final class WorkspaceViewModel {
     var selectedCommentID: UUID? = nil
     var commentFilter: CommentFilter = .open
     var editingStatus: EditingStatus? = nil
+    var operationProgress = WorkspaceOperationProgress()
+    var formSummary = PDFFormSummary()
+    var highlightFormFields = false
+    var selectedFormFieldIndex: Int? = nil
+    var scannedPageCount = 0
 
     // MARK: - Annotation colors (curated palette)
     var annotationColor: NSColor = .dsAnnotationYellow   // highlight, note, underline, strikeout
@@ -214,6 +286,12 @@ final class WorkspaceViewModel {
     private var pendingSigningIdentity: (any SigningIdentity)?
     private var signingIdentitiesByPlacementID: [UUID: any SigningIdentity] = [:]
     @ObservationIgnored private var searchDebounceTask: Task<Void, Never>?
+    @ObservationIgnored private var activeCompressionTask: Task<Void, Never>?
+    @ObservationIgnored private var activeCompressionCancellation: OperationCancellationToken?
+    @ObservationIgnored private var activeCompressionID: UUID?
+    @ObservationIgnored private var activeOCRTask: Task<Void, Never>?
+    @ObservationIgnored private var activeOCRCancellation: OperationCancellationToken?
+    @ObservationIgnored private var activeOCRID: UUID?
     @ObservationIgnored private var searchNotificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var activeSearchID = UUID()
     @ObservationIgnored private var pendingSearchResults: [PDFSelection] = []
@@ -389,19 +467,7 @@ final class WorkspaceViewModel {
         // Snapshot hook: bake live annotation state before each save
         document.currentPDFDataProvider = { [weak self] in
             guard let self else { return [:] }
-            var result: [UUID: Data] = [:]
-            for (member, pdf) in self.loadedPDFs {
-                if let data = PDFSerializer.data(from: pdf) {
-                    result[member.id] = data
-                } else if let existingData = self.document.memberPDFData[member.id] {
-                    // Surface a blocking, actionable error — do not silently drop edits.
-                    self.exportError = ExportError(
-                        message: "pdFold couldn\u{2019}t serialize \u{201C}\(member.displayName)\u{201D}; your edits to it weren\u{2019}t saved. Export a PDF to preserve your work."
-                    )
-                    result[member.id] = existingData
-                }
-            }
-            return result
+            return try self.currentPDFDataForExport()
         }
 
         if !loadedPDFs.isEmpty { rebuild() }
@@ -409,6 +475,8 @@ final class WorkspaceViewModel {
 
     deinit {
         cancelPendingSearch()
+        activeCompressionTask?.cancel()
+        activeOCRTask?.cancel()
     }
 
     // MARK: - Import
@@ -583,6 +651,8 @@ final class WorkspaceViewModel {
         cancelPendingSearch()
         combinedPDF = engine.concatenate(documents: loadedPDFs, includeBanners: true)
         pageCount = document.workspace.pageOrder.count
+        refreshFormSummary()
+        refreshScannedPageSummary()
         // PDFSelections are bound to the old document; drop them so search navigation
         // doesn't jump to pages in a detached doc.
         searchResults = []
@@ -665,7 +735,7 @@ final class WorkspaceViewModel {
         registerUndo(snapshot: snapshot, actionName: "Remove Document")
     }
 
-    private struct OrderSnapshot {
+    private struct OrderSnapshot: @unchecked Sendable {
         var documents: [MemberDocument]
         var pageOrder: [PageRef]
         var comments: [WorkspaceComment]
@@ -723,6 +793,18 @@ final class WorkspaceViewModel {
             } else if let existingData = document.memberPDFData[member.id] {
                 result[member.id] = existingData
             }
+        }
+        return result
+    }
+
+    private func currentPDFDataForExport() throws -> [UUID: Data] {
+        var result: [UUID: Data] = [:]
+        for (member, pdf) in loadedPDFs {
+            guard let data = PDFSerializer.data(from: pdf),
+                  PDFDocument(data: data)?.pageCount == pdf.pageCount else {
+                throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
+            }
+            result[member.id] = data
         }
         return result
     }
@@ -1082,9 +1164,23 @@ final class WorkspaceViewModel {
 
     private func removeDecorations(forRemovedPageRefIDs removedPageRefIDs: Set<UUID>) {
         guard !removedPageRefIDs.isEmpty else { return }
+        let removedStampIDs = Set(
+            document.workspace.decorations.compactMap { decoration -> UUID? in
+                guard decoration.kind == .stamp,
+                      let pageRefID = decoration.pageRefID,
+                      removedPageRefIDs.contains(pageRefID) else {
+                    return nil
+                }
+                return decoration.id
+            }
+        )
         document.workspace.decorations.removeAll { decoration in
             guard let pageRefID = decoration.pageRefID else { return false }
             return removedPageRefIDs.contains(pageRefID)
+        }
+        if let selectedStampDecorationID,
+           removedStampIDs.contains(selectedStampDecorationID) {
+            self.selectedStampDecorationID = nil
         }
     }
 
@@ -1124,6 +1220,14 @@ final class WorkspaceViewModel {
             editingStatus = .warning("Finish importing before making more changes.")
             return false
         }
+        guard activeCompressionTask == nil else {
+            editingStatus = .warning("Finish reducing file size before making more changes.")
+            return false
+        }
+        guard activeOCRTask == nil else {
+            editingStatus = .warning("Finish making this document searchable before making more changes.")
+            return false
+        }
         return true
     }
 
@@ -1136,6 +1240,215 @@ final class WorkspaceViewModel {
         if warnAboutSignatureInvalidation {
             warnIfEditingWouldInvalidateSignatures()
         }
+    }
+
+    // MARK: - Forms
+
+    var hasFillableFormFields: Bool {
+        formSummary.containsForm
+    }
+
+    var hasFormNotice: Bool {
+        formSummary.containsForm || formSummary.hasUnsupportedDynamicFeatures
+    }
+
+    var canvasBannerInset: CGFloat {
+        var inset: CGFloat = 0
+        if hasScannedPages { inset += 48 }
+        if hasFormNotice { inset += 48 }
+        return inset
+    }
+
+    private func refreshFormSummary() {
+        formSummary = PDFFormSupport.scan(documents: loadedPDFs, pageOrder: document.workspace.pageOrder)
+        if !formSummary.containsForm {
+            selectedFormFieldIndex = nil
+            highlightFormFields = false
+        } else if let selectedFormFieldIndex,
+                  !formSummary.fields.indices.contains(selectedFormFieldIndex) {
+            self.selectedFormFieldIndex = nil
+        }
+    }
+
+    var hasScannedPages: Bool {
+        scannedPageCount > 0
+    }
+
+    private func refreshScannedPageSummary() {
+        var count = 0
+        for (_, pdf) in loadedPDFs {
+            for pageIndex in 0..<pdf.pageCount {
+                guard let page = pdf.page(at: pageIndex) else { continue }
+                if PDFOCRService.isLikelyScannedPage(page) {
+                    count += 1
+                }
+            }
+        }
+        scannedPageCount = count
+    }
+
+    func selectNextFormField() {
+        selectFormField(offset: 1)
+    }
+
+    func selectPreviousFormField() {
+        selectFormField(offset: -1)
+    }
+
+    private func selectFormField(offset: Int) {
+        guard !formSummary.fields.isEmpty else { return }
+        let current = selectedFormFieldIndex ?? (offset > 0 ? -1 : formSummary.fields.count)
+        let next = (current + offset + formSummary.fields.count) % formSummary.fields.count
+        selectedFormFieldIndex = next
+        let field = formSummary.fields[next]
+        if let ref = document.workspace.pageOrder.first(where: { $0.id == field.pageRefID }),
+           let pageIndex = combinedPageIndex(for: ref) {
+            NotificationCenter.default.post(
+                name: .pdfoldJumpToFormField,
+                object: PDFFormFieldNavigationTarget(
+                    pageIndex: pageIndex,
+                    bounds: field.bounds,
+                    fieldType: field.fieldType
+                )
+            )
+        }
+    }
+
+    func resetFormFields() {
+        guard canPerformMutatingAction(), formSummary.containsForm else { return }
+        let snapshot = captureOrderSnapshot()
+        var changed = false
+        for (_, pdf) in loadedPDFs {
+            for pageIndex in 0..<pdf.pageCount {
+                guard let page = pdf.page(at: pageIndex) else { continue }
+                for annotation in page.annotations where annotation.isPDFWidget {
+                    if annotation.widgetFieldType == .button {
+                        if annotation.buttonWidgetState != .offState {
+                            annotation.buttonWidgetState = .offState
+                            changed = true
+                        }
+                    } else if !(annotation.widgetStringValue ?? "").isEmpty {
+                        annotation.widgetStringValue = ""
+                        changed = true
+                    }
+                }
+            }
+        }
+        guard changed else { return }
+        markAnnotationsModified()
+        refreshFormSummary()
+        registerUndo(snapshot: snapshot, actionName: "Reset form")
+    }
+
+    // MARK: - Searchable scans
+
+    func makeSearchable() {
+        guard canPerformMutatingAction(), hasScannedPages else { return }
+        let snapshot = captureOrderSnapshot()
+        let sourceDocuments: [(MemberDocument, Data)]
+        do {
+            let currentData = try currentPDFDataForExport()
+            sourceDocuments = document.workspace.documents.compactMap { member in
+                guard let data = currentData[member.id] else { return nil }
+                return (member, data)
+            }
+            guard sourceDocuments.count == document.workspace.documents.count else {
+                throw PDFOCRError.invalidPDF(memberName: document.workspace.title)
+            }
+        } catch {
+            exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
+            return
+        }
+
+        operationProgress.start(title: "Making searchable", detail: "Preparing pages")
+        let cancellation = OperationCancellationToken()
+        let operationID = UUID()
+        activeOCRCancellation = cancellation
+        activeOCRID = operationID
+        activeOCRTask = Task { [weak self, sourceDocuments, snapshot, cancellation, operationID] in
+            guard let self else { return }
+            do {
+                let result = try await self.searchableData(
+                    from: sourceDocuments,
+                    cancellation: cancellation,
+                    operationID: operationID
+                )
+                if cancellation.isCancelled || Task.isCancelled {
+                    throw PDFOCRError.cancelled
+                }
+                await MainActor.run {
+                    guard self.activeOCRID == operationID else { return }
+                    self.applyOCRResult(result)
+                    self.operationProgress.finish()
+                    self.activeOCRTask = nil
+                    self.activeOCRCancellation = nil
+                    self.activeOCRID = nil
+                    self.markWorkspaceModified()
+                    self.warnIfEditingWouldInvalidateSignatures()
+                    self.undoManager?.registerUndo(withTarget: self) { vm in
+                        guard vm.canPerformUndoMutation() else { return }
+                        vm.restore(snapshot)
+                    }
+                    self.undoManager?.setActionName("Make searchable")
+                    self.editingStatus = .warning("You can now search and select text in this document.")
+                }
+            } catch {
+                await MainActor.run {
+                    guard self.activeOCRID == operationID else { return }
+                    self.operationProgress.finish()
+                    self.activeOCRTask = nil
+                    self.activeOCRCancellation = nil
+                    self.activeOCRID = nil
+                    if let ocrError = error as? PDFOCRError, ocrError == .cancelled {
+                        self.editingStatus = .warning(PDFOCRError.cancelled.errorDescription ?? "Making this document searchable was cancelled.")
+                    } else if error is CancellationError {
+                        self.editingStatus = .warning(PDFOCRError.cancelled.errorDescription ?? "Making this document searchable was cancelled.")
+                    } else {
+                        self.exportError = ExportError(message: self.userMessage(for: error, exporting: .pdf))
+                    }
+                }
+            }
+        }
+    }
+
+    private func searchableData(
+        from sourceDocuments: [(MemberDocument, Data)],
+        cancellation: OperationCancellationToken,
+        operationID: UUID
+    ) async throws -> PDFOCRResult {
+        let progressThrottle = ProgressUpdateThrottle()
+        return try await PDFOCRService.makeSearchable(
+            documents: sourceDocuments,
+            progress: { progress in
+                guard progressThrottle.shouldEmit(progress) else { return }
+                Task { @MainActor [weak self] in
+                    guard self?.activeOCRID == operationID,
+                          self?.operationProgress.isActive == true else { return }
+                    self?.operationProgress.update(
+                        fraction: progress,
+                        detail: "\(Int((progress * 100).rounded()))%"
+                    )
+                }
+            },
+            isCancelled: {
+                cancellation.isCancelled || Task.isCancelled
+            }
+        )
+    }
+
+    private func applyOCRResult(_ result: PDFOCRResult) {
+        for (memberID, data) in result.dataByMemberID {
+            document.memberPDFData[memberID] = data
+        }
+        loadedPDFs = document.workspace.documents.compactMap { member in
+            guard let data = result.dataByMemberID[member.id] ?? document.memberPDFData[member.id],
+                  let pdf = PDFDocument(data: data) else {
+                return nil
+            }
+            return (member, pdf)
+        }
+        textAnalysisCache.removeAll()
+        rebuild()
     }
 
     // MARK: - Decorations
@@ -1175,6 +1488,11 @@ final class WorkspaceViewModel {
     }
 
     func setDecorationText(_ kind: PageDecoration.Kind, text: String) {
+        if kind == .watermark,
+           text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            setDecoration(kind, enabled: false)
+            return
+        }
         updateDecoration(kind, actionName: decorationActionName(for: kind)) { decoration in
             decoration.text = text
         }
@@ -2144,13 +2462,13 @@ final class WorkspaceViewModel {
             return
         }
 
-        let snapshot = WorkspacePackage(
-            workspace: document.workspace,
-            memberPDFData: currentPDFData(),
-            sourcePayloads: document.sourcePayloads
-        )
         let pdfData: Data
         do {
+            let snapshot = WorkspacePackage(
+                workspace: document.workspace,
+                memberPDFData: try currentPDFDataForExport(),
+                sourcePayloads: document.sourcePayloads
+            )
             pdfData = try document.exportedPDFDataThrowing(from: snapshot)
         } catch {
             exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
@@ -2501,6 +2819,9 @@ final class WorkspaceViewModel {
     @discardableResult
     func exportPlainPDF(options: WorkspaceExportOptions = WorkspaceExportOptions()) -> Bool {
         guard canPerformMutatingAction() else { return false }
+        if options.compressionPreset != nil {
+            return exportCompressedPDF(options: options)
+        }
         return saveFlattenedPDF(to: nil, options: options, triggerPet: false)
     }
 
@@ -2547,6 +2868,8 @@ final class WorkspaceViewModel {
         } catch {
             if let encryptionError = error as? PDFEncryptionError {
                 exportError = ExportError(message: encryptionError.userMessage)
+            } else if let assemblyError = error as? PDFKitEngine.ExportAssemblyError {
+                exportError = ExportError(message: assemblyError.localizedDescription)
             } else {
                 exportError = ExportError(message: "pdFold could not save the PDF: \(error.localizedDescription)")
             }
@@ -2560,12 +2883,231 @@ final class WorkspaceViewModel {
         }
         let snapshot = WorkspacePackage(
             workspace: document.workspace,
-            memberPDFData: currentPDFData(),
+            memberPDFData: try currentPDFDataForExport(),
             sourcePayloads: document.sourcePayloads
         )
-        let pdfData = try document.exportedPDFDataThrowing(from: snapshot)
-        guard let encryption = options.encryption else { return pdfData }
-        return try PDFEncryptionService.encryptedData(from: pdfData, options: encryption)
+        let pdfData = try document.exportedPDFDataThrowing(from: snapshot, options: options)
+        let reducedData: Data
+        if let preset = options.compressionPreset {
+            reducedData = try PDFCompressionService.reduceFileSize(
+                of: pdfData,
+                preset: preset,
+                processingEngine: processingEngine
+            ).data
+        } else {
+            reducedData = pdfData
+        }
+        guard let encryption = options.encryption else { return reducedData }
+        let encryptedData = try PDFEncryptionService.encryptedData(from: reducedData, options: encryption)
+        if options.compressionPreset != nil {
+            _ = try PDFiumProcessingEngine().validatePDF(data: encryptedData, password: encryption.userPassword)
+        }
+        return encryptedData
+    }
+
+    func reduceFileSize(preset: PDFCompressionPreset = .balanced) {
+        guard canPerformMutatingAction() else { return }
+        let targetURL: URL
+        let defaultName = "\(safeFilename(document.workspace.title))-reduced.pdf"
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = defaultName
+        panel.title = "Reduce File Size"
+        panel.prompt = "Reduce"
+        guard panel.runModal() == .OK, let chosenURL = panel.url else { return }
+        targetURL = chosenURL
+
+        let sourceData: Data
+        do {
+            var options = WorkspaceExportOptions()
+            options.lockFormAnswers = hasFillableFormFields
+            sourceData = try dataForPDFExport(options: options)
+        } catch {
+            exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
+            return
+        }
+
+        operationProgress.start(title: "Reducing file size", detail: "Preparing PDF")
+        let cancellation = OperationCancellationToken()
+        let operationID = UUID()
+        activeCompressionCancellation = cancellation
+        activeCompressionID = operationID
+        activeCompressionTask = Task { [weak self, sourceData, targetURL, preset, cancellation, operationID] in
+            guard let self else { return }
+            do {
+                let result = try await self.reducedData(
+                    from: sourceData,
+                    preset: preset,
+                    encryption: nil,
+                    cancellation: cancellation,
+                    operationID: operationID
+                ).compressionResult
+                if cancellation.isCancelled || Task.isCancelled {
+                    throw PDFCompressionError.cancelled
+                }
+                try result.data.write(to: targetURL, options: .atomic)
+                await MainActor.run {
+                    guard self.activeCompressionID == operationID else { return }
+                    self.operationProgress.finish()
+                    self.activeCompressionTask = nil
+                    self.activeCompressionCancellation = nil
+                    self.activeCompressionID = nil
+                    self.editingStatus = .warning(self.compressionSummary(result))
+                }
+            } catch {
+                await MainActor.run {
+                    guard self.activeCompressionID == operationID else { return }
+                    self.operationProgress.finish()
+                    self.activeCompressionTask = nil
+                    self.activeCompressionCancellation = nil
+                    self.activeCompressionID = nil
+                    if let compressionError = error as? PDFCompressionError, compressionError == .cancelled {
+                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                    } else if error is CancellationError {
+                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                    } else {
+                        self.exportError = ExportError(message: self.userMessage(for: error, exporting: .pdf))
+                    }
+                }
+            }
+        }
+    }
+
+    func cancelActiveOperation() {
+        activeCompressionCancellation?.cancel()
+        activeCompressionTask?.cancel()
+        activeOCRCancellation?.cancel()
+        activeOCRTask?.cancel()
+    }
+
+    private func exportCompressedPDF(options: WorkspaceExportOptions) -> Bool {
+        guard let preset = options.compressionPreset else { return false }
+        let targetURL: URL
+        let defaultName: String
+        if loadedPDFs.count == 1,
+           let sourceURL = memberSourceURLs[loadedPDFs[0].0.id] {
+            defaultName = sourceURL.lastPathComponent
+        } else {
+            defaultName = "\(safeFilename(document.workspace.title)).pdf"
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.nameFieldStringValue = defaultName
+        panel.title = "Export PDF"
+        guard panel.runModal() == .OK, let chosenURL = panel.url else { return false }
+        targetURL = chosenURL
+
+        let encryption = options.encryption
+        if let encryption {
+            do {
+                try PDFEncryptionService.validate(encryption)
+            } catch {
+                exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
+                return false
+            }
+        }
+
+        let sourceData: Data
+        do {
+            let baseOptions = WorkspaceExportOptions(lockFormAnswers: options.lockFormAnswers)
+            sourceData = try dataForPDFExport(options: baseOptions)
+        } catch {
+            exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
+            return false
+        }
+
+        operationProgress.start(title: "Reducing file size", detail: "Preparing PDF")
+        let cancellation = OperationCancellationToken()
+        let operationID = UUID()
+        activeCompressionCancellation = cancellation
+        activeCompressionID = operationID
+        activeCompressionTask = Task { [weak self, sourceData, targetURL, preset, encryption, cancellation, operationID] in
+            guard let self else { return }
+            do {
+                let output = try await self.reducedData(
+                    from: sourceData,
+                    preset: preset,
+                    encryption: encryption,
+                    cancellation: cancellation,
+                    operationID: operationID
+                )
+                if cancellation.isCancelled || Task.isCancelled {
+                    throw PDFCompressionError.cancelled
+                }
+                try output.data.write(to: targetURL, options: .atomic)
+                await MainActor.run {
+                    guard self.activeCompressionID == operationID else { return }
+                    self.operationProgress.finish()
+                    self.activeCompressionTask = nil
+                    self.activeCompressionCancellation = nil
+                    self.activeCompressionID = nil
+                    self.editingStatus = .warning(self.compressionSummary(output.compressionResult))
+                }
+            } catch {
+                await MainActor.run {
+                    guard self.activeCompressionID == operationID else { return }
+                    self.operationProgress.finish()
+                    self.activeCompressionTask = nil
+                    self.activeCompressionCancellation = nil
+                    self.activeCompressionID = nil
+                    if let compressionError = error as? PDFCompressionError, compressionError == .cancelled {
+                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                    } else if error is CancellationError {
+                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                    } else {
+                        self.exportError = ExportError(message: self.userMessage(for: error, exporting: .pdf))
+                    }
+                }
+            }
+        }
+        return true
+    }
+
+    private func reducedData(
+        from sourceData: Data,
+        preset: PDFCompressionPreset,
+        encryption: PDFEncryptionOptions?,
+        cancellation: OperationCancellationToken,
+        operationID: UUID
+    ) async throws -> (data: Data, compressionResult: PDFCompressionResult) {
+        let progressThrottle = ProgressUpdateThrottle()
+        return try await Task.detached(priority: .userInitiated) {
+            let result = try PDFCompressionService.reduceFileSize(
+                of: sourceData,
+                preset: preset,
+                processingEngine: PDFiumProcessingEngine(),
+                progress: { progress in
+                    guard progressThrottle.shouldEmit(progress) else { return }
+                    Task { @MainActor [weak self] in
+                        guard self?.activeCompressionID == operationID,
+                              self?.operationProgress.isActive == true else { return }
+                        self?.operationProgress.update(
+                            fraction: progress,
+                            detail: "\(Int((progress * 100).rounded()))%"
+                        )
+                    }
+                },
+                isCancelled: {
+                    cancellation.isCancelled || Task.isCancelled
+                }
+            )
+            if cancellation.isCancelled || Task.isCancelled {
+                throw PDFCompressionError.cancelled
+            }
+            guard let encryption else {
+                return (data: result.data, compressionResult: result)
+            }
+            let encrypted = try PDFEncryptionService.encryptedData(from: result.data, options: encryption)
+            if cancellation.isCancelled || Task.isCancelled {
+                throw PDFCompressionError.cancelled
+            }
+            _ = try PDFiumProcessingEngine().validatePDF(data: encrypted, password: encryption.userPassword)
+            if cancellation.isCancelled || Task.isCancelled {
+                throw PDFCompressionError.cancelled
+            }
+            return (data: encrypted, compressionResult: result)
+        }.value
     }
 
     private func writePDFExportData(_ data: Data, to targetURL: URL, validationOptions: PDFEncryptionOptions?) throws {
@@ -2636,14 +3178,15 @@ final class WorkspaceViewModel {
     }
 
     private func exportPageImages(as format: WorkspaceExportFormat) -> Bool {
-        let snapshot = WorkspacePackage(
-            workspace: document.workspace,
-            memberPDFData: currentPDFData(),
-            sourcePayloads: document.sourcePayloads
-        )
         let exportData: Data
         do {
-            exportData = try document.exportedPDFDataThrowing(from: snapshot)
+            let snapshot = WorkspacePackage(
+                workspace: document.workspace,
+                memberPDFData: try currentPDFDataForExport(),
+                sourcePayloads: document.sourcePayloads
+            )
+            let options = WorkspaceExportOptions(lockFormAnswers: false)
+            exportData = try document.exportedPDFDataThrowing(from: snapshot, options: options)
         } catch {
             exportError = ExportError(message: userMessage(for: error, exporting: format))
             return false
@@ -2664,18 +3207,35 @@ final class WorkspaceViewModel {
         panel.prompt = "Export"
         guard panel.runModal() == .OK, let folderURL = panel.url else { return false }
 
+        let fileManager = FileManager.default
+        let parentURL = folderURL.deletingLastPathComponent()
+        let tempFolderURL = parentURL.appendingPathComponent(".pdFold-image-export-\(UUID().uuidString)", isDirectory: true)
         do {
-            try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: tempFolderURL, withIntermediateDirectories: true)
             for pageIndex in 0..<exportDoc.pageCount {
                 guard let page = exportDoc.page(at: pageIndex),
                       let data = imageData(for: page, format: format) else {
                     throw ExportFailure("Could not render page \(pageIndex + 1).")
                 }
                 let filename = "page-\(String(format: "%03d", pageIndex + 1)).\(format.fileExtension)"
-                try data.write(to: folderURL.appendingPathComponent(filename), options: .atomic)
+                try data.write(to: tempFolderURL.appendingPathComponent(filename), options: .atomic)
+            }
+            if fileManager.fileExists(atPath: folderURL.path) {
+                let replacement = try fileManager.replaceItemAt(
+                    folderURL,
+                    withItemAt: tempFolderURL,
+                    backupItemName: nil,
+                    options: [.usingNewMetadataOnly]
+                )
+                guard replacement != nil else {
+                    throw ExportFailure("Could not replace the selected folder.")
+                }
+            } else {
+                try fileManager.moveItem(at: tempFolderURL, to: folderURL)
             }
             return true
         } catch {
+            try? fileManager.removeItem(at: tempFolderURL)
             exportError = ExportError(message: "pdFold could not export page images: \(error.localizedDescription)")
             return false
         }
@@ -3007,9 +3567,36 @@ final class WorkspaceViewModel {
             return "pdFold could not apply a decoration to this PDF. Add text or turn the decoration off."
         case PDFDecorationExportBaker.BakeError.invalidStampDecoration:
             return "pdFold could not apply a stamp to this PDF. Remove the stamp and place it again."
+        case PDFDecorationExportBaker.BakeError.documentTooLargeForDecorationExport:
+            return "pdFold could not decorate this PDF because it is too large to process safely. Export without decorations, or split the PDF into smaller files."
+        case PDFFormSupport.FormError.invalidPDF:
+            return "pdFold could not lock the form answers in this PDF. Reopen the document and try exporting again."
+        case PDFFormSupport.FormError.pageOrderMismatch:
+            return "pdFold could not match form fields to the current page order. Reopen the document and try exporting again."
+        case let compressionError as PDFCompressionError:
+            return compressionError.errorDescription ?? "pdFold could not reduce the file size. Try exporting without reducing file size."
+        case let ocrError as PDFOCRError:
+            return ocrError.errorDescription ?? "pdFold could not make this document searchable. Try a clearer scan or export without searchable text."
+        case _ as PDFProcessingError:
+            return "pdFold could not verify the reduced PDF. Try exporting without reducing file size."
+        case let error as PDFKitEngine.ExportAssemblyError:
+            return error.localizedDescription
         default:
             return "pdFold could not create the \(format.menuTitle) export: \(error.localizedDescription)"
         }
+    }
+
+    private func compressionSummary(_ result: PDFCompressionResult) -> String {
+        "\(formattedByteCount(result.originalByteCount)) → \(formattedByteCount(result.compressedByteCount)), \(result.percentSmaller)% smaller"
+    }
+
+    private func formattedByteCount(_ count: Int) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB]
+        formatter.countStyle = .file
+        formatter.includesUnit = true
+        formatter.isAdaptive = true
+        return formatter.string(fromByteCount: Int64(count))
     }
 
     func richAttributedTextForDocumentExport() throws -> NSAttributedString {

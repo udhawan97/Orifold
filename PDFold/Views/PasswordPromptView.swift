@@ -15,15 +15,16 @@ struct PasswordPromptView: View {
         VStack(spacing: 20) {
             Image(systemName: "lock.fill")
                 .font(.system(size: 36))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.dsTextSecondary)
 
             Text("\"\(fileName)\" is password-protected")
-                .font(.headline)
+                .font(.dsHeadline())
+                .foregroundStyle(Color.dsTextPrimary)
 
             if failed {
                 Text("Incorrect password. Try again.")
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsAnnotationCoral)
             }
 
             SecureField("Password", text: $password)

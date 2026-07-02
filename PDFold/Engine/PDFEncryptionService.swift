@@ -3,12 +3,15 @@ import Foundation
 import PDFKit
 
 enum PDFEncryptionService {
+    private static let maxVerifiedTextBytes = 128 * 1024 * 1024
+
     static func encryptedData(from pdfData: Data, options: PDFEncryptionOptions) throws -> Data {
         try validate(options)
         guard let sourcePDF = PDFDocument(data: pdfData) else {
             throw PDFEncryptionError.cannotOpenSourcePDF
         }
-        let expectedText = sourcePDF.string ?? ""
+        let shouldVerifyText = pdfData.count <= maxVerifiedTextBytes
+        let expectedPageStrings = shouldVerifyText ? pageStrings(in: sourcePDF) : nil
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("pdFold-encrypted-\(UUID().uuidString).pdf")
         defer { try? FileManager.default.removeItem(at: tempURL) }
@@ -25,7 +28,7 @@ enum PDFEncryptionService {
             throw PDFEncryptionError.writeFailed
         }
         let encrypted = try Data(contentsOf: tempURL)
-        try validateEncryptedData(encrypted, options: options, expectedText: expectedText)
+        try validateEncryptedData(encrypted, options: options, expectedPageStrings: expectedPageStrings)
         return encrypted
     }
 
@@ -43,7 +46,8 @@ enum PDFEncryptionService {
 
     static func validateEncryptedData(_ data: Data,
                                       options: PDFEncryptionOptions,
-                                      expectedText: String? = nil) throws {
+                                      expectedText: String? = nil,
+                                      expectedPageStrings: [String]? = nil) throws {
         guard let encryptedPDF = PDFDocument(data: data) else {
             throw PDFEncryptionError.unreadableEncryptedOutput
         }
@@ -57,8 +61,23 @@ enum PDFEncryptionService {
               encryptedPDF.allowsCopying == options.allowsCopying else {
             throw PDFEncryptionError.permissionsMismatch
         }
-        if let expectedText, (encryptedPDF.string ?? "") != expectedText {
+        if let expectedPageStrings {
+            guard encryptedPDF.pageCount == expectedPageStrings.count else {
+                throw PDFEncryptionError.textChanged
+            }
+            for pageIndex in 0..<encryptedPDF.pageCount {
+                guard (encryptedPDF.page(at: pageIndex)?.string ?? "") == expectedPageStrings[pageIndex] else {
+                    throw PDFEncryptionError.textChanged
+                }
+            }
+        } else if let expectedText, (encryptedPDF.string ?? "") != expectedText {
             throw PDFEncryptionError.textChanged
+        }
+    }
+
+    private static func pageStrings(in document: PDFDocument) -> [String] {
+        (0..<document.pageCount).map { pageIndex in
+            document.page(at: pageIndex)?.string ?? ""
         }
     }
 }

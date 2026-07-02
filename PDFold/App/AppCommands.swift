@@ -4,6 +4,8 @@ struct AppCommands: Commands {
     var body: some Commands {
         // File menu additions — DocumentGroup already provides New, Open, Save, etc.
         CommandGroup(after: .newItem) {
+            ReduceFileSizeCommandButton()
+            MakeSearchableCommandButton()
             Divider()
         }
 
@@ -19,6 +21,28 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .appInfo) {
             AboutCommandButton()
         }
+    }
+}
+
+private struct MakeSearchableCommandButton: View {
+    @FocusedValue(\.pdfoldWorkspaceViewModel) private var viewModel
+
+    var body: some View {
+        Button("Make searchable…") {
+            viewModel?.makeSearchable()
+        }
+        .disabled(viewModel?.hasScannedPages != true || viewModel?.operationProgress.isActive == true)
+    }
+}
+
+private struct ReduceFileSizeCommandButton: View {
+    @FocusedValue(\.pdfoldWorkspaceViewModel) private var viewModel
+
+    var body: some View {
+        Button("Reduce File Size…") {
+            viewModel?.reduceFileSize()
+        }
+        .disabled(viewModel == nil)
     }
 }
 
@@ -73,10 +97,19 @@ private struct PDFoldIsImportingFocusedKey: FocusedValueKey {
     typealias Value = Bool
 }
 
+private struct PDFoldWorkspaceViewModelFocusedKey: FocusedValueKey {
+    typealias Value = WorkspaceViewModel
+}
+
 extension FocusedValues {
     var pdfoldIsImporting: Bool? {
         get { self[PDFoldIsImportingFocusedKey.self] }
         set { self[PDFoldIsImportingFocusedKey.self] = newValue }
+    }
+
+    var pdfoldWorkspaceViewModel: WorkspaceViewModel? {
+        get { self[PDFoldWorkspaceViewModelFocusedKey.self] }
+        set { self[PDFoldWorkspaceViewModelFocusedKey.self] = newValue }
     }
 }
 

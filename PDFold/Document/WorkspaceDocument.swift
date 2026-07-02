@@ -72,7 +72,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
     @Published var sourcePayloads: [UUID: SourceDocumentPayload] = [:]
 
     /// ViewModel sets this so snapshot() can capture live annotation state.
-    var currentPDFDataProvider: (() -> [UUID: Data])?
+    var currentPDFDataProvider: (() throws -> [UUID: Data])?
 
     // MARK: - New document
 
@@ -154,7 +154,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
     // MARK: - Snapshot (called on main thread before write)
 
     func snapshot(contentType: UTType) throws -> WorkspacePackage {
-        let pdfData = currentPDFDataProvider?() ?? memberPDFData
+        let pdfData = try currentPDFDataProvider?() ?? memberPDFData
         return WorkspacePackage(workspace: workspace, memberPDFData: pdfData, sourcePayloads: sourcePayloads)
     }
 
@@ -164,22 +164,26 @@ final class WorkspaceDocument: ReferenceFileDocument {
     /// when macOS autosaves an imported PDF document as a flat `.pdf` file. Pulled out of
     /// `fileWrapper` so it's independently testable — this is the exact path an inline
     /// text edit's saved bytes go through, and it's worth being able to assert on directly.
-    func exportedPDFDataThrowing(from snapshot: WorkspacePackage) throws -> Data {
-        let docs: [(MemberDocument, PDFDocument)] = snapshot.workspace.documents.compactMap { member in
+    func exportedPDFDataThrowing(from snapshot: WorkspacePackage,
+                                 options: WorkspaceExportOptions = WorkspaceExportOptions()) throws -> Data {
+        let docs: [(MemberDocument, PDFDocument)] = try snapshot.workspace.documents.map { member in
             guard let data = snapshot.memberPDFData[member.id],
-                  let pdf = PDFDocument(data: data) else { return nil }
+                  let pdf = PDFDocument(data: data) else {
+                throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
+            }
             return (member, pdf)
         }
-        let flat = PDFKitEngine().concatenate(documents: docs, includeBanners: false)
+        let flat = try PDFKitEngine().concatenateForExport(documents: docs)
         guard let pdfData = PDFSerializer.data(from: flat) else {
-            throw PDFDecorationExportBaker.BakeError.invalidPDF
+            throw PDFKitEngine.ExportAssemblyError.emptyDocument
         }
 
         let omitsCommentMetadata = snapshot.workspace.signatures.contains { $0.isCryptographic }
         let sourcePayloads = Self.sourcePayloadsForPDFMetadata(from: snapshot)
         let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
         guard !visualPlacements.isEmpty else {
-            let decoratedData = try Self.applyDecorationExportAdditions(to: pdfData, workspace: snapshot.workspace)
+            let formData = try Self.applyFormExportAdditions(to: pdfData, workspace: snapshot.workspace, options: options)
+            let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
             let commentData = Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace) ?? decoratedData
             return Self.embedMetadata(in: commentData, workspace: snapshot.workspace, sourcePayloads: sourcePayloads, omittingComments: omitsCommentMetadata) ?? commentData
         }
@@ -188,11 +192,13 @@ final class WorkspaceDocument: ReferenceFileDocument {
             let bakedData = try SignatureExportBaker.bake(placements: visualPlacements, into: pdfData) { placement in
                 snapshot.workspace.pageOrder.firstIndex { $0.id == placement.pageRefId }
             }
-            let decoratedData = try Self.applyDecorationExportAdditions(to: bakedData, workspace: snapshot.workspace)
+            let formData = try Self.applyFormExportAdditions(to: bakedData, workspace: snapshot.workspace, options: options)
+            let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
             let commentData = Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace) ?? decoratedData
             return Self.embedMetadata(in: commentData, workspace: snapshot.workspace, sourcePayloads: sourcePayloads, omittingComments: omitsCommentMetadata) ?? commentData
         } catch SigningError.notImplemented {
-            let decoratedData = try Self.applyDecorationExportAdditions(to: pdfData, workspace: snapshot.workspace)
+            let formData = try Self.applyFormExportAdditions(to: pdfData, workspace: snapshot.workspace, options: options)
+            let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
             let commentData = Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace) ?? decoratedData
             return Self.embedMetadata(in: commentData, workspace: snapshot.workspace, sourcePayloads: sourcePayloads, omittingComments: omitsCommentMetadata) ?? commentData
         } catch {
@@ -208,6 +214,13 @@ final class WorkspaceDocument: ReferenceFileDocument {
             pageOrder: workspace.pageOrder,
             into: pdfData
         )
+    }
+
+    private static func applyFormExportAdditions(to pdfData: Data,
+                                                 workspace: Workspace,
+                                                 options: WorkspaceExportOptions) throws -> Data {
+        guard options.lockFormAnswers else { return pdfData }
+        return try PDFFormSupport.flattenedData(from: pdfData, pageOrder: workspace.pageOrder)
     }
 
     private static func sourcePayloadsForPDFMetadata(from snapshot: WorkspacePackage) -> [UUID: SourceDocumentPayload] {

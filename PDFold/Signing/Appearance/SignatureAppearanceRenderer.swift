@@ -301,7 +301,9 @@ enum SignatureExportBakingSupport {
         for placement in placements {
             guard let pageIndex = pageIndexForPlacement(placement),
                   pageIndex >= 0,
-                  pageIndex < document.pageCount else { continue }
+                  pageIndex < document.pageCount else {
+                throw SigningError.invalidPDF
+            }
             placementsByPage[pageIndex, default: []].append(placement)
         }
 
@@ -313,7 +315,9 @@ enum SignatureExportBakingSupport {
         }
 
         for pageIndex in 0..<document.pageCount {
-            guard let page = document.page(at: pageIndex) else { continue }
+            guard let page = document.page(at: pageIndex) else {
+                throw SigningError.invalidPDF
+            }
             let mediaBox = page.bounds(for: .mediaBox)
             context.beginPDFPage(pageInfo(mediaBox: mediaBox))
             context.saveGState()

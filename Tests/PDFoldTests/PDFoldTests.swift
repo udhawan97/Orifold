@@ -1585,6 +1585,17 @@ final class WorkspaceDocumentTests: XCTestCase {
         XCTAssertNotEqual(snapshot.memberPDFData[memberID], stalePDFData)
     }
 
+    func testSnapshotPropagatesCurrentPDFDataProviderFailure() throws {
+        let document = WorkspaceDocument()
+        document.currentPDFDataProvider = {
+            throw PDFKitEngine.ExportAssemblyError.unreadableMember("Broken")
+        }
+
+        XCTAssertThrowsError(try document.snapshot(contentType: .pdf)) { error in
+            XCTAssertEqual(error as? PDFKitEngine.ExportAssemblyError, .unreadableMember("Broken"))
+        }
+    }
+
     func testExportStripsStaleWorkspaceCommentMetadataWhenCommentsAreCleared() throws {
         let fixture = try makeMemberWithPDF(name: "Comments", pageTexts: ["body"])
         let document = WorkspaceDocument()
@@ -2511,6 +2522,28 @@ final class PageDecorationExportTests: XCTestCase {
         XCTAssertTrue(pdf.stringValue.contains("Original body text"))
     }
 
+    func testBlankWatermarkTextDisablesDecorationBeforeExport() {
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument(), processingEngine: PDFKitProcessingEngineFallback())
+
+        viewModel.setDecoration(.watermark, enabled: true)
+        viewModel.setDecorationText(.watermark, text: "   ")
+
+        XCTAssertFalse(viewModel.document.workspace.hasActiveDecorations)
+        XCTAssertFalse(viewModel.document.workspace.decorations.contains { $0.kind == .watermark })
+    }
+
+    func testThrowingExportRejectsMissingMemberPDFData() throws {
+        let fixture = try makeMemberWithPDF(name: "Missing", pageTexts: ["one"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.workspace.decorations = [.pageNumber()]
+
+        XCTAssertThrowsError(try document.exportedPDFDataThrowing(from: try document.snapshot(contentType: .pdf))) { error in
+            XCTAssertEqual(error as? PDFKitEngine.ExportAssemblyError, .unreadableMember("Missing"))
+        }
+    }
+
     func testDecorationExportPreservesExistingPDFAnnotations() throws {
         let fixture = try makeMemberWithPDF(name: "Annotated", pageTexts: ["Annotated body"])
         let sourcePDF = try XCTUnwrap(PDFDocument(data: fixture.pdfData))
@@ -2658,6 +2691,192 @@ final class PageDecorationExportTests: XCTestCase {
         XCTAssertEqual(page.annotations.count, annotationCount)
         XCTAssertEqual(document.workspace.decorations.filter { $0.kind == .stamp }.count, 1)
     }
+
+    func testRemovingStampedPageClearsSelectedStamp() throws {
+        let fixture = try makeMemberWithPDF(name: "Stamp", pageTexts: ["one", "two"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let page = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
+
+        viewModel.beginStampPlacement(text: "Approved", swatch: .sage)
+        let stamp = try XCTUnwrap(viewModel.placeStamp(at: CGPoint(x: 120, y: 120), on: page))
+        XCTAssertEqual(viewModel.selectedStampDecorationID, stamp.id)
+
+        viewModel.deletePage(fixture.refs[0])
+
+        XCTAssertNil(viewModel.selectedStampDecorationID)
+        XCTAssertFalse(document.workspace.decorations.contains { $0.id == stamp.id })
+    }
+}
+
+final class PDFFormExportTests: XCTestCase {
+    func testFlattenedFormExportContainsValuesAndStripsWidgets() throws {
+        let fixture = try makeFormMemberWithPDF(name: "Form", fieldValue: "Alice Example")
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+
+        let exported = try document.exportedPDFDataThrowing(
+            from: try document.snapshot(contentType: .pdf),
+            options: WorkspaceExportOptions(lockFormAnswers: true)
+        )
+        let pdf = try XCTUnwrap(PDFDocument(data: exported))
+        let page = try XCTUnwrap(pdf.page(at: 0))
+
+        XCTAssertTrue(pdf.stringValue.contains("Alice Example"))
+        XCTAssertFalse(page.annotations.contains { $0.isPDFWidget })
+    }
+
+    func testUnflattenedFormExportStaysFillable() throws {
+        let fixture = try makeFormMemberWithPDF(name: "Form", fieldValue: "Editable")
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+
+        let exported = try document.exportedPDFDataThrowing(
+            from: try document.snapshot(contentType: .pdf),
+            options: WorkspaceExportOptions(lockFormAnswers: false)
+        )
+        let pdf = try XCTUnwrap(PDFDocument(data: exported))
+        let widgets = try XCTUnwrap(pdf.page(at: 0)?.annotations.filter { $0.isPDFWidget })
+
+        XCTAssertEqual(widgets.count, 1)
+        XCTAssertEqual(widgets.first?.widgetStringValue, "Editable")
+    }
+
+    func testCheckboxFlatteningDrawsOnStateAndStripsWidget() throws {
+        let fixture = try makeCheckboxMemberWithPDF(name: "Checkbox", isOn: true)
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+
+        let exported = try document.exportedPDFDataThrowing(
+            from: try document.snapshot(contentType: .pdf),
+            options: WorkspaceExportOptions(lockFormAnswers: true)
+        )
+        let pdf = try XCTUnwrap(PDFDocument(data: exported))
+        let page = try XCTUnwrap(pdf.page(at: 0))
+
+        XCTAssertFalse(page.annotations.contains { $0.isPDFWidget })
+        XCTAssertTrue(pdf.stringValue.contains("✓"))
+    }
+
+    func testMalformedRadioGroupFlattensOnlyOneOnState() throws {
+        let fixture = try makeRadioMemberWithPDF(name: "Radio", bothOn: true)
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+
+        let exported = try document.exportedPDFDataThrowing(
+            from: try document.snapshot(contentType: .pdf),
+            options: WorkspaceExportOptions(lockFormAnswers: true)
+        )
+        let pdf = try XCTUnwrap(PDFDocument(data: exported))
+
+        XCTAssertEqual(pdf.stringValue.filter { $0 == "✓" }.count, 1)
+    }
+
+    func testResetFormClearsValuesAndUndoRestoresThem() throws {
+        let fixture = try makeFormMemberWithPDF(name: "Form", fieldValue: "Alice")
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+
+        viewModel.resetFormFields()
+
+        let resetField = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0)?.annotations.first { $0.isPDFWidget })
+        XCTAssertEqual(resetField.widgetStringValue, "")
+
+        undoManager.undo()
+
+        let restoredField = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0)?.annotations.first { $0.isPDFWidget })
+        XCTAssertEqual(restoredField.widgetStringValue, "Alice")
+    }
+
+    func testFormSummaryDetectsWidgetFields() throws {
+        let fixture = try makeFormMemberWithPDF(name: "Form", fieldValue: "Alice")
+        let pdf = try XCTUnwrap(PDFDocument(data: fixture.pdfData))
+
+        let summary = PDFFormSupport.scan(documents: [(fixture.member, pdf)], pageOrder: fixture.refs)
+
+        XCTAssertEqual(summary.fieldCount, 1)
+        XCTAssertEqual(summary.fields.first?.fieldName, "Full name")
+    }
+
+    func testUnsupportedDynamicFormMarkersAreDetected() {
+        XCTAssertTrue(PDFFormSupport.containsUnsupportedDynamicFeatures(in: Data("/XFA 4 0 R".utf8)))
+        XCTAssertTrue(PDFFormSupport.containsUnsupportedDynamicFeatures(in: Data("/JavaScript 7 0 R".utf8)))
+        XCTAssertTrue(PDFFormSupport.containsUnsupportedDynamicFeatures(in: Data("/JS (calculate())".utf8)))
+        XCTAssertFalse(PDFFormSupport.containsUnsupportedDynamicFeatures(in: Data("/AcroForm << /Fields [] >>".utf8)))
+    }
+}
+
+final class PDFCompressionExportTests: XCTestCase {
+    func testPhotoFixtureShrinksByAtLeastThirtyPercentAndValidatesWithPDFium() throws {
+        let sourceData = try makePhotoPDFData()
+        let result = try PDFCompressionService.reduceFileSize(
+            of: sourceData,
+            preset: .balanced,
+            processingEngine: PDFiumProcessingEngine()
+        )
+
+        XCTAssertLessThan(result.compressedByteCount, Int(Double(result.originalByteCount) * 0.7))
+        let validation = try PDFiumProcessingEngine().validatePDF(data: result.data, password: nil)
+        XCTAssertEqual(validation.pageCount, 1)
+    }
+
+    func testTextOnlyPDFTakesAlreadyOptimizedPath() throws {
+        let sourcePDF = makePDF(pageTexts: ["This page is already small and searchable."])
+        let sourceData = try sourcePDF.dataRepresentation().unwrap()
+
+        XCTAssertThrowsError(
+            try PDFCompressionService.reduceFileSize(
+                of: sourceData,
+                preset: .balanced,
+                processingEngine: PDFKitProcessingEngineFallback()
+            )
+        ) { error in
+            XCTAssertEqual(error as? PDFCompressionError, .grewLarger)
+        }
+    }
+
+    func testCompressionCancellationStopsBeforeProducingOutput() throws {
+        let sourceData = try makePhotoPDFData()
+
+        XCTAssertThrowsError(
+            try PDFCompressionService.reduceFileSize(
+                of: sourceData,
+                preset: .small,
+                processingEngine: PDFKitProcessingEngineFallback(),
+                isCancelled: { true }
+            )
+        ) { error in
+            XCTAssertEqual(error as? PDFCompressionError, .cancelled)
+        }
+    }
+
+    func testCompressedPDFPreservesExtractedText() throws {
+        let sourceData = try makePhotoPDFData(text: "Compression keeps searchable text")
+        let result = try PDFCompressionService.reduceFileSize(
+            of: sourceData,
+            preset: .balanced,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let compressedPDF = try PDFDocument(data: result.data).unwrap()
+
+        XCTAssertEqual(compressedPDF.stringValue, "Compression keeps searchable text")
+    }
 }
 
 private func appInfoPlistURL(sourceFile: String) throws -> URL {
@@ -2703,6 +2922,129 @@ private func makeMemberWithPDF(
     member.pageRefs = refs.map(\.id)
     let pdfData = try pdf.dataRepresentation().unwrap()
     return (member, refs, pdfData)
+}
+
+private func makeFormMemberWithPDF(
+    name: String,
+    fieldValue: String
+) throws -> (member: MemberDocument, refs: [PageRef], pdfData: Data) {
+    let pdf = makePDF(pageTexts: ["Form body"])
+    let page = try XCTUnwrap(pdf.page(at: 0))
+    let field = PDFAnnotation(
+        bounds: CGRect(x: 120, y: 600, width: 220, height: 28),
+        forType: .widget,
+        withProperties: nil
+    )
+    field.widgetFieldType = .text
+    field.fieldName = "Full name"
+    field.widgetStringValue = fieldValue
+    page.addAnnotation(field)
+    return try makeMemberFixture(name: name, pdf: pdf)
+}
+
+private func makeCheckboxMemberWithPDF(
+    name: String,
+    isOn: Bool
+) throws -> (member: MemberDocument, refs: [PageRef], pdfData: Data) {
+    let pdf = makePDF(pageTexts: ["Checkbox body"])
+    let page = try XCTUnwrap(pdf.page(at: 0))
+    let checkbox = PDFAnnotation(
+        bounds: CGRect(x: 120, y: 600, width: 20, height: 20),
+        forType: .widget,
+        withProperties: nil
+    )
+    checkbox.widgetFieldType = .button
+    checkbox.widgetControlType = .checkBoxControl
+    checkbox.fieldName = "Accept"
+    checkbox.buttonWidgetState = isOn ? .onState : .offState
+    page.addAnnotation(checkbox)
+    return try makeMemberFixture(name: name, pdf: pdf)
+}
+
+private func makeRadioMemberWithPDF(
+    name: String,
+    bothOn: Bool
+) throws -> (member: MemberDocument, refs: [PageRef], pdfData: Data) {
+    let pdf = makePDF(pageTexts: ["Radio body"])
+    let page = try XCTUnwrap(pdf.page(at: 0))
+    for index in 0..<2 {
+        let radio = PDFAnnotation(
+            bounds: CGRect(x: 120 + CGFloat(index * 32), y: 600, width: 20, height: 20),
+            forType: .widget,
+            withProperties: nil
+        )
+        radio.widgetFieldType = .button
+        radio.widgetControlType = .radioButtonControl
+        radio.fieldName = "Choice"
+        radio.buttonWidgetState = bothOn || index == 0 ? .onState : .offState
+        page.addAnnotation(radio)
+    }
+    return try makeMemberFixture(name: name, pdf: pdf)
+}
+
+private func makePhotoPDFData(text: String = "") throws -> Data {
+    let imageSize = NSSize(width: 2400, height: 2400)
+    let image = NSImage(size: imageSize)
+    image.lockFocus()
+    for y in stride(from: 0, to: 2400, by: 4) {
+        for x in stride(from: 0, to: 2400, by: 4) {
+            NSColor(
+                calibratedRed: CGFloat((x * y) % 255) / 255,
+                green: CGFloat((x + 2 * y) % 255) / 255,
+                blue: CGFloat((2 * x + y) % 255) / 255,
+                alpha: 1
+            ).setFill()
+            NSBezierPath(rect: NSRect(x: x, y: y, width: 4, height: 4)).fill()
+        }
+    }
+    image.unlockFocus()
+
+    let view = PhotoFixturePageView(
+        frame: CGRect(x: 0, y: 0, width: 612, height: 792),
+        image: image,
+        text: text
+    )
+    return view.dataWithPDF(inside: view.bounds)
+}
+
+private func makeMemberFixture(
+    name: String,
+    pdf: PDFDocument
+) throws -> (member: MemberDocument, refs: [PageRef], pdfData: Data) {
+    var member = MemberDocument(displayName: name, sourcePDFRef: "\(name).pdf")
+    let refs = (0..<pdf.pageCount).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+    member.pageRefs = refs.map(\.id)
+    let pdfData = try pdf.dataRepresentation().unwrap()
+    return (member, refs, pdfData)
+}
+
+private final class PhotoFixturePageView: NSView {
+    let image: NSImage
+    let text: String
+
+    init(frame frameRect: NSRect, image: NSImage, text: String) {
+        self.image = image
+        self.text = text
+        super.init(frame: frameRect)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        bounds.fill()
+        image.draw(in: bounds)
+        guard !text.isEmpty else { return }
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont(name: "Helvetica", size: 18) ?? NSFont.systemFont(ofSize: 18),
+            .foregroundColor: NSColor.black
+        ]
+        NSString(string: text).draw(at: CGPoint(x: 72, y: 72), withAttributes: attributes)
+    }
 }
 
 private func waitForImportsToFinish(in viewModel: WorkspaceViewModel) async throws {

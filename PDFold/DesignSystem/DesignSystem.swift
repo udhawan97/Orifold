@@ -145,6 +145,12 @@ extension NSColor {
             ? NSColor(srgbRed: 0.282, green: 0.757, blue: 0.859, alpha: 1)
             : NSColor(srgbRed: 0.071, green: 0.478, blue: 0.647, alpha: 1)
     }
+
+    static let dsAccentSoftNS: NSColor = NSColor(name: nil) { app in
+        app.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.282, green: 0.757, blue: 0.859, alpha: 0.20)
+            : NSColor(srgbRed: 0.071, green: 0.478, blue: 0.647, alpha: 0.13)
+    }
 }
 
 // MARK: - Spacing (4-pt grid)

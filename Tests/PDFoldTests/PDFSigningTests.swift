@@ -224,4 +224,18 @@ final class SignatureExportSurvivalTests: XCTestCase {
         let sample = try XCTUnwrap(bitmap.colorAt(x: Int(rect.midX), y: Int(792 - rect.midY))?.usingColorSpace(.deviceRGB))
         XCTAssertLessThan(sample.brightnessComponent, 0.5, "baked signature ink is missing from the exported page")
     }
+
+    func testBakedVisualSignatureRejectsUnmappedPlacement() throws {
+        let pdfData = try blankPageData()
+        let placement = SignaturePlacement(
+            pageRefId: UUID(),
+            imageData: try blackPNG(width: 120, height: 40),
+            rect: CGRect(x: 100, y: 100, width: 120, height: 40),
+            signerName: "Ada"
+        )
+
+        XCTAssertThrowsError(try SignatureExportBaker.bake(placements: [placement], into: pdfData) { _ in nil }) { error in
+            XCTAssertEqual(error as? SigningError, .invalidPDF)
+        }
+    }
 }

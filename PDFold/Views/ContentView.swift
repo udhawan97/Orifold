@@ -65,7 +65,18 @@ struct ContentView: View {
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.memberDocuments.isEmpty)
         .tint(Color.dsAccent)
         .overlay(alignment: .bottomTrailing) { PetOverlay().padding(18) }
+        .overlay(alignment: .bottom) {
+            if viewModel.operationProgress.isActive {
+                WorkspaceOperationProgressView(progress: viewModel.operationProgress) {
+                    viewModel.cancelActiveOperation()
+                }
+                .padding(.bottom, .dsLG)
+                .transition(.opacity)
+            }
+        }
+        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: viewModel.operationProgress.isActive)
         .focusedSceneValue(\.pdfoldIsImporting, viewModel.isImporting)
+        .focusedSceneValue(\.pdfoldWorkspaceViewModel, viewModel)
         .onAppear { viewModel.undoManager = undoManager }
         .onChange(of: undoManager) { _, um in viewModel.undoManager = um }
         .onChange(of: viewModel.selectedCommentID) { _, newValue in
@@ -249,6 +260,11 @@ private struct ExportSheet: View {
     @State private var passwordConfirmation = ""
     @State private var allowsPrinting = true
     @State private var allowsCopying = true
+    @State private var lockFormAnswers = false
+    @State private var isFormLockExpanded = false
+    @State private var reduceFileSize = false
+    @State private var isCompressionExpanded = false
+    @State private var compressionPreset: PDFCompressionPreset = .balanced
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var shouldReduceMotion: Bool {
@@ -352,6 +368,54 @@ private struct ExportSheet: View {
                 if !canProtectSelectedFormat {
                     protectWithPassword = false
                 }
+                if selectedFormat != .pdf {
+                    reduceFileSize = false
+                }
+            }
+
+            DisclosureGroup(isExpanded: $isCompressionExpanded) {
+                Picker("Preset", selection: $compressionPreset) {
+                    ForEach(PDFCompressionPreset.allCases) { preset in
+                        Text(preset.label).tag(preset)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!reduceFileSize || selectedFormat != .pdf)
+                .padding(.top, .dsSM)
+
+                if selectedFormat != .pdf {
+                    Text("File-size reduction is available for PDF exports.")
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextTertiary)
+                }
+            } label: {
+                Toggle("Reduce file size", isOn: Binding(
+                    get: { reduceFileSize },
+                    set: { newValue in
+                        reduceFileSize = newValue && selectedFormat == .pdf
+                        if reduceFileSize {
+                            isCompressionExpanded = true
+                        }
+                    }
+                ))
+                .disabled(selectedFormat != .pdf)
+            }
+            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isCompressionExpanded)
+            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: reduceFileSize)
+
+            if viewModel.hasFillableFormFields && selectedFormat == .pdf {
+                DisclosureGroup(isExpanded: $isFormLockExpanded) {
+                    Toggle("Lock form answers in place", isOn: $lockFormAnswers)
+                        .padding(.top, .dsSM)
+                } label: {
+                    Text("Lock form answers in place")
+                        .font(.dsBody())
+                        .foregroundStyle(Color.dsTextPrimary)
+                }
+                .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isFormLockExpanded)
+                .onAppear {
+                    lockFormAnswers = true
+                }
             }
 
             HStack {
@@ -382,8 +446,46 @@ private struct ExportSheet: View {
                 allowsCopying: allowsCopying
             )
         }
+        options.lockFormAnswers = selectedFormat == .pdf && viewModel.hasFillableFormFields && lockFormAnswers
+        if selectedFormat == .pdf && reduceFileSize {
+            options.compressionPreset = compressionPreset
+        }
         if viewModel.exportWorkspace(as: selectedFormat, options: options) {
             isPresented = false
+        }
+    }
+}
+
+private struct WorkspaceOperationProgressView: View {
+    @Bindable var progress: WorkspaceOperationProgress
+    var cancel: () -> Void
+
+    var body: some View {
+        HStack(spacing: .dsMD) {
+            ProgressView(value: progress.fraction)
+                .progressViewStyle(.linear)
+                .frame(width: 150)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(progress.title)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextPrimary)
+                if !progress.detail.isEmpty {
+                    Text(progress.detail)
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextSecondary)
+                }
+            }
+            if progress.isCancellable {
+                Button("Cancel", action: cancel)
+                    .font(.dsCaption())
+            }
+        }
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsSM)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                .strokeBorder(Color.dsSeparator, lineWidth: 1)
         }
     }
 }
@@ -429,7 +531,7 @@ private struct AnnotationToolPicker: View {
             Capsule()
                 .strokeBorder(Color.dsSeparator, lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.10), radius: 8, x: 0, y: 2)
+        .shadow(color: Color.dsTextPrimary.opacity(0.10), radius: 8, x: 0, y: 2)
         .help("Annotation tool")
         .animation(shouldReduceMotion ? nil : .spring(response: 0.31, dampingFraction: 0.79), value: viewModel.currentTool)
     }
@@ -471,7 +573,7 @@ private struct AnnotationToolPicker: View {
                 }
 
                 toolIcon(tool, isSelected: isSelected)
-                    .foregroundStyle(isSelected ? Color.white : Color.dsTextSecondary)
+                    .foregroundStyle(isSelected ? Color.dsSurface : Color.dsTextSecondary)
             }
             .frame(width: 32, height: 32)
             .contentShape(Capsule())

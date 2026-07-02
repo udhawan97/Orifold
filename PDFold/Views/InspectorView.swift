@@ -82,7 +82,7 @@ private struct InspectorTabPicker: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                     }
-                    .foregroundStyle(selectedTab == tab ? Color.white : Color.dsTextSecondary)
+                    .foregroundStyle(selectedTab == tab ? Color.dsSurface : Color.dsTextSecondary)
                     .frame(maxWidth: .infinity, minHeight: 32)
                     .padding(.horizontal, 8)
                     .background {
@@ -823,7 +823,6 @@ private struct InspectorDecorateView: View {
             }
         }
         .padding(.vertical, .dsXS)
-        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: viewModel.document.workspace.decorations)
     }
 
     private func decorationRow<Controls: View>(title: String,
@@ -843,6 +842,7 @@ private struct InspectorDecorateView: View {
         .padding(.horizontal, .dsLG)
         .padding(.vertical, .dsMD)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isOn.wrappedValue)
     }
 }
 

@@ -92,48 +92,47 @@ final class PDFTextAnalysisEngine {
         FPDF_InitLibrary()
         defer { FPDF_DestroyLibrary() }
 
-        let document = data.withUnsafeBytes { rawBuffer -> OpaquePointer? in
+        return data.withUnsafeBytes { rawBuffer -> PDFTextPageAnalysis? in
             guard let baseAddress = rawBuffer.baseAddress else { return nil }
-            return FPDF_LoadMemDocument(baseAddress, Int32(data.count), nil)
+            guard let document = FPDF_LoadMemDocument(baseAddress, Int32(data.count), nil) else { return nil }
+            defer { FPDF_CloseDocument(document) }
+
+            guard let page = FPDF_LoadPage(document, Int32(pageIndex)) else { return nil }
+            defer { FPDF_ClosePage(page) }
+            guard let textPage = FPDFText_LoadPage(page) else { return nil }
+            defer { FPDFText_ClosePage(textPage) }
+
+            let count = Int(FPDFText_CountChars(textPage))
+            guard count > 0 else { return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: []) }
+
+            var samples: [CharacterSample] = []
+            samples.reserveCapacity(count)
+            for index in 0..<count {
+                let unicode = FPDFText_GetUnicode(textPage, Int32(index))
+                guard let scalar = UnicodeScalar(unicode), scalar.value != 0 else { continue }
+                var left = 0.0
+                var right = 0.0
+                var bottom = 0.0
+                var top = 0.0
+                let hasBox = FPDFText_GetCharBox(textPage, Int32(index), &left, &right, &bottom, &top) != 0
+                let bounds = hasBox && right > left && top > bottom
+                    ? CGRect(x: left, y: bottom, width: right - left, height: top - bottom)
+                    : nil
+                let size = FPDFText_GetFontSize(textPage, Int32(index))
+                let color = fillColor(textPage: textPage, index: index)
+                let reportedFontSize: CGFloat? = size.isFinite && size >= 4 ? CGFloat(size) : nil
+                samples.append(CharacterSample(
+                    scalar: scalar,
+                    bounds: bounds,
+                    reportedFontSize: reportedFontSize,
+                    color: color,
+                    rawFontName: fontName(textPage: textPage, index: index)
+                ))
+            }
+
+            let blocks = blocksFromSamples(samples, pageRefID: pageRefID, confidence: .high, sourcePage: sourcePage)
+            return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: blocks)
         }
-        guard let document else { return nil }
-        defer { FPDF_CloseDocument(document) }
-
-        guard let page = FPDF_LoadPage(document, Int32(pageIndex)) else { return nil }
-        defer { FPDF_ClosePage(page) }
-        guard let textPage = FPDFText_LoadPage(page) else { return nil }
-        defer { FPDFText_ClosePage(textPage) }
-
-        let count = Int(FPDFText_CountChars(textPage))
-        guard count > 0 else { return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: []) }
-
-        var samples: [CharacterSample] = []
-        samples.reserveCapacity(count)
-        for index in 0..<count {
-            let unicode = FPDFText_GetUnicode(textPage, Int32(index))
-            guard let scalar = UnicodeScalar(unicode), scalar.value != 0 else { continue }
-            var left = 0.0
-            var right = 0.0
-            var bottom = 0.0
-            var top = 0.0
-            let hasBox = FPDFText_GetCharBox(textPage, Int32(index), &left, &right, &bottom, &top) != 0
-            let bounds = hasBox && right > left && top > bottom
-                ? CGRect(x: left, y: bottom, width: right - left, height: top - bottom)
-                : nil
-            let size = FPDFText_GetFontSize(textPage, Int32(index))
-            let color = fillColor(textPage: textPage, index: index)
-            let reportedFontSize: CGFloat? = size.isFinite && size >= 4 ? CGFloat(size) : nil
-            samples.append(CharacterSample(
-                scalar: scalar,
-                bounds: bounds,
-                reportedFontSize: reportedFontSize,
-                color: color,
-                rawFontName: fontName(textPage: textPage, index: index)
-            ))
-        }
-
-        let blocks = blocksFromSamples(samples, pageRefID: pageRefID, confidence: .high, sourcePage: sourcePage)
-        return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: blocks)
     }
 
     private func fontName(textPage: OpaquePointer?, index: Int) -> String? {

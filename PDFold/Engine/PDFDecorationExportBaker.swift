@@ -8,6 +8,7 @@ enum PDFDecorationExportBaker {
         case pageOrderMismatch
         case invalidDecoration
         case invalidStampDecoration
+        case documentTooLargeForDecorationExport
 
         var errorDescription: String? {
             switch self {
@@ -19,17 +20,28 @@ enum PDFDecorationExportBaker {
                 return "pdFold could not apply a decoration to this PDF. Add text or turn the decoration off."
             case .invalidStampDecoration:
                 return "pdFold could not apply a stamp to this PDF. Remove the stamp and place it again."
+            case .documentTooLargeForDecorationExport:
+                return "pdFold could not decorate this PDF because it is too large to process safely. Export without decorations, or split the PDF into smaller files."
             }
         }
     }
+
+    private static let maxDecorationInputBytes = 256 * 1024 * 1024
+    private static let maxDecorationPageCount = 500
 
     static func bake(decorations: [PageDecoration],
                      pageOrder: [PageRef],
                      into pdfData: Data) throws -> Data {
         let active = decorations.filter(\.isEnabled)
         guard !active.isEmpty else { return pdfData }
+        guard pdfData.count <= maxDecorationInputBytes else {
+            throw BakeError.documentTooLargeForDecorationExport
+        }
         guard let document = PDFDocument(data: pdfData), document.pageCount > 0 else {
             throw BakeError.invalidPDF
+        }
+        guard document.pageCount <= maxDecorationPageCount else {
+            throw BakeError.documentTooLargeForDecorationExport
         }
         guard pageOrder.count == document.pageCount else {
             throw BakeError.pageOrderMismatch

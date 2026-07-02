@@ -42,34 +42,36 @@ final class PDFiumProcessingEngine: PDFProcessingEngine {
         defer { FPDF_DestroyLibrary() }
         let byteCount = Int32(data.count)
 
-        let document = data.withUnsafeBytes { rawBuffer -> OpaquePointer? in
-            guard let baseAddress = rawBuffer.baseAddress else { return nil }
+        return try data.withUnsafeBytes { rawBuffer -> PDFProcessingValidation in
+            guard let baseAddress = rawBuffer.baseAddress else { throw PDFProcessingError.unreadableDocument }
+            let document: OpaquePointer?
             if let password {
-                return password.withCString { passwordPointer in
+                document = password.withCString { passwordPointer in
                     FPDF_LoadMemDocument(baseAddress, byteCount, passwordPointer)
                 }
+            } else {
+                document = FPDF_LoadMemDocument(baseAddress, byteCount, nil)
             }
-            return FPDF_LoadMemDocument(baseAddress, byteCount, nil)
-        }
 
-        guard let document else {
-            let error = FPDF_GetLastError()
-            if error == pdfiumPasswordErrorCode {
-                throw PDFProcessingError.lockedOrEncrypted
+            guard let document else {
+                let error = FPDF_GetLastError()
+                if error == pdfiumPasswordErrorCode {
+                    throw PDFProcessingError.lockedOrEncrypted
+                }
+                throw PDFProcessingError.unreadableDocument
             }
-            throw PDFProcessingError.unreadableDocument
-        }
-        defer { FPDF_CloseDocument(document) }
+            defer { FPDF_CloseDocument(document) }
 
-        let pageCount = Int(FPDF_GetPageCount(document))
-        guard pageCount > 0 else {
-            throw PDFProcessingError.emptyDocument
-        }
+            let pageCount = Int(FPDF_GetPageCount(document))
+            guard pageCount > 0 else {
+                throw PDFProcessingError.emptyDocument
+            }
 
-        return PDFProcessingValidation(
-            engine: .pdfium,
-            pageCount: pageCount,
-            isEncrypted: false
-        )
+            return PDFProcessingValidation(
+                engine: .pdfium,
+                pageCount: pageCount,
+                isEncrypted: false
+            )
+        }
     }
 }

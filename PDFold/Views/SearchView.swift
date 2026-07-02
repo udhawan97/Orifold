@@ -158,6 +158,7 @@ struct SearchResultRow: View {
 extension Notification.Name {
     static let pdfoldJumpToSelection = Notification.Name("pdfoldJumpToSelection")
     static let pdfoldJumpToPageIndex = Notification.Name("pdfoldJumpToPageIndex")
+    static let pdfoldJumpToFormField = Notification.Name("pdfoldJumpToFormField")
     static let pdfoldPrint           = Notification.Name("pdfoldPrint")
     static let pdfoldZoomIn          = Notification.Name("pdfoldZoomIn")
     static let pdfoldZoomOut         = Notification.Name("pdfoldZoomOut")

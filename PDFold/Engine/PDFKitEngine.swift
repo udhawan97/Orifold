@@ -5,6 +5,20 @@ import UniformTypeIdentifiers
 import WebKit
 
 final class PDFKitEngine: PDFEngine {
+    enum ExportAssemblyError: LocalizedError, Equatable {
+        case unreadableMember(String)
+        case emptyDocument
+
+        var errorDescription: String? {
+            switch self {
+            case .unreadableMember(let name):
+                return "pdFold could not prepare \"\(name)\" for export. Reopen the document and try exporting again."
+            case .emptyDocument:
+                return "pdFold could not prepare this PDF for export because it has no pages."
+            }
+        }
+    }
+
     func loadDocument(from url: URL) throws -> PDFDocument {
         try DocumentImportConverter.pdfDocument(from: url)
     }
@@ -58,6 +72,29 @@ final class PDFKitEngine: PDFEngine {
                     }
                 }
             }
+        }
+        return combined
+    }
+
+    func concatenateForExport(documents: [(MemberDocument, PDFDocument)]) throws -> PDFDocument {
+        let combined = PDFDocument()
+        var insertIndex = 0
+        for (member, pdf) in documents {
+            guard let memberData = PDFSerializer.data(from: pdf),
+                  let freshMemberDoc = PDFDocument(data: memberData),
+                  freshMemberDoc.pageCount == pdf.pageCount else {
+                throw ExportAssemblyError.unreadableMember(member.displayName)
+            }
+            for pageIndex in 0..<freshMemberDoc.pageCount {
+                guard let page = freshMemberDoc.page(at: pageIndex) else {
+                    throw ExportAssemblyError.unreadableMember(member.displayName)
+                }
+                combined.insert(page, at: insertIndex)
+                insertIndex += 1
+            }
+        }
+        guard combined.pageCount > 0 else {
+            throw ExportAssemblyError.emptyDocument
         }
         return combined
     }

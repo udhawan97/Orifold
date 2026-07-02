@@ -3,6 +3,8 @@ import PDFKit
 
 // MARK: - Reading canvas shell (PDF + zoom/page bar)
 
+private let canvasBannerHeight: CGFloat = 48
+
 struct ReadingCanvas: View {
     @Bindable var viewModel: WorkspaceViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -16,11 +18,24 @@ struct ReadingCanvas: View {
             ZoomPageBar(viewModel: viewModel)
             ZStack(alignment: .top) {
                 PDFViewRepresentable(viewModel: viewModel)
+                ScanBar(viewModel: viewModel)
+                    .frame(height: canvasBannerHeight)
+                    .opacity(viewModel.hasScannedPages ? 1 : 0)
+                    .allowsHitTesting(viewModel.hasScannedPages)
+                    .accessibilityHidden(!viewModel.hasScannedPages)
+                    .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.hasScannedPages)
+                FormBar(viewModel: viewModel)
+                    .frame(height: canvasBannerHeight)
+                    .padding(.top, viewModel.hasScannedPages ? canvasBannerHeight : 0)
+                    .opacity(viewModel.hasFormNotice ? 1 : 0)
+                    .allowsHitTesting(viewModel.hasFormNotice)
+                    .accessibilityHidden(!viewModel.hasFormNotice)
+                    .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.hasFormNotice)
                 if let status = viewModel.editingStatus {
                     EditingStatusBanner(status: status) {
                         viewModel.editingStatus = nil
                     }
-                    .padding(.top, .dsMD)
+                    .padding(.top, viewModel.canvasBannerInset + .dsMD)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .task(id: status.id) {
                         guard !status.isError else { return }
@@ -32,6 +47,97 @@ struct ReadingCanvas: View {
             }
         }
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.editingStatus?.id)
+    }
+}
+
+private struct ScanBar: View {
+    @Bindable var viewModel: WorkspaceViewModel
+
+    var body: some View {
+        HStack(spacing: .dsMD) {
+            Image(systemName: "doc.text.viewfinder")
+                .foregroundStyle(Color.dsAccent)
+            Text("This document is a scan")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.dsTextPrimary)
+            Spacer()
+            Button("Make it searchable") {
+                viewModel.makeSearchable()
+            }
+            .font(.dsCaption())
+            .disabled(viewModel.operationProgress.isActive)
+        }
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsSM)
+        .background(.regularMaterial)
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+        .padding(.horizontal, .dsLG)
+    }
+}
+
+private struct FormBar: View {
+    @Bindable var viewModel: WorkspaceViewModel
+
+    var body: some View {
+        HStack(spacing: .dsMD) {
+            Image(systemName: "rectangle.and.pencil.and.ellipsis")
+                .foregroundStyle(Color.dsAccent)
+            VStack(alignment: .leading, spacing: 2) {
+                if viewModel.hasFillableFormFields {
+                    HStack(spacing: .dsSM) {
+                        Text("This PDF has fillable fields")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.dsTextPrimary)
+                        Text("\(viewModel.formSummary.fieldCount) fields")
+                            .font(.dsCaption())
+                            .foregroundStyle(Color.dsTextSecondary)
+                    }
+                }
+                if viewModel.formSummary.hasUnsupportedDynamicFeatures {
+                    Text("Some dynamic form features may not work in pdFold.")
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextTertiary)
+                }
+            }
+            Spacer()
+            if viewModel.hasFillableFormFields {
+                Toggle("Highlight fields", isOn: $viewModel.highlightFormFields)
+                    .toggleStyle(.checkbox)
+                    .font(.dsCaption())
+                    .tint(Color.dsAccentSoft)
+                Button {
+                    viewModel.selectPreviousFormField()
+                } label: {
+                    Image(systemName: "chevron.up")
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.borderless)
+                .help("Previous field")
+                Button {
+                    viewModel.selectNextFormField()
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.borderless)
+                .help("Next field")
+                Button("Reset form") {
+                    viewModel.resetFormFields()
+                }
+                .font(.dsCaption())
+            }
+        }
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsSM)
+        .background(.regularMaterial)
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+        .padding(.horizontal, .dsLG)
     }
 }
 
@@ -181,6 +287,19 @@ struct PDFViewRepresentable: NSViewRepresentable {
             coordinator?.refreshSignatureOverlay()
             coordinator?.refreshDecorationOverlays()
         }
+        view.onTabKey = { [weak coordinator = context.coordinator] moveBackward in
+            guard let viewModel = coordinator?.viewModel,
+                  viewModel.hasFillableFormFields else {
+                return false
+            }
+            if moveBackward {
+                viewModel.selectPreviousFormField()
+            } else {
+                viewModel.selectNextFormField()
+            }
+            coordinator?.refreshDecorationOverlays()
+            return true
+        }
         view.onSelectionCommitted = { [weak coordinator = context.coordinator] in
             coordinator?.commitCurrentMarkupSelection()
         }
@@ -230,6 +349,10 @@ struct PDFViewRepresentable: NSViewRepresentable {
             name: .pdfoldJumpToPageIndex, object: nil)
         NotificationCenter.default.addObserver(
             context.coordinator,
+            selector: #selector(Coordinator.jumpToFormField(_:)),
+            name: .pdfoldJumpToFormField, object: nil)
+        NotificationCenter.default.addObserver(
+            context.coordinator,
             selector: #selector(Coordinator.printDocument(_:)),
             name: .pdfoldPrint, object: nil)
         NotificationCenter.default.addObserver(
@@ -270,6 +393,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         context.coordinator.refreshSignatureOverlay()
         context.coordinator.refreshDecorationOverlays()
         context.coordinator.refreshCommentOverlays()
+        context.coordinator.updateCanvasBannerInset(viewModel.canvasBannerInset)
         // Switching to a different tool (e.g. clicking Highlight) without clicking Done
         // first must not silently drop whatever text is still being edited.
         if viewModel.currentTool != .editText {
@@ -573,6 +697,64 @@ struct PDFViewRepresentable: NSViewRepresentable {
             refreshSignatureOverlay()
         }
 
+        @objc func jumpToFormField(_ notification: Notification) {
+            guard let target = notification.object as? PDFFormFieldNavigationTarget,
+                  let pdfView,
+                  let page = pdfView.document?.page(at: target.pageIndex) else { return }
+            let destination = PDFDestination(page: page, at: CGPoint(x: target.bounds.midX, y: target.bounds.maxY))
+            pdfView.go(to: destination)
+            if target.fieldType != PDFAnnotationWidgetSubtype.button.rawValue {
+                DispatchQueue.main.async { [weak pdfView] in
+                    self.focusTextFormField(target, page: page, pdfView: pdfView)
+                }
+            } else {
+                pdfView.window?.makeFirstResponder(pdfView)
+            }
+            refreshDecorationOverlays()
+            refreshSignatureOverlay()
+        }
+
+        private func focusTextFormField(_ target: PDFFormFieldNavigationTarget, page: PDFPage, pdfView: PDFView?) {
+            guard let pdfView,
+                  let window = pdfView.window else { return }
+            let pagePoint = CGPoint(x: target.bounds.midX, y: target.bounds.midY)
+            let viewPoint = pdfView.convert(pagePoint, from: page)
+            guard pdfView.bounds.contains(viewPoint) else { return }
+            let windowPoint = pdfView.convert(viewPoint, to: nil)
+            let hitView = pdfView.hitTest(viewPoint) ?? pdfView
+            if hitView !== pdfView, hitView.acceptsFirstResponder {
+                window.makeFirstResponder(hitView)
+            }
+            let timestamp = ProcessInfo.processInfo.systemUptime
+            guard let mouseDown = NSEvent.mouseEvent(
+                with: .leftMouseDown,
+                location: windowPoint,
+                modifierFlags: [],
+                timestamp: timestamp,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1
+            ),
+            let mouseUp = NSEvent.mouseEvent(
+                with: .leftMouseUp,
+                location: windowPoint,
+                modifierFlags: [],
+                timestamp: timestamp,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 0
+            ) else { return }
+            hitView.mouseDown(with: mouseDown)
+            hitView.mouseUp(with: mouseUp)
+            if window.firstResponder == nil || window.firstResponder === window {
+                window.makeFirstResponder(pdfView)
+            }
+        }
+
         @objc func printDocument(_ notification: Notification) {
             guard let pdfView else { return }
             viewModel.printWorkspace(pdfView: pdfView)
@@ -716,6 +898,17 @@ struct PDFViewRepresentable: NSViewRepresentable {
             commentRegionOverlay.isHidden = viewModel.currentTool != .commentRegion
         }
 
+        func updateCanvasBannerInset(_ desiredTopInset: CGFloat) {
+            guard let pdfView,
+                  let scrollView = pdfView.documentView?.enclosingScrollView ?? pdfView.subviews.compactMap({ $0 as? NSScrollView }).first else {
+                return
+            }
+            guard abs(scrollView.contentInsets.top - desiredTopInset) > 0.5 else { return }
+            var insets = scrollView.contentInsets
+            insets.top = desiredTopInset
+            scrollView.contentInsets = insets
+        }
+
         private func convertOverlayPath(_ path: NSBezierPath, pdfView: PDFView, page: PDFPage) -> NSBezierPath {
             let pagePath = NSBezierPath()
             pagePath.lineWidth = path.lineWidth
@@ -746,6 +939,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
 
 final class PDFoldPDFView: PDFView {
     var onDeleteKey: (() -> Void)?
+    var onTabKey: ((Bool) -> Bool)?
     var onSelectionCommitted: (() -> Void)?
     var onCommentMenu: (() -> Void)?
 
@@ -755,6 +949,9 @@ final class PDFoldPDFView: PDFView {
         // Delete (51) or Forward Delete (117)
         if event.keyCode == 51 || event.keyCode == 117, let block = onDeleteKey {
             block()
+        } else if event.keyCode == 48,
+                  onTabKey?(event.modifierFlags.contains(.shift)) == true {
+            return
         } else {
             super.keyDown(with: event)
         }
@@ -962,6 +1159,7 @@ final class PageDecorationOverlayView: NSView {
               let pageIndex = viewModel.document.workspace.pageOrder.firstIndex(where: { $0.id == pageRef.id }) else {
             return
         }
+        drawFormHighlights(on: page, pageRef: pageRef, viewModel: viewModel)
         let decorations = viewModel.document.workspace.decorations.filter(\.isEnabled)
         guard !decorations.isEmpty else { return }
         let pageCount = viewModel.document.workspace.pageOrder.count
@@ -984,6 +1182,28 @@ final class PageDecorationOverlayView: NSView {
             case .stamp:
                 guard decoration.pageRefID == pageRef.id else { continue }
                 drawStamp(decoration, pageIndex: pageIndex, pageCount: pageCount)
+            }
+        }
+    }
+
+    private func drawFormHighlights(on page: PDFPage, pageRef: PageRef, viewModel: WorkspaceViewModel) {
+        guard viewModel.highlightFormFields else { return }
+        let selectedID = viewModel.selectedFormFieldIndex.flatMap { index in
+            viewModel.formSummary.fields.indices.contains(index) ? viewModel.formSummary.fields[index].id : nil
+        }
+        for (annotationIndex, annotation) in page.annotations.enumerated() where annotation.isPDFWidget {
+            guard let rect = pageRectToOverlayRect(annotation.bounds)?.standardized,
+                  rect.width > 2,
+                  rect.height > 2 else { continue }
+            let id = "\(pageRef.id.uuidString)-\(annotation.fieldName ?? "\(annotationIndex)")"
+            let isSelected = id == selectedID
+            NSColor.dsAccentSoftNS.withAlphaComponent(isSelected ? 0.40 : 0.24).setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4).fill()
+            if isSelected {
+                NSColor.dsAccentNS.setStroke()
+                let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: 4, yRadius: 4)
+                path.lineWidth = 1.5
+                path.stroke()
             }
         }
     }
