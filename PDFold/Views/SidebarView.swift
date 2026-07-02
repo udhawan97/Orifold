@@ -88,10 +88,20 @@ private struct SidebarBrandMasthead: View {
                 subtitle: "Fold messy documents into one clean PDF."
             )
 
-            HStack(spacing: .dsSM) {
-                SidebarMetric(value: "\(documentCount)", label: documentCount == 1 ? "file" : "files")
-                SidebarMetric(value: "\(pageCount)", label: pageCount == 1 ? "page" : "pages")
-                SidebarMetric(value: "\(commentCount)", label: commentCount == 1 ? "comment" : "comments")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: .dsSM) {
+                    SidebarMetric(value: "\(documentCount)", label: documentCount == 1 ? "file" : "files")
+                    SidebarMetric(value: "\(pageCount)", label: pageCount == 1 ? "page" : "pages")
+                    SidebarMetric(value: "\(commentCount)", label: commentCount == 1 ? "comment" : "comments")
+                }
+
+                VStack(alignment: .leading, spacing: .dsSM) {
+                    HStack(spacing: .dsSM) {
+                        SidebarMetric(value: "\(documentCount)", label: documentCount == 1 ? "file" : "files")
+                        SidebarMetric(value: "\(pageCount)", label: pageCount == 1 ? "page" : "pages")
+                    }
+                    SidebarMetric(value: "\(commentCount)", label: commentCount == 1 ? "comment" : "comments")
+                }
             }
         }
         .padding(.dsMD)
@@ -115,13 +125,19 @@ private struct SidebarMetric: View {
             Text(value)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.dsTextPrimary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
             Text(label)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(Color.dsTextTertiary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
         .background(Color.dsAccentSoft, in: Capsule())
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
