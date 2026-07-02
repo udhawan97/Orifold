@@ -216,12 +216,20 @@ private struct ZoomPageBar: View {
             Spacer()
 
             if viewModel.pageCount > 0 {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Text("Page")
+                        .foregroundStyle(Color.dsTextTertiary)
                     TextField("", text: $pageInput)
                         .textFieldStyle(.plain)
                         .multilineTextAlignment(.center)
-                        .frame(width: 30)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.dsTextPrimary)
+                        .frame(width: 34, height: 22)
+                        .background(Color.dsSurface, in: RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                                .strokeBorder(pageFieldFocused ? Color.dsAccent : Color.dsSeparator, lineWidth: 1)
+                        }
                         .focused($pageFieldFocused)
                         .onSubmit {
                             if let n = Int(pageInput),
@@ -232,14 +240,23 @@ private struct ZoomPageBar: View {
                             }
                             pageFieldFocused = false
                         }
-                    Text("of \(viewModel.pageCount)")
+                    Text("/ \(viewModel.pageCount)")
+                        .monospacedDigit()
+                        .foregroundStyle(Color.dsTextSecondary)
                 }
-                .font(.dsCaption())
-                .foregroundStyle(Color.dsTextSecondary)
+                .font(.system(size: 11, weight: .medium))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(Color.dsCard, in: Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(Color.dsSeparator.opacity(0.85), lineWidth: 1)
+                }
                 .onChange(of: viewModel.currentPageNumber) { _, n in
                     if !pageFieldFocused { pageInput = "\(n)" }
                 }
                 .onAppear { pageInput = "\(max(1, viewModel.currentPageNumber))" }
+                .help("Jump to page")
             }
         }
         .padding(.horizontal, .dsLG)
