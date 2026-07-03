@@ -42,18 +42,16 @@ enum PDFEditedPageRenderer {
         return newPage
     }
 
-    private static func eraseBounds(for operation: PDFTextEditOperation) -> [CGRect] {
+    static func eraseBounds(for operation: PDFTextEditOperation) -> [CGRect] {
         // Inserting brand-new text has nothing to erase; patching would stamp an opaque
         // rectangle over whatever background art sits under the insertion point.
         guard !operation.isInsertion else { return [] }
         let sourceBounds = (operation.sourceLineBounds.isEmpty ? [operation.sourceBounds] : operation.sourceLineBounds)
             .map { $0.standardized }
-        // Erase the replacement box only where it grew past the original text's own
-        // footprint. Blanket-erasing it painted background-colored rectangles over
-        // untouched decoration (chip outlines, rules, fills) next to the text.
-        var sourceUnion = sourceBounds[0]
-        sourceBounds.dropFirst().forEach { sourceUnion = sourceUnion.union($0) }
-        if sourceUnion.insetBy(dx: -2, dy: -2).contains(operation.editedBounds.standardized) {
+        // Automatic width/height growth is only layout help for the replacement text.
+        // It should not stamp a background-colored rectangle over nearby content. Only
+        // explicit manual geometry changes erase the destination box.
+        guard operation.didManuallyReposition || operation.didManuallyResizeWidth || operation.didManuallyResizeHeight else {
             return sourceBounds
         }
         return sourceBounds + [operation.editedBounds]

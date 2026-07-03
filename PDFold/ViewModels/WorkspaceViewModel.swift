@@ -257,6 +257,8 @@ final class WorkspaceViewModel {
     var commentFilter: CommentFilter = .open
     private(set) var commentRevision = 0
     var editingStatus: EditingStatus? = nil
+    var copiedInlineTextFormat: PDFTextEditFormat? = nil
+    var isInlineTextFormatPainterArmed = false
     var operationProgress = WorkspaceOperationProgress()
     var formSummary = PDFFormSummary()
     var highlightFormFields = false
@@ -1752,6 +1754,16 @@ final class WorkspaceViewModel {
         }
     }
 
+    func selectDocument(_ member: MemberDocument) {
+        guard let firstPageRefID = member.pageRefs.first,
+              let ref = document.workspace.pageOrder.first(where: { $0.id == firstPageRefID }) else {
+            selectedPageRefID = nil
+            selectedPageRefIDs = []
+            return
+        }
+        selectPage(ref)
+    }
+
     func pageRefsForCurrentSelection(including ref: PageRef) -> [PageRef] {
         let selectedIDs = selectedPageRefIDs.isEmpty ? [ref.id] : selectedPageRefIDs.union([ref.id])
         return document.workspace.pageOrder.filter { selectedIDs.contains($0.id) }
@@ -1806,12 +1818,13 @@ final class WorkspaceViewModel {
 
     // MARK: - Annotations
 
-    func editableTextBlock(at pagePoint: CGPoint, on page: PDFPage, in pdfDocument: PDFDocument?) -> (pageRef: PageRef, block: EditableTextBlock)? {
+    func editableTextBlock(at pagePoint: CGPoint, on page: PDFPage, in pdfDocument: PDFDocument?) -> (pageRef: PageRef, block: EditableTextBlock, sourceFormat: PDFTextEditFormat)? {
         guard let ref = pageRef(for: page, in: pdfDocument),
               let lookup = memberPDF(for: ref),
               let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex) else {
             return nil
         }
+        let analysis = textAnalysis(for: ref, page: page, memberID: ref.memberDocId, localIndex: localIdx)
         // If the click lands inside a previously-placed replacement (editedBounds) or the
         // original source area (sourceBounds), re-route to that operation so the editor
         // opens with the current replacement text and updates the op in-place rather than
@@ -1836,14 +1849,33 @@ final class WorkspaceViewModel {
                 baseline: existingOp.editedBounds.minY,
                 confidence: .high
             )
-            return (ref, syntheticBlock)
+            let sourceFormat = originalFormat(for: existingOp, in: analysis) ?? PDFTextEditFormat(block: syntheticBlock)
+            return (ref, syntheticBlock, sourceFormat)
         }
-        let analysis = textAnalysis(for: ref, page: page, memberID: ref.memberDocId, localIndex: localIdx)
-        let block = textAnalysisEngine.hitTest(pagePoint, in: analysis) ?? insertionTextBlock(at: pagePoint, pageRefID: ref.id, page: page)
-        return (ref, block)
+        let block = textAnalysisEngine.hitTest(pagePoint, in: analysis) ??
+            insertionTextBlock(at: pagePoint, pageRefID: ref.id, page: page, nearbyBlocks: analysis.blocks)
+        return (ref, block, PDFTextEditFormat(block: block))
     }
 
-    private func insertionTextBlock(at pagePoint: CGPoint, pageRefID: UUID, page: PDFPage) -> EditableTextBlock {
+    private func originalFormat(for operation: PDFTextEditOperation, in analysis: PDFTextPageAnalysis) -> PDFTextEditFormat? {
+        if let exact = analysis.blocks.first(where: { $0.id == operation.sourceBlockID }) {
+            return PDFTextEditFormat(block: exact)
+        }
+        let sourceBounds = operation.sourceBounds.standardized
+        let sourceCenter = CGPoint(x: sourceBounds.midX, y: sourceBounds.midY)
+        let nearest = analysis.blocks
+            .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .min { lhs, rhs in
+                distanceSquared(from: sourceCenter, to: lhs.bounds) < distanceSquared(from: sourceCenter, to: rhs.bounds)
+            }
+        guard let nearest,
+              distanceSquared(from: sourceCenter, to: nearest.bounds) <= 80 * 80 else {
+            return nil
+        }
+        return PDFTextEditFormat(block: nearest)
+    }
+
+    private func insertionTextBlock(at pagePoint: CGPoint, pageRefID: UUID, page: PDFPage, nearbyBlocks: [EditableTextBlock]) -> EditableTextBlock {
         let pageBounds = page.bounds(for: .cropBox)
         let width = min(max(pageBounds.width * 0.34, 180), 320)
         let height: CGFloat = 24
@@ -1865,19 +1897,51 @@ final class WorkspaceViewModel {
         if bounds.maxY > pageBounds.maxY - 12 {
             bounds.origin.y = pageBounds.maxY - height - 12
         }
+        let nearbyStyle = nearbyTextStyle(near: pagePoint, in: nearbyBlocks)
         return EditableTextBlock(
             pageRefID: pageRefID,
             text: "",
             bounds: bounds,
             lines: [],
             columnBounds: pageBounds.insetBy(dx: 12, dy: 12),
-            fontName: "Helvetica",
-            fontSize: 14,
-            textColor: .documentText,
+            fontName: nearbyStyle?.fontName ?? "Helvetica",
+            fontSize: nearbyStyle?.fontSize ?? 14,
+            textColor: nearbyStyle?.textColor ?? .documentText,
+            alignment: nearbyStyle?.alignment,
             rotation: CGFloat(page.rotation),
             baseline: bounds.minY,
             confidence: .medium
         )
+    }
+
+    private func nearbyTextStyle(near point: CGPoint, in blocks: [EditableTextBlock]) -> EditableTextBlock? {
+        blocks
+            .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .min { lhs, rhs in
+                distanceSquared(from: point, to: lhs.bounds) < distanceSquared(from: point, to: rhs.bounds)
+            }
+            .flatMap { distanceSquared(from: point, to: $0.bounds) <= 160 * 160 ? $0 : nil }
+    }
+
+    private func distanceSquared(from point: CGPoint, to rect: CGRect) -> CGFloat {
+        let box = rect.standardized
+        let dx: CGFloat
+        if point.x < box.minX {
+            dx = box.minX - point.x
+        } else if point.x > box.maxX {
+            dx = point.x - box.maxX
+        } else {
+            dx = 0
+        }
+        let dy: CGFloat
+        if point.y < box.minY {
+            dy = box.minY - point.y
+        } else if point.y > box.maxY {
+            dy = point.y - box.maxY
+        } else {
+            dy = 0
+        }
+        return dx * dx + dy * dy
     }
 
     @discardableResult

@@ -580,7 +580,13 @@ struct PDFViewRepresentable: NSViewRepresentable {
             case .editText:
                 inlineEditor?.finishForHandoff()
                 if let target = viewModel.editableTextBlock(at: pagePoint, on: page, in: pdfView.document) {
-                    showInlineTextEditor(for: target.block, pageRef: target.pageRef, on: page, in: pdfView)
+                    showInlineTextEditor(
+                        for: target.block,
+                        pageRef: target.pageRef,
+                        sourceFormat: target.sourceFormat,
+                        on: page,
+                        in: pdfView
+                    )
                 }
             case .signature:
                 if let signatureData = viewModel.pendingSignatureData {
@@ -685,7 +691,13 @@ struct PDFViewRepresentable: NSViewRepresentable {
             notePopover = nil
         }
 
-        private func showInlineTextEditor(for block: EditableTextBlock, pageRef: PageRef, on page: PDFPage, in pdfView: PDFoldPDFView) {
+        private func showInlineTextEditor(
+            for block: EditableTextBlock,
+            pageRef: PageRef,
+            sourceFormat: PDFTextEditFormat,
+            on page: PDFPage,
+            in pdfView: PDFoldPDFView
+        ) {
             // Callers are expected to finish (commit or cancel) any previously open editor
             // before calling this — see the `.editText` handleClick case.
             assert(inlineEditor == nil, "a previous inline editor should already be finished")
@@ -697,6 +709,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 page: page,
                 pageRef: pageRef,
                 block: block,
+                sourceFormat: sourceFormat,
                 isExistingEdit: isExistingEdit
             ) { [weak self, weak pdfView] result in
                 guard let self else { return }
@@ -2176,6 +2189,7 @@ final class NoteEditorViewController: NSViewController {
     private weak var viewModel: WorkspaceViewModel?
     private let pageRef: PageRef
     private let block: EditableTextBlock
+    private let sourceFormat: PDFTextEditFormat
     private let isExistingEdit: Bool
     private let completion: (Completion) -> Void
     private let patchView = NSView()
@@ -2190,6 +2204,9 @@ final class NoteEditorViewController: NSViewController {
     private let italicButton = NSButton(title: "I", target: nil, action: nil)
     private let alignControl = NSSegmentedControl(labels: ["L", "C", "R"], trackingMode: .selectOne, target: nil, action: nil)
     private let colorPopup = NSPopUpButton()
+    private let matchFormatButton = NSButton(title: "Match", target: nil, action: nil)
+    private let copyFormatButton = NSButton(title: "", target: nil, action: nil)
+    private let applyFormatButton = NSButton(title: "", target: nil, action: nil)
     private var editorFontFamily: String
     private var documentFontSize: CGFloat
     private var editorFontTraits: NSFontTraitMask
@@ -2233,6 +2250,7 @@ final class NoteEditorViewController: NSViewController {
         page: PDFPage,
         pageRef: PageRef,
         block: EditableTextBlock,
+        sourceFormat: PDFTextEditFormat,
         isExistingEdit: Bool = false,
         completion: @escaping (Completion) -> Void
     ) {
@@ -2241,6 +2259,7 @@ final class NoteEditorViewController: NSViewController {
         self.page = page
         self.pageRef = pageRef
         self.block = block
+        self.sourceFormat = sourceFormat
         self.isExistingEdit = isExistingEdit
         self.completion = completion
         // Preserve the ORIGINAL detected point size so edited text renders at the same size
@@ -2262,6 +2281,7 @@ final class NoteEditorViewController: NSViewController {
         originalAlignment = editorAlignment
         super.init(frame: frame)
         setup()
+        applyArmedFormatPainterIfNeeded()
         layoutEditor()
     }
 
@@ -2363,6 +2383,9 @@ final class NoteEditorViewController: NSViewController {
         }
         textView.onEscape = { [weak self] in
             self?.cancel()
+        }
+        textView.onUndoShortcut = { [weak self] in
+            self?.performEditorUndo()
         }
         moveHandle.onDrag = { [weak self] delta in
             self?.moveEditor(by: delta)
@@ -2469,7 +2492,32 @@ final class NoteEditorViewController: NSViewController {
         signature.frame = CGRect(x: 522, y: 8, width: 34, height: 26)
         toolbar.addSubview(signature)
 
-        var buttonX: CGFloat = 566
+        matchFormatButton.target = self
+        matchFormatButton.action = #selector(matchNearbyFormat)
+        matchFormatButton.bezelStyle = .rounded
+        matchFormatButton.toolTip = "Match nearby text format"
+        matchFormatButton.frame = CGRect(x: 566, y: 8, width: 62, height: 26)
+        toolbar.addSubview(matchFormatButton)
+
+        copyFormatButton.target = self
+        copyFormatButton.action = #selector(copyCurrentFormat)
+        copyFormatButton.image = NSImage(systemSymbolName: "paintbrush", accessibilityDescription: "Copy format")
+        copyFormatButton.imagePosition = .imageOnly
+        copyFormatButton.bezelStyle = .rounded
+        copyFormatButton.toolTip = "Copy format"
+        copyFormatButton.frame = CGRect(x: 634, y: 8, width: 34, height: 26)
+        toolbar.addSubview(copyFormatButton)
+
+        applyFormatButton.target = self
+        applyFormatButton.action = #selector(applyCopiedFormat)
+        applyFormatButton.image = NSImage(systemSymbolName: "paintbrush.pointed", accessibilityDescription: "Apply copied format")
+        applyFormatButton.imagePosition = .imageOnly
+        applyFormatButton.bezelStyle = .rounded
+        applyFormatButton.toolTip = "Apply copied format"
+        applyFormatButton.frame = CGRect(x: 674, y: 8, width: 34, height: 26)
+        toolbar.addSubview(applyFormatButton)
+
+        var buttonX: CGFloat = 718
         if isExistingEdit {
             let revert = NSButton(title: "Revert", target: self, action: #selector(revertButton))
             revert.bezelStyle = .rounded
@@ -2496,7 +2544,7 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private var toolbarSize: CGSize {
-        CGSize(width: isExistingEdit ? 782 : 710, height: 42)
+        CGSize(width: isExistingEdit ? 934 : 862, height: 42)
     }
 
     private func layoutEditor() {
@@ -2757,6 +2805,75 @@ final class NoteEditorViewController: NSViewController {
         didChangeStyle = true
         applyFormatting()
         refocusEditor()
+    }
+
+    @objc private func matchNearbyFormat() {
+        applySourceFormat(markStyleChange: true)
+        viewModel?.showEditMessage("Matched the edited text to nearby document formatting.", isError: false)
+        refocusEditor()
+    }
+
+    private func applySourceFormat(markStyleChange: Bool) {
+        apply(format: sourceFormat, markStyleChange: markStyleChange)
+    }
+
+    @objc private func copyCurrentFormat() {
+        viewModel?.copiedInlineTextFormat = currentFormat
+        viewModel?.isInlineTextFormatPainterArmed = true
+        viewModel?.showEditMessage("Copied text format. Click another text edit to paint it, or use Apply here.", isError: false)
+        refocusEditor()
+    }
+
+    @objc private func applyCopiedFormat() {
+        guard let format = viewModel?.copiedInlineTextFormat else {
+            viewModel?.showEditMessage("Copy a text format first, then apply it to another edit.", isError: false)
+            refocusEditor()
+            return
+        }
+        apply(format: format, markStyleChange: true)
+        viewModel?.isInlineTextFormatPainterArmed = false
+        viewModel?.showEditMessage("Applied copied text format.", isError: false)
+        refocusEditor()
+    }
+
+    private func applyArmedFormatPainterIfNeeded() {
+        guard let viewModel,
+              viewModel.isInlineTextFormatPainterArmed,
+              let format = viewModel.copiedInlineTextFormat else { return }
+        apply(format: format, markStyleChange: true)
+        viewModel.isInlineTextFormatPainterArmed = false
+        viewModel.showEditMessage("Applied copied text format.", isError: false)
+    }
+
+    private var currentFormat: PDFTextEditFormat {
+        PDFTextEditFormat(
+            fontName: documentFont().fontName,
+            fontSize: documentFontSize,
+            textColor: CodableColor(nsColor: editorTextColor),
+            alignment: CodableTextAlignment(editorAlignment)
+        )
+    }
+
+    private func apply(format: PDFTextEditFormat, markStyleChange: Bool) {
+        documentFontSize = format.fontSize > 0 ? format.fontSize : originalFontSize
+        let sourceFont = NSFont(name: format.fontName, size: documentFontSize) ?? .systemFont(ofSize: documentFontSize)
+        editorFontFamily = Self.editingFamilyName(for: sourceFont, fallback: format.fontName)
+        editorFontTraits = NSFontManager.shared.traits(of: sourceFont).intersection([.boldFontMask, .italicFontMask])
+        editorTextColor = format.textColor.nsColor
+        editorAlignment = format.alignment.nsTextAlignment
+        if markStyleChange {
+            didChangeStyle = true
+        }
+        applyFormatting()
+    }
+
+    private func performEditorUndo() {
+        if textView.undoManager?.canUndo == true {
+            textView.undoManager?.undo()
+            resizeTextViewHeight()
+        } else {
+            window?.undoManager?.undo()
+        }
     }
 
     private func refocusEditor() {
@@ -3123,8 +3240,23 @@ final class NoteEditorViewController: NSViewController {
             didManuallyResizeWidth: didManuallyResizeWidth,
             didManuallyResizeHeight: didManuallyResizeHeight
         )
+        if formattingDiffersFromSource {
+            viewModel?.showEditMessage(
+                "Edited text formatting does not match nearby document text. Use Match before Done to copy the nearby format.",
+                isError: false
+            )
+        }
         removeFromSuperview()
         completion(.commit(result))
+    }
+
+    private var formattingDiffersFromSource: Bool {
+        didChangeStyle && (
+            currentFormat.fontName != sourceFormat.fontName ||
+            abs(currentFormat.fontSize - sourceFormat.fontSize) >= 0.01 ||
+            currentFormat.alignment != sourceFormat.alignment ||
+            !Self.colorsApproximatelyEqual(currentFormat.textColor.nsColor, sourceFormat.textColor.nsColor, tolerance: 0.025)
+        )
     }
 
     private var shouldCancelWithoutCommit: Bool {
@@ -3164,11 +3296,21 @@ final class NoteEditorViewController: NSViewController {
 final class InlineEditableTextView: NSTextView {
     var onMoveDrag: ((CGPoint) -> Void)?
     var onEscape: (() -> Void)?
+    var onUndoShortcut: (() -> Void)?
     private var isMoving = false
     private var lastPoint: CGPoint?
 
     override func cancelOperation(_ sender: Any?) {
         onEscape?()
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.charactersIgnoringModifiers?.lowercased() == "z",
+           !event.modifierFlags.intersection([.command, .control]).isEmpty {
+            onUndoShortcut?()
+            return
+        }
+        super.keyDown(with: event)
     }
 
     override func resetCursorRects() {

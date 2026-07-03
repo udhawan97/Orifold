@@ -159,6 +159,27 @@ struct PDFTextEditSession: Equatable {
     var alignment: CodableTextAlignment
 }
 
+struct PDFTextEditFormat: Equatable {
+    var fontName: String
+    var fontSize: CGFloat
+    var textColor: CodableColor
+    var alignment: CodableTextAlignment
+
+    init(fontName: String, fontSize: CGFloat, textColor: CodableColor, alignment: CodableTextAlignment) {
+        self.fontName = fontName
+        self.fontSize = fontSize
+        self.textColor = textColor
+        self.alignment = alignment
+    }
+
+    init(block: EditableTextBlock) {
+        self.fontName = block.fontName
+        self.fontSize = block.fontSize
+        self.textColor = block.textColor
+        self.alignment = block.alignment ?? .left
+    }
+}
+
 struct CodableColor: Codable, Equatable {
     var red: CGFloat
     var green: CGFloat

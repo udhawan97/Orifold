@@ -158,6 +158,11 @@ struct MemberDocRow: View {
         viewModel.loadedPDFs.first(where: { $0.0.id == member.id })?.1
     }
 
+    private var isSelected: Bool {
+        guard let selectedPageRefID = viewModel.selectedPageRefID else { return false }
+        return member.pageRefs.contains(selectedPageRefID)
+    }
+
     var body: some View {
         DisclosureGroup(
             isExpanded: Binding(get: { isExpanded }, set: { isExpanded = $0 })
@@ -194,13 +199,17 @@ struct MemberDocRow: View {
                 .accessibilityLabel("Remove \(member.displayName)")
             }
             .padding(.vertical, 2)
+            .contentShape(Rectangle())
+            .simultaneousGesture(TapGesture().onEnded {
+                viewModel.selectDocument(member)
+            })
         }
         .padding(.horizontal, .dsSM)
         .padding(.vertical, 5)
         .background {
-            if isHovered {
+            if isSelected || isHovered {
                 RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
-                    .fill(Color.dsAccentSoft)
+                    .fill(isSelected ? Color.dsAccentSoft : Color.dsSeparator)
             }
         }
         .onHover { isHovered = $0 }

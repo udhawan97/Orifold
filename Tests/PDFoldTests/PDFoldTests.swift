@@ -589,6 +589,81 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         )
     }
 
+    func testInsertionTextEditCopiesNearbyDetectedFormatByDefault() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Nearby styled text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+
+        let engine = PDFTextAnalysisEngine()
+        let analysis = engine.analyze(
+            data: fixture.pdfData,
+            pageIndex: 0,
+            pageRefID: fixture.refs[0].id,
+            fallbackPage: page
+        )
+        let nearby = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Nearby") })
+        let insertionPoint = CGPoint(x: nearby.bounds.minX, y: nearby.bounds.minY - 20)
+
+        let target = try XCTUnwrap(viewModel.editableTextBlock(
+            at: insertionPoint,
+            on: page,
+            in: viewModel.loadedPDFs.first?.1
+        ))
+
+        XCTAssertTrue(target.block.text.isEmpty)
+        XCTAssertEqual(target.block.fontName, nearby.fontName)
+        XCTAssertEqual(target.block.fontSize, nearby.fontSize, accuracy: 0.01)
+        XCTAssertEqual(target.block.textColor, nearby.textColor)
+        XCTAssertEqual(target.block.alignment, nearby.alignment)
+    }
+
+    func testReopenedInlineTextEditKeepsOriginalFormatAvailableForMatching() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Nearby styled text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let originalPage = try XCTUnwrap(PDFDocument(data: fixture.pdfData)?.page(at: 0))
+        let analysis = PDFTextAnalysisEngine().analyze(
+            data: fixture.pdfData,
+            pageIndex: 0,
+            pageRefID: fixture.refs[0].id,
+            fallbackPage: originalPage
+        )
+        let sourceBlock = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Nearby") })
+        let editedBounds = sourceBlock.bounds.insetBy(dx: -2, dy: -2)
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Mismatched replacement",
+            editedBounds: editedBounds,
+            fontName: "Courier-Bold",
+            fontSize: sourceBlock.fontSize + 6,
+            textColor: .systemRed,
+            alignment: .right
+        ))
+
+        let editedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let reopened = try XCTUnwrap(viewModel.editableTextBlock(
+            at: CGPoint(x: editedBounds.midX, y: editedBounds.midY),
+            on: editedPage,
+            in: viewModel.loadedPDFs.first?.1
+        ))
+
+        XCTAssertEqual(reopened.block.fontName, "Courier-Bold")
+        XCTAssertEqual(reopened.block.fontSize, sourceBlock.fontSize + 6, accuracy: 0.01)
+        XCTAssertEqual(reopened.sourceFormat.fontName, sourceBlock.fontName)
+        XCTAssertEqual(reopened.sourceFormat.fontSize, sourceBlock.fontSize, accuracy: 0.01)
+        XCTAssertEqual(reopened.sourceFormat.textColor, sourceBlock.textColor)
+        XCTAssertEqual(reopened.sourceFormat.alignment, sourceBlock.alignment ?? .left)
+    }
+
     func testInlineTextEditErasesCommittedEditedBoundsSoNearbyTextDoesNotBleedThrough() throws {
         let pdf = makeTwoLinePDF()
         let page = try XCTUnwrap(pdf.page(at: 0))
@@ -601,7 +676,10 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             fontName: "Helvetica",
             fontSize: 14,
             textColor: .documentText,
-            alignment: .left
+            alignment: .left,
+            didManuallyReposition: true,
+            didManuallyResizeWidth: true,
+            didManuallyResizeHeight: true
         )
 
         let regenerated = try XCTUnwrap(PDFEditedPageRenderer.regeneratedPage(from: page, applying: [operation]))
@@ -613,6 +691,24 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             0.9,
             "stale text under the grown replacement edit box should be cleared"
         )
+    }
+
+    func testInlineTextEditDoesNotEraseAutoGrownBoundsBeyondOriginalText() throws {
+        let sourceBounds = CGRect(x: 72, y: 686, width: 42, height: 18)
+        let editedBounds = CGRect(x: 72, y: 626, width: 260, height: 78)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: sourceBounds,
+            editedBounds: editedBounds,
+            replacementText: "Replacement",
+            fontName: "Helvetica",
+            fontSize: 14,
+            textColor: .documentText,
+            alignment: .left
+        )
+
+        XCTAssertEqual(PDFEditedPageRenderer.eraseBounds(for: operation), [sourceBounds])
     }
 
     func testMeasuredBoundsGrowsDownwardFromAFixedTopEdge() throws {
@@ -2295,6 +2391,33 @@ final class WorkspaceViewModelTests: XCTestCase {
         ])
         XCTAssertEqual(viewModel.loadedPDFs[0].1.pageCount, 2)
         XCTAssertEqual(viewModel.combinedPageIndex(forWorkspacePageNumber: 3), 4)
+    }
+
+    func testSelectingDocumentJumpsToItsFirstPage() throws {
+        let document = WorkspaceDocument()
+        let first = try makeMemberWithPDF(name: "First", pageTexts: ["one", "two"])
+        let second = try makeMemberWithPDF(name: "Second", pageTexts: ["three", "four"])
+        document.workspace.documents = [first.member, second.member]
+        document.workspace.pageOrder = first.refs + second.refs
+        document.memberPDFData[first.member.id] = first.pdfData
+        document.memberPDFData[second.member.id] = second.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+
+        var jumpedIndex: Int?
+        let token = NotificationCenter.default.addObserver(
+            forName: .pdfoldJumpToPageIndex,
+            object: nil,
+            queue: nil
+        ) { notification in
+            jumpedIndex = notification.object as? Int
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        viewModel.selectDocument(second.member)
+
+        XCTAssertEqual(viewModel.selectedPageRefID, second.refs[0].id)
+        XCTAssertEqual(viewModel.selectedPageRefIDs, Set([second.refs[0].id]))
+        XCTAssertEqual(jumpedIndex, 4)
     }
 
     func testMovingPageAcrossDocumentsMovesLivePDFPageAndInvalidatesSourcePayloads() throws {
@@ -4182,7 +4305,8 @@ private func makeInlineEditorFixture(
         pdfView: pdfView,
         page: page,
         pageRef: pageRef,
-        block: block
+        block: block,
+        sourceFormat: PDFTextEditFormat(block: block)
     ) { completion in
         if case .commit(let edit) = completion {
             committed = edit
