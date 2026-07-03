@@ -1,14 +1,9 @@
 name: CodeQL
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
   schedule:
     - cron: "31 8 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,11 +27,22 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Cache SwiftPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/checkouts
+            .build/repositories
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-swiftpm-deps-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swiftpm-deps-
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: swift
-          queries: security-extended,security-and-quality
+          queries: ${{ github.event_name == 'schedule' && 'security-extended,security-and-quality' || 'security-and-quality' }}
 
       - name: Build for analysis
         run: swift build

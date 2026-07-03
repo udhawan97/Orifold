@@ -30,6 +30,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Cache SwiftPM downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-swiftpm-downloads-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swiftpm-downloads-
+
       - name: Show tool versions
         run: |
           xcodebuild -version
