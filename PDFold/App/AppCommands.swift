@@ -31,7 +31,7 @@ private struct MakeSearchableCommandButton: View {
         Button("Make searchable…") {
             viewModel?.makeSearchable()
         }
-        .disabled(viewModel?.hasScannedPages != true || viewModel?.operationProgress.isActive == true)
+        .disabled(viewModel?.canStartSearchable != true)
     }
 }
 

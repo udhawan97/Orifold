@@ -258,6 +258,12 @@ final class WorkspaceViewModel {
     var highlightFormFields = false
     var selectedFormFieldIndex: Int? = nil
     var scannedPageCount = 0
+    var isMakingSearchable: Bool {
+        activeOCRTask != nil
+    }
+    var canStartSearchable: Bool {
+        hasScannedPages && !isImporting && activeCompressionTask == nil && activeOCRTask == nil
+    }
 
     // MARK: - Annotation colors (curated palette)
     var annotationColor: NSColor = .dsAnnotationYellow   // highlight, note, underline, strikeout

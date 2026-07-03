@@ -288,6 +288,7 @@ final class PDFOCRTests: XCTestCase {
         let viewModel = WorkspaceViewModel(document: document)
         XCTAssertTrue(viewModel.hasScannedPages)
         XCTAssertEqual(viewModel.scannedPageCount, 1)
+        XCTAssertTrue(viewModel.canStartSearchable)
 
         let member = try XCTUnwrap(viewModel.loadedPDFs.first?.0)
         let sourceData = try XCTUnwrap(document.memberPDFData[member.id])
@@ -313,6 +314,25 @@ final class PDFOCRTests: XCTestCase {
 
         let exportedText = try XCTUnwrap(String(data: try viewModel.dataForWorkspaceExport(as: .text), encoding: .utf8))
         XCTAssertTrue(exportedText.contains("Detected scan text"))
+    }
+
+    @MainActor
+    func testViewModelBlocksStartingSearchableWhileBusy() throws {
+        let document = WorkspaceDocument()
+        try document.importPDFDocumentForTesting(try imageOnlyPDF(), filename: "scan.pdf")
+        let viewModel = WorkspaceViewModel(document: document)
+        XCTAssertTrue(viewModel.canStartSearchable)
+
+        viewModel.setProcessingStateForTesting(compressionActive: true)
+        XCTAssertFalse(viewModel.canStartSearchable)
+
+        viewModel.setProcessingStateForTesting(compressionActive: false, ocrActive: true)
+        XCTAssertFalse(viewModel.canStartSearchable)
+        XCTAssertTrue(viewModel.isMakingSearchable)
+
+        viewModel.setProcessingStateForTesting()
+        viewModel.isImporting = true
+        XCTAssertFalse(viewModel.canStartSearchable)
     }
 }
 

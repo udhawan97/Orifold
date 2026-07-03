@@ -12,6 +12,7 @@ struct InspectorView: View {
         case comments = "Comments"
         case markup = "Markup"
         case decorate = "Decorate"
+        case ocr = "OCR"
 
         var iconName: String {
             switch self {
@@ -20,6 +21,7 @@ struct InspectorView: View {
             case .comments: return "text.bubble"
             case .markup: return "highlighter"
             case .decorate: return "paintbrush.pointed"
+            case .ocr: return "doc.text.viewfinder"
             }
         }
     }
@@ -52,6 +54,7 @@ struct InspectorView: View {
                 case .comments: InspectorWorkspaceCommentsView(viewModel: viewModel)
                 case .markup: InspectorMarkupView(viewModel: viewModel)
                 case .decorate: InspectorDecorateView(viewModel: viewModel)
+                case .ocr: InspectorOCRView(viewModel: viewModel)
                 }
             }
         }
@@ -92,6 +95,7 @@ private struct InspectorTabPicker: View {
                     .contentShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
             }
         }
         .padding(4)
@@ -992,6 +996,92 @@ private extension PageDecorationSwatch {
         case .lavender:
             return "Lavender"
         }
+    }
+}
+
+// MARK: - OCR tab
+
+private struct InspectorOCRView: View {
+    @Bindable var viewModel: WorkspaceViewModel
+
+    private var statusTitle: String {
+        if viewModel.isMakingSearchable {
+            return "Making document searchable"
+        }
+        if viewModel.hasScannedPages && !viewModel.canStartSearchable {
+            return "OCR waiting"
+        }
+        if viewModel.hasScannedPages {
+            return "Scanned pages detected"
+        }
+        return "Searchable text ready"
+    }
+
+    private var statusDetail: String {
+        if viewModel.isMakingSearchable {
+            return viewModel.operationProgress.detail
+        }
+        if viewModel.hasScannedPages && !viewModel.canStartSearchable {
+            return "Finish the current document operation before running OCR."
+        }
+        if viewModel.hasScannedPages {
+            let pageLabel = viewModel.scannedPageCount == 1 ? "page" : "pages"
+            return "\(viewModel.scannedPageCount) scanned \(pageLabel) can be processed with local OCR."
+        }
+        return "No image-only scan pages need OCR right now."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsLG) {
+            HStack(alignment: .top, spacing: .dsMD) {
+                Image(systemName: viewModel.hasScannedPages ? "doc.text.viewfinder" : "checkmark.circle")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(viewModel.hasScannedPages ? Color.dsAccent : Color.dsAnnotationSage)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: .dsXS) {
+                    Text(statusTitle)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.dsTextPrimary)
+                    Text(statusDetail)
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Button {
+                if viewModel.isMakingSearchable {
+                    viewModel.cancelActiveOperation()
+                } else {
+                    viewModel.makeSearchable()
+                }
+            } label: {
+                Label(viewModel.isMakingSearchable ? "Cancel OCR" : "Make searchable",
+                      systemImage: viewModel.isMakingSearchable ? "xmark.circle" : "doc.text.viewfinder")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+            .disabled(!viewModel.isMakingSearchable && !viewModel.canStartSearchable)
+            .help(buttonHelp)
+        }
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsXL)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var buttonHelp: String {
+        if viewModel.isMakingSearchable {
+            return "Cancel making searchable"
+        }
+        if viewModel.canStartSearchable {
+            return "Run local OCR on scanned pages"
+        }
+        if viewModel.hasScannedPages {
+            return "Finish the current document operation before running OCR"
+        }
+        return "No scanned pages detected"
     }
 }
 

@@ -23,6 +23,13 @@ final class PDFSerializerTests: XCTestCase {
     }
 }
 
+final class InspectorViewTests: XCTestCase {
+    func testOCRTabAppearsAfterDecorate() {
+        XCTAssertEqual(Array(InspectorView.Tab.allCases.suffix(2)), [.decorate, .ocr])
+        XCTAssertEqual(InspectorView.Tab.ocr.iconName, "doc.text.viewfinder")
+    }
+}
+
 final class WorkspaceModelTests: XCTestCase {
     func testWorkspaceDecodingBackfillsSchemaTwoDefaults() throws {
         let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
