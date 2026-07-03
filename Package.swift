@@ -29,7 +29,8 @@ let package = Package(
             ],
             resources: [
                 .process("Resources/Assets.xcassets"),
-                .copy("Resources/CERTIFICATE_GUIDE.md")
+                .copy("Resources/CERTIFICATE_GUIDE.md"),
+                .copy("Resources/THIRD-PARTY-NOTICES.md")
             ]
         ),
         .testTarget(

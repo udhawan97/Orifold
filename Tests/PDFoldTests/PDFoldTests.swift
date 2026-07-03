@@ -1404,6 +1404,88 @@ final class DocumentImportConverterTests: XCTestCase {
         XCTAssertEqual(firstPage.bounds(for: .mediaBox).height, 792, accuracy: 0.5)
     }
 
+    func testHTMLImportFallsBackWhenWebRendererTimesOut() async throws {
+        let html = Data("""
+        <!doctype html>
+        <html><body><h1>Fallback import</h1><p>Rendered even when WebKit times out.</p></body></html>
+        """.utf8)
+
+        let imported = try await DocumentImportConverter.importedDocumentAsync(
+            from: html,
+            contentType: .html,
+            filename: "fallback.html",
+            baseURL: nil,
+            htmlRenderTimeout: 0
+        )
+
+        XCTAssertGreaterThan(imported.pdfDocument.pageCount, 0)
+        XCTAssertTrue(imported.pdfDocument.stringValue.contains("Fallback import"))
+        XCTAssertEqual(imported.sourcePayload?.format, .html)
+    }
+
+    func testAsyncImportRendersEveryAdvertisedImportFamily() async throws {
+        let rich = NSMutableAttributedString(string: "Heading\nBold item\nLink")
+        rich.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 18), range: NSRange(location: 0, length: 7))
+        rich.addAttribute(.link, value: URL(string: "https://example.com")!, range: NSRange(location: 18, length: 4))
+
+        let cases: [(name: String, data: Data, type: UTType, expectedText: String, expectedSourceFormat: SourceDocumentFormat?)] = [
+            ("sample.pdf", try makePDF(pageTexts: ["PDF import"]).dataRepresentation().unwrap(), .pdf, "PDF import", nil),
+            ("sample.png", try makePNGData(), .png, "", nil),
+            ("sample.html", Data("<!doctype html><html><body><h1>HTML import</h1></body></html>".utf8), .html, "HTML import", .html),
+            ("sample.htm", Data("<!doctype html><html><body><h1>HTM import</h1></body></html>".utf8), .html, "HTM import", .html),
+            ("sample.svg", Data("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"80\"><text x=\"10\" y=\"40\">SVG import</text></svg>".utf8), .pdfoldSVG, "SVG import", nil),
+            ("sample.docx", try richImportData(from: rich, documentType: .officeOpenXML), .docx, "Heading", .docx),
+            ("sample.doc", try richImportData(from: rich, documentType: .docFormat), .wordDoc, "Heading", .wordDoc),
+            ("sample.odt", try richImportData(from: rich, documentType: .openDocument), .odt, "Heading", .odt),
+            ("sample.xlsx", makeStoredZIPData(entries: [
+                "xl/workbook.xml": "<workbook/>",
+                "xl/worksheets/sheet1.xml": "<worksheet><sheetData><row><c t=\"inlineStr\"><is><t>XLSX import</t></is></c></row></sheetData></worksheet>"
+            ]), .pdfoldXLSX, "XLSX import", nil),
+            ("sample.pptx", makeStoredZIPData(entries: [
+                "ppt/presentation.xml": "<p:presentation/>",
+                "ppt/slides/slide1.xml": "<p:sld><p:cSld><p:spTree><a:t>PPTX import</a:t></p:spTree></p:cSld></p:sld>"
+            ]), .pdfoldPPTX, "PPTX import", nil),
+            ("sample.epub", makeStoredZIPData(entries: [
+                "mimetype": "application/epub+zip",
+                "META-INF/container.xml": "<container/>",
+                "OPS/chapter.xhtml": "<html><body><h1>EPUB import</h1><p>Chapter text</p></body></html>"
+            ]), .pdfoldEPUB, "EPUB import", nil),
+            ("sample.rtf", try richImportData(from: rich, documentType: .rtf), .rtf, "Heading", .rtf),
+            ("sample.md", Data("# Markdown import\n\n- Item".utf8), .markdown, "Markdown import", .markdown),
+            ("sample.txt", Data("Plain text import".utf8), .plainText, "Plain text import", .plainText),
+            ("sample.csv", Data("name,value\nCSV import,1\n".utf8), .csv, "CSV import", .plainText),
+            ("sample.tsv", Data("name\tvalue\nTSV import\t1\n".utf8), .pdfoldTSV, "TSV import", .plainText),
+            ("sample.json", Data("{\"title\":\"JSON import\"}".utf8), .json, "JSON import", .plainText),
+            ("sample.jsonl", Data("{\"title\":\"JSONL import\"}\n".utf8), .json, "JSONL import", .plainText),
+            ("sample.xml", Data("<root><title>XML import</title></root>".utf8), .xml, "XML import", .plainText),
+            ("sample.yaml", Data("title: YAML import\n".utf8), .pdfoldYAML, "YAML import", .plainText),
+            ("sample.yml", Data("title: YML import\n".utf8), .pdfoldYAML, "YML import", .plainText),
+            ("sample.toml", Data("title = \"TOML import\"\n".utf8), .pdfoldTOML, "TOML import", .plainText),
+            ("sample.plist", Data("<?xml version=\"1.0\"?><plist><dict><key>title</key><string>Plist import</string></dict></plist>".utf8), .propertyList, "Plist import", .plainText),
+            ("sample-binary.plist", try binaryPropertyListData(["title": "Binary plist import"]), .propertyList, "Binary plist import", nil),
+            ("sample.log", Data("INFO Log import\n".utf8), .pdfoldLog, "Log import", .plainText),
+            ("sample.swift", Data("let label = \"Swift import\"\n".utf8), .pdfoldSourceCode, "Swift import", .plainText),
+            ("sample.sh", Data("#!/bin/sh\necho Shell import\n".utf8), .pdfoldShellScript, "Shell import", .plainText),
+            ("sample.sql", Data("select 'SQL import';\n".utf8), .pdfoldSQL, "SQL import", .plainText)
+        ]
+
+        for sample in cases {
+            let imported = try await DocumentImportConverter.importedDocumentAsync(
+                from: sample.data,
+                contentType: sample.type,
+                filename: sample.name,
+                baseURL: nil,
+                htmlRenderTimeout: 0
+            )
+
+            XCTAssertGreaterThan(imported.pdfDocument.pageCount, 0, sample.name)
+            if !sample.expectedText.isEmpty {
+                XCTAssertTrue(imported.pdfDocument.stringValue.contains(sample.expectedText), sample.name)
+            }
+            XCTAssertEqual(imported.sourcePayload?.format, sample.expectedSourceFormat, sample.name)
+        }
+    }
+
     func testOversizedTextImportReturnsTypedLimitError() {
         let oversized = Data(count: Int(DocumentImportConverter.maxImportBytes / 10))
 
@@ -1420,6 +1502,215 @@ final class DocumentImportConverterTests: XCTestCase {
             }
             XCTAssertEqual(description, "text")
         }
+    }
+
+    func testRTFDImportFromURLRendersWithoutSourcePayload() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pdFold-rtfd-\(UUID().uuidString)")
+            .appendingPathExtension("rtfd")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let rtf = try richImportData(
+            from: NSAttributedString(string: "RTFD import"),
+            documentType: .rtf
+        )
+        try rtf.write(to: directory.appendingPathComponent("TXT.rtf"))
+
+        let imported = try DocumentImportConverter.importedDocument(from: directory)
+
+        XCTAssertGreaterThan(imported.pdfDocument.pageCount, 0)
+        XCTAssertTrue(imported.pdfDocument.stringValue.contains("RTFD import"))
+        XCTAssertNil(imported.sourcePayload)
+    }
+
+    func testSpreadsheetImportUsesWorkbookSheetOrderAndNames() async throws {
+        let data = makeStoredZIPData(entries: [
+            "xl/workbook.xml": """
+            <workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+              <sheets>
+                <sheet name="Summary" sheetId="1" r:id="rId2"/>
+                <sheet name="Details" sheetId="2" r:id="rId1"/>
+              </sheets>
+            </workbook>
+            """,
+            "xl/_rels/workbook.xml.rels": """
+            <Relationships>
+              <Relationship Id="rId1" Target="worksheets/sheet10.xml"/>
+              <Relationship Id="rId2" Target="worksheets/sheet2.xml"/>
+            </Relationships>
+            """,
+            "xl/sharedStrings.xml": "<sst><si><t>Shared detail</t></si></sst>",
+            "xl/worksheets/sheet2.xml": "<worksheet><sheetData><row><c><v>Summary value</v></c></row></sheetData></worksheet>",
+            "xl/worksheets/sheet10.xml": "<worksheet><sheetData><row><c t=\"s\"><v>0</v></c><c><v>42</v></c></row></sheetData></worksheet>"
+        ])
+
+        let imported = try await DocumentImportConverter.importedDocumentAsync(
+            from: data,
+            contentType: .pdfoldXLSX,
+            filename: "ordered.xlsx",
+            baseURL: nil
+        )
+        let text = imported.pdfDocument.stringValue
+
+        XCTAssertTrue(text.contains("Summary"))
+        XCTAssertTrue(text.contains("Details"))
+        XCTAssertTrue(text.contains("Shared detail"))
+        XCTAssertTrue(text.contains("42"))
+        assertText(text, contains: "Summary", before: "Details")
+    }
+
+    func testPresentationImportUsesNaturalSlideOrderAndSpeakerNotes() async throws {
+        let data = makeStoredZIPData(entries: [
+            "ppt/presentation.xml": "<p:presentation/>",
+            "ppt/slides/slide10.xml": "<p:sld><a:t>Slide ten</a:t></p:sld>",
+            "ppt/slides/slide2.xml": "<p:sld><a:t>Slide two</a:t></p:sld>",
+            "ppt/notesSlides/notesSlide2.xml": "<p:notes><a:t>Speaker note two</a:t></p:notes>"
+        ])
+
+        let imported = try await DocumentImportConverter.importedDocumentAsync(
+            from: data,
+            contentType: .pdfoldPPTX,
+            filename: "deck.pptx",
+            baseURL: nil
+        )
+        let text = imported.pdfDocument.stringValue
+
+        XCTAssertTrue(text.contains("Speaker note two"))
+        assertText(text, contains: "Slide two", before: "Slide ten")
+    }
+
+    func testEPUBImportUsesPackageSpineOrder() async throws {
+        let data = makeStoredZIPData(entries: [
+            "mimetype": "application/epub+zip",
+            "META-INF/container.xml": """
+            <container>
+              <rootfiles>
+                <rootfile full-path="OPS/package.opf"/>
+              </rootfiles>
+            </container>
+            """,
+            "OPS/package.opf": """
+            <package>
+              <manifest>
+                <item id="chapter1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+                <item id="intro" href="intro.xhtml" media-type="application/xhtml+xml"/>
+              </manifest>
+              <spine>
+                <itemref idref="intro"/>
+                <itemref idref="chapter1"/>
+              </spine>
+            </package>
+            """,
+            "OPS/chapter1.xhtml": "<html><body><h1>Chapter one</h1></body></html>",
+            "OPS/intro.xhtml": "<html><body><h1>Intro first</h1></body></html>"
+        ])
+
+        let imported = try await DocumentImportConverter.importedDocumentAsync(
+            from: data,
+            contentType: .pdfoldEPUB,
+            filename: "book.epub",
+            baseURL: nil
+        )
+        let text = imported.pdfDocument.stringValue
+
+        assertText(text, contains: "Intro first", before: "Chapter one")
+    }
+
+    private func richImportData(from attributed: NSAttributedString, documentType: NSAttributedString.DocumentType) throws -> Data {
+        try attributed.data(
+            from: NSRange(location: 0, length: attributed.length),
+            documentAttributes: [.documentType: documentType]
+        )
+    }
+
+    private func binaryPropertyListData(_ value: Any) throws -> Data {
+        try PropertyListSerialization.data(fromPropertyList: value, format: .binary, options: 0)
+    }
+
+    private func makeStoredZIPData(entries: [String: String]) -> Data {
+        var output = Data()
+        var centralDirectory = Data()
+        let sortedEntries = entries.sorted { $0.key < $1.key }
+
+        for (name, value) in sortedEntries {
+            let nameData = Data(name.utf8)
+            let fileData = Data(value.utf8)
+            let localOffset = UInt32(output.count)
+
+            appendUInt32(0x04034b50, to: &output)
+            appendUInt16(20, to: &output)
+            appendUInt16(0, to: &output)
+            appendUInt16(0, to: &output)
+            appendUInt16(0, to: &output)
+            appendUInt16(0, to: &output)
+            appendUInt32(0, to: &output)
+            appendUInt32(UInt32(fileData.count), to: &output)
+            appendUInt32(UInt32(fileData.count), to: &output)
+            appendUInt16(UInt16(nameData.count), to: &output)
+            appendUInt16(0, to: &output)
+            output.append(nameData)
+            output.append(fileData)
+
+            appendUInt32(0x02014b50, to: &centralDirectory)
+            appendUInt16(20, to: &centralDirectory)
+            appendUInt16(20, to: &centralDirectory)
+            appendUInt16(0, to: &centralDirectory)
+            appendUInt16(0, to: &centralDirectory)
+            appendUInt16(0, to: &centralDirectory)
+            appendUInt16(0, to: &centralDirectory)
+            appendUInt32(0, to: &centralDirectory)
+            appendUInt32(UInt32(fileData.count), to: &centralDirectory)
+            appendUInt32(UInt32(fileData.count), to: &centralDirectory)
+            appendUInt16(UInt16(nameData.count), to: &centralDirectory)
+            appendUInt16(0, to: &centralDirectory)
+            appendUInt16(0, to: &centralDirectory)
+            appendUInt16(0, to: &centralDirectory)
+            appendUInt16(0, to: &centralDirectory)
+            appendUInt32(0, to: &centralDirectory)
+            appendUInt32(localOffset, to: &centralDirectory)
+            centralDirectory.append(nameData)
+        }
+
+        let centralDirectoryOffset = UInt32(output.count)
+        output.append(centralDirectory)
+        appendUInt32(0x06054b50, to: &output)
+        appendUInt16(0, to: &output)
+        appendUInt16(0, to: &output)
+        appendUInt16(UInt16(sortedEntries.count), to: &output)
+        appendUInt16(UInt16(sortedEntries.count), to: &output)
+        appendUInt32(UInt32(centralDirectory.count), to: &output)
+        appendUInt32(centralDirectoryOffset, to: &output)
+        appendUInt16(0, to: &output)
+        return output
+    }
+
+    private func appendUInt16(_ value: UInt16, to data: inout Data) {
+        data.append(UInt8(value & 0xff))
+        data.append(UInt8((value >> 8) & 0xff))
+    }
+
+    private func appendUInt32(_ value: UInt32, to data: inout Data) {
+        data.append(UInt8(value & 0xff))
+        data.append(UInt8((value >> 8) & 0xff))
+        data.append(UInt8((value >> 16) & 0xff))
+        data.append(UInt8((value >> 24) & 0xff))
+    }
+
+    private func assertText(
+        _ text: String,
+        contains earlier: String,
+        before later: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard let earlierRange = text.range(of: earlier) else {
+            return XCTFail("Missing \(earlier)", file: file, line: line)
+        }
+        guard let laterRange = text.range(of: later) else {
+            return XCTFail("Missing \(later)", file: file, line: line)
+        }
+        XCTAssertLessThan(earlierRange.lowerBound, laterRange.lowerBound, file: file, line: line)
     }
 }
 
@@ -1634,6 +1925,54 @@ final class WorkspaceDocumentTests: XCTestCase {
             }
         )
         XCTAssertTrue(exportedTypes.isEmpty)
+    }
+
+    func testAppInfoPlistAdvertisesExpandedImportFormats() throws {
+        let plistURL = try appInfoPlistURL(sourceFile: #filePath)
+        let plistData = try Data(contentsOf: plistURL)
+        let plist = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any]
+        )
+        let documentTypes = try XCTUnwrap(plist["CFBundleDocumentTypes"] as? [[String: Any]])
+        let advertisedExtensions = Set(documentTypes.flatMap { $0["CFBundleTypeExtensions"] as? [String] ?? [] })
+
+        let expectedExtensions = [
+            "xlsx", "pptx", "epub", "rtfd", "svg", "txt", "text", "log", "rtf", "md", "markdown",
+            "csv", "tsv", "json", "jsonl", "xml", "yaml", "yml", "toml", "plist",
+            "swift", "js", "ts", "tsx", "jsx", "py", "rb", "go", "rs", "java", "kt",
+            "c", "cc", "cpp", "h", "hpp", "m", "mm", "cs", "php", "sh", "zsh",
+            "bash", "sql", "ini", "conf", "env"
+        ]
+        for pathExtension in expectedExtensions {
+            XCTAssertTrue(advertisedExtensions.contains(pathExtension), pathExtension)
+            let type = try XCTUnwrap(UTType(filenameExtension: pathExtension), pathExtension)
+            XCTAssertTrue(
+                WorkspaceDocument.importableContentTypes.contains { type.conforms(to: $0) },
+                pathExtension
+            )
+        }
+    }
+
+    func testOpeningRTFDDirectoryFileWrapperImportsPackageText() throws {
+        let rtf = try NSAttributedString(string: "RTFD FileWrapper import").data(
+            from: NSRange(location: 0, length: "RTFD FileWrapper import".count),
+            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+        )
+        let package = FileWrapper(directoryWithFileWrappers: [
+            "TXT.rtf": FileWrapper(regularFileWithContents: rtf)
+        ])
+        package.preferredFilename = "Wrapped.rtfd"
+
+        let document = try WorkspaceDocument(
+            testingFile: package,
+            contentType: .pdfoldRTFD,
+            filename: "Wrapped.rtfd"
+        )
+        let pdfData = try XCTUnwrap(document.memberPDFData.values.first)
+        let pdf = try XCTUnwrap(PDFDocument(data: pdfData))
+
+        XCTAssertTrue(pdf.stringValue.contains("RTFD FileWrapper import"))
+        XCTAssertTrue(document.sourcePayloads.isEmpty)
     }
 
     func testSnapshotUsesCurrentPDFDataProvider() throws {
@@ -1930,6 +2269,73 @@ final class WorkspaceViewModelTests: XCTestCase {
         ])
         XCTAssertEqual(viewModel.loadedPDFs[0].1.pageCount, 2)
         XCTAssertEqual(viewModel.combinedPageIndex(forWorkspacePageNumber: 3), 4)
+    }
+
+    func testRemovingDocumentCleansWorkspaceArtifactsAndKeepsRemainingDocument() throws {
+        let first = try makeMemberWithPDF(name: "First", pageTexts: ["one", "two"])
+        let second = try makeMemberWithPDF(name: "Second", pageTexts: ["three"])
+        let removedRefID = first.refs[0].id
+        let keptRefID = second.refs[0].id
+        let document = WorkspaceDocument()
+        document.workspace.documents = [first.member, second.member]
+        document.workspace.pageOrder = first.refs + second.refs
+        document.memberPDFData[first.member.id] = first.pdfData
+        document.memberPDFData[second.member.id] = second.pdfData
+        document.sourcePayloads[first.member.id] = SourceDocumentPayload(
+            format: .plainText,
+            originalFilename: "first.txt",
+            originalContentTypeIdentifier: "public.plain-text",
+            originalData: Data("one two".utf8),
+            plainText: "one two",
+            renderedPageCount: 2
+        )
+        document.workspace.pageEditStates = [PageEditState(pageRefID: removedRefID)]
+        document.workspace.comments = [
+            WorkspaceComment(
+                body: "Anchored",
+                anchor: WorkspaceCommentAnchor(
+                    pageRefID: removedRefID,
+                    rect: CGRect(x: 10, y: 10, width: 20, height: 20),
+                    kind: .region
+                )
+            )
+        ]
+        document.workspace.signatures = [
+            SignaturePlacement(
+                pageRefId: removedRefID,
+                imageData: Data([1]),
+                rect: CGRect(x: 10, y: 10, width: 40, height: 20)
+            )
+        ]
+        document.workspace.decorations = [
+            PageDecoration.stamp(
+                text: "Reviewed",
+                swatch: .accent,
+                pageRefID: removedRefID,
+                rect: CGRect(x: 10, y: 10, width: 80, height: 30)
+            ),
+            PageDecoration.stamp(
+                text: "Kept",
+                swatch: .sage,
+                pageRefID: keptRefID,
+                rect: CGRect(x: 10, y: 10, width: 80, height: 30)
+            )
+        ]
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+
+        viewModel.removeDocument(first.member)
+
+        XCTAssertEqual(viewModel.memberDocuments.map(\.id), [second.member.id])
+        XCTAssertEqual(document.workspace.documents.map(\.id), [second.member.id])
+        XCTAssertEqual(document.workspace.pageOrder.map(\.id), [keptRefID])
+        XCTAssertNil(document.memberPDFData[first.member.id])
+        XCTAssertNil(document.sourcePayloads[first.member.id])
+        XCTAssertTrue(document.workspace.pageEditStates.isEmpty)
+        XCTAssertTrue(document.workspace.signatures.isEmpty)
+        XCTAssertEqual(document.workspace.decorations.map(\.text), ["Kept"])
+        XCTAssertNil(document.workspace.comments.first?.anchor)
+        XCTAssertEqual(document.workspace.comments.first?.anchorWasRemoved, true)
+        XCTAssertEqual(viewModel.pageCount, 1)
     }
 
     func testAnchoredCommentSurvivesDeletedPageAndUndoRestoresAnchor() throws {

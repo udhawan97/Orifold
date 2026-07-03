@@ -51,11 +51,13 @@ enum PDFOCRService {
 
     static func makeSearchable(
         documents: [(MemberDocument, Data)],
+        includePagesWithText: Bool = false,
         progress: @escaping @Sendable (Double) -> Void,
         isCancelled: @escaping @Sendable () -> Bool
     ) async throws -> PDFOCRResult {
         try await searchableData(
             documents: documents,
+            includePagesWithText: includePagesWithText,
             recognitionProvider: recognizeText,
             progress: progress,
             isCancelled: isCancelled
@@ -64,6 +66,7 @@ enum PDFOCRService {
 
     static func searchableData(
         documents: [(MemberDocument, Data)],
+        includePagesWithText: Bool = false,
         recognitionProvider: @escaping RecognitionProvider,
         progress: @escaping @Sendable (Double) -> Void = { _ in },
         isCancelled: @escaping @Sendable () -> Bool = { false }
@@ -106,7 +109,7 @@ enum PDFOCRService {
                                 submitted += 1
                                 continue
                             }
-                            if !isLikelyScannedPage(page) {
+                            if !shouldProcessPage(page, includePagesWithText: includePagesWithText) {
                                 completedPages += 1
                                 progress(Double(completedPages) / Double(max(totalPages, 1)))
                                 continue
@@ -158,7 +161,7 @@ enum PDFOCRService {
                         throw PDFOCRError.pageRenderFailed(pageNumber: globalPageOffset + pageIndex + 1)
                     }
 
-                    if !isLikelyScannedPage(page) {
+                    if !shouldProcessPage(page, includePagesWithText: includePagesWithText) {
                         continue
                     } else {
                         guard let lines = recognizedLinesByPage[pageIndex], !lines.isEmpty else {
@@ -234,7 +237,18 @@ enum PDFOCRService {
     static func isLikelyScannedPage(_ page: PDFPage) -> Bool {
         let hasText = !(page.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
         guard !hasText else { return false }
-        return pageHasVisibleContent(page)
+        return hasVisibleContent(page)
+    }
+
+    static func hasVisibleContent(_ page: PDFPage) -> Bool {
+        pageHasVisibleContent(page)
+    }
+
+    private static func shouldProcessPage(_ page: PDFPage, includePagesWithText: Bool) -> Bool {
+        if includePagesWithText {
+            return hasVisibleContent(page)
+        }
+        return isLikelyScannedPage(page)
     }
 
     private static func singlePageData(from page: PDFPage) -> Data? {

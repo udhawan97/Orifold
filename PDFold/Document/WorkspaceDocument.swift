@@ -8,8 +8,20 @@ extension UTType {
     static let docx = UTType(filenameExtension: "docx") ?? UTType(importedAs: "org.openxmlformats.wordprocessingml.document")
     static let wordDoc = UTType(filenameExtension: "doc") ?? UTType(importedAs: "com.microsoft.word.doc")
     static let odt = UTType(filenameExtension: "odt") ?? UTType(importedAs: "org.oasis-open.opendocument.text")
+    static let pdfoldXLSX = UTType(filenameExtension: "xlsx") ?? UTType(importedAs: "org.openxmlformats.spreadsheetml.sheet")
+    static let pdfoldPPTX = UTType(filenameExtension: "pptx") ?? UTType(importedAs: "org.openxmlformats.presentationml.presentation")
+    static let pdfoldEPUB = UTType(filenameExtension: "epub") ?? UTType(importedAs: "org.idpf.epub-container")
+    static let pdfoldRTFD = UTType(filenameExtension: "rtfd") ?? UTType(importedAs: "com.apple.rtfd")
     static let markdown = UTType(filenameExtension: "md") ?? UTType(importedAs: "net.daringfireball.markdown")
     static let csv = UTType(filenameExtension: "csv") ?? UTType(importedAs: "public.comma-separated-values-text")
+    static let pdfoldSVG = UTType(filenameExtension: "svg") ?? UTType(importedAs: "public.svg-image")
+    static let pdfoldTSV = UTType(filenameExtension: "tsv") ?? UTType(importedAs: "public.tab-separated-values-text")
+    static let pdfoldYAML = UTType(filenameExtension: "yaml") ?? UTType(importedAs: "public.yaml")
+    static let pdfoldTOML = UTType(filenameExtension: "toml") ?? UTType(importedAs: "public.toml")
+    static let pdfoldLog = UTType(filenameExtension: "log") ?? UTType(importedAs: "public.log")
+    static let pdfoldSourceCode = UTType(filenameExtension: "swift") ?? UTType(importedAs: "public.source-code")
+    static let pdfoldShellScript = UTType(filenameExtension: "sh") ?? UTType(importedAs: "public.shell-script")
+    static let pdfoldSQL = UTType(filenameExtension: "sql") ?? UTType(importedAs: "public.sql")
 }
 
 struct WorkspacePackage {
@@ -43,19 +55,44 @@ final class WorkspaceDocument: ReferenceFileDocument {
         }
     }
 
+    private static let explicitTextImportExtensions = [
+        "text", "log", "tsv", "jsonl", "yaml", "yml", "toml", "plist",
+        "swift", "js", "ts", "tsx", "jsx", "py", "rb", "go", "rs", "java", "kt",
+        "c", "cc", "cpp", "h", "hpp", "m", "mm", "cs", "php", "sh", "zsh",
+        "bash", "sql", "ini", "conf", "env"
+    ]
+
+    private static let explicitTextImportTypes = explicitTextImportExtensions.map {
+        UTType(filenameExtension: $0) ?? UTType(importedAs: "com.ud.PDFold.import.\($0)")
+    }
+
     static let importableContentTypes: [UTType] = [
         .pdf,
         .html,
+        .pdfoldSVG,
         .docx,
         .wordDoc,
         .odt,
+        .pdfoldXLSX,
+        .pdfoldPPTX,
+        .pdfoldEPUB,
+        .pdfoldRTFD,
         .rtf,
         .plainText,
         .text,
         .markdown,
         .csv,
+        .pdfoldTSV,
         .json,
         .xml,
+        .pdfoldYAML,
+        .pdfoldTOML,
+        .propertyList,
+        .pdfoldLog,
+        .pdfoldSourceCode,
+        .pdfoldShellScript,
+        .pdfoldSQL
+    ] + explicitTextImportTypes + [
         .image
     ]
 
@@ -91,6 +128,16 @@ final class WorkspaceDocument: ReferenceFileDocument {
     }
 
     private init(file: FileWrapper, contentType: UTType, filename: String?) throws {
+        if contentType.conforms(to: .pdfoldRTFD), file.isDirectory {
+            let imported = try DocumentImportConverter.importedRTFDDocument(
+                fromFileWrappers: file.fileWrappers ?? [:],
+                filename: filename ?? "Imported Document.rtfd"
+            )
+            workspace = Workspace()
+            try importPDFDocument(imported.pdfDocument, filename: filename ?? "Imported Document.rtfd", sourcePayload: imported.sourcePayload)
+            return
+        }
+
         guard Self.importableContentTypes.contains(where: { contentType.conforms(to: $0) }),
               !file.isDirectory,
               file.isRegularFile,

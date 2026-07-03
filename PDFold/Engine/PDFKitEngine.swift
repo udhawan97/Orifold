@@ -1,6 +1,7 @@
-import PDFKit
 import AppKit
+import Compression
 import Foundation
+import PDFKit
 import UniformTypeIdentifiers
 import WebKit
 
@@ -124,6 +125,7 @@ enum DocumentImportConverter {
     private static let maxTextImportBytes: Int64 = 50 * 1024 * 1024
     private static let maxImageImportBytes: Int64 = 100 * 1024 * 1024
     private static let maxRichDocumentImportBytes: Int64 = 100 * 1024 * 1024
+    private static let maxPackageImportBytes: Int64 = 100 * 1024 * 1024
     private static let maxUnknownPreSniffBytes: Int64 = 100 * 1024 * 1024
     static let maxRenderedHTMLPages = 300
     static let maxRenderedTextPages = 500
@@ -172,7 +174,10 @@ enum DocumentImportConverter {
     static func importedDocument(from url: URL) throws -> ImportedDocument {
         guard url.isFileURL else { throw ConversionError.unsupportedType }
         let resourceType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
-        let suggestedType = resourceType ?? UTType(filenameExtension: url.pathExtension) ?? .data
+        let suggestedType = suggestedContentType(for: url, resourceType: resourceType)
+        if suggestedType.conforms(to: .pdfoldRTFD) {
+            return try importedRTFDDocument(from: url)
+        }
         if let byteCount = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
             try validateByteCount(Int64(byteCount), contentType: suggestedType)
             if SourceDocumentFormat(contentType: suggestedType) == nil,
@@ -194,14 +199,19 @@ enum DocumentImportConverter {
             filename: url.lastPathComponent,
             // Let HTML resolve relative CSS and image URLs the same way it would
             // when opened directly in a browser.
-            baseURL: detectedType.conforms(to: .html) ? url.deletingLastPathComponent() : nil
+            baseURL: detectedType.conforms(to: .html) || detectedType.conforms(to: .pdfoldSVG) ? url.deletingLastPathComponent() : nil
         )
     }
 
     static func importedDocumentAsync(from url: URL) async throws -> ImportedDocument {
         guard url.isFileURL else { throw ConversionError.unsupportedType }
         let resourceType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
-        let suggestedType = resourceType ?? UTType(filenameExtension: url.pathExtension) ?? .data
+        let suggestedType = suggestedContentType(for: url, resourceType: resourceType)
+        if suggestedType.conforms(to: .pdfoldRTFD) {
+            return try await MainActor.run {
+                try importedRTFDDocument(from: url)
+            }
+        }
         if let byteCount = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
             try validateByteCount(Int64(byteCount), contentType: suggestedType)
             if SourceDocumentFormat(contentType: suggestedType) == nil,
@@ -221,7 +231,7 @@ enum DocumentImportConverter {
             from: data,
             contentType: detectedType,
             filename: url.lastPathComponent,
-            baseURL: detectedType.conforms(to: .html) ? url.deletingLastPathComponent() : nil
+            baseURL: detectedType.conforms(to: .html) || detectedType.conforms(to: .pdfoldSVG) ? url.deletingLastPathComponent() : nil
         )
     }
 
@@ -240,6 +250,9 @@ enum DocumentImportConverter {
         if detectedType.conforms(to: .pdf) {
             guard let document = PDFDocument(data: data) else { throw ConversionError.unreadableDocument }
             return ImportedDocument(pdfDocument: document, sourcePayload: nil)
+        }
+        if detectedType.conforms(to: .pdfoldSVG) {
+            return ImportedDocument(pdfDocument: try renderImage(data, title: filename), sourcePayload: nil)
         }
         if detectedType.conforms(to: .image) {
             return ImportedDocument(pdfDocument: try renderImage(data, title: filename), sourcePayload: nil)
@@ -261,6 +274,30 @@ enum DocumentImportConverter {
                 )
             )
         }
+        if detectedType.conforms(to: .pdfoldXLSX) {
+            return try importedExtractedTextDocument(
+                text: OfficePackageTextExtractor.spreadsheetText(from: data),
+                sourceData: data,
+                filename: filename,
+                contentType: detectedType
+            )
+        }
+        if detectedType.conforms(to: .pdfoldPPTX) {
+            return try importedExtractedTextDocument(
+                text: OfficePackageTextExtractor.presentationText(from: data),
+                sourceData: data,
+                filename: filename,
+                contentType: detectedType
+            )
+        }
+        if detectedType.conforms(to: .pdfoldEPUB) {
+            return try importedExtractedTextDocument(
+                text: OfficePackageTextExtractor.epubText(from: data),
+                sourceData: data,
+                filename: filename,
+                contentType: detectedType
+            )
+        }
 
         let attributedString: NSAttributedString
         if detectedType.conforms(to: .docx) {
@@ -273,6 +310,8 @@ enum DocumentImportConverter {
             attributedString = try loadAttributedString(from: data, documentType: .rtf, baseURL: baseURL)
         } else if detectedType.conforms(to: .markdown) {
             attributedString = try loadMarkdown(from: data, baseURL: baseURL)
+        } else if detectedType.conforms(to: .propertyList) {
+            attributedString = try loadPlainText(from: Data(propertyListText(from: data).utf8))
         } else if isPlainTextLike(detectedType) {
             attributedString = try loadPlainText(from: data)
         } else {
@@ -287,13 +326,19 @@ enum DocumentImportConverter {
                 contentType: detectedType,
                 filename: filename,
                 attributedString: attributedString,
-                plainText: isPlainTextLike(detectedType) || detectedType.conforms(to: .markdown) ? (try? decodeText(data)) : nil,
+                plainText: plainTextForSourcePayload(data, contentType: detectedType),
                 renderedPageCount: pdf.pageCount
             )
         )
     }
 
-    static func importedDocumentAsync(from data: Data, contentType: UTType, filename: String, baseURL: URL?) async throws -> ImportedDocument {
+    static func importedDocumentAsync(
+        from data: Data,
+        contentType: UTType,
+        filename: String,
+        baseURL: URL?,
+        htmlRenderTimeout: TimeInterval = 30
+    ) async throws -> ImportedDocument {
         let detectedType = detectedContentType(data: data, suggestedContentType: contentType, filename: filename)
         try validateByteCount(Int64(data.count), contentType: detectedType)
 
@@ -301,22 +346,25 @@ enum DocumentImportConverter {
             throw ConversionError.emptyDocument
         }
 
-        if !detectedType.conforms(to: .html) {
+        if !detectedType.conforms(to: .html) && !detectedType.conforms(to: .pdfoldSVG) {
             return try await MainActor.run {
                 try importedDocument(from: data, contentType: detectedType, filename: filename, baseURL: baseURL)
             }
         }
 
-        let plainHTML = try decodeText(data)
-        let pdf = try await renderHTML(data, title: filename, baseURL: baseURL)
+        let plainMarkup = try decodeText(data)
+        let pdf = try await renderMarkup(data, contentType: detectedType, title: filename, baseURL: baseURL, timeout: htmlRenderTimeout)
+        if detectedType.conforms(to: .pdfoldSVG) {
+            return ImportedDocument(pdfDocument: pdf, sourcePayload: nil)
+        }
         return ImportedDocument(
             pdfDocument: pdf,
             sourcePayload: sourcePayload(
                 for: data,
-                contentType: detectedType,
+                contentType: detectedType.conforms(to: .html) ? detectedType : .plainText,
                 filename: filename,
-                attributedString: NSAttributedString(string: plainHTML),
-                plainText: plainHTML,
+                attributedString: NSAttributedString(string: plainMarkup),
+                plainText: plainMarkup,
                 renderedPageCount: pdf.pageCount
             )
         )
@@ -329,11 +377,11 @@ enum DocumentImportConverter {
         if looksLikeMarkdown(data) {
             return .markdown
         }
-        if SourceDocumentFormat(contentType: suggestedContentType) != nil || suggestedContentType.conforms(to: .pdf) || suggestedContentType.conforms(to: .image) {
+        if SourceDocumentFormat(contentType: suggestedContentType) != nil || suggestedContentType.conforms(to: .pdf) || suggestedContentType.conforms(to: .image) || suggestedContentType.conforms(to: .pdfoldSVG) {
             return suggestedContentType
         }
         if let extensionType = UTType(filenameExtension: URL(fileURLWithPath: filename).pathExtension),
-           SourceDocumentFormat(contentType: extensionType) != nil || extensionType.conforms(to: .pdf) || extensionType.conforms(to: .image) {
+           SourceDocumentFormat(contentType: extensionType) != nil || extensionType.conforms(to: .pdf) || extensionType.conforms(to: .image) || extensionType.conforms(to: .pdfoldSVG) {
             return extensionType
         }
         if isDecodableText(data), !looksLikeBinary(data) {
@@ -372,8 +420,10 @@ enum DocumentImportConverter {
             typedLimit = ("HTML", maxHTMLImportBytes)
         } else if contentType.conforms(to: .image) {
             typedLimit = ("image", maxImageImportBytes)
-        } else if contentType.conforms(to: .docx) || contentType.conforms(to: .wordDoc) || contentType.conforms(to: .odt) || contentType.conforms(to: .rtf) {
+        } else if contentType.conforms(to: .docx) || contentType.conforms(to: .wordDoc) || contentType.conforms(to: .odt) || contentType.conforms(to: .rtf) || contentType.conforms(to: .pdfoldRTFD) {
             typedLimit = ("document", maxRichDocumentImportBytes)
+        } else if contentType.conforms(to: .pdfoldXLSX) || contentType.conforms(to: .pdfoldPPTX) || contentType.conforms(to: .pdfoldEPUB) {
+            typedLimit = ("package", maxPackageImportBytes)
         } else if isPlainTextLike(contentType) || contentType.conforms(to: .markdown) {
             typedLimit = ("text", maxTextImportBytes)
         } else {
@@ -389,19 +439,57 @@ enum DocumentImportConverter {
         }
     }
 
-    private static func renderHTML(_ data: Data, title: String, baseURL: URL?) async throws -> PDFDocument {
-        let html = try decodeText(data)
-        let pdfData = try await HTMLPDFRenderer.render(
-            html: html,
-            baseURL: baseURL,
-            maxPages: maxRenderedHTMLPages
-        )
-        let paginatedData = try paginateRenderedHTMLPDFData(pdfData)
-        guard let document = PDFDocument(data: paginatedData) else { throw ConversionError.renderingFailed }
+    private static func renderMarkup(_ data: Data, contentType: UTType, title: String, baseURL: URL?, timeout: TimeInterval) async throws -> PDFDocument {
+        let markup = try decodeText(data)
+        let html = contentType.conforms(to: .pdfoldSVG)
+            ? svgHTMLDocument(markup)
+            : markup
+        let document: PDFDocument
+        do {
+            let pdfData = try await HTMLPDFRenderer.render(
+                html: html,
+                baseURL: baseURL,
+                timeout: timeout,
+                maxPages: maxRenderedHTMLPages
+            )
+            let paginatedData = try paginateRenderedHTMLPDFData(pdfData)
+            guard let webDocument = PDFDocument(data: paginatedData) else { throw ConversionError.renderingFailed }
+            document = webDocument
+        } catch ConversionError.htmlRenderedTooLarge(let pageEstimate, let maxPages) {
+            throw ConversionError.htmlRenderedTooLarge(pageEstimate: pageEstimate, maxPages: maxPages)
+        } catch ConversionError.renderTimedOut {
+            document = try await MainActor.run {
+                return try renderAttributedString(try loadPlainText(from: data), title: title)
+            }
+        } catch {
+            document = try await MainActor.run {
+                let attributed = try loadAttributedString(from: data, documentType: .html, baseURL: baseURL)
+                return try renderAttributedString(attributed, title: title)
+            }
+        }
         document.documentAttributes = [
             PDFDocumentAttribute.titleAttribute: URL(fileURLWithPath: title).deletingPathExtension().lastPathComponent
         ]
         return document
+    }
+
+    private static func svgHTMLDocument(_ svg: String) -> String {
+        """
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            html, body { margin: 0; width: 612px; min-height: 792px; background: white; }
+            body { display: flex; align-items: center; justify-content: center; }
+            svg { max-width: 100%; max-height: 100vh; }
+          </style>
+        </head>
+        <body>
+        \(svg)
+        </body>
+        </html>
+        """
     }
 
     private static func paginateRenderedHTMLPDFData(_ data: Data) throws -> Data {
@@ -460,6 +548,77 @@ enum DocumentImportConverter {
         return try NSAttributedString(data: data, options: options, documentAttributes: nil)
     }
 
+    static func importedRTFDDocument(fromFileWrappers fileWrappers: [String: FileWrapper], filename: String) throws -> ImportedDocument {
+        let wrapper = FileWrapper(directoryWithFileWrappers: fileWrappers)
+        try validateByteCount(Int64(rtfdPackageByteCount(in: wrapper)), contentType: .pdfoldRTFD)
+        return try importedRTFDFileWrapper(wrapper, title: filename)
+    }
+
+    private static func importedRTFDDocument(from url: URL) throws -> ImportedDocument {
+        try validateByteCount(Int64(rtfdPackageByteCount(at: url)), contentType: .pdfoldRTFD)
+        let wrapper = try FileWrapper(url: url, options: [.immediate])
+        return try importedRTFDFileWrapper(wrapper, title: url.lastPathComponent)
+    }
+
+    private static func importedRTFDFileWrapper(_ wrapper: FileWrapper, title: String) throws -> ImportedDocument {
+        guard let attributed = NSAttributedString(rtfdFileWrapper: wrapper, documentAttributes: nil) else {
+            throw ConversionError.unreadableDocument
+        }
+        let pdf = try renderAttributedString(attributed, title: title)
+        return ImportedDocument(pdfDocument: pdf, sourcePayload: nil)
+    }
+
+    private static func rtfdPackageByteCount(at url: URL) throws -> Int {
+        let resourceKeys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey]
+        guard let enumerator = FileManager.default.enumerator(
+            at: url,
+            includingPropertiesForKeys: Array(resourceKeys),
+            options: [.skipsHiddenFiles]
+        ) else {
+            throw ConversionError.unreadableDocument
+        }
+        var byteCount = 0
+        for case let child as URL in enumerator {
+            let values = try child.resourceValues(forKeys: resourceKeys)
+            if values.isRegularFile == true {
+                byteCount += values.fileSize ?? 0
+            }
+        }
+        return byteCount
+    }
+
+    private static func rtfdPackageByteCount(in wrapper: FileWrapper) -> Int {
+        if wrapper.isRegularFile {
+            return wrapper.regularFileContents?.count ?? 0
+        }
+        return wrapper.fileWrappers?.values.reduce(0) { total, child in
+            total + rtfdPackageByteCount(in: child)
+        } ?? 0
+    }
+
+    private static func suggestedContentType(for url: URL, resourceType: UTType?) -> UTType {
+        let extensionType = UTType(filenameExtension: url.pathExtension)
+        if extensionType?.conforms(to: .pdfoldRTFD) == true {
+            return extensionType!
+        }
+        return resourceType ?? extensionType ?? .data
+    }
+
+    private static func importedExtractedTextDocument(
+        text: String,
+        sourceData: Data,
+        filename: String,
+        contentType: UTType
+    ) throws -> ImportedDocument {
+        let payloadText = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "No extractable text was found in this file."
+            : text
+        let data = Data(payloadText.utf8)
+        let attributed = try loadPlainText(from: data)
+        let pdf = try renderAttributedString(attributed, title: filename)
+        return ImportedDocument(pdfDocument: pdf, sourcePayload: nil)
+    }
+
     private static func loadMarkdown(from data: Data, baseURL: URL?) throws -> NSAttributedString {
         let string = try decodeText(data)
         do {
@@ -483,6 +642,25 @@ enum DocumentImportConverter {
                 .paragraphStyle: style
             ]
         )
+    }
+
+    private static func propertyListText(from data: Data) throws -> String {
+        let propertyList = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+        let xml = try PropertyListSerialization.data(fromPropertyList: propertyList, format: .xml, options: 0)
+        guard let text = String(data: xml, encoding: .utf8) else {
+            throw ConversionError.unreadableDocument
+        }
+        return text
+    }
+
+    private static func plainTextForSourcePayload(_ data: Data, contentType: UTType) -> String? {
+        if contentType.conforms(to: .propertyList) {
+            return try? propertyListText(from: data)
+        }
+        if isPlainTextLike(contentType) || contentType.conforms(to: .markdown) {
+            return try? decodeText(data)
+        }
+        return nil
     }
 
     private static func decodeText(_ data: Data) throws -> String {
@@ -522,9 +700,24 @@ enum DocumentImportConverter {
                 containsASCII("content.xml", in: data) && containsASCII("office:document-content", in: data) {
                 return .odt
             }
+            if containsASCII("xl/workbook.xml", in: data) ||
+                containsASCII("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", in: data) {
+                return .pdfoldXLSX
+            }
+            if containsASCII("ppt/presentation.xml", in: data) ||
+                containsASCII("application/vnd.openxmlformats-officedocument.presentationml.presentation", in: data) {
+                return .pdfoldPPTX
+            }
+            if containsASCII("mimetypeapplication/epub+zip", in: data) ||
+                containsASCII("META-INF/container.xml", in: data) {
+                return .pdfoldEPUB
+            }
         }
         if looksLikeHTML(data) {
             return .html
+        }
+        if looksLikeSVG(data) {
+            return .pdfoldSVG
         }
         return nil
     }
@@ -543,6 +736,14 @@ enum DocumentImportConverter {
             prefix.contains("<html") ||
             prefix.contains("<body") ||
             prefix.contains("<head")
+    }
+
+    private static func looksLikeSVG(_ data: Data) -> Bool {
+        guard let prefix = String(data: data.prefix(4096), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        else { return false }
+        return prefix.hasPrefix("<svg") || prefix.contains("<svg")
     }
 
     private static func looksLikeMarkdown(_ data: Data) -> Bool {
@@ -583,7 +784,7 @@ enum DocumentImportConverter {
     }
 
     private static func isPlainTextLike(_ contentType: UTType) -> Bool {
-        [.plainText, .text, .csv, .json, .xml].contains { contentType.conforms(to: $0) }
+        [.plainText, .text, .csv, .pdfoldTSV, .json, .xml, .pdfoldYAML, .pdfoldTOML, .propertyList, .pdfoldLog, .pdfoldSourceCode, .pdfoldShellScript, .pdfoldSQL].contains { contentType.conforms(to: $0) }
     }
 
     private static func renderImage(_ data: Data, title: String) throws -> PDFDocument {
@@ -727,6 +928,396 @@ private final class TextPDFPageView: NSView {
     }
 }
 
+private enum OfficePackageTextExtractor {
+    static func spreadsheetText(from data: Data) throws -> String {
+        let archive = try SimpleZIPArchive(data: data)
+        let sharedStrings = archive.text(named: "xl/sharedStrings.xml")
+            .map { xmlText(in: $0, elementName: "t") } ?? []
+        let orderedSheets = spreadsheetSheetOrder(in: archive)
+        let fallbackSheets = archive.entryNames
+            .filter { $0.hasPrefix("xl/worksheets/sheet") && $0.hasSuffix(".xml") }
+            .sorted(by: naturalPathCompare)
+            .map { (name: sheetDisplayName(from: $0), path: $0) }
+        let sheets = orderedSheets.isEmpty ? fallbackSheets : orderedSheets
+
+        var sections: [String] = []
+        for (index, sheet) in sheets.enumerated() {
+            guard let xml = archive.text(named: sheet.path) else { continue }
+            let body = spreadsheetCellValues(in: xml, sharedStrings: sharedStrings)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            if !body.isEmpty {
+                let title = sheet.name.isEmpty ? "Sheet \(index + 1)" : sheet.name
+                sections.append("\(title)\n\(body)")
+            }
+        }
+        return sections.joined(separator: "\n\n")
+    }
+
+    static func presentationText(from data: Data) throws -> String {
+        let archive = try SimpleZIPArchive(data: data)
+        let slides = archive.entryNames
+            .filter { $0.hasPrefix("ppt/slides/slide") && $0.hasSuffix(".xml") }
+            .sorted(by: naturalPathCompare)
+
+        return slides.enumerated().compactMap { index, slide in
+            guard let xml = archive.text(named: slide) else { return nil }
+            let body = xmlText(in: xml, elementName: "t")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            let notesPath = slide.replacingOccurrences(of: "ppt/slides/slide", with: "ppt/notesSlides/notesSlide")
+            let notes = archive.text(named: notesPath)
+                .map { xmlText(in: $0, elementName: "t") }?
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n") ?? ""
+            let combined = [body, notes.isEmpty ? nil : "Notes\n\(notes)"]
+                .compactMap { $0 }
+                .joined(separator: "\n")
+            return combined.isEmpty ? nil : "Slide \(index + 1)\n\(combined)"
+        }.joined(separator: "\n\n")
+    }
+
+    static func epubText(from data: Data) throws -> String {
+        let archive = try SimpleZIPArchive(data: data)
+        let spineDocuments = epubSpineOrder(in: archive)
+        let fallbackDocuments = archive.entryNames
+            .filter { name in
+                let lower = name.lowercased()
+                return lower.hasSuffix(".xhtml") || lower.hasSuffix(".html") || lower.hasSuffix(".htm")
+            }
+            .sorted(by: naturalPathCompare)
+        let documents = spineDocuments.isEmpty ? fallbackDocuments : spineDocuments
+
+        return documents.compactMap { name in
+            guard let html = archive.text(named: name) else { return nil }
+            let text = plainTextFromMarkup(html)
+            return text.isEmpty ? nil : text
+        }.joined(separator: "\n\n")
+    }
+
+    private static func xmlText(in xml: String, elementName: String) -> [String] {
+        let pattern = "<(?:[A-Za-z0-9_\\-]+:)?\(NSRegularExpression.escapedPattern(for: elementName))\\b[^>]*>(.*?)</(?:[A-Za-z0-9_\\-]+:)?\(NSRegularExpression.escapedPattern(for: elementName))>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive]) else {
+            return []
+        }
+        let nsRange = NSRange(xml.startIndex..<xml.endIndex, in: xml)
+        return regex.matches(in: xml, range: nsRange).compactMap { match in
+            guard let range = Range(match.range(at: 1), in: xml) else { return nil }
+            return xmlUnescaped(String(xml[range]))
+        }
+    }
+
+    private static func spreadsheetCellValues(in xml: String, sharedStrings: [String]) -> [String] {
+        let pattern = "<c\\b([^>]*)>(.*?)</c>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive]) else {
+            return []
+        }
+        let nsRange = NSRange(xml.startIndex..<xml.endIndex, in: xml)
+        return regex.matches(in: xml, range: nsRange).flatMap { match -> [String] in
+            guard let attributeRange = Range(match.range(at: 1), in: xml),
+                  let bodyRange = Range(match.range(at: 2), in: xml) else { return [] }
+            let attributes = String(xml[attributeRange])
+            let body = String(xml[bodyRange])
+            if xmlAttribute("t", in: attributes) == "s",
+               let rawValue = xmlText(in: body, elementName: "v").first,
+               let sharedIndex = Int(rawValue.trimmingCharacters(in: .whitespacesAndNewlines)),
+               sharedStrings.indices.contains(sharedIndex) {
+                return [sharedStrings[sharedIndex]]
+            }
+            let inlineStrings = xmlText(in: body, elementName: "t")
+            if !inlineStrings.isEmpty {
+                return inlineStrings
+            }
+            return xmlText(in: body, elementName: "v")
+        }
+    }
+
+    private static func plainTextFromMarkup(_ markup: String) -> String {
+        var text = markup
+        text = text.replacingOccurrences(of: "(?is)<script\\b.*?</script>", with: " ", options: .regularExpression)
+        text = text.replacingOccurrences(of: "(?is)<style\\b.*?</style>", with: " ", options: .regularExpression)
+        text = text.replacingOccurrences(of: "(?is)<br\\s*/?>", with: "\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: "(?is)</(p|div|section|article|h[1-6]|li|tr)>", with: "\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: "(?is)<[^>]+>", with: " ", options: .regularExpression)
+        text = xmlUnescaped(text)
+        return text
+            .components(separatedBy: .newlines)
+            .map { $0.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+    }
+
+    private static func xmlUnescaped(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&apos;", with: "'")
+            .replacingOccurrences(of: "&amp;", with: "&")
+    }
+
+    private static func spreadsheetSheetOrder(in archive: SimpleZIPArchive) -> [(name: String, path: String)] {
+        guard let workbook = archive.text(named: "xl/workbook.xml") else { return [] }
+        let relationships = workbookRelationships(in: archive)
+        let pattern = "<sheet\\b([^>]*)>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        let nsRange = NSRange(workbook.startIndex..<workbook.endIndex, in: workbook)
+        return regex.matches(in: workbook, range: nsRange).compactMap { match in
+            guard let attributeRange = Range(match.range(at: 1), in: workbook) else { return nil }
+            let attributes = String(workbook[attributeRange])
+            let name = xmlUnescaped(xmlAttribute("name", in: attributes) ?? "")
+            let relationshipID = xmlAttribute("r:id", in: attributes) ?? xmlAttribute("id", in: attributes)
+            guard let relationshipID,
+                  let target = relationships[relationshipID] else { return nil }
+            return (name: name, path: normalizedArchivePath(base: "xl", target: target))
+        }
+    }
+
+    private static func workbookRelationships(in archive: SimpleZIPArchive) -> [String: String] {
+        guard let rels = archive.text(named: "xl/_rels/workbook.xml.rels") else { return [:] }
+        let pattern = "<Relationship\\b([^>]*)>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [:] }
+        let nsRange = NSRange(rels.startIndex..<rels.endIndex, in: rels)
+        var output: [String: String] = [:]
+        for match in regex.matches(in: rels, range: nsRange) {
+            guard let attributeRange = Range(match.range(at: 1), in: rels) else { continue }
+            let attributes = String(rels[attributeRange])
+            guard let id = xmlAttribute("Id", in: attributes) ?? xmlAttribute("id", in: attributes),
+                  let target = xmlAttribute("Target", in: attributes) ?? xmlAttribute("target", in: attributes),
+                  target.contains("worksheets/") else { continue }
+            output[id] = target
+        }
+        return output
+    }
+
+    private static func epubSpineOrder(in archive: SimpleZIPArchive) -> [String] {
+        let container = archive.text(named: "META-INF/container.xml")
+        let opfPath = container.flatMap { xmlAttribute("full-path", in: $0) }
+            ?? archive.entryNames.first { $0.lowercased().hasSuffix(".opf") }
+        guard let opfPath,
+              let opf = archive.text(named: opfPath) else { return [] }
+        let base = URL(fileURLWithPath: opfPath).deletingLastPathComponent().relativePath
+        let manifest = epubManifest(in: opf, base: base == "." ? "" : base)
+        let itemRefs = xmlElements(named: "itemref", in: opf).compactMap { xmlAttribute("idref", in: $0) }
+        return itemRefs.compactMap { manifest[$0] }
+    }
+
+    private static func epubManifest(in opf: String, base: String) -> [String: String] {
+        var output: [String: String] = [:]
+        for attributes in xmlElements(named: "item", in: opf) {
+            guard let id = xmlAttribute("id", in: attributes),
+                  let href = xmlAttribute("href", in: attributes) else { continue }
+            let lower = href.lowercased()
+            guard lower.hasSuffix(".xhtml") || lower.hasSuffix(".html") || lower.hasSuffix(".htm") else { continue }
+            output[id] = normalizedArchivePath(base: base, target: href)
+        }
+        return output
+    }
+
+    private static func xmlElements(named name: String, in xml: String) -> [String] {
+        let escapedName = NSRegularExpression.escapedPattern(for: name)
+        let pattern = "<(?:[A-Za-z0-9_\\-]+:)?\(escapedName)\\b([^>]*)>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        let nsRange = NSRange(xml.startIndex..<xml.endIndex, in: xml)
+        return regex.matches(in: xml, range: nsRange).compactMap { match in
+            guard let range = Range(match.range(at: 1), in: xml) else { return nil }
+            return String(xml[range])
+        }
+    }
+
+    private static func xmlAttribute(_ name: String, in attributes: String) -> String? {
+        let escapedName = NSRegularExpression.escapedPattern(for: name)
+        let pattern = "(?:^|\\s)(?:[A-Za-z0-9_\\-]+:)?\(escapedName)\\s*=\\s*(['\"])(.*?)\\1"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+        let nsRange = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
+        guard let match = regex.firstMatch(in: attributes, range: nsRange),
+              let range = Range(match.range(at: 2), in: attributes) else { return nil }
+        return xmlUnescaped(String(attributes[range]))
+    }
+
+    private static func normalizedArchivePath(base: String, target: String) -> String {
+        let pieces = (base.split(separator: "/") + target.split(separator: "/"))
+            .reduce(into: [String]()) { result, piece in
+                if piece == "." || piece.isEmpty {
+                    return
+                } else if piece == ".." {
+                    _ = result.popLast()
+                } else {
+                    result.append(String(piece))
+                }
+            }
+        return pieces.joined(separator: "/")
+    }
+
+    private static func sheetDisplayName(from path: String) -> String {
+        let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+        guard name.lowercased().hasPrefix("sheet") else { return name }
+        return "Sheet \(name.dropFirst(5))"
+    }
+
+    private static func naturalPathCompare(_ lhs: String, _ rhs: String) -> Bool {
+        lhs.compare(rhs, options: [.numeric, .caseInsensitive]) == .orderedAscending
+    }
+}
+
+private struct SimpleZIPArchive {
+    enum ZIPError: Error {
+        case unreadable
+        case unsupportedCompression
+    }
+
+    struct Entry {
+        var name: String
+        var compressionMethod: UInt16
+        var compressedSize: Int
+        var uncompressedSize: Int
+        var localHeaderOffset: Int
+    }
+
+    private let data: Data
+    private let entries: [String: Entry]
+    private static let maxEntryUncompressedBytes = 25 * 1024 * 1024
+    private static let maxArchiveUncompressedBytes = 100 * 1024 * 1024
+
+    var entryNames: [String] { Array(entries.keys) }
+
+    init(data: Data) throws {
+        self.data = data
+        self.entries = try Self.readCentralDirectory(from: data)
+    }
+
+    func text(named name: String) -> String? {
+        guard let entry = entries[name],
+              let data = try? entryData(entry),
+              let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .utf16) ?? String(data: data, encoding: .isoLatin1) else {
+            return nil
+        }
+        return text
+    }
+
+    private func entryData(_ entry: Entry) throws -> Data {
+        let offset = entry.localHeaderOffset
+        guard offset + 30 <= data.count,
+              Self.uint32(in: data, at: offset) == 0x04034b50 else {
+            throw ZIPError.unreadable
+        }
+        let nameLength = Int(Self.uint16(in: data, at: offset + 26))
+        let extraLength = Int(Self.uint16(in: data, at: offset + 28))
+        let start = offset + 30 + nameLength + extraLength
+        guard start >= 0, start + entry.compressedSize <= data.count else {
+            throw ZIPError.unreadable
+        }
+        let compressed = data[start..<start + entry.compressedSize]
+        if entry.compressionMethod == 0 {
+            guard entry.compressedSize == entry.uncompressedSize,
+                  entry.compressedSize <= Self.maxEntryUncompressedBytes else {
+                throw ZIPError.unreadable
+            }
+            return Data(compressed)
+        }
+        guard entry.compressionMethod == 8 else {
+            throw ZIPError.unsupportedCompression
+        }
+
+        var output = [UInt8](repeating: 0, count: entry.uncompressedSize)
+        let decoded = compressed.withUnsafeBytes { input in
+            compression_decode_buffer(
+                &output,
+                output.count,
+                input.bindMemory(to: UInt8.self).baseAddress!,
+                compressed.count,
+                nil,
+                COMPRESSION_ZLIB
+            )
+        }
+        guard decoded == entry.uncompressedSize else {
+            throw ZIPError.unreadable
+        }
+        return Data(output)
+    }
+
+    private static func readCentralDirectory(from data: Data) throws -> [String: Entry] {
+        guard let eocd = findEndOfCentralDirectory(in: data),
+              eocd + 22 <= data.count else {
+            throw ZIPError.unreadable
+        }
+        let entryCount = Int(uint16(in: data, at: eocd + 10))
+        let directorySize = Int(uint32(in: data, at: eocd + 12))
+        let directoryOffset = Int(uint32(in: data, at: eocd + 16))
+        guard directoryOffset >= 0,
+              directorySize >= 0,
+              directoryOffset + directorySize <= data.count else {
+            throw ZIPError.unreadable
+        }
+
+        var result: [String: Entry] = [:]
+        var cursor = directoryOffset
+        var totalUncompressedSize = 0
+        for _ in 0..<entryCount {
+            guard cursor + 46 <= data.count,
+                  uint32(in: data, at: cursor) == 0x02014b50 else {
+                throw ZIPError.unreadable
+            }
+            let method = uint16(in: data, at: cursor + 10)
+            let compressedSize = Int(uint32(in: data, at: cursor + 20))
+            let uncompressedSize = Int(uint32(in: data, at: cursor + 24))
+            guard uncompressedSize <= maxEntryUncompressedBytes else {
+                throw ZIPError.unreadable
+            }
+            totalUncompressedSize += uncompressedSize
+            guard totalUncompressedSize <= maxArchiveUncompressedBytes else {
+                throw ZIPError.unreadable
+            }
+            let nameLength = Int(uint16(in: data, at: cursor + 28))
+            let extraLength = Int(uint16(in: data, at: cursor + 30))
+            let commentLength = Int(uint16(in: data, at: cursor + 32))
+            let localHeaderOffset = Int(uint32(in: data, at: cursor + 42))
+            let nameStart = cursor + 46
+            let nameEnd = nameStart + nameLength
+            guard nameEnd <= data.count,
+                  let name = String(data: data[nameStart..<nameEnd], encoding: .utf8) else {
+                throw ZIPError.unreadable
+            }
+            result[name] = Entry(
+                name: name,
+                compressionMethod: method,
+                compressedSize: compressedSize,
+                uncompressedSize: uncompressedSize,
+                localHeaderOffset: localHeaderOffset
+            )
+            cursor = nameEnd + extraLength + commentLength
+        }
+        return result
+    }
+
+    private static func findEndOfCentralDirectory(in data: Data) -> Int? {
+        guard data.count >= 22 else { return nil }
+        let lowerBound = max(0, data.count - 65_557)
+        var cursor = data.count - 22
+        while cursor >= lowerBound {
+            if uint32(in: data, at: cursor) == 0x06054b50 {
+                return cursor
+            }
+            cursor -= 1
+        }
+        return nil
+    }
+
+    private static func uint16(in data: Data, at offset: Int) -> UInt16 {
+        UInt16(data[offset]) | UInt16(data[offset + 1]) << 8
+    }
+
+    private static func uint32(in data: Data, at offset: Int) -> UInt32 {
+        UInt32(data[offset]) |
+            UInt32(data[offset + 1]) << 8 |
+            UInt32(data[offset + 2]) << 16 |
+            UInt32(data[offset + 3]) << 24
+    }
+}
+
 @MainActor
 private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
     private let html: String
@@ -835,23 +1426,53 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
                 }
 
                 webView.frame = CGRect(origin: .zero, size: CGSize(width: Self.pageSize.width, height: height))
+                self.createPDFSlices(pageCount: pageEstimate)
+            }
+        }
+    }
 
-                let configuration = WKPDFConfiguration()
-                configuration.rect = webView.bounds
-                webView.createPDF(configuration: configuration) { result in
-                    Task { @MainActor in
-                        switch result {
-                        case .success(let data) where !data.isEmpty:
-                            self.finish(.success(data))
-                        case .success:
+    private func createPDFSlices(pageCount: Int) {
+        let output = PDFDocument()
+
+        func renderSlice(_ pageIndex: Int) {
+            guard pageIndex < pageCount else {
+                guard let data = output.dataRepresentation(), !data.isEmpty else {
+                    finish(.failure(DocumentImportConverter.ConversionError.renderingFailed))
+                    return
+                }
+                finish(.success(data))
+                return
+            }
+
+            let configuration = WKPDFConfiguration()
+            configuration.rect = CGRect(
+                x: 0,
+                y: CGFloat(pageIndex) * Self.pageSize.height,
+                width: Self.pageSize.width,
+                height: Self.pageSize.height
+            )
+            webView.createPDF(configuration: configuration) { [weak self] result in
+                Task { @MainActor in
+                    guard let self else { return }
+                    switch result {
+                    case .success(let data) where !data.isEmpty:
+                        guard let slice = PDFDocument(data: data),
+                              let page = slice.page(at: 0) else {
                             self.finish(.failure(DocumentImportConverter.ConversionError.renderingFailed))
-                        case .failure(let error):
-                            self.finish(.failure(error))
+                            return
                         }
+                        output.insert(page, at: output.pageCount)
+                        renderSlice(pageIndex + 1)
+                    case .success:
+                        self.finish(.failure(DocumentImportConverter.ConversionError.renderingFailed))
+                    case .failure(let error):
+                        self.finish(.failure(error))
                     }
                 }
             }
         }
+
+        renderSlice(0)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

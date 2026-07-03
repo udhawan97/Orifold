@@ -40,6 +40,7 @@ targets:
     resources:
       - path: PDFold/Resources/Assets.xcassets
       - path: PDFold/Resources/CERTIFICATE_GUIDE.md
+      - path: PDFold/Resources/THIRD-PARTY-NOTICES.md
     dependencies:
       - package: PDFiumBinary
         product: PDFium
@@ -75,16 +76,26 @@ targets:
             CFBundleTypeRole: Editor
             LSHandlerRank: Alternate
             LSItemContentTypes: [org.openxmlformats.wordprocessingml.document, com.microsoft.word.doc]
-          - CFBundleTypeExtensions: [odt]
-            CFBundleTypeName: OpenDocument Text
+          - CFBundleTypeExtensions: [odt, rtfd]
+            CFBundleTypeName: OpenDocument Text and RTFD
             CFBundleTypeRole: Editor
             LSHandlerRank: Alternate
-            LSItemContentTypes: [org.oasis-open.opendocument.text]
-          - CFBundleTypeExtensions: [txt, rtf, md, markdown, csv, json, xml]
+            LSItemContentTypes: [org.oasis-open.opendocument.text, com.apple.rtfd]
+          - CFBundleTypeExtensions: [xlsx, pptx, epub]
+            CFBundleTypeName: Structured Package Document
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [org.openxmlformats.spreadsheetml.sheet, org.openxmlformats.presentationml.presentation, org.idpf.epub-container]
+          - CFBundleTypeExtensions: [svg]
+            CFBundleTypeName: SVG Image
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.svg-image]
+          - CFBundleTypeExtensions: [txt, text, log, rtf, md, markdown, csv, tsv, json, jsonl, xml, yaml, yml, toml, plist, swift, js, ts, tsx, jsx, py, rb, go, rs, java, kt, c, cc, cpp, h, hpp, m, mm, cs, php, sh, zsh, bash, sql, ini, conf, env]
             CFBundleTypeName: Text Document
             CFBundleTypeRole: Editor
             LSHandlerRank: Alternate
-            LSItemContentTypes: [public.text, public.plain-text, public.rtf, net.daringfireball.markdown, public.comma-separated-values-text, public.json, public.xml]
+            LSItemContentTypes: [public.text, public.plain-text, public.utf8-plain-text, public.rtf, net.daringfireball.markdown, public.comma-separated-values-text, public.tab-separated-values-text, public.json, public.xml, com.apple.property-list]
           - CFBundleTypeExtensions: [png, jpg, jpeg, gif, tif, tiff, heic, bmp, webp]
             CFBundleTypeName: Image
             CFBundleTypeRole: Editor

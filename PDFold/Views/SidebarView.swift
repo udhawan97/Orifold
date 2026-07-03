@@ -177,6 +177,21 @@ struct MemberDocRow: View {
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
+                Spacer(minLength: .dsSM)
+                Button(role: .destructive) {
+                    viewModel.removeDocument(member)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.dsTextTertiary)
+                .opacity(isHovered ? 1 : 0)
+                .allowsHitTesting(isHovered)
+                .disabled(!viewModel.canRemoveDocuments)
+                .help("Remove document")
+                .accessibilityLabel("Remove \(member.displayName)")
             }
             .padding(.vertical, 2)
         }
@@ -189,6 +204,15 @@ struct MemberDocRow: View {
             }
         }
         .onHover { isHovered = $0 }
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button(role: .destructive) {
+                viewModel.removeDocument(member)
+            } label: {
+                Label("Remove Document", systemImage: "trash")
+            }
+            .disabled(!viewModel.canRemoveDocuments)
+        }
     }
 }
 

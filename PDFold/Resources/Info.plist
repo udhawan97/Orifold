@@ -64,9 +64,10 @@
 			<key>CFBundleTypeExtensions</key>
 			<array>
 				<string>odt</string>
+				<string>rtfd</string>
 			</array>
 			<key>CFBundleTypeName</key>
-			<string>OpenDocument Text</string>
+			<string>OpenDocument Text and RTFD</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -74,18 +75,90 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>org.oasis-open.opendocument.text</string>
+				<string>com.apple.rtfd</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>xlsx</string>
+				<string>pptx</string>
+				<string>epub</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Structured Package Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.openxmlformats.spreadsheetml.sheet</string>
+				<string>org.openxmlformats.presentationml.presentation</string>
+				<string>org.idpf.epub-container</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>svg</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>SVG Image</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.svg-image</string>
 			</array>
 		</dict>
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
 				<string>txt</string>
+				<string>text</string>
+				<string>log</string>
 				<string>rtf</string>
 				<string>md</string>
 				<string>markdown</string>
 				<string>csv</string>
+				<string>tsv</string>
 				<string>json</string>
+				<string>jsonl</string>
 				<string>xml</string>
+				<string>yaml</string>
+				<string>yml</string>
+				<string>toml</string>
+				<string>plist</string>
+				<string>swift</string>
+				<string>js</string>
+				<string>ts</string>
+				<string>tsx</string>
+				<string>jsx</string>
+				<string>py</string>
+				<string>rb</string>
+				<string>go</string>
+				<string>rs</string>
+				<string>java</string>
+				<string>kt</string>
+				<string>c</string>
+				<string>cc</string>
+				<string>cpp</string>
+				<string>h</string>
+				<string>hpp</string>
+				<string>m</string>
+				<string>mm</string>
+				<string>cs</string>
+				<string>php</string>
+				<string>sh</string>
+				<string>zsh</string>
+				<string>bash</string>
+				<string>sql</string>
+				<string>ini</string>
+				<string>conf</string>
+				<string>env</string>
 			</array>
 			<key>CFBundleTypeName</key>
 			<string>Text Document</string>
@@ -97,11 +170,14 @@
 			<array>
 				<string>public.text</string>
 				<string>public.plain-text</string>
+				<string>public.utf8-plain-text</string>
 				<string>public.rtf</string>
 				<string>net.daringfireball.markdown</string>
 				<string>public.comma-separated-values-text</string>
+				<string>public.tab-separated-values-text</string>
 				<string>public.json</string>
 				<string>public.xml</string>
+				<string>com.apple.property-list</string>
 			</array>
 		</dict>
 		<dict>

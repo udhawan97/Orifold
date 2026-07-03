@@ -284,6 +284,9 @@ final class WorkspaceViewModel {
     /// Reactive list of member documents — backed by loadedPDFs so the sidebar
     /// re-renders whenever documents are added, removed, or reordered.
     var memberDocuments: [MemberDocument] { loadedPDFs.map { $0.0 } }
+    var canRemoveDocuments: Bool {
+        !isImporting && activeCompressionTask == nil && activeOCRTask == nil && !loadedPDFs.isEmpty
+    }
 
     weak var undoManager: UndoManager?
 
@@ -741,9 +744,18 @@ final class WorkspaceViewModel {
         guard canPerformMutatingAction() else { return }
         let validOffsets = offsets.filter { loadedPDFs.indices.contains($0) }
         guard validOffsets.count == offsets.count else { return }
+        removeDocuments(withIDs: Set(validOffsets.map { loadedPDFs[$0].0.id }))
+    }
 
+    func removeDocument(_ member: MemberDocument) {
+        guard canPerformMutatingAction() else { return }
+        guard loadedPDFs.contains(where: { $0.0.id == member.id }) else { return }
+        removeDocuments(withIDs: [member.id])
+    }
+
+    private func removeDocuments(withIDs removedIds: Set<UUID>) {
+        guard !removedIds.isEmpty else { return }
         let snapshot = captureOrderSnapshot()
-        let removedIds = Set(validOffsets.map { loadedPDFs[$0].0.id })
         let removedPageRefIDs = Set(document.workspace.documents
             .filter { removedIds.contains($0.id) }
             .flatMap(\.pageRefs))
