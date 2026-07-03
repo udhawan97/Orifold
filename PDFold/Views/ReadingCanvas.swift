@@ -273,12 +273,12 @@ private struct BottomBarBrand: View {
     var body: some View {
         HStack(spacing: .dsXS) {
             AppIconMark(size: 16)
-            Text("pdFold v3 workspace")
+            Text("pdFold")
                 .font(.system(size: 11, weight: .medium, design: .serif))
                 .foregroundStyle(Color.dsTextTertiary)
                 .lineLimit(1)
         }
-        .accessibilityLabel("pdFold version 3 workspace")
+        .accessibilityLabel("pdFold")
     }
 }
 
@@ -368,6 +368,14 @@ struct PDFViewRepresentable: NSViewRepresentable {
             context.coordinator,
             selector: #selector(Coordinator.jumpToFormField(_:)),
             name: .pdfoldJumpToFormField, object: nil)
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.jumpToAnnotation(_:)),
+            name: .pdfoldJumpToAnnotation, object: nil)
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.editAnnotation(_:)),
+            name: .pdfoldEditAnnotation, object: nil)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.printDocument(_:)),
@@ -764,6 +772,38 @@ struct PDFViewRepresentable: NSViewRepresentable {
             }
             refreshDecorationOverlays()
             refreshSignatureOverlay()
+        }
+
+        @objc func jumpToAnnotation(_ notification: Notification) {
+            guard let annotation = notification.object as? PDFAnnotation,
+                  let page = annotation.page,
+                  let pdfView else { return }
+            viewModel.selectedAnnotation = annotation
+            viewModel.selectedStampDecorationID = nil
+            goToAnnotation(annotation, on: page, in: pdfView)
+            refreshSignatureOverlay()
+            refreshDecorationOverlays()
+            pdfView.needsDisplay = true
+        }
+
+        @objc func editAnnotation(_ notification: Notification) {
+            guard let annotation = notification.object as? PDFAnnotation,
+                  let page = annotation.page,
+                  let pdfView else { return }
+            viewModel.selectedAnnotation = annotation
+            viewModel.selectedStampDecorationID = nil
+            goToAnnotation(annotation, on: page, in: pdfView)
+            guard annotation.type == "Text" || annotation.type == "FreeText" else {
+                viewModel.showEditMessage("Only notes and text boxes can be edited directly. Use delete to remove this markup.", isError: false)
+                return
+            }
+            let rect = pdfView.convert(annotation.bounds, from: page)
+            showNoteEditor(for: annotation, near: rect, in: pdfView)
+        }
+
+        private func goToAnnotation(_ annotation: PDFAnnotation, on page: PDFPage, in pdfView: PDFView) {
+            let targetPoint = CGPoint(x: annotation.bounds.midX, y: annotation.bounds.maxY)
+            pdfView.go(to: PDFDestination(page: page, at: targetPoint))
         }
 
         private func focusTextFormField(_ target: PDFFormFieldNavigationTarget, page: PDFPage, pdfView: PDFView?) {

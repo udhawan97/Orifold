@@ -2685,6 +2685,60 @@ final class PageDecorationExportTests: XCTestCase {
         XCTAssertFalse(viewModel.document.workspace.decorations.contains { $0.kind == .watermark })
     }
 
+    func testDecorationEditingOptionsPersistThroughViewModel() {
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument(), processingEngine: PDFKitProcessingEngineFallback())
+
+        viewModel.setDecoration(.watermark, enabled: true)
+        viewModel.setDecorationText(.watermark, text: "Internal only")
+        viewModel.setDecorationFontSize(.watermark, fontSize: 42)
+        viewModel.setDecorationOpacity(.watermark, opacity: 0.35)
+        viewModel.setDecorationSwatch(.watermark, swatch: .coral)
+
+        viewModel.setDecoration(.bates, enabled: true)
+        viewModel.setDecorationPrefix(.bates, prefix: "PRD")
+        viewModel.setDecorationStartNumber(.bates, startNumber: 7)
+        viewModel.setDecorationFontSize(.bates, fontSize: 14)
+        viewModel.setDecorationOpacity(.bates, opacity: 0.75)
+        viewModel.setDecorationSwatch(.bates, swatch: .accent)
+
+        let watermark = viewModel.decoration(of: .watermark)
+        XCTAssertEqual(watermark?.text, "Internal only")
+        XCTAssertEqual(watermark?.fontSize, 42)
+        XCTAssertEqual(watermark?.opacity, 0.35, accuracy: 0.001)
+        XCTAssertEqual(watermark?.swatch, .coral)
+
+        let bates = viewModel.decoration(of: .bates)
+        XCTAssertEqual(bates?.prefix, "PRD")
+        XCTAssertEqual(bates?.startNumber, 7)
+        XCTAssertEqual(bates?.fontSize, 14)
+        XCTAssertEqual(bates?.opacity, 0.75, accuracy: 0.001)
+        XCTAssertEqual(bates?.swatch, .accent)
+    }
+
+    func testEditedDecorationValuesExportWithoutErrors() throws {
+        let fixture = try makeMemberWithPDF(name: "Edited decorations", pageTexts: ["alpha", "beta"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+
+        viewModel.setDecoration(.pageNumber, enabled: true)
+        viewModel.setDecorationFontSize(.pageNumber, fontSize: 13)
+        viewModel.setDecorationOpacity(.pageNumber, opacity: 0.8)
+        viewModel.setDecorationSwatch(.pageNumber, swatch: .sage)
+        viewModel.setDecoration(.bates, enabled: true)
+        viewModel.setDecorationPrefix(.bates, prefix: "PKT")
+        viewModel.setDecorationStartNumber(.bates, startNumber: 42)
+
+        let exported = try document.exportedPDFDataThrowing(from: try document.snapshot(contentType: .pdf))
+        let pdf = try XCTUnwrap(PDFDocument(data: exported))
+
+        XCTAssertTrue(pdf.stringValue.contains("Page 1 of 2"))
+        XCTAssertTrue(pdf.stringValue.contains("PKT-000042"))
+        XCTAssertTrue(pdf.stringValue.contains("PKT-000043"))
+    }
+
     func testThrowingExportRejectsMissingMemberPDFData() throws {
         let fixture = try makeMemberWithPDF(name: "Missing", pageTexts: ["one"])
         let document = WorkspaceDocument()

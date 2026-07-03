@@ -1515,6 +1515,18 @@ final class WorkspaceViewModel {
         decoration(of: kind)?.startNumber ?? defaultDecoration(for: kind).startNumber
     }
 
+    func decorationFontSize(for kind: PageDecoration.Kind) -> Double {
+        Double(decoration(of: kind)?.fontSize ?? defaultDecoration(for: kind).fontSize)
+    }
+
+    func decorationOpacity(for kind: PageDecoration.Kind) -> Double {
+        decoration(of: kind)?.opacity ?? defaultDecoration(for: kind).opacity
+    }
+
+    func decorationSwatch(for kind: PageDecoration.Kind) -> PageDecorationSwatch {
+        decoration(of: kind)?.swatch ?? defaultDecoration(for: kind).swatch
+    }
+
     func setDecoration(_ kind: PageDecoration.Kind, enabled: Bool) {
         var decorations = document.workspace.decorations
         if let index = decorations.firstIndex(where: { $0.kind == kind && $0.pageRefID == nil }) {
@@ -1549,6 +1561,24 @@ final class WorkspaceViewModel {
     func setDecorationStartNumber(_ kind: PageDecoration.Kind, startNumber: Int) {
         updateDecoration(kind, actionName: decorationActionName(for: kind)) { decoration in
             decoration.startNumber = max(0, startNumber)
+        }
+    }
+
+    func setDecorationFontSize(_ kind: PageDecoration.Kind, fontSize: Double) {
+        updateDecoration(kind, actionName: decorationActionName(for: kind)) { decoration in
+            decoration.fontSize = CGFloat(min(max(fontSize, 6), 96))
+        }
+    }
+
+    func setDecorationOpacity(_ kind: PageDecoration.Kind, opacity: Double) {
+        updateDecoration(kind, actionName: decorationActionName(for: kind)) { decoration in
+            decoration.opacity = min(max(opacity, 0.05), 1)
+        }
+    }
+
+    func setDecorationSwatch(_ kind: PageDecoration.Kind, swatch: PageDecorationSwatch) {
+        updateDecoration(kind, actionName: decorationActionName(for: kind)) { decoration in
+            decoration.swatch = swatch
         }
     }
 

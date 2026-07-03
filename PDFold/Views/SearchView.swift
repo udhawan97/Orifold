@@ -159,6 +159,8 @@ extension Notification.Name {
     static let pdfoldJumpToSelection = Notification.Name("pdfoldJumpToSelection")
     static let pdfoldJumpToPageIndex = Notification.Name("pdfoldJumpToPageIndex")
     static let pdfoldJumpToFormField = Notification.Name("pdfoldJumpToFormField")
+    static let pdfoldJumpToAnnotation = Notification.Name("pdfoldJumpToAnnotation")
+    static let pdfoldEditAnnotation   = Notification.Name("pdfoldEditAnnotation")
     static let pdfoldPrint           = Notification.Name("pdfoldPrint")
     static let pdfoldCreateCommentFromSelection = Notification.Name("pdfoldCreateCommentFromSelection")
     static let pdfoldZoomIn          = Notification.Name("pdfoldZoomIn")

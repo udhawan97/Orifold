@@ -803,16 +803,28 @@ private struct InspectorDecorateView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             decorationRow(title: "Watermark", isOn: watermarkEnabled) {
-                TextField("Text", text: watermarkText)
-                    .textFieldStyle(.roundedBorder)
+                VStack(alignment: .leading, spacing: .dsSM) {
+                    TextField("Text", text: watermarkText)
+                        .textFieldStyle(.roundedBorder)
+
+                    decorationSizeControl(.watermark, range: 24...96, step: 2)
+                    decorationOpacityControl(.watermark)
+                    decorationSwatchControl(.watermark)
+                }
             }
 
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
             decorationRow(title: "Page numbers", isOn: pageNumbersEnabled) {
-                Text("Page 1 of \(max(viewModel.pageCount, 1))")
-                    .font(.dsCaption())
-                    .foregroundStyle(Color.dsTextSecondary)
+                VStack(alignment: .leading, spacing: .dsSM) {
+                    Text("Page 1 of \(max(viewModel.pageCount, 1))")
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextSecondary)
+
+                    decorationSizeControl(.pageNumber, range: 8...24, step: 1)
+                    decorationOpacityControl(.pageNumber)
+                    decorationSwatchControl(.pageNumber)
+                }
             }
 
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
@@ -826,6 +838,10 @@ private struct InspectorDecorateView: View {
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsTextSecondary)
                     }
+
+                    decorationSizeControl(.bates, range: 8...24, step: 1)
+                    decorationOpacityControl(.bates)
+                    decorationSwatchControl(.bates)
                 }
             }
         }
@@ -836,10 +852,32 @@ private struct InspectorDecorateView: View {
                                                isOn: Binding<Bool>,
                                                @ViewBuilder controls: () -> Controls) -> some View {
         VStack(alignment: .leading, spacing: .dsSM) {
-            Toggle(title, isOn: isOn)
-                .toggleStyle(.checkbox)
-                .font(.dsBody())
-                .foregroundStyle(Color.dsTextPrimary)
+            Button {
+                isOn.wrappedValue.toggle()
+            } label: {
+                HStack(spacing: .dsSM) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                            .fill(isOn.wrappedValue ? Color.dsAccent : Color.dsCard)
+                        RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                            .strokeBorder(isOn.wrappedValue ? Color.dsAccent : Color.dsSeparator, lineWidth: 1)
+                        if isOn.wrappedValue {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Color.dsSurface)
+                        }
+                    }
+                    .frame(width: 22, height: 22)
+
+                    Text(title)
+                        .font(.dsBody())
+                        .foregroundStyle(Color.dsTextPrimary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityValue(isOn.wrappedValue ? "On" : "Off")
 
             if isOn.wrappedValue {
                 controls()
@@ -851,10 +889,108 @@ private struct InspectorDecorateView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isOn.wrappedValue)
     }
+
+    private func decorationSizeControl(_ kind: PageDecoration.Kind,
+                                       range: ClosedRange<Double>,
+                                       step: Double) -> some View {
+        Stepper(value: decorationFontSizeBinding(for: kind), in: range, step: step) {
+            Text("Size \(Int(viewModel.decorationFontSize(for: kind))) pt")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+        }
+    }
+
+    private func decorationOpacityControl(_ kind: PageDecoration.Kind) -> some View {
+        HStack(spacing: .dsSM) {
+            Image(systemName: "circle.lefthalf.filled")
+                .frame(width: 16, height: 16)
+                .foregroundStyle(Color.dsTextTertiary)
+            Slider(value: decorationOpacityBinding(for: kind), in: 0.1...1, step: 0.05)
+            Text("\(Int(viewModel.decorationOpacity(for: kind) * 100))%")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+                .frame(width: 36, alignment: .trailing)
+        }
+    }
+
+    private func decorationSwatchControl(_ kind: PageDecoration.Kind) -> some View {
+        Menu {
+            ForEach(PageDecorationSwatch.globalDecorationChoices, id: \.self) { swatch in
+                Button {
+                    viewModel.setDecorationSwatch(kind, swatch: swatch)
+                } label: {
+                    Label(swatch.label, systemImage: viewModel.decorationSwatch(for: kind) == swatch ? "checkmark" : "")
+                }
+            }
+        } label: {
+            HStack(spacing: .dsSM) {
+                Circle()
+                    .fill(viewModel.decorationSwatch(for: kind).viewColor)
+                    .frame(width: 14, height: 14)
+                    .overlay(Circle().strokeBorder(Color.dsSeparator, lineWidth: 1))
+                Text(viewModel.decorationSwatch(for: kind).label)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .menuStyle(.borderlessButton)
+        .help("Decoration color")
+    }
+
+    private func decorationFontSizeBinding(for kind: PageDecoration.Kind) -> Binding<Double> {
+        Binding(
+            get: { viewModel.decorationFontSize(for: kind) },
+            set: { viewModel.setDecorationFontSize(kind, fontSize: $0) }
+        )
+    }
+
+    private func decorationOpacityBinding(for kind: PageDecoration.Kind) -> Binding<Double> {
+        Binding(
+            get: { viewModel.decorationOpacity(for: kind) },
+            set: { viewModel.setDecorationOpacity(kind, opacity: $0) }
+        )
+    }
+}
+
+private extension PageDecorationSwatch {
+    static var globalDecorationChoices: [PageDecorationSwatch] {
+        [.tertiary, .accent, .sage, .coral, .lavender]
+    }
+
+    var viewColor: Color {
+        switch self {
+        case .accent:
+            return .dsAccent
+        case .sage:
+            return .dsAnnotationSage
+        case .coral:
+            return .dsAnnotationCoral
+        case .tertiary:
+            return .dsTextTertiary
+        case .lavender:
+            return .dsAnnotationLavender
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .accent:
+            return "Accent"
+        case .sage:
+            return "Sage"
+        case .coral:
+            return "Coral"
+        case .tertiary:
+            return "Gray"
+        case .lavender:
+            return "Lavender"
+        }
+    }
 }
 
 private struct InspectorMarkupView: View {
-    var viewModel: WorkspaceViewModel
+    @Bindable var viewModel: WorkspaceViewModel
 
     private var allAnnotations: [(page: PDFPage, annotation: PDFAnnotation, memberName: String)] {
         var result: [(PDFPage, PDFAnnotation, String)] = []
@@ -890,8 +1026,32 @@ private struct InspectorMarkupView: View {
                     Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
                 }
                 ForEach(allAnnotations.indices, id: \.self) { i in
-                    InspectorAnnotationRow(ann: allAnnotations[i].annotation,
-                                          memberName: allAnnotations[i].memberName)
+                    InspectorAnnotationRow(
+                        ann: allAnnotations[i].annotation,
+                        memberName: allAnnotations[i].memberName,
+                        isSelected: viewModel.selectedAnnotation === allAnnotations[i].annotation,
+                        onSelect: {
+                            viewModel.selectedAnnotation = allAnnotations[i].annotation
+                            viewModel.selectedStampDecorationID = nil
+                            NotificationCenter.default.post(
+                                name: .pdfoldJumpToAnnotation,
+                                object: allAnnotations[i].annotation
+                            )
+                        },
+                        onEdit: {
+                            viewModel.selectedAnnotation = allAnnotations[i].annotation
+                            viewModel.selectedStampDecorationID = nil
+                            NotificationCenter.default.post(
+                                name: .pdfoldEditAnnotation,
+                                object: allAnnotations[i].annotation
+                            )
+                        },
+                        onDelete: {
+                            viewModel.selectedAnnotation = allAnnotations[i].annotation
+                            viewModel.selectedStampDecorationID = nil
+                            viewModel.deleteSelectedAnnotation()
+                        }
+                    )
                     Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
                 }
             }
@@ -970,6 +1130,14 @@ private struct InspectorEmptyState: View {
 private struct InspectorAnnotationRow: View {
     var ann: PDFAnnotation
     var memberName: String
+    var isSelected: Bool
+    var onSelect: () -> Void
+    var onEdit: () -> Void
+    var onDelete: () -> Void
+
+    private var canEditContents: Bool {
+        ann.type == "Text" || ann.type == "FreeText"
+    }
 
     private var typeLabel: String {
         switch ann.type {
@@ -995,28 +1163,57 @@ private struct InspectorAnnotationRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: .dsSM) {
-            Image(systemName: icon)
-                .font(.system(size: 11))
-                .foregroundStyle(Color.dsTextTertiary)
-                .frame(width: 16)
-                .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(typeLabel)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.dsTextPrimary)
-                if let contents = ann.contents, !contents.isEmpty {
-                    Text(contents)
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextSecondary)
-                        .lineLimit(2)
+        HStack(alignment: .top, spacing: .dsXS) {
+            Button(action: onSelect) {
+                HStack(alignment: .top, spacing: .dsSM) {
+                    Image(systemName: icon)
+                        .font(.system(size: 11))
+                        .foregroundStyle(isSelected ? Color.dsAccent : Color.dsTextTertiary)
+                        .frame(width: 16)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(typeLabel)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.dsTextPrimary)
+                        if let contents = ann.contents, !contents.isEmpty {
+                            Text(contents)
+                                .font(.dsCaption())
+                                .foregroundStyle(Color.dsTextSecondary)
+                                .lineLimit(2)
+                        }
+                        Text(memberName)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.dsTextTertiary)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Text(memberName)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.dsTextTertiary)
             }
+            .buttonStyle(.plain)
+            .help("Select annotation")
+
+            if canEditContents {
+                Button(action: onEdit) {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.dsTextTertiary)
+                .help("Edit annotation")
+            }
+
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(Color.dsTextTertiary)
+            .help("Delete annotation")
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
+        .background(isSelected ? Color.dsAccentSoft.opacity(0.35) : Color.clear)
+        .contentShape(Rectangle())
     }
 }
