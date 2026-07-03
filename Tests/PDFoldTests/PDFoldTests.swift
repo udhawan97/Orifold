@@ -1944,12 +1944,15 @@ final class WorkspaceDocumentTests: XCTestCase {
             "bash", "sql", "ini", "conf", "env"
         ]
         for pathExtension in expectedExtensions {
+            FileHandle.standardError.write("CI-DEBUG checking extension: \(pathExtension)\n".data(using: .utf8)!)
             XCTAssertTrue(advertisedExtensions.contains(pathExtension), pathExtension)
             let type = try XCTUnwrap(UTType(filenameExtension: pathExtension), pathExtension)
+            FileHandle.standardError.write("CI-DEBUG resolved \(pathExtension) -> \(type.identifier)\n".data(using: .utf8)!)
             XCTAssertTrue(
                 WorkspaceDocument.importableContentTypes.contains { type.conforms(to: $0) },
                 pathExtension
             )
+            FileHandle.standardError.write("CI-DEBUG done with extension: \(pathExtension)\n".data(using: .utf8)!)
         }
     }
 
