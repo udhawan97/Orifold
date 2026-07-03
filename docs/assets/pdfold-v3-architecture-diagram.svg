@@ -1,169 +1,308 @@
-<svg width="1280" height="980" viewBox="0 0 1280 980" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+<svg width="1280" height="1000" viewBox="0 0 1280 1000" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">pdFold Technical Architecture</title>
-  <desc id="desc">Architecture diagram showing the SwiftUI app surface, workspace state, PDFKit, PDFium, OCR, forms, decorations, compression, encryption, exports, installer, and release guardrails.</desc>
+  <desc id="desc">Layered architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts. Documents never leave the device; a release gate guards the build outside the boundary.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#06111F"/>
-      <stop offset="0.58" stop-color="#0B1220"/>
-      <stop offset="1" stop-color="#081B16"/>
+    <linearGradient id="gPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A1628"/>
+      <stop offset="0.55" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#0A1A1A"/>
     </linearGradient>
-    <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
-      <path d="M 56 0 L 0 0 0 56" stroke="#274155" stroke-width="1" opacity="0.20"/>
+    <linearGradient id="gCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#111C2E"/>
+      <stop offset="1" stop-color="#0C1424"/>
+    </linearGradient>
+    <linearGradient id="gHero" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E2A28"/>
+      <stop offset="1" stop-color="#0D1B2A"/>
+    </linearGradient>
+    <radialGradient id="gFade" cx="0.5" cy="0.42" r="0.9">
+      <stop offset="0.45" stop-color="#0A1628" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0A1628" stop-opacity="0.75"/>
+    </radialGradient>
+    <pattern id="dots" x="32" y="32" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="12" r="1" fill="#334155" opacity="0.18"/>
     </pattern>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity="0.34"/>
-    </filter>
     <style>
-      .title { font: 800 34px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #F8FAFC; }
-      .subtitle { font: 500 15px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #B8C5D6; }
-      .body { font: 500 13px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #AAB8CA; }
-      .chip { font: 800 11.5px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .tag { font: 800 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 1.2px; }
-      .layer { fill: #101827; stroke: #2B405C; stroke-width: 1.25; }
-      .state { fill: #08251F; stroke: #0F766E; stroke-width: 1.25; }
-      .engine { fill: #111A34; stroke: #818CF8; stroke-width: 1.25; }
-      .export { fill: #241609; stroke: #F59E0B; stroke-width: 1.25; }
-      .artifact { fill: #1B1430; stroke: #A78BFA; stroke-width: 1.25; }
-      .guard { fill: #08251C; stroke: #22C55E; stroke-width: 1.25; }
-      .flow { fill: none; stroke: #506789; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+      .t     { font: 700 30px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.4px; fill: #F8FAFC; }
+      .sub   { font: 450 15px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #94A3B8; }
+      .body  { font: 450 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #94A3B8; }
+      .eye   { font: 700 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 1.2px; }
+      .code  { font: 500 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.2px; fill: #64748B; }
+      .badge { font: 500 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 1.2px; fill: #64748B; }
+      .chip  { font: 600 11px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.2px; }
+      .pill  { font: 600 12px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+      .item  { font: 500 12px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #94A3B8; }
+      .stat  { font: 700 24px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.3px; fill: #F8FAFC; }
+      .lbl   { font: 500 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace; fill: #94A3B8; }
+      .ico   { stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; fill: none; }
     </style>
   </defs>
 
-  <rect width="1280" height="980" rx="28" fill="#020617"/>
-  <rect x="32" y="32" width="1216" height="916" rx="26" fill="url(#bg)"/>
-  <rect x="32" y="32" width="1216" height="916" rx="26" fill="url(#grid)"/>
-  <rect x="32" y="32" width="1216" height="916" rx="26" stroke="#1F3147"/>
+  <!-- canvas + stage -->
+  <rect width="1280" height="1000" rx="28" fill="#020617"/>
+  <rect x="32" y="32" width="1216" height="936" rx="24" fill="url(#gPanel)"/>
+  <rect x="32" y="32" width="1216" height="936" rx="24" fill="url(#dots)"/>
+  <rect x="32" y="32" width="1216" height="936" rx="24" fill="url(#gFade)"/>
+  <rect x="32" y="32" width="1216" height="936" rx="24" stroke="#1E293B" stroke-width="1.25"/>
 
-  <text x="640" y="78" text-anchor="middle" class="title">pdFold Technical Architecture</text>
-  <text x="640" y="108" text-anchor="middle" class="subtitle">SwiftUI workspace, local PDF services, export finishing pipeline, and release tooling.</text>
+  <!-- header -->
+  <g class="ico" stroke="#2DD4BF">
+    <path d="M400 70 h13 l9 9 v17 h-22 z"/>
+    <path d="M413 70 v9 h9"/>
+  </g>
+  <text x="640" y="92" text-anchor="middle" class="t">pdFold Technical Architecture</text>
+  <text x="640" y="124" text-anchor="middle" class="sub">Views send intents down, one observable model owns state, local engines do the work.</text>
 
+  <!-- local-only boundary -->
+  <rect x="56" y="150" width="876" height="788" rx="20" stroke="#2DD4BF" stroke-opacity="0.35" stroke-width="1.5" stroke-dasharray="7 7"/>
+
+  <!-- L1 · UI -->
+  <g transform="translate(72 168)">
+    <rect width="844" height="112" rx="16" fill="url(#gCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M17 1.25 H827" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <rect x="24" y="18" width="28" height="28" rx="8" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+    <g transform="translate(28 22)" class="ico" stroke="#7DD3FC">
+      <rect x="1" y="2" width="18" height="15" rx="2.5"/>
+      <path d="M1 7.5 H19"/>
+      <circle cx="4.5" cy="4.75" r="1" fill="#7DD3FC" stroke="none"/>
+    </g>
+    <text x="62" y="36" class="eye" fill="#BAE6FD">UI — SWIFTUI VIEWS</text>
+    <rect x="701" y="16" width="119" height="24" rx="12" fill="#0B1322" stroke="#26364E"/>
+    <text x="760.5" y="32" text-anchor="middle" class="badge">PDFold/Views</text>
+    <text x="24" y="62" class="body">Declarative SwiftUI surface — views render state and send intents, nothing else.</text>
+    <g>
+      <rect x="24" y="70" width="103" height="28" rx="14" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="75.5" y="88" text-anchor="middle" class="chip" fill="#BAE6FD">ContentView</text>
+      <rect x="137" y="70" width="117" height="28" rx="14" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="195.5" y="88" text-anchor="middle" class="chip" fill="#BAE6FD">ReadingCanvas</text>
+      <rect x="264" y="70" width="103" height="28" rx="14" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="315.5" y="88" text-anchor="middle" class="chip" fill="#BAE6FD">SidebarView</text>
+      <rect x="377" y="70" width="117" height="28" rx="14" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="435.5" y="88" text-anchor="middle" class="chip" fill="#BAE6FD">InspectorView</text>
+      <rect x="504" y="70" width="96" height="28" rx="14" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="552" y="88" text-anchor="middle" class="chip" fill="#BAE6FD">SearchView</text>
+    </g>
+  </g>
+
+  <!-- L2 · state -->
+  <g transform="translate(72 324)">
+    <rect width="844" height="112" rx="16" fill="url(#gCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M17 1.25 H827" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <rect x="24" y="18" width="28" height="28" rx="8" fill="#2DD4BF" fill-opacity="0.1" stroke="#2DD4BF" stroke-opacity="0.38"/>
+    <g transform="translate(28 22)" class="ico" stroke="#5EEAD4">
+      <path d="M3 6.5 l7 -3.5 7 3.5 -7 3.5 z"/>
+      <path d="M3 10.5 l7 3.5 7 -3.5"/>
+      <path d="M3 14.5 l7 3.5 7 -3.5"/>
+    </g>
+    <text x="62" y="36" class="eye" fill="#CCFBF1">STATE — SINGLE SOURCE OF TRUTH</text>
+    <rect x="661" y="16" width="159" height="24" rx="12" fill="#0B1322" stroke="#26364E"/>
+    <text x="740.5" y="32" text-anchor="middle" class="badge">PDFold/ViewModels</text>
+    <text x="24" y="62" class="body">One observable view model owns documents, page order, undo, comments, forms, decorations.</text>
+    <g>
+      <rect x="24" y="70" width="246" height="28" rx="14" fill="#2DD4BF" fill-opacity="0.16" stroke="#2DD4BF" stroke-opacity="0.6"/>
+      <text x="147" y="88" text-anchor="middle" class="chip" fill="#CCFBF1">WorkspaceViewModel · @Observable</text>
+      <rect x="280" y="70" width="144" height="28" rx="14" fill="#2DD4BF" fill-opacity="0.1" stroke="#2DD4BF" stroke-opacity="0.38"/>
+      <text x="352" y="88" text-anchor="middle" class="chip" fill="#CCFBF1">WorkspaceDocument</text>
+      <rect x="434" y="70" width="171" height="28" rx="14" fill="#2DD4BF" fill-opacity="0.1" stroke="#2DD4BF" stroke-opacity="0.38"/>
+      <text x="519.5" y="88" text-anchor="middle" class="chip" fill="#CCFBF1">WorkspaceExportOptions</text>
+      <rect x="615" y="70" width="124" height="28" rx="14" fill="#2DD4BF" fill-opacity="0.1" stroke="#2DD4BF" stroke-opacity="0.38"/>
+      <text x="677" y="88" text-anchor="middle" class="chip" fill="#CCFBF1">PageDecoration</text>
+    </g>
+  </g>
+
+  <!-- L3 · engine (hero) -->
+  <rect x="67" y="475" width="854" height="158" rx="19" stroke="#2DD4BF" stroke-opacity="0.07" stroke-width="10"/>
+  <rect x="69.5" y="477.5" width="849" height="153" rx="17" stroke="#2DD4BF" stroke-opacity="0.1" stroke-width="4"/>
+  <g transform="translate(72 480)">
+    <rect width="844" height="148" rx="16" fill="url(#gHero)" stroke="#2DD4BF" stroke-opacity="0.55" stroke-width="1.25"/>
+    <path d="M17 1.25 H827" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <rect x="24" y="18" width="28" height="28" rx="8" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+    <g transform="translate(28 22)" class="ico" stroke="#C4B5FD">
+      <circle cx="10" cy="10" r="4"/>
+      <path d="M10 2.5 v2.5 M10 15 v2.5 M2.5 10 h2.5 M15 10 h2.5 M4.7 4.7 l1.8 1.8 M13.5 13.5 l1.8 1.8 M15.3 4.7 l-1.8 1.8 M4.7 15.3 l1.8 -1.8"/>
+    </g>
+    <text x="62" y="36" class="eye" fill="#DDD6FE">ENGINE — PROTOCOL SEAM</text>
+    <rect x="613" y="16" width="207" height="24" rx="12" fill="#0B1322" stroke="#26364E"/>
+    <text x="716.5" y="32" text-anchor="middle" class="badge">PDFold/Engine · Signing</text>
+    <text x="24" y="62" class="body">Swappable engines behind protocols — PDFKit composes, PDFium validates and rewrites.</text>
+    <g>
+      <rect x="24" y="74" width="110" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+      <text x="79" y="91" text-anchor="middle" class="chip" fill="#DDD6FE">PDFKitEngine</text>
+      <rect x="144" y="74" width="178" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+      <text x="233" y="91" text-anchor="middle" class="chip" fill="#DDD6FE">PDFiumProcessingEngine</text>
+      <rect x="332" y="74" width="117" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+      <text x="390.5" y="91" text-anchor="middle" class="chip" fill="#DDD6FE">PDFOCRService</text>
+      <rect x="24" y="108" width="171" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+      <text x="109.5" y="125" text-anchor="middle" class="chip" fill="#DDD6FE">PDFCompressionService</text>
+      <rect x="205" y="108" width="164" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+      <text x="287" y="125" text-anchor="middle" class="chip" fill="#DDD6FE">PDFEncryptionService</text>
+      <rect x="379" y="108" width="124" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+      <text x="441" y="125" text-anchor="middle" class="chip" fill="#DDD6FE">PDFFormSupport</text>
+      <rect x="513" y="108" width="76" height="26" rx="13" fill="#FB7185" fill-opacity="0.08" stroke="#FB7185" stroke-opacity="0.32"/>
+      <text x="551" y="125" text-anchor="middle" class="chip" fill="#FECDD3">Signing</text>
+    </g>
+  </g>
+
+  <!-- L4 · export pipeline -->
+  <g transform="translate(72 672)">
+    <rect width="844" height="116" rx="16" fill="url(#gCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M17 1.25 H827" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <rect x="24" y="18" width="28" height="28" rx="8" fill="#F59E0B" fill-opacity="0.1" stroke="#F59E0B" stroke-opacity="0.38"/>
+    <g transform="translate(28 22)" class="ico" stroke="#FCD34D">
+      <path d="M4 6 l4 4 -4 4"/>
+      <path d="M11 6 l4 4 -4 4"/>
+    </g>
+    <text x="62" y="36" class="eye" fill="#FDE68A">EXPORT PIPELINE</text>
+    <rect x="693" y="16" width="127" height="24" rx="12" fill="#0B1322" stroke="#26364E"/>
+    <text x="756.5" y="32" text-anchor="middle" class="badge">PDFold/Engine</text>
+    <g>
+      <rect x="24" y="50" width="84" height="28" rx="14" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
+      <text x="66" y="68" text-anchor="middle" class="pill" fill="#FDE68A">Snapshot</text>
+      <path d="M117.5 59 l7 5 -7 5" class="ico" stroke="#F59E0B" stroke-opacity="0.6"/>
+      <rect x="134" y="50" width="121" height="28" rx="14" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
+      <text x="194.5" y="68" text-anchor="middle" class="pill" fill="#FDE68A">Flatten forms</text>
+      <path d="M264.5 59 l7 5 -7 5" class="ico" stroke="#F59E0B" stroke-opacity="0.6"/>
+      <rect x="281" y="50" width="106" height="28" rx="14" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
+      <text x="334" y="68" text-anchor="middle" class="pill" fill="#FDE68A">Bake stamps</text>
+      <path d="M396.5 59 l7 5 -7 5" class="ico" stroke="#F59E0B" stroke-opacity="0.6"/>
+      <rect x="413" y="50" width="84" height="28" rx="14" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
+      <text x="455" y="68" text-anchor="middle" class="pill" fill="#FDE68A">Compress</text>
+      <path d="M506.5 59 l7 5 -7 5" class="ico" stroke="#F59E0B" stroke-opacity="0.6"/>
+      <rect x="523" y="50" width="76" height="28" rx="14" fill="#FB7185" fill-opacity="0.08" stroke="#FB7185" stroke-opacity="0.32"/>
+      <text x="561" y="68" text-anchor="middle" class="pill" fill="#FECDD3">Encrypt</text>
+      <path d="M608.5 59 l7 5 -7 5" class="ico" stroke="#F59E0B" stroke-opacity="0.6"/>
+      <rect x="625" y="50" width="143" height="28" rx="14" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
+      <text x="696.5" y="68" text-anchor="middle" class="pill" fill="#FDE68A">Validate &amp; write</text>
+    </g>
+    <text x="24" y="99" class="code">PDFFormSupport · PDFDecorationExportBaker · PDFCompressionService · PDFEncryptionService</text>
+  </g>
+
+  <!-- L5a · local storage -->
+  <g transform="translate(72 832)">
+    <rect width="408" height="88" rx="16" fill="url(#gCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M17 1.25 H391" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <g class="ico" stroke="#C4B5FD">
+      <ellipse cx="34" cy="22" rx="8" ry="3.5"/>
+      <path d="M26 22 v10 a8 3.5 0 0 0 16 0 v-10"/>
+    </g>
+    <text x="54" y="31" class="eye" fill="#DDD6FE">LOCAL STORAGE</text>
+    <text x="24" y="52" class="body">.pdfold document package —</text>
+    <text x="24" y="70" class="body">PDF bytes · comments · signatures · edits</text>
+  </g>
+
+  <!-- L5b · artifacts -->
+  <g transform="translate(508 832)">
+    <rect width="408" height="88" rx="16" fill="url(#gCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M17 1.25 H391" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <g class="ico" stroke="#C4B5FD">
+      <path d="M28 15 h8 l6 6 v13 h-14 z"/>
+      <path d="M36 15 v6 h6"/>
+    </g>
+    <text x="54" y="31" class="eye" fill="#DDD6FE">EXPORT ARTIFACTS</text>
+    <text x="24" y="52" class="body">PDF · DOCX · Markdown · plain text</text>
+    <text x="24" y="70" class="body">HTML · PNG · JPEG · print output</text>
+  </g>
+
+  <!-- boundary tag -->
   <g>
-    <path d="M500 245 V266" class="flow"/>
-    <path d="M494 262 L500 270 L506 262" class="flow"/>
-    <path d="M500 386 V406" class="flow"/>
-    <path d="M494 402 L500 410 L506 402" class="flow"/>
-    <path d="M500 536 V558" class="flow"/>
-    <path d="M494 554 L500 562 L506 554" class="flow"/>
-    <path d="M500 708 V728" class="flow"/>
-    <path d="M494 724 L500 732 L506 724" class="flow"/>
-    <path d="M500 842 V864" class="flow"/>
-    <path d="M494 860 L500 868 L506 860" class="flow"/>
-  </g>
-
-  <g transform="translate(82 148)" filter="url(#shadow)">
-    <rect width="836" height="98" rx="16" class="layer"/>
-    <rect width="5" height="98" rx="2.5" fill="#38BDF8"/>
-    <text x="30" y="34" class="tag" fill="#67E8F9">APP SURFACE</text>
-    <text x="30" y="61" class="body">DocumentGroup entry, commands, import surfaces, toolbar, reader, inspector, search, and password prompts.</text>
-    <g transform="translate(30 70)">
-      <rect width="104" height="26" rx="13" fill="#082F49" stroke="#38BDF8"/>
-      <text x="52" y="18" text-anchor="middle" class="chip" fill="#BAE6FD">pdFoldApp</text>
-      <rect x="116" width="118" height="26" rx="13" fill="#082F49" stroke="#38BDF8"/>
-      <text x="175" y="18" text-anchor="middle" class="chip" fill="#BAE6FD">ContentView</text>
-      <rect x="246" width="128" height="26" rx="13" fill="#082F49" stroke="#38BDF8"/>
-      <text x="310" y="18" text-anchor="middle" class="chip" fill="#BAE6FD">ReadingCanvas</text>
-      <rect x="386" width="118" height="26" rx="13" fill="#082F49" stroke="#38BDF8"/>
-      <text x="445" y="18" text-anchor="middle" class="chip" fill="#BAE6FD">Inspector</text>
+    <rect x="253" y="924" width="482" height="28" rx="14" fill="#020617" stroke="#2DD4BF" stroke-opacity="0.45" stroke-width="1.25"/>
+    <g class="ico" stroke="#2DD4BF" stroke-width="1.5">
+      <rect x="268" y="935" width="10" height="8" rx="2"/>
+      <path d="M270 935 v-2.5 a3 3 0 0 1 6 0 V935"/>
     </g>
+    <text x="287" y="942" class="eye" fill="#5EEAD4">LOCAL-ONLY BOUNDARY — DOCUMENTS NEVER LEAVE THE DEVICE</text>
   </g>
 
-  <g transform="translate(82 286)" filter="url(#shadow)">
-    <rect width="836" height="104" rx="16" class="state"/>
-    <rect width="5" height="104" rx="2.5" fill="#2DD4BF"/>
-    <text x="30" y="34" class="tag" fill="#5EEAD4">WORKSPACE STATE</text>
-    <text x="30" y="61" class="body">Documents, page order, undo snapshots, comments, tags, forms, signatures, page edits, and decorations.</text>
-    <g transform="translate(30 74)">
-      <rect width="162" height="26" rx="13" fill="#064E3B" stroke="#2DD4BF"/>
-      <text x="81" y="18" text-anchor="middle" class="chip" fill="#CCFBF1">WorkspaceViewModel</text>
-      <rect x="174" width="164" height="26" rx="13" fill="#064E3B" stroke="#2DD4BF"/>
-      <text x="256" y="18" text-anchor="middle" class="chip" fill="#CCFBF1">WorkspaceDocument</text>
-      <rect x="350" width="134" height="26" rx="13" fill="#064E3B" stroke="#2DD4BF"/>
-      <text x="417" y="18" text-anchor="middle" class="chip" fill="#CCFBF1">ExportOptions</text>
-      <rect x="496" width="134" height="26" rx="13" fill="#064E3B" stroke="#2DD4BF"/>
-      <text x="563" y="18" text-anchor="middle" class="chip" fill="#CCFBF1">Decorations</text>
+  <!-- rail · release gate (outside the boundary: CI is not runtime) -->
+  <g transform="translate(964 168)">
+    <rect width="244" height="400" rx="16" fill="url(#gCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M17 1.25 H227" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <g class="ico" stroke="#5EEAD4">
+      <path d="M34 19.5 l7.5 3 v5.5 c0 4.5 -3.5 7.5 -7.5 9 c-4 -1.5 -7.5 -4.5 -7.5 -9 v-5.5 z"/>
+      <path d="M30.5 27 l2.5 2.5 4.5 -5"/>
     </g>
+    <text x="52" y="32" class="eye" fill="#CCFBF1">RELEASE GATE</text>
+    <path d="M24 52 H220" stroke="#26364E"/>
+    <text x="24" y="82" class="badge">CI — EVERY PUSH</text>
+    <circle cx="29" cy="98" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="102" class="item">swift build + swift test</text>
+    <circle cx="29" cy="120" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="124" class="item">xcodebuild build + test</text>
+    <circle cx="29" cy="142" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="146" class="item">202 tests in the gate</text>
+    <circle cx="29" cy="164" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="168" class="item">CodeQL + dep review</text>
+    <circle cx="29" cy="186" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="190" class="item">plist + shell lint</text>
+    <text x="24" y="228" class="badge">RELEASE — TAG / MAIN</text>
+    <circle cx="29" cy="244" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="248" class="item">package pdFold.zip</text>
+    <circle cx="29" cy="266" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="270" class="item">publish GitHub asset</text>
+    <text x="24" y="308" class="badge">INSTALL — ONE LINE</text>
+    <circle cx="29" cy="324" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="328" class="item">install.sh bootstrap</text>
+    <circle cx="29" cy="346" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="350" class="item">Desktop update helper</text>
+    <circle cx="29" cy="368" r="2.5" fill="#2DD4BF"/>
+    <text x="40" y="372" class="item">clean uninstall</text>
   </g>
 
-  <g transform="translate(82 426)" filter="url(#shadow)">
-    <rect width="836" height="132" rx="16" class="engine"/>
-    <rect width="5" height="132" rx="2.5" fill="#818CF8"/>
-    <text x="30" y="34" class="tag" fill="#C4B5FD">LOCAL PDF SERVICES</text>
-    <text x="30" y="61" class="body">PDFKit composes and annotates; PDFium validates and rewrites; Vision OCR recognizes scans; signing helpers stay local.</text>
-    <g transform="translate(30 84)">
-      <rect width="96" height="28" rx="14" fill="#1E1B4B" stroke="#818CF8"/>
-      <text x="48" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">PDFKit</text>
-      <rect x="108" width="98" height="28" rx="14" fill="#1E1B4B" stroke="#818CF8"/>
-      <text x="157" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">PDFium</text>
-      <rect x="218" width="104" height="28" rx="14" fill="#172554" stroke="#818CF8"/>
-      <text x="270" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">Vision OCR</text>
-      <rect x="334" width="96" height="28" rx="14" fill="#3F1727" stroke="#FB7185"/>
-      <text x="382" y="19" text-anchor="middle" class="chip" fill="#FFE4E6">Signing</text>
-      <rect x="442" width="126" height="28" rx="14" fill="#1E1B4B" stroke="#818CF8"/>
-      <text x="505" y="19" text-anchor="middle" class="chip" fill="#E0E7FF">Text Analysis</text>
+  <!-- rail · by the numbers -->
+  <g transform="translate(964 616)">
+    <rect width="244" height="304" rx="16" fill="url(#gCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M17 1.25 H227" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <g class="ico" stroke="#94A3B8">
+      <path d="M28 24 h16 M28 30 h16"/>
+      <path d="M33.5 18 l-2 18 M40.5 18 l-2 18"/>
     </g>
+    <text x="52" y="32" class="eye" fill="#94A3B8">BY THE NUMBERS</text>
+    <path d="M24 52 H220" stroke="#26364E"/>
+    <text x="24" y="92" class="stat">59</text>
+    <text x="24" y="112" class="item">Swift source files</text>
+    <text x="24" y="148" class="stat">202</text>
+    <text x="24" y="168" class="item">tests in the release gate</text>
+    <text x="24" y="204" class="stat">~21k</text>
+    <text x="24" y="224" class="item">lines of Swift</text>
+    <text x="24" y="260" class="stat">0</text>
+    <text x="24" y="280" class="item">documents uploaded, ever</text>
   </g>
 
-  <g transform="translate(82 594)" filter="url(#shadow)">
-    <rect width="836" height="118" rx="16" class="export"/>
-    <rect width="5" height="118" rx="2.5" fill="#F59E0B"/>
-    <text x="30" y="34" class="tag" fill="#FDBA74">EXPORT FINISHING PIPELINE</text>
-    <text x="30" y="61" class="body">Strict snapshots move through form flattening, stamp baking, compression, encryption, validation, and final write.</text>
-    <g transform="translate(30 82)">
-      <rect width="116" height="28" rx="14" fill="#3B1E08" stroke="#F59E0B"/>
-      <text x="58" y="19" text-anchor="middle" class="chip" fill="#FED7AA">Flatten forms</text>
-      <rect x="128" width="116" height="28" rx="14" fill="#3B1E08" stroke="#F59E0B"/>
-      <text x="186" y="19" text-anchor="middle" class="chip" fill="#FED7AA">Bake stamps</text>
-      <rect x="256" width="104" height="28" rx="14" fill="#3B1E08" stroke="#F59E0B"/>
-      <text x="308" y="19" text-anchor="middle" class="chip" fill="#FED7AA">Compress</text>
-      <rect x="372" width="98" height="28" rx="14" fill="#3F1727" stroke="#FB7185"/>
-      <text x="421" y="19" text-anchor="middle" class="chip" fill="#FFE4E6">Protect</text>
-      <rect x="482" width="102" height="28" rx="14" fill="#3B1E08" stroke="#F59E0B"/>
-      <text x="533" y="19" text-anchor="middle" class="chip" fill="#FED7AA">Validate</text>
-    </g>
-  </g>
-
-  <g transform="translate(82 748)" filter="url(#shadow)">
-    <rect width="398" height="96" rx="16" class="artifact"/>
-    <rect width="5" height="96" rx="2.5" fill="#A78BFA"/>
-    <text x="30" y="34" class="tag" fill="#C4B5FD">LOCAL STATE</text>
-    <text x="30" y="61" class="body">Workspace metadata, source payloads, PDF bytes, comments, signatures, and page edit state.</text>
-  </g>
-
-  <g transform="translate(520 748)" filter="url(#shadow)">
-    <rect width="398" height="96" rx="16" class="artifact"/>
-    <rect width="5" height="96" rx="2.5" fill="#A78BFA"/>
-    <text x="30" y="34" class="tag" fill="#C4B5FD">EXPORT ARTIFACTS</text>
-    <text x="30" y="61" class="body">PDF, DOCX, Markdown, text, HTML, PNG, JPEG, and print output.</text>
-  </g>
-
-  <g transform="translate(962 148)" filter="url(#shadow)">
-    <rect width="236" height="696" rx="18" class="guard"/>
-    <rect width="236" height="5" rx="2.5" fill="#22C55E"/>
-    <text x="28" y="44" class="tag" fill="#86EFAC">RELEASE GUARDRAILS</text>
-    <g transform="translate(28 76)">
-      <circle cx="6" cy="0" r="5" fill="#22C55E"/>
-      <text x="22" y="4" class="body">SwiftPM and Xcode gates</text>
-      <circle cx="6" cy="54" r="5" fill="#22C55E"/>
-      <text x="22" y="58" class="body">Plist and shell lint</text>
-      <circle cx="6" cy="108" r="5" fill="#22C55E"/>
-      <text x="22" y="112" class="body">Import size limits</text>
-      <circle cx="6" cy="162" r="5" fill="#22C55E"/>
-      <text x="22" y="166" class="body">Protected PDF unlock flow</text>
-      <circle cx="6" cy="216" r="5" fill="#22C55E"/>
-      <text x="22" y="220" class="body">OCR cancellation checks</text>
-      <circle cx="6" cy="270" r="5" fill="#22C55E"/>
-      <text x="22" y="274" class="body">Compression validation</text>
-      <circle cx="6" cy="324" r="5" fill="#22C55E"/>
-      <text x="22" y="328" class="body">Encryption verification</text>
-      <circle cx="6" cy="378" r="5" fill="#22C55E"/>
-      <text x="22" y="382" class="body">Decoration export tests</text>
-      <circle cx="6" cy="432" r="5" fill="#22C55E"/>
-      <text x="22" y="436" class="body">Package-only release zip</text>
-    </g>
-    <rect x="24" y="552" width="188" height="112" rx="14" fill="#0B1220" stroke="#166534"/>
-    <text x="42" y="586" class="tag" fill="#86EFAC">INSTALL LIFECYCLE</text>
-    <text x="42" y="614" class="body">install.sh downloads</text>
-    <text x="42" y="636" class="body">pdFold.zip, updates,</text>
-    <text x="42" y="658" class="body">or uninstalls cleanly.</text>
+  <!-- connectors: painted last, routed through dedicated corridors -->
+  <g>
+    <!-- C1: intents down / observed state up -->
+    <path d="M420 282 V322" stroke="#2DD4BF" stroke-opacity="0.16" stroke-width="7" stroke-linecap="round"/>
+    <path d="M420 282 V312" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M413 313 L420 322 L427 313" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="436" y="291" width="75" height="22" rx="11" fill="#0B1322" stroke="#26364E"/>
+    <text x="473.5" y="306" text-anchor="middle" class="lbl">intents</text>
+    <path d="M580 322 V282" stroke="#2DD4BF" stroke-opacity="0.16" stroke-width="7" stroke-linecap="round"/>
+    <path d="M580 322 V292" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M573 291 L580 282 L587 291" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="596" y="291" width="131" height="22" rx="11" fill="#0B1322" stroke="#26364E"/>
+    <text x="661.5" y="306" text-anchor="middle" class="lbl">observed state</text>
+    <!-- C2 -->
+    <path d="M494 438 V478" stroke="#2DD4BF" stroke-opacity="0.16" stroke-width="7" stroke-linecap="round"/>
+    <path d="M494 438 V468" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M487 469 L494 478 L501 469" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="510" y="447" width="99" height="22" rx="11" fill="#0B1322" stroke="#26364E"/>
+    <text x="559.5" y="462" text-anchor="middle" class="lbl">operations</text>
+    <!-- C3 -->
+    <path d="M494 630 V670" stroke="#2DD4BF" stroke-opacity="0.16" stroke-width="7" stroke-linecap="round"/>
+    <path d="M494 630 V660" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M487 661 L494 670 L501 661" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="510" y="639" width="139" height="22" rx="11" fill="#0B1322" stroke="#26364E"/>
+    <text x="579.5" y="654" text-anchor="middle" class="lbl">export snapshot</text>
+    <!-- C4: save + export -->
+    <path d="M276 790 V830" stroke="#2DD4BF" stroke-opacity="0.16" stroke-width="7" stroke-linecap="round"/>
+    <path d="M276 790 V820" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M269 821 L276 830 L283 821" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="292" y="799" width="51" height="22" rx="11" fill="#0B1322" stroke="#26364E"/>
+    <text x="317.5" y="814" text-anchor="middle" class="lbl">save</text>
+    <path d="M712 790 V830" stroke="#2DD4BF" stroke-opacity="0.16" stroke-width="7" stroke-linecap="round"/>
+    <path d="M712 790 V820" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M705 821 L712 830 L719 821" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="728" y="799" width="67" height="22" rx="11" fill="#0B1322" stroke="#26364E"/>
+    <text x="761.5" y="814" text-anchor="middle" class="lbl">export</text>
   </g>
 </svg>

@@ -3660,25 +3660,30 @@ final class V6IntegratedFlowTests: XCTestCase {
     }
 }
 
+/// Walks up from `sourceFile` using plain string path components (rather than
+/// repeated `URL.deletingLastPathComponent()` calls) to locate the repo root
+/// and find `PDFold/Resources/Info.plist`. The walk is bounded by the fixed,
+/// finite number of path components in `sourceFile`, so it cannot loop
+/// unboundedly even if a `URL` path-reduction edge case on a given
+/// Foundation/OS version fails to converge as expected.
 private func appInfoPlistURL(sourceFile: String) throws -> URL {
     let environment = ProcessInfo.processInfo.environment
-    let sourceRoot = URL(fileURLWithPath: sourceFile)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    var candidateRoots = ["SRCROOT", "PROJECT_DIR"]
-        .compactMap { environment[$0] }
-        .map(URL.init(fileURLWithPath:)) + [sourceRoot]
-    var parent = sourceRoot
-    while parent.path != parent.deletingLastPathComponent().path {
-        parent = parent.deletingLastPathComponent()
-        candidateRoots.append(parent)
-    }
+    var pathComponents = sourceFile.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+    // Drop the file name and its two enclosing directories (PDFoldTests, Tests) to reach the repo root.
+    pathComponents.removeLast(min(3, pathComponents.count))
 
-    for root in candidateRoots {
-        let plistURL = root.appendingPathComponent("PDFold/Resources/Info.plist")
-        if FileManager.default.fileExists(atPath: plistURL.path) {
-            return plistURL
+    var candidatePaths = ["SRCROOT", "PROJECT_DIR"].compactMap { environment[$0] }
+    var remaining = pathComponents
+    while !remaining.isEmpty {
+        candidatePaths.append("/" + remaining.joined(separator: "/"))
+        remaining.removeLast()
+    }
+    candidatePaths.append("/")
+
+    for root in candidatePaths {
+        let plistPath = (root as NSString).appendingPathComponent("PDFold/Resources/Info.plist")
+        if FileManager.default.fileExists(atPath: plistPath) {
+            return URL(fileURLWithPath: plistPath)
         }
     }
 

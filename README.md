@@ -7,11 +7,11 @@
 <h1 align="center">pdFold</h1>
 
 <p align="center">
-  <em>A native, local-first macOS workspace for assembling, editing, protecting, and exporting PDFs.</em>
+  <em>The PDF workspace that never phones home.</em>
 </p>
 
 <p align="center">
-  <strong>Import scattered files, clean up the document, add markup or signatures, handle forms and scans, then export a polished PDF without uploading your work.</strong>
+  <strong>From six scattered files to one polished, searchable, password-protected PDF.<br>No account. No upload. No subscription.</strong>
 </p>
 
 <p align="center">
@@ -20,39 +20,51 @@
   <img alt="Release v6" src="https://img.shields.io/badge/release-v6-2563EB?style=for-the-badge&logo=github&logoColor=white">
   &nbsp;&nbsp;
   <img alt="Local first" src="https://img.shields.io/badge/privacy-local%20first-10B981?style=for-the-badge&logo=icloud&logoColor=white">
-</p>
-
-<p align="center">
-  <img alt="SwiftUI" src="https://img.shields.io/badge/interface-SwiftUI-0A84FF?style=for-the-badge&logo=swift&logoColor=white">
-  &nbsp;&nbsp;
-  <img alt="PDFKit plus PDFium" src="https://img.shields.io/badge/engine-PDFKit%20%2B%20PDFium-10B981?style=for-the-badge&logo=googlechrome&logoColor=white">
-  &nbsp;&nbsp;
-  <img alt="One line setup" src="https://img.shields.io/badge/setup-one%20line-7C3AED?style=for-the-badge&logo=powershell&logoColor=white">
-</p>
-
-<p align="center">
-  <img alt="PDF export" src="https://img.shields.io/badge/export-PDF%20%7C%20DOCX%20%7C%20MD%20%7C%20TXT%20%7C%20HTML%20%7C%20Images-0EA5E9?style=for-the-badge&logo=adobeacrobatreader&logoColor=white">
   &nbsp;&nbsp;
   <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6B7280?style=for-the-badge&logo=opensourceinitiative&logoColor=white">
 </p>
 
 <p align="center">
-  <a href="#quick-start"><strong>Quick Start</strong></a>
+  <img alt="SwiftUI" src="https://img.shields.io/badge/interface-SwiftUI-0A84FF?style=for-the-badge&logo=swift&logoColor=white">
+  &nbsp;&nbsp;
+  <img alt="PDFKit plus PDFium" src="https://img.shields.io/badge/engine-PDFKit%20%2B%20PDFium-10B981?style=for-the-badge">
+</p>
+
+<p align="center">
+  <a href="#-quick-start"><strong>Quick Start</strong></a>
   &nbsp;&nbsp;&nbsp;
-  <a href="#features"><strong>Features</strong></a>
+  <a href="#-features"><strong>Features</strong></a>
   &nbsp;&nbsp;&nbsp;
   <a href="#product-flow"><strong>Product Flow</strong></a>
   &nbsp;&nbsp;&nbsp;
   <a href="#architecture"><strong>Architecture</strong></a>
   &nbsp;&nbsp;&nbsp;
-  <a href="#release-status"><strong>Release</strong></a>
+  <a href="#-privacy-and-security"><strong>Privacy</strong></a>
   &nbsp;&nbsp;&nbsp;
   <a href="#developer-notes"><strong>Developers</strong></a>
 </p>
 
 ---
 
-## Quick Start
+## Why pdFold
+
+pdFold is for the moment when a simple PDF task becomes six PDFs, two screenshots, a Word document, a scanned form, and one file named `final_final_revised_ACTUAL.pdf`.
+
+It gives that pile a single local workspace. Import files, reorder pages, annotate, edit detected text, fill and lock forms, add stamps, make scans searchable, compress the output, protect it with a password, and export the result. pdFold can't stop you from naming the export `final_final_revised_ACTUAL_v2.pdf` — but it can make sure that file is the one that's actually final.
+
+Preview is great — right up until the job involves more than one file. Acrobat does everything, for a subscription, with a cloud attached. pdFold sits in the gap: merge, OCR, forms, stamps, compression, and password protection — native, local, and free.
+
+## Product Flow
+
+<p align="center">
+  <img src="docs/assets/pdfold-v3-workspace-diagram.svg" alt="pdFold product flow: import mixed files, edit and finish them in one local workspace, then export one clean file — everything runs on your Mac">
+</p>
+
+<p align="center">
+  <em>Bring in mixed files, work locally, then export a clean, searchable, protected, or smaller result.</em>
+</p>
+
+## ⚡ Quick Start
 
 Paste this into Terminal:
 
@@ -64,7 +76,9 @@ The installer downloads the latest prebuilt app, places it in `~/Applications/pd
 
 Direct download: [`pdFold.zip`](https://github.com/udhawan97/PDFold/releases/latest/download/pdFold.zip)
 
-No Xcode. No GitHub account. No compile step.
+No Xcode. No GitHub account. No compile step. No account creation ceremony, either.
+
+Requires macOS 14 Sonoma or newer. That's the whole list.
 
 <details>
 <summary>Homebrew install</summary>
@@ -80,18 +94,18 @@ Homebrew installs the same prebuilt app and clears the download quarantine after
 <details>
 <summary>How to open Terminal</summary>
 
-Open **Applications** -> **Utilities** -> **Terminal**, paste the command above, and press Return.
+Open **Applications** → **Utilities** → **Terminal**, paste the command above, and press Return.
 </details>
 
-## What pdFold Is
+<details>
+<summary>Building from source instead?</summary>
 
-pdFold is for the moment when a simple PDF task becomes six PDFs, two screenshots, a Word document, a scanned form, and one file named `final_final_revised_ACTUAL.pdf`.
+Developer source builds need Apple Command Line Tools with Swift 5.9+. The normal installer downloads a prebuilt `.app` and does not need Command Line Tools — they only appear when building from source. See <a href="#developer-notes">Developer Notes</a>.
+</details>
 
-It gives that pile a single local workspace. You can import files, reorder pages, annotate, edit detected text, fill and lock forms, add stamps, make scans searchable, compress the output, protect it with a password, and export the result.
+## ✨ Features
 
-Everything happens on your Mac.
-
-## Features
+Everything below runs on your Mac. The cloud was not consulted.
 
 | Area | What you can do | Built for |
 | --- | --- | --- |
@@ -102,44 +116,25 @@ Everything happens on your Mac.
 | Comments and metadata | Add workspace comments, tags, document details, and inspector-visible annotation lists | Keeping review context attached to the file |
 | Signatures | Draw and place signatures, then export signed PDF output locally | Handling lightweight signature workflows without leaving the app |
 | Forms | Detect PDF form fields, edit answers, reset forms, and lock answers during export | Finishing forms before sending the final copy |
-| Scans and OCR | Make scanned pages searchable with local Vision OCR and preserve recognized text in export | Making image-only PDFs searchable without a cloud service |
+| Scans and OCR | Make scanned pages searchable with local Vision OCR and preserve recognized text in export | Making ⌘F work on that thing your printer emailed you |
 | Stamps and decorations | Add watermarks, page numbers, Bates labels, and movable stamps that burn into exported PDFs | Preparing packets, exhibits, and reviewed drafts |
-| Compression | Downsample oversized PDF images and validate the compressed result | Sending smaller files while protecting text integrity |
+| Compression | Downsample oversized PDF images and validate the compressed result | Helping your "quick attachment" stop bouncing off email size limits |
 | Protection | Export password-protected PDFs with permission checks and post-export verification | Sharing sensitive documents more deliberately |
 | Export | Save normal PDFs or export PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, or print output | Sending the format the next person actually needs |
 | Install and update | Install with one command, use Desktop launch/update helpers, uninstall cleanly, or install through Homebrew | Making the app usable by people who do not build software |
 
-## Product Flow
-
-<p align="center">
-  <img src="docs/assets/pdfold-v3-workspace-diagram.svg" alt="pdFold workflow showing local import, OCR, forms, markup, stamps, compression, protected export, and install lifecycle">
-</p>
-
-<p align="center">
-  <em>Bring in mixed files, work locally, then export a clean, searchable, protected, or smaller result.</em>
-</p>
-
 ## Architecture
 
-```mermaid
-flowchart LR
-    Files["Source files<br/>PDF, Word, HTML, Markdown, text, data, images"]
-    UI["SwiftUI workspace<br/>sidebar, canvas, toolbar, inspector"]
-    State["Workspace state<br/>pages, comments, tags, forms, decorations"]
-    Services["Local services<br/>PDFKit, PDFium, Vision OCR, signing"]
-    Export["Export pipeline<br/>flatten forms, bake stamps, compress, protect"]
-    Artifacts["Artifacts<br/>PDF, DOCX, MD, TXT, HTML, PNG, JPEG"]
-
-    Files --> UI
-    UI --> State
-    State --> Services
-    Services --> Export
-    Export --> Artifacts
-```
+<p align="center">
+  <img src="docs/assets/pdfold-v3-architecture-diagram.svg" alt="pdFold architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts inside a local-only boundary, guarded by a release gate">
+</p>
 
 <p align="center">
-  <img src="docs/assets/pdfold-v3-architecture-diagram.svg" alt="pdFold architecture diagram showing SwiftUI, workspace state, PDFKit, PDFium, OCR, forms, decorations, compression, encryption, export, installer, and release guardrails">
+  <em>Unidirectional flow inside a local-only boundary — and a release gate standing outside it.</em>
 </p>
+
+<details>
+<summary>Layer-by-layer responsibilities</summary>
 
 | Layer | Responsibility |
 | --- | --- |
@@ -148,23 +143,43 @@ flowchart LR
 | PDF services | PDFKit composition, PDFium validation and compression support, Vision OCR, encryption, form flattening, decoration baking, and signing helpers |
 | Local storage | Saved PDF data, workspace metadata, source payloads, comments, signatures, and page edit state |
 | Release tooling | One-line installer, package builder, Desktop update launcher, uninstaller, GitHub Actions release asset, and validation tests |
+</details>
 
-## Release Status
+<details>
+<summary>Same picture, as a Mermaid graph</summary>
 
-pdFold v6 is the current release candidate. It expands the app from document assembly and markup into a fuller PDF finishing workflow: searchable scans, form export, stamps/decorations, compression, protected output, and a cleaner everyday UI.
+```mermaid
+flowchart LR
+    Files["Source files<br/>PDF, Word, HTML, Markdown, text, data, images"]
+    UI["SwiftUI views<br/>sidebar, canvas, toolbar, inspector"]
+    State["Workspace state<br/>WorkspaceViewModel — pages, comments, forms, decorations"]
+    Services["Local engines<br/>PDFKit, PDFium, Vision OCR, signing"]
+    Export["Export pipeline<br/>flatten forms, bake stamps, compress, encrypt, validate"]
+    Artifacts["Artifacts<br/>PDF, DOCX, MD, TXT, HTML, PNG, JPEG"]
+
+    Files --> UI
+    UI --> State
+    State --> Services
+    Services --> Export
+    Export --> Artifacts
+```
+</details>
+
+## 📦 Release Status
+
+pdFold v6 is the current release. It expands the app from document assembly and markup into a fuller PDF finishing workflow: searchable scans, form export, stamps and decorations, compression, protected output, and a cleaner everyday UI.
 
 | Detail | Status |
 | --- | --- |
 | Release tag | [`release-v6`](https://github.com/udhawan97/PDFold/releases/tag/release-v6) |
 | Release asset | [`pdFold.zip`](https://github.com/udhawan97/PDFold/releases/latest/download/pdFold.zip) |
-| App metadata | `CFBundleShortVersionString` `v6`, `CFBundleVersion` `6` |
 | Recommended install | `curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh \| zsh` |
 | Distribution | Prebuilt macOS app zip, with source builds available for developers |
 | Privacy model | Local document processing; no upload pipeline |
 
-## Updating
+## 🔄 Updating and Uninstalling
 
-Double-click **pdFold.command** on the Desktop. The launcher checks the latest release before opening the app.
+**To update:** double-click **pdFold.command** on the Desktop. The launcher checks the latest release before opening the app. That's the entire update procedure — you may cancel the calendar reminder.
 
 You can also paste the installer command again:
 
@@ -172,44 +187,32 @@ You can also paste the installer command again:
 curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
 ```
 
-Homebrew users can run:
+**To uninstall:** double-click **Uninstall pdFold.command** on the Desktop. It removes the installed app, generated Desktop commands, installer cache, and pdFold app data — a cleaner exit than most software manages.
+
+<details>
+<summary>Homebrew and advanced options</summary>
+
+Update via Homebrew:
 
 ```zsh
 brew update
 brew upgrade --cask udhawan97/pdfold/pdfold
 ```
 
-## Uninstalling
-
-Double-click **Uninstall pdFold.command** on the Desktop to remove the installed app, generated Desktop commands, installer cache, and pdFold app data.
-
-To keep app support, preferences, caches, and sandbox data:
-
-```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
-```
-
-Homebrew users can run:
+Uninstall via Homebrew:
 
 ```zsh
 brew uninstall --cask udhawan97/pdfold/pdfold
 ```
 
-## Requirements
+Uninstall but keep app support, preferences, caches, and sandbox data:
 
-| Requirement | Version |
-| --- | --- |
-| macOS | 14 Sonoma or newer |
-| Normal install | Published `pdFold.zip` release asset |
-| Developer source build | Apple Command Line Tools with Swift 5.9+ |
-
-<details>
-<summary>Why might Command Line Tools appear?</summary>
-
-The normal installer downloads a prebuilt `.app` and does not need Command Line Tools. They only appear when building from source.
+```zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
+```
 </details>
 
-## Daily Workflow
+## A Typical Session
 
 1. Launch pdFold.
 2. Drag in PDFs, Word documents, text files, web exports, data files, scans, or images.
@@ -219,7 +222,7 @@ The normal installer downloads a prebuilt `.app` and does not need Command Line 
 6. Make scans searchable, compress the PDF, or protect the output when needed.
 7. Save a normal PDF or export another format.
 
-## Privacy And Security
+## 🔒 Privacy and Security
 
 pdFold is local-first by design. Documents are opened, edited, saved, OCRed, compressed, protected, and exported on your machine.
 
@@ -247,6 +250,8 @@ These entitlements allow sandboxed read/write access to files selected by the us
 </details>
 
 ## Developer Notes
+
+The whole thing is 59 Swift files, roughly 21,000 lines, with 202 tests standing guard in the release gate.
 
 ```text
 PDFold/
@@ -306,9 +311,12 @@ Install from the current source checkout without opening the app:
 ```zsh
 ./scripts/install-mac.sh --no-open
 ```
+
+App metadata: `CFBundleShortVersionString` `v6`, `CFBundleVersion` `6`.
 </details>
 
-## Quality Checks
+<details>
+<summary>Quality checks and release gate</summary>
 
 | Check | What to verify |
 | --- | --- |
@@ -319,8 +327,7 @@ Install from the current source checkout without opening the app:
 | Package | `./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip` creates the release artifact |
 | User workflow | Import, search, annotate, forms, OCR, stamps, compression, protected export, update, and uninstall work on a local Mac |
 
-<details>
-<summary>Release gate commands</summary>
+Release gate commands:
 
 ```zsh
 plutil -lint PDFold/Resources/Info.plist
@@ -341,13 +348,13 @@ xcodebuild test -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'pl
 ```
 </details>
 
-## Roadmap
+## 🗺️ Roadmap
 
 - More export presets.
 - Faster large-document navigation.
 - Automated UI smoke tests.
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
 <details>
 <summary>Clicking the installer opens a GitHub page instead of installing</summary>
@@ -397,6 +404,26 @@ Open `.build/install.log` in the project folder. It contains the latest installe
 When using the README install command, the prebuilt release attempt is also logged at `~/.pdfold/prebuilt-install.log`.
 </details>
 
+## Contributing
+
+Bug reports and feature requests are welcome in [Issues](https://github.com/udhawan97/PDFold/issues). If you're building from source, the <a href="#developer-notes">Developer Notes</a> and release gate commands are the whole onboarding doc — if `swift test` passes, you're set up.
+
 ## License
 
 pdFold is available under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  If pdFold rescued you from <code>final_final_revised_ACTUAL_v3.pdf</code>, consider
+  <a href="https://github.com/udhawan97/PDFold/stargazers">starring the repo</a>.<br>
+  Since nothing you do in pdFold ever leaves your Mac, stars are the only telemetry we get.
+</p>
+
+<p align="center">
+  Built with SwiftUI, PDFKit, PDFium, and Vision — all running on your machine.
+</p>
+
+<p align="center">
+  <a href="#pdfold">Back to top ↑</a>
+</p>
