@@ -6,10 +6,22 @@ struct EmptyStateView: View {
     var viewModel: WorkspaceViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDropTargeted = false
+    @State private var hasIntroducedOptions = false
+    @State private var optionGuidance: String?
+    @State private var chooseFilesNudge = 0
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
+
+    private let featureOptions: [EmptyStateOption] = [
+        EmptyStateOption(icon: "square.stack.3d.down.right", title: "Assemble", accent: .dsAccent, guidance: "Choose files below to start assembling a packet."),
+        EmptyStateOption(icon: "highlighter", title: "Mark up", accent: .dsAnnotationSky, guidance: "Choose files below, then mark up the pages that matter."),
+        EmptyStateOption(icon: "checklist", title: "Fill forms", accent: .dsAnnotationSage, guidance: "Choose files below to open a form and finish it here."),
+        EmptyStateOption(icon: "text.viewfinder", title: "Search scans", accent: .dsAccentBright, guidance: "Choose files below to import scans, then make them searchable."),
+        EmptyStateOption(icon: "seal", title: "Stamp", accent: .dsSignatureAccent, guidance: "Choose files below, then add stamps, watermarks, or page numbers."),
+        EmptyStateOption(icon: "lock.shield", title: "Protect", accent: .dsAnnotationLavender, guidance: "Choose files below, then export a protected copy when it is ready.")
+    ]
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -37,10 +49,16 @@ struct EmptyStateView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
-                        HStack(spacing: .dsSM) {
-                            EmptyStatePill(icon: "square.stack.3d.down.right", title: "Assemble")
-                            EmptyStatePill(icon: "highlighter", title: "Mark up")
-                            EmptyStatePill(icon: "square.and.arrow.up", title: "Export")
+                        featureOptionGrid
+
+                        if let optionGuidance {
+                            Label(optionGuidance, systemImage: "arrow.down.circle.fill")
+                                .font(.dsCaption())
+                                .foregroundStyle(Color.dsAccent)
+                                .padding(.horizontal, .dsMD)
+                                .padding(.vertical, 7)
+                                .background(Color.dsAccentSoft, in: Capsule())
+                                .transition(shouldReduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                         }
                     }
 
@@ -66,6 +84,9 @@ struct EmptyStateView: View {
                         .controlSize(.large)
                         .buttonStyle(.borderedProminent)
                         .tint(Color.dsAccent)
+                        .scaleEffect(chooseFilesNudge.isMultiple(of: 2) || shouldReduceMotion ? 1 : 1.045)
+                        .shadow(color: Color.dsAccent.opacity(chooseFilesNudge.isMultiple(of: 2) ? 0 : 0.24), radius: 12, x: 0, y: 5)
+                        .animation(shouldReduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.48), value: chooseFilesNudge)
                     }
                     .padding(.horizontal, .dsXXL)
                     .padding(.vertical, .dsXXL)
@@ -93,6 +114,11 @@ struct EmptyStateView: View {
                 .buttonStyle(.borderless)
                 .font(.title3)
                 .padding(.dsXL)
+
+            EmptyStatePetIntro()
+                .padding(.trailing, .dsXL)
+                .padding(.bottom, .dsXL)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .overlay {
             RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
@@ -112,6 +138,68 @@ struct EmptyStateView: View {
                 viewModel.importFiles(urls: urls)
             }
             return true
+        }
+        .onAppear {
+            guard !hasIntroducedOptions else { return }
+            if shouldReduceMotion {
+                hasIntroducedOptions = true
+            } else {
+                withAnimation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.08)) {
+                    hasIntroducedOptions = true
+                }
+            }
+        }
+    }
+
+    private func showGuidance(for option: EmptyStateOption) {
+        optionGuidance = option.guidance
+        chooseFilesNudge += 1
+        guard !shouldReduceMotion else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            chooseFilesNudge += 1
+        }
+    }
+
+    private var featureOptionGrid: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: .dsSM) {
+                featureOptionPills
+            }
+
+            VStack(spacing: .dsSM) {
+                HStack(spacing: .dsSM) {
+                    featureOptionPills(range: 0..<3)
+                }
+                HStack(spacing: .dsSM) {
+                    featureOptionPills(range: 3..<featureOptions.count)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var featureOptionPills: some View {
+        ForEach(Array(featureOptions.enumerated()), id: \.element.id) { index, option in
+            EmptyStatePill(
+                option: option,
+                isIntroduced: hasIntroducedOptions,
+                index: index,
+                reduceMotion: shouldReduceMotion,
+                action: { showGuidance(for: option) }
+            )
+        }
+    }
+
+    private func featureOptionPills(range: Range<Int>) -> some View {
+        ForEach(Array(featureOptions[range].enumerated()), id: \.element.id) { offset, option in
+            let index = range.lowerBound + offset
+            EmptyStatePill(
+                option: option,
+                isIntroduced: hasIntroducedOptions,
+                index: index,
+                reduceMotion: shouldReduceMotion,
+                action: { showGuidance(for: option) }
+            )
         }
     }
 
@@ -141,21 +229,155 @@ struct EmptyStateView: View {
     }
 }
 
-private struct EmptyStatePill: View {
+private struct EmptyStateOption: Identifiable {
     var icon: String
     var title: String
+    var accent: Color
+    var guidance: String
+
+    var id: String { title }
+}
+
+private struct EmptyStatePill: View {
+    var option: EmptyStateOption
+    var isIntroduced: Bool
+    var index: Int
+    var reduceMotion: Bool
+    var action: () -> Void
+
+    @State private var isHovered = false
+    @State private var glintOffset: CGFloat = -54
+
+    private var entranceDelay: Double {
+        reduceMotion ? 0 : Double(index) * 0.035
+    }
 
     var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: option.icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .rotationEffect(reduceMotion || !isHovered ? .zero : .degrees(-5))
+                    .symbolEffect(.bounce, value: isHovered)
+                Text(option.title)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
         }
-        .foregroundStyle(Color.dsAccent)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color.dsAccentSoft, in: Capsule())
+        .buttonStyle(.plain)
+        .foregroundStyle(option.accent)
+        .background {
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            option.accent.opacity(isHovered ? 0.24 : 0.15),
+                            option.accent.opacity(isHovered ? 0.13 : 0.09)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        }
+        .overlay {
+            Capsule()
+                .strokeBorder(option.accent.opacity(isHovered ? 0.38 : 0.18), lineWidth: 1)
+        }
+        .overlay {
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0),
+                            .white.opacity(isHovered ? 0.22 : 0),
+                            .white.opacity(0)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 22)
+                .rotationEffect(.degrees(18))
+                .offset(x: glintOffset)
+                .blur(radius: 0.5)
+                .allowsHitTesting(false)
+                .clipShape(Capsule())
+        }
+        .shadow(color: option.accent.opacity(isHovered ? 0.20 : 0), radius: 8, x: 0, y: 3)
+        .scaleEffect(isHovered && !reduceMotion ? 1.035 : 1)
+        .offset(y: isIntroduced || reduceMotion ? (isHovered && !reduceMotion ? -1 : 0) : 5)
+        .opacity(isIntroduced || reduceMotion ? 1 : 0)
+        .onHover { hovering in
+            if reduceMotion {
+                isHovered = hovering
+            } else {
+                withAnimation(.easeOut(duration: 0.14)) {
+                    isHovered = hovering
+                }
+                if hovering {
+                    glintOffset = -54
+                    withAnimation(.easeOut(duration: 0.34).delay(0.03)) {
+                        glintOffset = 54
+                    }
+                } else {
+                    glintOffset = -54
+                }
+            }
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.82).delay(entranceDelay), value: isIntroduced)
+        .accessibilityLabel(option.title)
+        .accessibilityHint("Use Choose Files to continue.")
+    }
+}
+
+private struct EmptyStatePetIntro: View {
+    @State private var buddy = PetBuddy.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hasAppeared = false
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    var body: some View {
+        if buddy.isEnabled {
+            HStack(alignment: .bottom, spacing: .dsSM) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Hi, I am Foldy.")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.dsTextPrimary)
+                    Text("Choose files and I will help keep the PDF chores moving.")
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, .dsMD)
+                .padding(.vertical, .dsSM)
+                .frame(width: 220, alignment: .leading)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                        .strokeBorder(Color.dsAccent.opacity(0.24), lineWidth: 1)
+                }
+                .shadow(color: Color.dsAccent.opacity(0.16), radius: 16, x: 0, y: 7)
+                .offset(x: hasAppeared || shouldReduceMotion ? 0 : 10)
+                .opacity(hasAppeared || shouldReduceMotion ? 1 : 0)
+
+                PetView(presentation: .welcome)
+            }
+            .transition(shouldReduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.94, anchor: .bottomTrailing)))
+            .onAppear {
+                guard !shouldReduceMotion else {
+                    hasAppeared = true
+                    return
+                }
+                withAnimation(.spring(response: 0.48, dampingFraction: 0.76).delay(0.22)) {
+                    hasAppeared = true
+                }
+            }
+        }
     }
 }
 

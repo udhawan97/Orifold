@@ -1834,11 +1834,12 @@ final class WorkspaceViewModel {
                $0.editedBounds.insetBy(dx: -3, dy: -3).contains(pagePoint) ||
                $0.sourceBounds.insetBy(dx: -2, dy: -2).contains(pagePoint)
            }) {
+            let syntheticBounds = reopenedBounds(for: existingOp)
             let syntheticBlock = EditableTextBlock(
                 id: existingOp.sourceBlockID,
                 pageRefID: ref.id,
                 text: existingOp.replacementText,
-                bounds: existingOp.editedBounds,
+                bounds: syntheticBounds,
                 lines: [],
                 columnBounds: existingOp.columnBounds,
                 fontName: existingOp.fontName,
@@ -1846,7 +1847,7 @@ final class WorkspaceViewModel {
                 textColor: existingOp.textColor,
                 alignment: existingOp.alignment,
                 rotation: 0,
-                baseline: existingOp.editedBounds.minY,
+                baseline: syntheticBounds.minY,
                 confidence: .high
             )
             let sourceFormat = originalFormat(for: existingOp, in: analysis) ?? PDFTextEditFormat(block: syntheticBlock)
@@ -1855,6 +1856,23 @@ final class WorkspaceViewModel {
         let block = textAnalysisEngine.hitTest(pagePoint, in: analysis) ??
             insertionTextBlock(at: pagePoint, pageRefID: ref.id, page: page, nearbyBlocks: analysis.blocks)
         return (ref, block, PDFTextEditFormat(block: block))
+    }
+
+    private func reopenedBounds(for operation: PDFTextEditOperation) -> CGRect {
+        let edited = operation.editedBounds.standardized
+        guard !operation.didManuallyReposition,
+              !operation.didManuallyResizeWidth,
+              operation.sourceBounds.standardized.width > 0 else {
+            return edited
+        }
+        let source = operation.sourceBounds.standardized
+        let height = operation.didManuallyResizeHeight ? edited.height : max(source.height, edited.height)
+        return CGRect(
+            x: source.minX,
+            y: source.maxY - height,
+            width: source.width,
+            height: height
+        )
     }
 
     private func originalFormat(for operation: PDFTextEditOperation, in analysis: PDFTextPageAnalysis) -> PDFTextEditFormat? {

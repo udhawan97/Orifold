@@ -456,11 +456,7 @@ struct ThumbnailCell: View {
         }
         .task(id: pageNumber) {
             guard thumbnail == nil else { return }
-            let size = Self.thumbSize
-            let p = page
-            thumbnail = await Task.detached(priority: .utility) {
-                p.thumbnail(of: size, for: .mediaBox)
-            }.value
+            thumbnail = page.thumbnail(of: Self.thumbSize, for: .mediaBox)
         }
         .confirmationDialog(
             "Delete selected pages?",

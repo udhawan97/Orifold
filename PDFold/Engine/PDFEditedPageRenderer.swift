@@ -38,6 +38,9 @@ enum PDFEditedPageRenderer {
               let newPage = doc.page(at: 0) else {
             return nil
         }
+        for box in [PDFDisplayBox.mediaBox, .cropBox, .bleedBox, .trimBox, .artBox] {
+            newPage.setBounds(page.bounds(for: box), for: box)
+        }
         newPage.rotation = page.rotation
         return newPage
     }
@@ -104,7 +107,7 @@ enum PDFEditedPageRenderer {
             // narrow. A single unbreakable token can't wrap meaningfully either; both may
             // grow toward the page's right margin instead of wrapping mid-thought.
             if textUnchanged || singleUnbreakableToken, needed > cap {
-                cap = min(needed, pageLimit ?? min(needed, 620))
+                cap = min(needed, pageLimit ?? needed)
             }
             width = min(max(operation.editedBounds.width, min(needed, cap)), cap)
         }
@@ -130,7 +133,7 @@ enum PDFEditedPageRenderer {
     private static func maximumTextWidth(for operation: PDFTextEditOperation) -> CGFloat {
         guard let columnBounds = operation.columnBounds?.standardized,
               columnBounds.width > 0 else {
-            return 620
+            return max(620, operation.sourceBounds.standardized.width, operation.editedBounds.standardized.width)
         }
         return max(24, columnBounds.maxX - operation.editedBounds.minX)
     }

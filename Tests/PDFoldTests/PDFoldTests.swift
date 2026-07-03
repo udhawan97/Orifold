@@ -664,6 +664,51 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(reopened.sourceFormat.alignment, sourceBlock.alignment ?? .left)
     }
 
+    func testReopenedAutoSizedInlineTextEditUsesOriginalParagraphWidth() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Nearby styled text wraps across a normal paragraph column"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let originalPage = try XCTUnwrap(PDFDocument(data: fixture.pdfData)?.page(at: 0))
+        let analysis = PDFTextAnalysisEngine().analyze(
+            data: fixture.pdfData,
+            pageIndex: 0,
+            pageRefID: fixture.refs[0].id,
+            fallbackPage: originalPage
+        )
+        let sourceBlock = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Nearby") })
+        let narrowEditedBounds = CGRect(
+            x: sourceBlock.bounds.minX,
+            y: sourceBlock.bounds.minY - 80,
+            width: max(80, sourceBlock.bounds.width * 0.4),
+            height: sourceBlock.bounds.height + 80
+        )
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Replacement text",
+            editedBounds: narrowEditedBounds,
+            fontName: sourceBlock.fontName,
+            fontSize: sourceBlock.fontSize,
+            textColor: sourceBlock.textColor.nsColor,
+            alignment: .left
+        ))
+
+        let editedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let reopened = try XCTUnwrap(viewModel.editableTextBlock(
+            at: CGPoint(x: narrowEditedBounds.midX, y: narrowEditedBounds.midY),
+            on: editedPage,
+            in: viewModel.loadedPDFs.first?.1
+        ))
+
+        XCTAssertEqual(reopened.block.bounds.minX, sourceBlock.bounds.minX, accuracy: 0.01)
+        XCTAssertEqual(reopened.block.bounds.width, sourceBlock.bounds.width, accuracy: 0.01)
+        XCTAssertGreaterThanOrEqual(reopened.block.bounds.height, narrowEditedBounds.height)
+    }
+
     func testInlineTextEditErasesCommittedEditedBoundsSoNearbyTextDoesNotBleedThrough() throws {
         let pdf = makeTwoLinePDF()
         let page = try XCTUnwrap(pdf.page(at: 0))
@@ -759,6 +804,46 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertGreaterThan(measured.height, originalBounds.height)
     }
 
+    func testMeasuredBoundsPreservesWideDetectedParagraphColumn() throws {
+        let paragraphBounds = CGRect(x: 70, y: 640, width: 880, height: 54)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: paragraphBounds,
+            editedBounds: paragraphBounds,
+            columnBounds: CGRect(x: 70, y: 0, width: 900, height: 792),
+            replacementText: "This paragraph should keep the same wide margins instead of being forced into an artificial narrow editor column.",
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .documentText,
+            alignment: .left
+        )
+
+        let measured = PDFEditedPageRenderer.measuredBounds(for: operation)
+
+        XCTAssertEqual(measured.width, paragraphBounds.width, accuracy: 0.01)
+        XCTAssertEqual(measured.minX, paragraphBounds.minX, accuracy: 0.01)
+    }
+
+    func testMeasuredBoundsWithoutColumnDoesNotCollapseWideParagraphToLegacyCap() throws {
+        let paragraphBounds = CGRect(x: 70, y: 640, width: 760, height: 54)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: paragraphBounds,
+            editedBounds: paragraphBounds,
+            replacementText: "This paragraph has no explicit column metadata but should still preserve its detected width.",
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .documentText,
+            alignment: .left
+        )
+
+        let measured = PDFEditedPageRenderer.measuredBounds(for: operation)
+
+        XCTAssertEqual(measured.width, paragraphBounds.width, accuracy: 0.01)
+    }
+
     func testMeasuredBoundsPreservesManualResizeGeometry() throws {
         let committed = CGRect(x: 80, y: 640, width: 110, height: 44)
         let operation = PDFTextEditOperation(
@@ -824,6 +909,72 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         let regeneratedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
         XCTAssertEqual(regeneratedPage.annotations.count, 1, "highlight annotation was dropped by the text-edit regeneration")
         XCTAssertEqual(regeneratedPage.annotations.first?.type, "Highlight")
+    }
+
+    func testInlineTextEditPreservesPageDisplayBoxesThroughExport() throws {
+        let pdf = makePDF(pageTexts: ["Original text"])
+        let originalPage = try XCTUnwrap(pdf.page(at: 0))
+        let media = CGRect(x: -20, y: -30, width: 640, height: 820)
+        let crop = CGRect(x: 24, y: 36, width: 540, height: 700)
+        let bleed = CGRect(x: 12, y: 24, width: 560, height: 724)
+        let trim = CGRect(x: 30, y: 42, width: 520, height: 680)
+        let art = CGRect(x: 48, y: 60, width: 480, height: 640)
+        originalPage.setBounds(media, for: .mediaBox)
+        originalPage.setBounds(crop, for: .cropBox)
+        originalPage.setBounds(bleed, for: .bleedBox)
+        originalPage.setBounds(trim, for: .trimBox)
+        originalPage.setBounds(art, for: .artBox)
+        let fixture = try makeMemberFixture(name: "Cropped", pdf: pdf)
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let loadedOriginalPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let expectedMedia = loadedOriginalPage.bounds(for: .mediaBox)
+        let expectedCrop = loadedOriginalPage.bounds(for: .cropBox)
+        let expectedBleed = loadedOriginalPage.bounds(for: .bleedBox)
+        let expectedTrim = loadedOriginalPage.bounds(for: .trimBox)
+        let expectedArt = loadedOriginalPage.bounds(for: .artBox)
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id,
+            text: "Original text",
+            bounds: CGRect(x: 70, y: 700, width: 120, height: 24),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 700,
+            confidence: .high
+        )
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Replacement text",
+            editedBounds: CGRect(x: 70, y: 700, width: 180, height: 28),
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .black,
+            alignment: .left
+        ))
+
+        let editedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        XCTAssertEqual(editedPage.bounds(for: .mediaBox), expectedMedia)
+        XCTAssertEqual(editedPage.bounds(for: .cropBox), expectedCrop)
+        XCTAssertEqual(editedPage.bounds(for: .bleedBox), expectedBleed)
+        XCTAssertEqual(editedPage.bounds(for: .trimBox), expectedTrim)
+        XCTAssertEqual(editedPage.bounds(for: .artBox), expectedArt)
+
+        let snapshot = try document.snapshot(contentType: .pdf)
+        let exported = try document.exportedPDFDataThrowing(from: snapshot)
+        let exportedPage = try XCTUnwrap(PDFDocument(data: exported)?.page(at: 0))
+        XCTAssertEqual(exportedPage.bounds(for: .mediaBox), expectedMedia)
+        XCTAssertEqual(exportedPage.bounds(for: .cropBox), expectedCrop)
+        XCTAssertEqual(exportedPage.bounds(for: .bleedBox), expectedBleed)
+        XCTAssertEqual(exportedPage.bounds(for: .trimBox), expectedTrim)
+        XCTAssertEqual(exportedPage.bounds(for: .artBox), expectedArt)
     }
 
     func testWritingPDFContentTypeExportsEditedPDFInsteadOfWorkspacePackage() throws {
@@ -1330,6 +1481,76 @@ final class InlineTextEditPlacementTests: XCTestCase {
         XCTAssertNil(fixture.overlay.hitTest(NSPoint(x: fixture.overlay.bounds.maxX - 2, y: fixture.overlay.bounds.maxY - 2)))
     }
 
+    func testInlineEditorToolbarControlsReceiveHitTestsWhenToolbarIsOffset() throws {
+        let fixture = try makeInlineEditorFixture(pdfViewFrame: CGRect(x: 0, y: 0, width: 1800, height: 1000))
+        let matchButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Match"
+        })
+        let copyFormat = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.toolTip == "Copy format"
+        })
+        let applyFormat = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.toolTip == "Apply copied format"
+        })
+        let bold = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "B"
+        })
+        let alignment = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSSegmentedControl) in true })
+
+        for view in [matchButton, copyFormat, applyFormat, bold, alignment] as [NSView] {
+            XCTAssertGreaterThan(view.convert(.zero, to: fixture.overlay).x, 100)
+            let point = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: fixture.overlay)
+            XCTAssertTrue(fixture.overlay.hitTest(point) === view)
+        }
+    }
+
+    func testInlineEditorCommitsParagraphColumnWidthWhenTextIsShorter() throws {
+        let pageRef = PageRef(memberDocId: UUID(), sourcePageIndex: 0)
+        let firstLine = PDFTextLine(
+            text: "First long line",
+            bounds: CGRect(x: 72, y: 650, width: 220, height: 12),
+            runs: [],
+            confidence: .high
+        )
+        let secondLine = PDFTextLine(
+            text: "second wrapped line",
+            bounds: CGRect(x: 72, y: 634, width: 180, height: 12),
+            runs: [],
+            confidence: .high
+        )
+        let columnBounds = CGRect(x: 72, y: 0, width: 420, height: 792)
+        let block = EditableTextBlock(
+            pageRefID: pageRef.id,
+            text: "\(firstLine.text) \(secondLine.text)",
+            bounds: firstLine.bounds.union(secondLine.bounds),
+            lines: [firstLine, secondLine],
+            columnBounds: columnBounds,
+            fontName: "Helvetica",
+            fontSize: 10,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: firstLine.bounds.minY,
+            confidence: .high
+        )
+        let fixture = try makeInlineEditorFixture(
+            text: block.text,
+            pageRef: pageRef,
+            block: block,
+            pdfViewFrame: CGRect(x: 0, y: 0, width: 1400, height: 1000)
+        )
+        let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
+        let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Done"
+        })
+        textView.string = "Short replacement"
+
+        done.performClick(nil)
+
+        let committed = try XCTUnwrap(fixture.committedEdit())
+        XCTAssertEqual(committed.editedBounds.minX, columnBounds.minX, accuracy: 0.01)
+        XCTAssertEqual(committed.editedBounds.width, columnBounds.width, accuracy: 0.01)
+    }
+
     func testInlineEditorCommitsTypedFontSizeWhenDoneIsPressed() throws {
         let fixture = try makeInlineEditorFixture()
         let sizeField = try XCTUnwrap(findSubview(in: fixture.overlay) { (field: NSTextField) in
@@ -1519,6 +1740,7 @@ final class DocumentImportConverterTests: XCTestCase {
         XCTAssertEqual(imported.sourcePayload?.format, .html)
     }
 
+    @MainActor
     func testAsyncImportRendersEveryAdvertisedImportFamily() async throws {
         let rich = NSMutableAttributedString(string: "Heading\nBold item\nLink")
         rich.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 18), range: NSRange(location: 0, length: 7))
@@ -4275,18 +4497,20 @@ private struct InlineEditorFixture {
 
 private func makeInlineEditorFixture(
     text: String = "Original text",
-    textColor: CodableColor = .documentText
+    textColor: CodableColor = .documentText,
+    pageRef: PageRef = PageRef(memberDocId: UUID(), sourcePageIndex: 0),
+    block customBlock: EditableTextBlock? = nil,
+    pdfViewFrame: CGRect = CGRect(x: 0, y: 0, width: 900, height: 1000)
 ) throws -> InlineEditorFixture {
     let pdf = makePDF(pageTexts: [text.isEmpty ? " " : text])
-    let pdfView = PDFoldPDFView(frame: CGRect(x: 0, y: 0, width: 900, height: 1000))
+    let pdfView = PDFoldPDFView(frame: pdfViewFrame)
     pdfView.document = pdf
     pdfView.autoScales = false
     pdfView.scaleFactor = 1
     pdfView.layoutDocumentView()
 
     let page = try XCTUnwrap(pdf.page(at: 0))
-    let pageRef = PageRef(memberDocId: UUID(), sourcePageIndex: 0)
-    let block = EditableTextBlock(
+    let block = customBlock ?? EditableTextBlock(
         pageRefID: pageRef.id,
         text: text,
         bounds: CGRect(x: 72, y: 650, width: 160, height: 16),

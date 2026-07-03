@@ -145,7 +145,7 @@ struct PetOverlay: View {
                         .allowsHitTesting(false)
                         .transition(bubbleTransition)
                 }
-                PetView()
+                PetView(presentation: .workspace)
             }
             .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82), value: buddy.isBubbleVisible)
             .onAppear { buddy.trigger(.greeting) }
@@ -159,6 +159,7 @@ struct PetOverlay: View {
 
 struct PetBubble: View {
     let message: String
+    @Environment(\.colorScheme) private var colorScheme
 
     private var feedbackURL: URL? {
         guard message.contains("umangdhawan97@gmail.com") else { return nil }
@@ -179,12 +180,16 @@ struct PetBubble: View {
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
         .frame(maxWidth: 240, alignment: .leading)
-        .background(Color.dsCard, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                .fill(Color.dsSurface.opacity(colorScheme == .dark ? 0.82 : 0.68))
+        )
         .overlay {
             RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
-                .strokeBorder(Color.dsSeparator, lineWidth: 1)
+                .strokeBorder(Color.dsSeparator.opacity(colorScheme == .dark ? 0.85 : 1), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.12), radius: 14, x: 0, y: 6)
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.28 : 0.12), radius: 14, x: 0, y: 6)
     }
 
     private var bubbleText: some View {
@@ -196,12 +201,20 @@ struct PetBubble: View {
     }
 }
 
+enum PetPresentation {
+    case workspace
+    case welcome
+}
+
 struct PetView: View {
+    var presentation: PetPresentation = .workspace
+
     @State private var buddy = PetBuddy.shared
     @State private var isBreathing = false
     @State private var isBouncing = false
     @State private var isPopoverPresented = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -212,35 +225,32 @@ struct PetView: View {
             isPopoverPresented.toggle()
         } label: {
             petIcon
-                .frame(width: 38, height: 38)
-                .padding(3)
-                .background(Color.dsCard.opacity(0.92), in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+                .frame(width: iconSize, height: iconSize)
+                .padding(iconPadding)
+                .background(petBackground, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
-                        .strokeBorder(Color.dsSeparator, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(borderColor, lineWidth: 1)
                 }
-                .opacity(0.85)
-                .shadow(color: .black.opacity(0.14), radius: 12, x: 0, y: 5)
+                .overlay {
+                    if presentation == .welcome {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(LinearGradient.dsAccent.opacity(0.55), lineWidth: 1)
+                            .blur(radius: 0.4)
+                    }
+                }
+                .opacity(presentation == .workspace ? 0.88 : 1)
+                .shadow(color: shadowColor, radius: presentation == .welcome ? 18 : 10, x: 0, y: presentation == .welcome ? 8 : 4)
                 .scaleEffect(scale)
         }
         .buttonStyle(.plain)
         .help("Foldy — your PDFold buddy")
         .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
-            VStack(alignment: .leading, spacing: .dsSM) {
-                Button("Shush for now") {
-                    buddy.hush()
-                    isPopoverPresented = false
-                }
-                Button("Hide Foldy") {
-                    buddy.disable()
-                    isPopoverPresented = false
-                }
-                if let feedbackURL {
-                    Link("Send Feedback", destination: feedbackURL)
-                }
-            }
-            .padding(.dsMD)
-            .background(Color.dsSurface)
+            PetControlPopover(
+                presentation: presentation,
+                isPresented: $isPopoverPresented,
+                buddy: buddy
+            )
         }
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 3).repeatForever(autoreverses: true), value: isBreathing)
         .animation(shouldReduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.42), value: isBouncing)
@@ -272,9 +282,49 @@ struct PetView: View {
         URL(string: "mailto:umangdhawan97@gmail.com")
     }
 
+    private var iconSize: CGFloat {
+        presentation == .welcome ? 54 : 34
+    }
+
+    private var iconPadding: CGFloat {
+        presentation == .welcome ? 5 : 4
+    }
+
+    private var cornerRadius: CGFloat {
+        presentation == .welcome ? 16 : 10
+    }
+
+    private var petBackground: Color {
+        switch presentation {
+        case .welcome:
+            return Color.dsCard.opacity(colorScheme == .dark ? 0.92 : 0.96)
+        case .workspace:
+            return Color.dsSurface.opacity(colorScheme == .dark ? 0.86 : 0.78)
+        }
+    }
+
+    private var borderColor: Color {
+        switch presentation {
+        case .welcome:
+            return Color.dsAccent.opacity(colorScheme == .dark ? 0.34 : 0.24)
+        case .workspace:
+            return Color.dsSeparator.opacity(colorScheme == .dark ? 0.90 : 1)
+        }
+    }
+
+    private var shadowColor: Color {
+        switch presentation {
+        case .welcome:
+            return Color.dsAccent.opacity(colorScheme == .dark ? 0.22 : 0.18)
+        case .workspace:
+            return Color.black.opacity(colorScheme == .dark ? 0.24 : 0.12)
+        }
+    }
+
     private var scale: CGFloat {
         if isBouncing { return 1.12 }
-        return isBreathing && !shouldReduceMotion ? 1.045 : 1.0
+        let breathingScale: CGFloat = presentation == .welcome ? 1.06 : 1.025
+        return isBreathing && !shouldReduceMotion ? breathingScale : 1.0
     }
 
     private func bounce() {
@@ -284,5 +334,97 @@ struct PetView: View {
             guard self.isBreathing == isBreathing else { return }
             self.isBouncing = false
         }
+    }
+}
+
+private struct PetControlPopover: View {
+    var presentation: PetPresentation
+    @Binding var isPresented: Bool
+    var buddy: PetBuddy
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var didAnimateIn = false
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    private var feedbackURL: URL? {
+        URL(string: "mailto:umangdhawan97@gmail.com")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: presentation == .welcome ? .dsMD : .dsSM) {
+            if presentation == .welcome {
+                welcomeHeader
+            }
+
+            Button {
+                buddy.hush()
+                isPresented = false
+            } label: {
+                Label("Shush for now", systemImage: "speaker.slash")
+            }
+
+            Button {
+                buddy.disable()
+                isPresented = false
+            } label: {
+                Label("Hide Foldy", systemImage: "eye.slash")
+            }
+
+            if let feedbackURL {
+                Link(destination: feedbackURL) {
+                    Label("Send Feedback", systemImage: "paperplane")
+                }
+            }
+        }
+        .labelStyle(.titleAndIcon)
+        .buttonStyle(.plain)
+        .font(.dsCaption())
+        .foregroundStyle(Color.dsTextPrimary)
+        .padding(presentation == .welcome ? .dsLG : .dsMD)
+        .frame(width: presentation == .welcome ? 286 : 190, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: presentation == .welcome ? .dsRadiusLg : .dsRadiusMd, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: presentation == .welcome ? .dsRadiusLg : .dsRadiusMd, style: .continuous)
+                .fill(Color.dsSurface.opacity(colorScheme == .dark ? 0.86 : 0.72))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: presentation == .welcome ? .dsRadiusLg : .dsRadiusMd, style: .continuous)
+                .strokeBorder(Color.dsSeparator.opacity(colorScheme == .dark ? 0.85 : 1), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.28 : 0.14), radius: presentation == .welcome ? 20 : 12, x: 0, y: 8)
+        .scaleEffect(didAnimateIn || shouldReduceMotion ? 1 : 0.96, anchor: .bottomTrailing)
+        .opacity(didAnimateIn || shouldReduceMotion ? 1 : 0)
+        .onAppear {
+            guard !shouldReduceMotion else {
+                didAnimateIn = true
+                return
+            }
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.78)) {
+                didAnimateIn = true
+            }
+        }
+    }
+
+    private var welcomeHeader: some View {
+        HStack(alignment: .top, spacing: .dsSM) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(LinearGradient.dsAccent)
+                .rotationEffect(didAnimateIn && !shouldReduceMotion ? .degrees(8) : .zero)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Foldy is here to help")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text("Start with Choose Files. Once a document is open, I will keep tips brief and stay out of the way.")
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.bottom, .dsXS)
     }
 }

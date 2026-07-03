@@ -64,7 +64,11 @@ struct ContentView: View {
         }
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.memberDocuments.isEmpty)
         .tint(Color.dsAccent)
-        .overlay(alignment: .bottomTrailing) { PetOverlay().padding(18) }
+        .overlay(alignment: .bottomTrailing) {
+            if !viewModel.memberDocuments.isEmpty {
+                PetOverlay().padding(18)
+            }
+        }
         .overlay(alignment: .bottom) {
             if viewModel.operationProgress.isActive {
                 WorkspaceOperationProgressView(progress: viewModel.operationProgress) {

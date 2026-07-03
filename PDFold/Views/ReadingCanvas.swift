@@ -2316,7 +2316,7 @@ final class NoteEditorViewController: NSViewController {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        guard !isHidden, alphaValue > 0, bounds.contains(point) else { return nil }
+        guard !isHidden, alphaValue > 0 else { return nil }
         return hitTestInteractiveSubview(resizeHandle, point: point, padding: 8) ??
             hitTestInteractiveSubview(moveHandle, point: point, padding: 1) ??
             hitTestInteractiveSubview(toolbar, point: point, padding: 4) ??
@@ -2331,7 +2331,17 @@ final class NoteEditorViewController: NSViewController {
         guard !view.isHidden, view.alphaValue > 0 else { return nil }
         let converted = view.convert(point, from: self)
         guard view.bounds.insetBy(dx: -padding, dy: -padding).contains(converted) else { return nil }
-        return view.hitTest(point) ?? view
+        return deepestInteractiveHit(in: view, point: converted) ?? view
+    }
+
+    private func deepestInteractiveHit(in view: NSView, point: NSPoint) -> NSView? {
+        for subview in view.subviews.reversed() {
+            guard !subview.isHidden, subview.alphaValue > 0 else { continue }
+            let subviewPoint = subview.convert(point, from: view)
+            guard subview.bounds.contains(subviewPoint) else { continue }
+            return deepestInteractiveHit(in: subview, point: subviewPoint) ?? subview
+        }
+        return view.bounds.contains(point) ? view : nil
     }
 
     private func hitTestTextView(_ point: NSPoint) -> NSView? {
@@ -2572,7 +2582,8 @@ final class NoteEditorViewController: NSViewController {
             )
             editorWidth = max(minWidth, pdfView.convert(manualPageRect, from: page).standardized.width)
         } else {
-            editorWidth = min(max(minWidth, sourceRect.width), columnConstrainedWidth(fromX: sourceRect.minX))
+            let preferredWidth = preferredTextColumnWidth(fromX: sourceRect.minX, fallbackWidth: sourceRect.width)
+            editorWidth = min(max(minWidth, preferredWidth), columnConstrainedWidth(fromX: sourceRect.minX))
         }
         let editorHeight = didManuallyResizeHeight
             ? max(1, sourceRect.height)
@@ -2646,7 +2657,7 @@ final class NoteEditorViewController: NSViewController {
         let desired = fittingTextViewWidth(for: text, font: font, minimumWidth: visualMinimumEditorWidth)
 
         let maxWidth = columnConstrainedWidth(fromX: textView.frame.minX)
-        let minWidth = visualMinimumEditorWidth
+        let minWidth = preferredTextColumnWidth(fromX: textView.frame.minX, fallbackWidth: detectedTextColumnWidth)
         let newWidth = min(max(minWidth, desired), maxWidth)
 
         guard abs(newWidth - textView.frame.width) > 0.5 else { return }
@@ -2658,6 +2669,10 @@ final class NoteEditorViewController: NSViewController {
 
     private var visualMinimumEditorWidth: CGFloat {
         block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 180 : 156
+    }
+
+    private var detectedTextColumnWidth: CGFloat {
+        max(visualMinimumEditorWidth, textView.frame.width)
     }
 
     private var committedMinimumEditorWidth: CGFloat {
@@ -2674,15 +2689,21 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func columnConstrainedWidth(fromX minX: CGFloat) -> CGFloat {
-        guard let pdfView, let page else { return 620 }
+        guard let pdfView, let page else { return max(620, textView.frame.width) }
         let pageViewBounds = pdfView.convert(page.bounds(for: .cropBox), from: page).standardized
-        let columnMaxX: CGFloat
         if let columnBounds = block.columnBounds {
-            columnMaxX = pdfView.convert(columnBounds, from: page).standardized.maxX
-        } else {
-            columnMaxX = pageViewBounds.maxX
+            let columnMaxX = pdfView.convert(columnBounds, from: page).standardized.maxX
+            return max(48, columnMaxX - minX)
         }
-        return max(48, min(620, columnMaxX - minX - 12))
+        return max(48, pageViewBounds.maxX - minX - 12)
+    }
+
+    private func preferredTextColumnWidth(fromX minX: CGFloat, fallbackWidth: CGFloat) -> CGFloat {
+        guard let pdfView, let page, let columnBounds = block.columnBounds else {
+            return max(visualMinimumEditorWidth, fallbackWidth)
+        }
+        let columnRect = pdfView.convert(columnBounds, from: page).standardized
+        return max(visualMinimumEditorWidth, fallbackWidth, columnRect.maxX - minX)
     }
 
     private func moveEditor(by delta: CGPoint) {
@@ -2884,6 +2905,7 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func applyFormatting() {
+        refreshFormatControls()
         refreshSizeControls()
         refreshColorPopup()
         let font = displayFont()
@@ -2905,6 +2927,20 @@ final class NoteEditorViewController: NSViewController {
             textView.setSelectedRange(selectedRange)
         }
         resizeTextViewHeight()
+    }
+
+    private func refreshFormatControls() {
+        if familyPopup.titleOfSelectedItem != editorFontFamily {
+            if familyPopup.itemTitles.contains(editorFontFamily) {
+                familyPopup.selectItem(withTitle: editorFontFamily)
+            } else {
+                familyPopup.insertItem(withTitle: editorFontFamily, at: 0)
+                familyPopup.selectItem(at: 0)
+            }
+        }
+        boldButton.state = editorFontTraits.contains(.boldFontMask) ? .on : .off
+        italicButton.state = editorFontTraits.contains(.italicFontMask) ? .on : .off
+        alignControl.selectedSegment = selectedAlignmentSegment()
     }
 
     private func refreshSizeControls() {
@@ -3216,9 +3252,12 @@ final class NoteEditorViewController: NSViewController {
         pageBounds.size.width = max(1, pageBounds.width)
         pageBounds.size.height = max(1, pageBounds.height)
         let sourcePageBounds = block.bounds.standardized
+        if !didManuallyReposition {
+            pageBounds.origin.x = preferredPageOriginX()
+        }
         if !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if !didManuallyResizeWidth {
-                pageBounds.size.width = max(pageBounds.width, sourcePageBounds.width)
+                pageBounds.size.width = max(pageBounds.width, sourcePageBounds.width, preferredPageColumnWidth(fromX: pageBounds.minX))
             }
             if !didManuallyResizeHeight {
                 pageBounds.size.height = max(pageBounds.height, sourcePageBounds.height)
@@ -3257,6 +3296,20 @@ final class NoteEditorViewController: NSViewController {
             currentFormat.alignment != sourceFormat.alignment ||
             !Self.colorsApproximatelyEqual(currentFormat.textColor.nsColor, sourceFormat.textColor.nsColor, tolerance: 0.025)
         )
+    }
+
+    private func preferredPageColumnWidth(fromX minX: CGFloat) -> CGFloat {
+        guard let columnBounds = block.columnBounds?.standardized else {
+            return block.bounds.standardized.width
+        }
+        return max(block.bounds.standardized.width, columnBounds.maxX - minX)
+    }
+
+    private func preferredPageOriginX() -> CGFloat {
+        if let columnBounds = block.columnBounds?.standardized {
+            return columnBounds.minX
+        }
+        return block.bounds.standardized.minX
     }
 
     private var shouldCancelWithoutCommit: Bool {
