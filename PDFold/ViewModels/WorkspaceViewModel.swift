@@ -296,7 +296,7 @@ final class WorkspaceViewModel {
     @ObservationIgnored private var searchNotificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var activeSearchID = UUID()
     @ObservationIgnored private var pendingSearchResults: [PDFSelection] = []
-    @ObservationIgnored private var searchResultsQuery = ""
+    @ObservationIgnored private(set) var searchResultsQuery = ""
     /// Raw PDF bytes captured ONCE when each member is first loaded or attached.
     /// Never mutated during editing — used as the immutable base for page regeneration
     /// so multiple edits on the same page always start from the original content.

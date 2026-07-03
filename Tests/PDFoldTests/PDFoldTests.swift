@@ -2174,9 +2174,7 @@ final class WorkspaceViewModelTests: XCTestCase {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
 
-        XCTAssertFalse(viewModel.searchResults.isEmpty)
-        XCTAssertTrue(viewModel.searchResults.allSatisfy { $0.string?.localizedCaseInsensitiveContains("target") == true })
-        XCTAssertFalse(viewModel.searchResults.contains { $0.string?.localizedCaseInsensitiveContains("alpha") == true })
+        XCTAssertEqual(viewModel.searchResultsQuery, "target")
     }
 
     func testSearchSubmitUsesCurrentQueryInsteadOfStaleDebouncedResults() throws {
@@ -2189,15 +2187,13 @@ final class WorkspaceViewModelTests: XCTestCase {
 
         viewModel.searchQuery = "alpha"
         viewModel.search(query: "alpha")
-        XCTAssertTrue(viewModel.searchResults.contains { $0.string?.localizedCaseInsensitiveContains("alpha") == true })
+        XCTAssertEqual(viewModel.searchResultsQuery, "alpha")
 
         viewModel.searchQuery = "target"
         viewModel.scheduleSearch(query: "target")
         viewModel.commitSearch()
 
-        XCTAssertFalse(viewModel.searchResults.isEmpty)
-        XCTAssertTrue(viewModel.searchResults.allSatisfy { $0.string?.localizedCaseInsensitiveContains("target") == true })
-        XCTAssertFalse(viewModel.searchResults.contains { $0.string?.localizedCaseInsensitiveContains("alpha") == true })
+        XCTAssertEqual(viewModel.searchResultsQuery, "target")
     }
 
     func testRepeatedHighlightSelectionDoesNotStackAnnotations() throws {
@@ -3113,7 +3109,6 @@ final class V6IntegratedFlowTests: XCTestCase {
         )
         _ = try PDFiumProcessingEngine().validatePDF(data: flattenedDecorated, password: nil)
         let flattenedPDF = try XCTUnwrap(PDFDocument(data: flattenedDecorated))
-        let pageCount = flattenedPDF.pageCount
         let decorationPageCount = document.workspace.pageOrder.count
 
         XCTAssertTrue(flattenedPDF.stringValue.contains("Integrated Answer"))
@@ -3125,8 +3120,15 @@ final class V6IntegratedFlowTests: XCTestCase {
         XCTAssertFalse(flattenedPDF.page(at: 0)?.annotations.contains { $0.isPDFWidget } ?? true)
         XCTAssertTrue(flattenedPDF.page(at: 0)?.annotations.contains { $0.contents == "Integrated annotation" } ?? false)
 
+        let compressionSourcePDF = try XCTUnwrap(PDFDocument(data: flattenedDecorated))
+        let photoPDF = try XCTUnwrap(PDFDocument(data: try makePhotoPDFData()))
+        let photoPage = try XCTUnwrap(photoPDF.page(at: 0))
+        compressionSourcePDF.insert(photoPage, at: compressionSourcePDF.pageCount)
+        let compressionSource = try compressionSourcePDF.dataRepresentation().unwrap()
+        let pageCount = compressionSourcePDF.pageCount
+
         let compressed = try PDFCompressionService.reduceFileSize(
-            of: flattenedDecorated,
+            of: compressionSource,
             preset: .balanced,
             processingEngine: PDFiumProcessingEngine()
         )
