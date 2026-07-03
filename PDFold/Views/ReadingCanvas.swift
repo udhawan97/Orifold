@@ -656,58 +656,37 @@ struct PDFViewRepresentable: NSViewRepresentable {
             // Callers are expected to finish (commit or cancel) any previously open editor
             // before calling this — see the `.editText` handleClick case.
             assert(inlineEditor == nil, "a previous inline editor should already be finished")
+            let isExistingEdit = viewModel.hasInlineTextEditOperation(pageRefID: pageRef.id, sourceBlockID: block.id)
             let editor = InlineTextEditorOverlay(
                 frame: pdfView.bounds,
                 viewModel: viewModel,
                 pdfView: pdfView,
                 page: page,
                 pageRef: pageRef,
-                block: block
+                block: block,
+                isExistingEdit: isExistingEdit
             ) { [weak self, weak pdfView] result in
                 guard let self else { return }
                 switch result {
                 case .commit(let edit):
-                    // Capture the actual scroll viewport. In continuous mode, PDFKit's
-                    // currentPage can be a different page than the edit target, so page-based
-                    // restoration can visibly jump after the document is regenerated.
-                    let savedViewportOrigin = self.visibleDocumentOrigin(in: pdfView)
-                    let savedDestination = pdfView?.currentDestination
-                    let savedPageIdx: Int? = {
-                        guard let pv = pdfView,
-                              let pg = pv.currentPage,
-                              let doc = pv.document else { return nil }
-                        let idx = doc.index(for: pg)
-                        return idx == NSNotFound ? nil : idx
-                    }()
-
-                    let didApply = viewModel.applyInlineTextEdit(
-                        pageRef: edit.pageRef,
-                        sourceBlock: edit.block,
-                        replacementText: edit.text,
-                        editedBounds: edit.editedBounds,
-                        fontName: edit.fontName,
-                        fontSize: edit.fontSize,
-                        textColor: edit.textColor,
-                        alignment: edit.alignment,
-                        didManuallyReposition: edit.didManuallyReposition,
-                        didManuallyResizeWidth: edit.didManuallyResizeWidth,
-                        didManuallyResizeHeight: edit.didManuallyResizeHeight
-                    )
-                    if didApply {
-                        let newDoc = viewModel.combinedPDF
-                        // Always assign; SwiftUI may not have fired updateNSView yet.
-                        pdfView?.document = newDoc
-                        pdfView?.layoutDocumentView()
-                        if let origin = savedViewportOrigin {
-                            self.restoreVisibleDocumentOrigin(origin, in: pdfView)
-                        } else if let idx = savedPageIdx, let targetPage = newDoc.page(at: idx) {
-                            if let dest = savedDestination {
-                                pdfView?.go(to: PDFDestination(page: targetPage, at: dest.point))
-                            } else {
-                                pdfView?.go(to: targetPage)
-                            }
-                        }
-                        pdfView?.needsDisplay = true
+                    self.mutateDocumentPreservingViewport(in: pdfView) {
+                        self.viewModel.applyInlineTextEdit(
+                            pageRef: edit.pageRef,
+                            sourceBlock: edit.block,
+                            replacementText: edit.text,
+                            editedBounds: edit.editedBounds,
+                            fontName: edit.fontName,
+                            fontSize: edit.fontSize,
+                            textColor: edit.textColor,
+                            alignment: edit.alignment,
+                            didManuallyReposition: edit.didManuallyReposition,
+                            didManuallyResizeWidth: edit.didManuallyResizeWidth,
+                            didManuallyResizeHeight: edit.didManuallyResizeHeight
+                        )
+                    }
+                case .revertToOriginal:
+                    self.mutateDocumentPreservingViewport(in: pdfView) {
+                        self.viewModel.revertInlineTextEdit(pageRefID: pageRef.id, sourceBlockID: block.id)
                     }
                 case .cancel:
                     break
@@ -718,6 +697,39 @@ struct PDFViewRepresentable: NSViewRepresentable {
             inlineEditor = editor
             pdfView.addSubview(editor)
             editor.beginEditing()
+        }
+
+        /// Runs a document-regenerating mutation while pinning the scroll viewport.
+        /// Captures the actual scroll origin first — in continuous mode PDFKit's
+        /// currentPage can be a different page than the mutation target, so page-based
+        /// restoration alone can visibly jump after the document is regenerated.
+        private func mutateDocumentPreservingViewport(in pdfView: PDFoldPDFView?, _ mutation: () -> Bool) {
+            let savedViewportOrigin = visibleDocumentOrigin(in: pdfView)
+            let savedDestination = pdfView?.currentDestination
+            let savedPageIdx: Int? = {
+                guard let pv = pdfView,
+                      let pg = pv.currentPage,
+                      let doc = pv.document else { return nil }
+                let idx = doc.index(for: pg)
+                return idx == NSNotFound ? nil : idx
+            }()
+
+            guard mutation() else { return }
+
+            let newDoc = viewModel.combinedPDF
+            // Always assign; SwiftUI may not have fired updateNSView yet.
+            pdfView?.document = newDoc
+            pdfView?.layoutDocumentView()
+            if let origin = savedViewportOrigin {
+                restoreVisibleDocumentOrigin(origin, in: pdfView)
+            } else if let idx = savedPageIdx, let targetPage = newDoc.page(at: idx) {
+                if let dest = savedDestination {
+                    pdfView?.go(to: PDFDestination(page: targetPage, at: dest.point))
+                } else {
+                    pdfView?.go(to: targetPage)
+                }
+            }
+            pdfView?.needsDisplay = true
         }
 
         private func visibleDocumentOrigin(in pdfView: PDFView?) -> CGPoint? {
@@ -2123,6 +2135,7 @@ final class NoteEditorViewController: NSViewController {
 
     enum Completion {
         case commit(EditResult)
+        case revertToOriginal
         case cancel
     }
 
@@ -2131,6 +2144,7 @@ final class NoteEditorViewController: NSViewController {
     private weak var viewModel: WorkspaceViewModel?
     private let pageRef: PageRef
     private let block: EditableTextBlock
+    private let isExistingEdit: Bool
     private let completion: (Completion) -> Void
     private let patchView = NSView()
     private let toolbar = NSView()
@@ -2187,6 +2201,7 @@ final class NoteEditorViewController: NSViewController {
         page: PDFPage,
         pageRef: PageRef,
         block: EditableTextBlock,
+        isExistingEdit: Bool = false,
         completion: @escaping (Completion) -> Void
     ) {
         self.viewModel = viewModel
@@ -2194,6 +2209,7 @@ final class NoteEditorViewController: NSViewController {
         self.page = page
         self.pageRef = pageRef
         self.block = block
+        self.isExistingEdit = isExistingEdit
         self.completion = completion
         // Preserve the ORIGINAL detected point size so edited text renders at the same size
         // as the surrounding document. A hard `max(8, …)` floor here inflated smaller body
@@ -2313,6 +2329,9 @@ final class NoteEditorViewController: NSViewController {
         textView.onMoveDrag = { [weak self] delta in
             self?.moveEditor(by: delta)
         }
+        textView.onEscape = { [weak self] in
+            self?.cancel()
+        }
         moveHandle.onDrag = { [weak self] delta in
             self?.moveEditor(by: delta)
         }
@@ -2418,19 +2437,34 @@ final class NoteEditorViewController: NSViewController {
         signature.frame = CGRect(x: 522, y: 8, width: 34, height: 26)
         toolbar.addSubview(signature)
 
+        var buttonX: CGFloat = 566
+        if isExistingEdit {
+            let revert = NSButton(title: "Revert", target: self, action: #selector(revertButton))
+            revert.bezelStyle = .rounded
+            revert.toolTip = "Remove this edit and restore the original text"
+            revert.frame = CGRect(x: buttonX, y: 8, width: 66, height: 26)
+            toolbar.addSubview(revert)
+            buttonX += 72
+        }
+
         let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelButton))
         cancel.bezelStyle = .rounded
-        cancel.frame = CGRect(x: 566, y: 8, width: 68, height: 26)
+        cancel.frame = CGRect(x: buttonX, y: 8, width: 68, height: 26)
         toolbar.addSubview(cancel)
+        buttonX += 74
 
         let done = NSButton(title: "Done", target: self, action: #selector(commitButton))
         done.bezelStyle = .rounded
         done.contentTintColor = .dsAccentNS
         done.keyEquivalent = "\r"
-        done.frame = CGRect(x: 640, y: 8, width: 62, height: 26)
+        done.frame = CGRect(x: buttonX, y: 8, width: 62, height: 26)
         toolbar.addSubview(done)
         refreshColorPopup()
         refreshSizeControls()
+    }
+
+    private var toolbarSize: CGSize {
+        CGSize(width: isExistingEdit ? 782 : 710, height: 42)
     }
 
     private func layoutEditor() {
@@ -2480,7 +2514,7 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func toolbarFrame(near editorRect: CGRect) -> CGRect {
-        let size = CGSize(width: 710, height: 42)
+        let size = toolbarSize
         let x = min(max(editorRect.midX - size.width / 2, 8), max(8, bounds.width - size.width - 8))
         let aboveY = editorRect.maxY + 8
         let y = aboveY + size.height < bounds.height ? aboveY : max(8, editorRect.minY - size.height - 8)
@@ -3079,6 +3113,13 @@ final class NoteEditorViewController: NSViewController {
         cancel()
     }
 
+    @objc private func revertButton() {
+        guard !didFinish else { return }
+        didFinish = true
+        removeFromSuperview()
+        completion(.revertToOriginal)
+    }
+
     @objc private func addSignatureBox() {
         guard !didFinish else { return }
         let viewModel = viewModel
@@ -3090,8 +3131,13 @@ final class NoteEditorViewController: NSViewController {
 
 final class InlineEditableTextView: NSTextView {
     var onMoveDrag: ((CGPoint) -> Void)?
+    var onEscape: (() -> Void)?
     private var isMoving = false
     private var lastPoint: CGPoint?
+
+    override func cancelOperation(_ sender: Any?) {
+        onEscape?()
+    }
 
     override func resetCursorRects() {
         super.resetCursorRects()

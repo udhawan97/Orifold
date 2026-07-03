@@ -1806,20 +1806,7 @@ final class WorkspaceViewModel {
         didManuallyResizeHeight: Bool = false
     ) -> Bool {
         guard canPerformMutatingAction() else { return false }
-        guard let lookup = memberPDF(for: pageRef),
-              let localIdx = localIndex(ref: pageRef, memberIndex: lookup.documentIndex),
-              lookup.pdf.page(at: localIdx) != nil else {
-            showEditMessage("pdFold could not locate that page for inline editing.", isError: true)
-            return false
-        }
-        // Always regenerate from the original (pre-edit) page so that multiple edits on
-        // the same page don't stack erase patches on top of previously-regenerated content.
-        // Fall back to current memberPDFData if the original snapshot is unavailable.
-        let baseData = originalMemberPDFData[pageRef.memberDocId] ?? document.memberPDFData[pageRef.memberDocId]
-        let originalPageIndex = pageRef.sourcePageIndex >= 0 ? pageRef.sourcePageIndex : localIdx
-        guard let baseData,
-              let basePDF = PDFDocument(data: baseData),
-              let basePage = basePDF.page(at: originalPageIndex) else {
+        guard let basePage = originalBasePage(for: pageRef) else {
             showEditMessage("pdFold could not access the original page for editing.", isError: true)
             return false
         }
@@ -1838,6 +1825,7 @@ final class WorkspaceViewModel {
             fontSize: fontSize,
             textColor: CodableColor(nsColor: textColor),
             alignment: CodableTextAlignment(alignment),
+            isInsertion: sourceBlock.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && sourceBlock.lines.isEmpty,
             didManuallyReposition: didManuallyReposition,
             didManuallyResizeWidth: didManuallyResizeWidth,
             didManuallyResizeHeight: didManuallyResizeHeight
@@ -1851,52 +1839,28 @@ final class WorkspaceViewModel {
             operation.sourceLineBounds = existingOp.sourceLineBounds
             operation.sourceText = existingOp.sourceText.isEmpty ? operation.sourceText : existingOp.sourceText
             operation.columnBounds = operation.columnBounds ?? existingOp.columnBounds
+            operation.isInsertion = operation.isInsertion || existingOp.isInsertion
             operation.didManuallyReposition = operation.didManuallyReposition || existingOp.didManuallyReposition
             operation.didManuallyResizeWidth = operation.didManuallyResizeWidth || existingOp.didManuallyResizeWidth
             operation.didManuallyResizeHeight = operation.didManuallyResizeHeight || existingOp.didManuallyResizeHeight
         }
         // The live editor has already committed its page-space box. Keep that geometry
         // intact, then let measuredBounds expand only as needed for longer text.
-        operation.editedBounds = PDFEditedPageRenderer.measuredBounds(for: operation)
+        operation.editedBounds = PDFEditedPageRenderer.measuredBounds(
+            for: operation,
+            pageBounds: basePage.bounds(for: .cropBox)
+        )
         if let stateIndex = document.workspace.pageEditStates.firstIndex(where: { $0.pageRefID == pageRef.id }) {
             document.workspace.pageEditStates[stateIndex].operations.removeAll { $0.sourceBlockID == sourceBlock.id }
             document.workspace.pageEditStates[stateIndex].operations.append(operation)
         } else {
             document.workspace.pageEditStates.append(PageEditState(pageRefID: pageRef.id, operations: [operation]))
         }
-        guard let operations = document.workspace.pageEditStates.first(where: { $0.pageRefID == pageRef.id })?.operations,
-              let regenerated = PDFEditedPageRenderer.regeneratedPage(from: basePage, applying: operations) else {
+        let operations = document.workspace.pageEditStates.first(where: { $0.pageRefID == pageRef.id })?.operations ?? []
+        guard regenerateEditedPage(pageRef: pageRef, operations: operations) else {
             document.workspace.pageEditStates = previousSnapshot.editStates
             showEditMessage("pdFold could not regenerate that edited page. The original page is unchanged.", isError: true)
             return false
-        }
-
-        // Regeneration always rebuilds from the pristine original page (so repeated edits
-        // never stack erase patches on top of each other), which would otherwise silently
-        // drop any highlight/note/ink/text-box annotations already placed on this page.
-        // Carry those over onto the freshly regenerated page.
-        let currentPage = lookup.pdf.page(at: localIdx)
-        let preservedRotation = currentPage?.rotation ?? regenerated.rotation
-        let preservedAnnotations = currentPage?.annotations ?? []
-        lookup.pdf.removePage(at: localIdx)
-        regenerated.rotation = preservedRotation
-        lookup.pdf.insert(regenerated, at: localIdx)
-        preservedAnnotations.forEach { regenerated.addAnnotation($0) }
-        textAnalysisCache.removeValue(forKey: pageRef.id)
-
-        // Serialize the mutated member PDF and load a completely fresh
-        // PDFDocument from those bytes before calling rebuild(). This
-        // gives PDFKit brand-new PDFPage objects so it cannot reuse
-        // any render cache from the previous version of the page.
-        let serialized = PDFSerializer.data(from: lookup.pdf)
-        if let serialized, let freshPDF = PDFDocument(data: serialized) {
-            document.memberPDFData[pageRef.memberDocId] = serialized
-            loadedPDFs[lookup.documentIndex] = (loadedPDFs[lookup.documentIndex].0, freshPDF)
-        } else {
-            NSLog("[PDFold] Warning: could not reload fresh PDF after inline edit on page %@; using mutated document in place.", pageRef.id.uuidString)
-            if let serialized {
-                document.memberPDFData[pageRef.memberDocId] = serialized
-            }
         }
 
         rebuild()
@@ -1910,6 +1874,175 @@ final class WorkspaceViewModel {
         undoManager?.setActionName("Edit PDF Text")
         PetBuddyHook.trigger(.edit)
         return true
+    }
+
+    /// Loads the pristine (pre-any-edit) version of the page backing `pageRef`.
+    /// Regeneration always starts from this page so repeated edits never stack erase
+    /// patches on top of previously-regenerated content, and reverting simply means
+    /// regenerating with fewer (or zero) operations.
+    private func originalBasePage(for pageRef: PageRef) -> PDFPage? {
+        guard let lookup = memberPDF(for: pageRef),
+              let localIdx = localIndex(ref: pageRef, memberIndex: lookup.documentIndex),
+              lookup.pdf.page(at: localIdx) != nil else { return nil }
+        let baseData = originalMemberPDFData[pageRef.memberDocId] ?? document.memberPDFData[pageRef.memberDocId]
+        let originalPageIndex = pageRef.sourcePageIndex >= 0 ? pageRef.sourcePageIndex : localIdx
+        guard let baseData,
+              let basePDF = PDFDocument(data: baseData),
+              let basePage = basePDF.page(at: originalPageIndex) else { return nil }
+        return basePage
+    }
+
+    /// Rebuilds the live page for `pageRef` from its pristine original, applying
+    /// `operations` (empty = restore the original page), while carrying over rotation
+    /// and any annotations the user already placed on the current page. Serializes the
+    /// member PDF and reloads it fresh so PDFKit cannot reuse stale render caches.
+    private func regenerateEditedPage(pageRef: PageRef, operations: [PDFTextEditOperation]) -> Bool {
+        guard let lookup = memberPDF(for: pageRef),
+              let localIdx = localIndex(ref: pageRef, memberIndex: lookup.documentIndex),
+              let basePage = originalBasePage(for: pageRef),
+              let regenerated = PDFEditedPageRenderer.regeneratedPage(from: basePage, applying: operations) else {
+            return false
+        }
+
+        let currentPage = lookup.pdf.page(at: localIdx)
+        let preservedRotation = currentPage?.rotation ?? regenerated.rotation
+        let preservedAnnotations = currentPage?.annotations ?? []
+        lookup.pdf.removePage(at: localIdx)
+        regenerated.rotation = preservedRotation
+        lookup.pdf.insert(regenerated, at: localIdx)
+        preservedAnnotations.forEach { regenerated.addAnnotation($0) }
+        textAnalysisCache.removeValue(forKey: pageRef.id)
+
+        let serialized = PDFSerializer.data(from: lookup.pdf)
+        if let serialized, let freshPDF = PDFDocument(data: serialized) {
+            document.memberPDFData[pageRef.memberDocId] = serialized
+            loadedPDFs[lookup.documentIndex] = (loadedPDFs[lookup.documentIndex].0, freshPDF)
+        } else {
+            NSLog("[PDFold] Warning: could not reload fresh PDF after inline edit on page %@; using mutated document in place.", pageRef.id.uuidString)
+            if let serialized {
+                document.memberPDFData[pageRef.memberDocId] = serialized
+            }
+        }
+        return true
+    }
+
+    // MARK: - Inline text edit revert
+
+    struct InlineTextEditListItem: Identifiable, Equatable {
+        var id: UUID
+        var pageRefID: UUID
+        var pageNumber: Int
+        var memberName: String
+        var originalText: String
+        var replacementText: String
+        var isInsertion: Bool
+    }
+
+    var hasInlineTextEdits: Bool {
+        document.workspace.pageEditStates.contains { !$0.operations.isEmpty }
+    }
+
+    func hasInlineTextEditOperation(pageRefID: UUID, sourceBlockID: UUID) -> Bool {
+        document.workspace.pageEditStates
+            .first(where: { $0.pageRefID == pageRefID })?
+            .operations.contains(where: { $0.sourceBlockID == sourceBlockID }) ?? false
+    }
+
+    /// All committed inline text edits, ordered by the workspace page order, for the
+    /// inspector's "Text Edits" list.
+    func inlineTextEditListItems() -> [InlineTextEditListItem] {
+        var items: [InlineTextEditListItem] = []
+        for (index, ref) in document.workspace.pageOrder.enumerated() {
+            guard let state = document.workspace.pageEditStates.first(where: { $0.pageRefID == ref.id }) else { continue }
+            let memberName = document.workspace.documents.first(where: { $0.id == ref.memberDocId })?.displayName ?? ""
+            for operation in state.operations {
+                items.append(InlineTextEditListItem(
+                    id: operation.id,
+                    pageRefID: ref.id,
+                    pageNumber: index + 1,
+                    memberName: memberName,
+                    originalText: operation.sourceText,
+                    replacementText: operation.replacementText,
+                    isInsertion: operation.isInsertion
+                ))
+            }
+        }
+        return items
+    }
+
+    /// Removes a single committed text edit and re-renders its page from the pristine
+    /// original with the remaining edits, restoring the untouched document appearance
+    /// for that spot. Undoable.
+    @discardableResult
+    func revertInlineTextEdit(pageRefID: UUID, where matches: (PDFTextEditOperation) -> Bool) -> Bool {
+        guard canPerformMutatingAction() else { return false }
+        guard let stateIndex = document.workspace.pageEditStates.firstIndex(where: { $0.pageRefID == pageRefID }),
+              document.workspace.pageEditStates[stateIndex].operations.contains(where: matches),
+              let pageRef = document.workspace.pageOrder.first(where: { $0.id == pageRefID }) else {
+            return false
+        }
+        let previousSnapshot = captureInlineTextEditSnapshot()
+        var remaining = document.workspace.pageEditStates[stateIndex].operations
+        remaining.removeAll(where: matches)
+        if remaining.isEmpty {
+            document.workspace.pageEditStates.remove(at: stateIndex)
+        } else {
+            document.workspace.pageEditStates[stateIndex].operations = remaining
+        }
+        guard regenerateEditedPage(pageRef: pageRef, operations: remaining) else {
+            document.workspace.pageEditStates = previousSnapshot.editStates
+            showEditMessage("pdFold could not restore that page. The edit was left in place.", isError: true)
+            return false
+        }
+        rebuild()
+        markWorkspaceModified()
+        undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
+            vm.restoreInlineTextEditSnapshot(previousSnapshot, actionName: "Revert Text Edit")
+        }
+        undoManager?.setActionName("Revert Text Edit")
+        return true
+    }
+
+    @discardableResult
+    func revertInlineTextEdit(pageRefID: UUID, operationID: UUID) -> Bool {
+        revertInlineTextEdit(pageRefID: pageRefID) { $0.id == operationID }
+    }
+
+    @discardableResult
+    func revertInlineTextEdit(pageRefID: UUID, sourceBlockID: UUID) -> Bool {
+        revertInlineTextEdit(pageRefID: pageRefID) { $0.sourceBlockID == sourceBlockID }
+    }
+
+    /// Removes every committed text edit in the workspace and restores each touched page
+    /// to its pristine original rendering (annotations and rotations are kept). Undoable.
+    @discardableResult
+    func revertAllInlineTextEdits() -> Bool {
+        guard canPerformMutatingAction(), hasInlineTextEdits else { return false }
+        let previousSnapshot = captureInlineTextEditSnapshot()
+        let states = document.workspace.pageEditStates
+        document.workspace.pageEditStates = []
+        var failedPageRefIDs: [UUID] = []
+        for state in states {
+            guard let pageRef = document.workspace.pageOrder.first(where: { $0.id == state.pageRefID }) else { continue }
+            if !regenerateEditedPage(pageRef: pageRef, operations: []) {
+                failedPageRefIDs.append(state.pageRefID)
+            }
+        }
+        if !failedPageRefIDs.isEmpty {
+            // Keep the edits we could not visually revert so the document and the edit
+            // list stay consistent.
+            document.workspace.pageEditStates = states.filter { failedPageRefIDs.contains($0.pageRefID) }
+            showEditMessage("pdFold could not restore some pages; their edits were left in place.", isError: true)
+        }
+        rebuild()
+        markWorkspaceModified()
+        undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
+            vm.restoreInlineTextEditSnapshot(previousSnapshot, actionName: "Revert All Text Edits")
+        }
+        undoManager?.setActionName("Revert All Text Edits")
+        return failedPageRefIDs.isEmpty
     }
 
     @discardableResult

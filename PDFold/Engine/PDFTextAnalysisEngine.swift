@@ -376,11 +376,15 @@ final class PDFTextAnalysisEngine {
         guard !blocks.isEmpty, pageBounds.width > 0 else { return blocks }
         return blocks.map { block in
             var updated = block
+            // Only a block on the SAME visual row may clamp this block's column right edge.
+            // Judging "same column" by a loose vertical distance (previously up to 3× the
+            // font size) let an indented block one line below shrink the column, which
+            // forced measuredBounds to wrap even unchanged text onto a second line.
             let rightNeighborMinX = blocks
                 .filter { candidate in
                     candidate.id != block.id &&
-                    candidate.bounds.minX > block.bounds.minX + max(36, block.fontSize * 4) &&
-                    verticalDistance(between: block.bounds, and: candidate.bounds) <= max(24, block.fontSize * 3)
+                    candidate.bounds.minX > block.bounds.maxX &&
+                    rowsOverlap(block.bounds, candidate.bounds)
                 }
                 .map(\.bounds.minX)
                 .min()
@@ -454,8 +458,11 @@ final class PDFTextAnalysisEngine {
            previous.text.trimmingCharacters(in: .whitespacesAndNewlines).isLikelyStandaloneListMarker {
             return true
         }
-        guard verticalGap >= -lineHeight * 0.35, verticalGap <= lineHeight * 1.25 else { return false }
+        // Rows separated by more than typical single-spaced leading (chip rows, padded
+        // labels, loose layouts) are standalone elements, not a wrapped continuation.
+        guard verticalGap >= -lineHeight * 0.35, verticalGap <= lineHeight * 0.9 else { return false }
         guard columnBoundsCompatible(previous.columnBounds, next.columnBounds, tolerance: max(12, lineHeight)) else { return false }
+        guard lineLooksWrapped(previous: previous, next: next, lineHeight: lineHeight) else { return false }
 
         let indentDelta = next.bounds.minX - previous.bounds.minX
         let sameLeft = abs(indentDelta) <= max(8, lineHeight * 0.8)
@@ -468,6 +475,16 @@ final class PDFTextAnalysisEngine {
 
         return (sameLeft || hangingContinuation || veryShortContinuation) &&
             (previousLooksOpen || veryShortContinuation)
+    }
+
+    /// True when the upper line plausibly word-wrapped into the lower one. A wrapped
+    /// line is never conspicuously shorter than its continuation — if the upper line had
+    /// that much free room, the continuation's leading words would have moved up into it.
+    /// A short label sitting above a longer unrelated line (stacked chips, sidebar rows)
+    /// fails this, so the two stay separately editable instead of fusing into one block.
+    private func lineLooksWrapped(previous: EditableTextBlock, next: EditableTextBlock, lineHeight: CGFloat) -> Bool {
+        let shortfall = next.bounds.maxX - previous.bounds.maxX
+        return shortfall <= max(24, lineHeight * 2)
     }
 
     private func fontsMatch(_ lhs: EditableTextBlock, _ rhs: EditableTextBlock) -> Bool {
@@ -490,6 +507,12 @@ final class PDFTextAnalysisEngine {
         if lhs.intersects(rhs) { return 0 }
         if lhs.maxY < rhs.minY { return rhs.minY - lhs.maxY }
         return lhs.minY - rhs.maxY
+    }
+
+    /// True when the two rects share enough vertical extent to sit on the same text row.
+    private func rowsOverlap(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+        let overlap = min(lhs.maxY, rhs.maxY) - max(lhs.minY, rhs.minY)
+        return overlap >= min(lhs.height, rhs.height) * 0.4
     }
 
     private func median(_ values: [CGFloat]) -> CGFloat {

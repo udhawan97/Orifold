@@ -57,6 +57,11 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
     var fontSize: CGFloat
     var textColor: CodableColor
     var alignment: CodableTextAlignment
+    /// True when this operation inserts brand-new text at an empty spot rather than
+    /// replacing existing PDF text. Insertions must not paint erase patches — there is
+    /// nothing to erase, and patching would stamp an opaque rectangle over whatever
+    /// graphics/background sit under the new text.
+    var isInsertion: Bool = false
     var didManuallyReposition: Bool = false
     var didManuallyResizeWidth: Bool = false
     var didManuallyResizeHeight: Bool = false
@@ -65,7 +70,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, pageRefID, sourceBlockID, sourceBounds, sourceLineBounds, sourceText, editedBounds, columnBounds
-        case replacementText, fontName, fontSize, textColor, alignment
+        case replacementText, fontName, fontSize, textColor, alignment, isInsertion
         case didManuallyReposition, didManuallyResizeWidth, didManuallyResizeHeight
         case createdAt, modifiedAt
     }
@@ -84,6 +89,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         fontSize: CGFloat,
         textColor: CodableColor,
         alignment: CodableTextAlignment,
+        isInsertion: Bool = false,
         didManuallyReposition: Bool = false,
         didManuallyResizeWidth: Bool = false,
         didManuallyResizeHeight: Bool = false,
@@ -103,6 +109,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         self.fontSize = fontSize
         self.textColor = textColor
         self.alignment = alignment
+        self.isInsertion = isInsertion
         self.didManuallyReposition = didManuallyReposition
         self.didManuallyResizeWidth = didManuallyResizeWidth
         self.didManuallyResizeHeight = didManuallyResizeHeight
@@ -125,6 +132,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         fontSize = try c.decode(CGFloat.self, forKey: .fontSize)
         textColor = try c.decode(CodableColor.self, forKey: .textColor)
         alignment = try c.decode(CodableTextAlignment.self, forKey: .alignment)
+        isInsertion = try c.decodeIfPresent(Bool.self, forKey: .isInsertion) ?? false
         didManuallyReposition = try c.decodeIfPresent(Bool.self, forKey: .didManuallyReposition) ?? false
         didManuallyResizeWidth = try c.decodeIfPresent(Bool.self, forKey: .didManuallyResizeWidth) ?? false
         didManuallyResizeHeight = try c.decodeIfPresent(Bool.self, forKey: .didManuallyResizeHeight) ?? false

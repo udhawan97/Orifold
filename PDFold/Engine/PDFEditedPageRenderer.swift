@@ -43,7 +43,19 @@ enum PDFEditedPageRenderer {
     }
 
     private static func eraseBounds(for operation: PDFTextEditOperation) -> [CGRect] {
-        let sourceBounds = operation.sourceLineBounds.isEmpty ? [operation.sourceBounds] : operation.sourceLineBounds
+        // Inserting brand-new text has nothing to erase; patching would stamp an opaque
+        // rectangle over whatever background art sits under the insertion point.
+        guard !operation.isInsertion else { return [] }
+        let sourceBounds = (operation.sourceLineBounds.isEmpty ? [operation.sourceBounds] : operation.sourceLineBounds)
+            .map { $0.standardized }
+        // Erase the replacement box only where it grew past the original text's own
+        // footprint. Blanket-erasing it painted background-colored rectangles over
+        // untouched decoration (chip outlines, rules, fills) next to the text.
+        var sourceUnion = sourceBounds[0]
+        sourceBounds.dropFirst().forEach { sourceUnion = sourceUnion.union($0) }
+        if sourceUnion.insetBy(dx: -2, dy: -2).contains(operation.editedBounds.standardized) {
+            return sourceBounds
+        }
         return sourceBounds + [operation.editedBounds]
     }
 
@@ -65,19 +77,38 @@ enum PDFEditedPageRenderer {
         context.restoreGState()
     }
 
-    static func measuredBounds(for operation: PDFTextEditOperation) -> CGRect {
+    static func measuredBounds(for operation: PDFTextEditOperation, pageBounds: CGRect? = nil) -> CGRect {
         let layout = ReplacementTextLayout(operation: operation)
 
         // Word-wrap can't break every unbreakable run, so an undersized stale box may
         // clip. Auto-growth is allowed only inside the detected column. A manual width
         // choice is already the user's wrap policy, so keep it exactly.
         let unwrapped = layout.suggestedSize(constrainedTo: CGSize(width: 10_000, height: 10_000))
-        let maxWidth = maximumTextWidth(for: operation)
+        let pageLimit: CGFloat? = {
+            guard let page = pageBounds?.standardized, page.width > 0 else { return nil }
+            return max(24, page.maxX - 8 - operation.editedBounds.minX)
+        }()
+        var maxWidth = maximumTextWidth(for: operation)
+        if let pageLimit { maxWidth = min(maxWidth, pageLimit) }
+        let trimmedReplacement = operation.replacementText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let textUnchanged = !trimmedReplacement.isEmpty &&
+            trimmedReplacement == operation.sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let singleUnbreakableToken = !trimmedReplacement.isEmpty &&
+            trimmedReplacement.rangeOfCharacter(from: .whitespaces) == nil
         let width: CGFloat
         if operation.didManuallyResizeWidth {
             width = max(1, operation.editedBounds.width)
         } else {
-            width = min(max(operation.editedBounds.width, min(ceil(unwrapped.width) + 6, maxWidth)), maxWidth)
+            let needed = ceil(unwrapped.width) + 8
+            var cap = maxWidth
+            // Unchanged text always fit the page before — never reflow it onto a second
+            // line just because the detected column or a substituted font came out a bit
+            // narrow. A single unbreakable token can't wrap meaningfully either; both may
+            // grow toward the page's right margin instead of wrapping mid-thought.
+            if textUnchanged || singleUnbreakableToken, needed > cap {
+                cap = min(needed, pageLimit ?? min(needed, 620))
+            }
+            width = min(max(operation.editedBounds.width, min(needed, cap)), cap)
         }
 
         let measured = layout.suggestedSize(constrainedTo: CGSize(width: width, height: 10_000))
