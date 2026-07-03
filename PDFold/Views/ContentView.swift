@@ -211,10 +211,11 @@ struct ContentView: View {
                             Image(systemName: "tray.and.arrow.down.fill")
                                 .font(.system(size: 34, weight: .light))
                                 .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(LinearGradient.dsAccent)
                             Text("Drop to add documents")
                                 .font(.dsHeadline())
+                                .foregroundStyle(Color.dsAccent)
                         }
-                        .foregroundStyle(Color.dsAccent)
                         .padding(.horizontal, .dsXL)
                         .padding(.vertical, .dsLG)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous))

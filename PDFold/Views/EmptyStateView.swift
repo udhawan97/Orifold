@@ -119,7 +119,7 @@ struct EmptyStateView: View {
     private var dropZoneIcon: some View {
         let icon = Image(systemName: isDropTargeted ? "tray.and.arrow.down.fill" : "doc.badge.plus")
             .font(.system(size: 28, weight: .light))
-            .foregroundStyle(Color.dsAccent)
+            .foregroundStyle(LinearGradient.dsAccent)
             .symbolRenderingMode(.hierarchical)
 
         if shouldReduceMotion {
@@ -183,7 +183,7 @@ private struct EmptyStateAmbientBackground: View {
 
         let time = shouldReduceMotion ? 0 : date.timeIntervalSinceReferenceDate
         let phase = time / 28
-        let glowOpacity = colorScheme == .dark ? 0.08 : 0.05
+        let glowOpacity = colorScheme == .dark ? 0.10 : 0.06
         let tertiaryOpacity = colorScheme == .dark ? 0.07 : 0.045
 
         drawAmbientGlows(in: &context, size: size, phase: phase, opacity: glowOpacity)

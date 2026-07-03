@@ -257,7 +257,7 @@ private struct SidebarFileType {
         case "pdf":
             self.init("PDF", "doc.fill", Color(red: 0.78, green: 0.20, blue: 0.24), .white, "PDF file")
         case "html", "htm":
-            self.init("HTML", "globe", Color(red: 0.07, green: 0.48, blue: 0.65), .white, "HTML file")
+            self.init("HTML", "globe", Color(red: 0.047, green: 0.404, blue: 0.651), .white, "HTML file")
         case "doc", "docx", "odt", "rtf":
             self.init("DOC", "doc.text.fill", Color(red: 0.10, green: 0.30, blue: 0.52), .white, "Word document")
         case "md", "markdown":
