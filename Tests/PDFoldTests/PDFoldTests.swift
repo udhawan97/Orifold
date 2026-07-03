@@ -1928,13 +1928,31 @@ final class WorkspaceDocumentTests: XCTestCase {
     }
 
     func testAppInfoPlistAdvertisesExpandedImportFormats() throws {
+        let debugLogURL = URL(fileURLWithPath: "/tmp/pdfold-ci-debug.log")
+        func debugLog(_ message: String) {
+            guard let data = "CI-DEBUG \(message)\n".data(using: .utf8) else { return }
+            if let handle = try? FileHandle(forWritingTo: debugLogURL) {
+                handle.seekToEndOfFile()
+                handle.write(data)
+                try? handle.synchronize()
+                try? handle.close()
+            } else {
+                try? data.write(to: debugLogURL)
+            }
+        }
+        debugLog("start")
         let plistURL = try appInfoPlistURL(sourceFile: #filePath)
+        debugLog("resolved plistURL = \(plistURL.path)")
         let plistData = try Data(contentsOf: plistURL)
+        debugLog("read plistData, \(plistData.count) bytes")
         let plist = try XCTUnwrap(
             PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any]
         )
+        debugLog("parsed plist, \(plist.count) top-level keys")
         let documentTypes = try XCTUnwrap(plist["CFBundleDocumentTypes"] as? [[String: Any]])
+        debugLog("documentTypes count = \(documentTypes.count)")
         let advertisedExtensions = Set(documentTypes.flatMap { $0["CFBundleTypeExtensions"] as? [String] ?? [] })
+        debugLog("advertisedExtensions count = \(advertisedExtensions.count)")
 
         let expectedExtensions = [
             "xlsx", "pptx", "epub", "rtfd", "svg", "txt", "text", "log", "rtf", "md", "markdown",
@@ -1944,15 +1962,15 @@ final class WorkspaceDocumentTests: XCTestCase {
             "bash", "sql", "ini", "conf", "env"
         ]
         for pathExtension in expectedExtensions {
-            FileHandle.standardError.write("CI-DEBUG checking extension: \(pathExtension)\n".data(using: .utf8)!)
+            debugLog("checking extension: \(pathExtension)")
             XCTAssertTrue(advertisedExtensions.contains(pathExtension), pathExtension)
             let type = try XCTUnwrap(UTType(filenameExtension: pathExtension), pathExtension)
-            FileHandle.standardError.write("CI-DEBUG resolved \(pathExtension) -> \(type.identifier)\n".data(using: .utf8)!)
+            debugLog("resolved \(pathExtension) -> \(type.identifier)")
             XCTAssertTrue(
                 WorkspaceDocument.importableContentTypes.contains { type.conforms(to: $0) },
                 pathExtension
             )
-            FileHandle.standardError.write("CI-DEBUG done with extension: \(pathExtension)\n".data(using: .utf8)!)
+            debugLog("done with extension: \(pathExtension)")
         }
     }
 

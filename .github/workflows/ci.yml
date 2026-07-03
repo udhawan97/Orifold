@@ -71,6 +71,16 @@ jobs:
       - name: Swift Package tests
         run: swift test
 
+      - name: Show CI debug log
+        if: always()
+        run: |
+          if [ -f /tmp/pdfold-ci-debug.log ]; then
+            echo "--- /tmp/pdfold-ci-debug.log ---"
+            cat /tmp/pdfold-ci-debug.log
+          else
+            echo "/tmp/pdfold-ci-debug.log was not created."
+          fi
+
       - name: Xcode build
         run: |
           xcodebuild \
