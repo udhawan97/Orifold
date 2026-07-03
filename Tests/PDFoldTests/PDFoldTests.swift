@@ -1446,6 +1446,7 @@ final class PDFKitEngineTests: XCTestCase {
     }
 }
 
+@MainActor
 final class PDFProcessingEngineTests: XCTestCase {
     func testPDFiumProcessingEngineValidatesPDFData() throws {
         let data = try makePDF(pageTexts: ["pdfium"]).dataRepresentation().unwrap()
@@ -3031,6 +3032,7 @@ final class PDFCompressionExportTests: XCTestCase {
     }
 }
 
+@MainActor
 final class V6IntegratedFlowTests: XCTestCase {
     func testFinalGateAllFiveFeaturesTogether() async throws {
         let tempDirectory = FileManager.default.temporaryDirectory

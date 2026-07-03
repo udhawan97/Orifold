@@ -3,6 +3,7 @@ import PDFKit
 import XCTest
 @testable import PDFold
 
+@MainActor
 final class PDFOCRTests: XCTestCase {
     func testSearchableDataAddsInvisibleTextLayer() async throws {
         let sourcePDF = try imageOnlyPDF()
