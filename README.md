@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <strong>From six scattered files to one polished, searchable, password-protected PDF.<br>No account. No upload. No subscription.</strong>
+  <strong>From upto 50 scattered files to one polished, searchable, password-protected PDF.<br>No account. No upload. No subscription.</strong>
 </p>
 
 <p align="center">
