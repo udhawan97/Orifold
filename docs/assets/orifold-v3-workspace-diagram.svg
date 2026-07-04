@@ -69,7 +69,7 @@
     </g>
     <text x="122" y="156" class="eye" fill="#5EEAD4">EVERYTHING RUNS ON YOUR MAC</text>
   </g>
-  <text x="640" y="522" text-anchor="middle" class="cap">PDFKit · PDFium · Vision OCR — everything on-device</text>
+  <text x="640" y="522" text-anchor="middle" class="cap">PDFKit · PDFium · qpdf · Vision OCR — everything on-device</text>
 
   <!-- card 01 · import -->
   <g transform="translate(88 190)">

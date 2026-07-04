@@ -221,7 +221,7 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/unin
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
 | **Codebase** | 52 Swift source files, ~24,000 lines |
-| **Tests** | 276 tests gating every release |
+| **Tests** | 281 tests gating every release |
 | **PDF engines** | PDFKit (composition) + PDFium (image compression) + qpdf (repair, AES-256, sanitize, structural validation) + Vision (OCR) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds the release zip; installer, Homebrew cask, and uninstaller ship from this repo |
