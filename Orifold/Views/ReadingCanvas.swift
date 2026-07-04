@@ -2567,7 +2567,7 @@ final class NoteEditorViewController: NSViewController {
         }
         familyPopup.target = self
         familyPopup.action = #selector(changeFamily(_:))
-        familyPopup.toolTip = "Font"
+        familyPopup.toolTip = "Font family"
         cursor.place(familyPopup, width: 124)
 
         sizeField.alignment = .center
@@ -2587,7 +2587,7 @@ final class NoteEditorViewController: NSViewController {
         sizeStepper.integerValue = Int(round(documentFontSize))
         sizeStepper.target = self
         sizeStepper.action = #selector(changeSize(_:))
-        sizeStepper.toolTip = "Increase or decrease font size"
+        sizeStepper.toolTip = "Adjust font size"
         cursor.place(sizeStepper, width: 20)
         cursor.addDivider()
 
@@ -2638,26 +2638,26 @@ final class NoteEditorViewController: NSViewController {
 
         matchFormatButton.target = self
         matchFormatButton.action = #selector(matchNearbyFormat)
-        matchFormatButton.image = NSImage(systemSymbolName: "textformat.size", accessibilityDescription: "Match nearby style")
+        matchFormatButton.image = NSImage(systemSymbolName: "eyedropper", accessibilityDescription: "Sample nearby style")
         matchFormatButton.imagePosition = .imageOnly
         matchFormatButton.bezelStyle = .rounded
-        matchFormatButton.toolTip = "Match this edit to the nearby PDF text, including font, color, alignment, margins, and wrapping."
+        matchFormatButton.toolTip = "Sample the nearby PDF text's style (font, color, alignment, margins, wrapping) and apply it to this edit."
         cursor.place(matchFormatButton, width: 30)
 
         copyFormatButton.target = self
         copyFormatButton.action = #selector(copyNearbyFormat)
-        copyFormatButton.image = NSImage(systemSymbolName: "paintbrush", accessibilityDescription: "Copy format")
+        copyFormatButton.image = NSImage(systemSymbolName: "paintbrush", accessibilityDescription: "Copy style")
         copyFormatButton.imagePosition = .imageOnly
         copyFormatButton.bezelStyle = .rounded
-        copyFormatButton.toolTip = "Copy the nearby/original PDF text style, including font, color, alignment, margins, and wrapping."
+        copyFormatButton.toolTip = "Copy the nearby PDF text's style to reuse elsewhere. Click another text edit to paste it, or press Paste style here."
         cursor.place(copyFormatButton, width: 30)
 
         applyFormatButton.target = self
         applyFormatButton.action = #selector(applyCopiedFormat)
-        applyFormatButton.image = NSImage(systemSymbolName: "paintbrush.pointed", accessibilityDescription: "Apply copied format")
+        applyFormatButton.image = NSImage(systemSymbolName: "paintbrush.fill", accessibilityDescription: "Paste copied style")
         applyFormatButton.imagePosition = .imageOnly
         applyFormatButton.bezelStyle = .rounded
-        applyFormatButton.toolTip = "Apply the copied format to this edit."
+        applyFormatButton.toolTip = "Paste the copied style onto this edit."
         cursor.place(applyFormatButton, width: 30)
 
         restoreFormatButton.target = self
@@ -2665,16 +2665,16 @@ final class NoteEditorViewController: NSViewController {
         restoreFormatButton.image = NSImage(systemSymbolName: "arrow.uturn.backward.circle", accessibilityDescription: "Restore original style")
         restoreFormatButton.imagePosition = .imageOnly
         restoreFormatButton.bezelStyle = .rounded
-        restoreFormatButton.toolTip = "Restore this edit to the original detected PDF text formatting."
+        restoreFormatButton.toolTip = "Undo style changes and restore this edit's original detected formatting."
         cursor.place(restoreFormatButton, width: 30)
         cursor.addDivider()
 
         if isExistingEdit {
             let revert = NSButton(title: "", target: self, action: #selector(revertButton))
-            revert.image = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: "Revert")
+            revert.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "Remove this edit")
             revert.imagePosition = .imageOnly
             revert.bezelStyle = .rounded
-            revert.toolTip = "Remove this edit and restore the original text"
+            revert.toolTip = "Remove this edit entirely and restore the original PDF text"
             cursor.place(revert, width: 30)
         }
 
@@ -3006,19 +3006,19 @@ final class NoteEditorViewController: NSViewController {
     @objc private func copyNearbyFormat() {
         viewModel?.copiedInlineTextFormat = sourceFormat
         viewModel?.isInlineTextFormatPainterArmed = true
-        viewModel?.showEditMessage("Copied nearby PDF text style. Click another text edit to apply it automatically, or press Apply here.", isError: false)
+        viewModel?.showEditMessage("Copied nearby PDF text style. Click another text edit to paste it automatically, or press Paste style here.", isError: false)
         refocusEditor()
     }
 
     @objc private func applyCopiedFormat() {
         guard let format = viewModel?.copiedInlineTextFormat else {
-            viewModel?.showEditMessage("Copy style first, then open another text edit and press Apply style.", isError: false)
+            viewModel?.showEditMessage("Copy style first, then open another text edit and press Paste style.", isError: false)
             refocusEditor()
             return
         }
         apply(format: format, markStyleChange: true)
         viewModel?.isInlineTextFormatPainterArmed = false
-        viewModel?.showEditMessage("Applied copied style. Press Done to save it.", isError: false)
+        viewModel?.showEditMessage("Pasted copied style. Press Done to save it.", isError: false)
         refocusEditor()
     }
 
@@ -3028,7 +3028,7 @@ final class NoteEditorViewController: NSViewController {
               let format = viewModel.copiedInlineTextFormat else { return }
         apply(format: format, markStyleChange: true)
         viewModel.isInlineTextFormatPainterArmed = false
-        viewModel.showEditMessage("Applied copied style to this edit. Press Done to save it.", isError: false)
+        viewModel.showEditMessage("Pasted copied style onto this edit. Press Done to save it.", isError: false)
     }
 
     @objc private func restoreOriginalFormat() {
