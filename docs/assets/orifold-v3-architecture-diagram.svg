@@ -231,7 +231,7 @@
     <circle cx="29" cy="120" r="2.5" fill="#2DD4BF"/>
     <text x="40" y="124" class="item">xcodebuild build + test</text>
     <circle cx="29" cy="142" r="2.5" fill="#2DD4BF"/>
-    <text x="40" y="146" class="item">202 tests in the gate</text>
+    <text x="40" y="146" class="item">281 tests in the gate</text>
     <circle cx="29" cy="164" r="2.5" fill="#2DD4BF"/>
     <text x="40" y="168" class="item">CodeQL + dep review</text>
     <circle cx="29" cy="186" r="2.5" fill="#2DD4BF"/>
@@ -260,11 +260,11 @@
     </g>
     <text x="52" y="32" class="eye" fill="#94A3B8">BY THE NUMBERS</text>
     <path d="M24 52 H220" stroke="#26364E"/>
-    <text x="24" y="92" class="stat">59</text>
+    <text x="24" y="92" class="stat">52</text>
     <text x="24" y="112" class="item">Swift source files</text>
-    <text x="24" y="148" class="stat">202</text>
+    <text x="24" y="148" class="stat">281</text>
     <text x="24" y="168" class="item">tests in the release gate</text>
-    <text x="24" y="204" class="stat">~21k</text>
+    <text x="24" y="204" class="stat">~24k</text>
     <text x="24" y="224" class="item">lines of Swift</text>
     <text x="24" y="260" class="stat">0</text>
     <text x="24" y="280" class="item">documents uploaded, ever</text>
