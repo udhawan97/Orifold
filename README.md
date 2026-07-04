@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/orifold-icon.png" alt="Orifold app icon" width="140">
+<img src="docs/assets/orifold-icon.png" alt="Orifold app icon" width="168">
 
 # Orifold
 
