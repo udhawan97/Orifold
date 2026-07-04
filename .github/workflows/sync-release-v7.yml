@@ -1,4 +1,4 @@
-name: Sync release-v6
+name: Sync release-v7
 
 on:
   schedule:
@@ -10,12 +10,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: sync-release-v6
+  group: sync-release-v7
   cancel-in-progress: false
 
 jobs:
   sync:
-    name: Move release-v6 to main when main advances
+    name: Move release-v7 to main when main advances
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -24,10 +24,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Sync release-v6 tag
+      - name: Sync release-v7 tag
         id: sync
         env:
-          RELEASE_TAG: release-v6
+          RELEASE_TAG: release-v7
         run: |
           set -euo pipefail
 
@@ -60,11 +60,11 @@ jobs:
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "$RELEASE_TAG moved from ${tag_sha:-<missing>} to $main_sha."
 
-      - name: Rebuild latest v6 release
+      - name: Rebuild latest v7 release
         if: steps.sync.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh workflow run release.yml \
             --ref main \
-            -f release_tag=release-v6
+            -f release_tag=release-v7
