@@ -181,7 +181,7 @@ private struct GuideFeature: Identifiable {
     static let all = [
         GuideFeature(icon: "doc.badge.plus",
                      title: "Import",
-                     detail: "Drop in PDFs, Word, HTML, Markdown, text, data files, and images."),
+                     detail: "Drop in up to 50 PDFs, Word, HTML, Markdown, text, data files, or images at once."),
         GuideFeature(icon: "square.stack.3d.down.right",
                      title: "Assemble",
                      detail: "Combine files, reorder pages, rotate, delete, and reshape the packet."),

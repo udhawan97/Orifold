@@ -430,6 +430,7 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertFalse(decoded.didManuallyReposition)
         XCTAssertFalse(decoded.didManuallyResizeWidth)
         XCTAssertFalse(decoded.didManuallyResizeHeight)
+        XCTAssertFalse(decoded.didManuallyChangeStyle)
     }
 
     func testInlineTextEditRegeneratesTouchedPageAndStoresOperation() throws {
@@ -676,7 +677,8 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             fontName: "Courier-Bold",
             fontSize: sourceBlock.fontSize + 6,
             textColor: .systemRed,
-            alignment: .right
+            alignment: .right,
+            didManuallyChangeStyle: true
         ))
 
         let editedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
@@ -692,6 +694,98 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(reopened.sourceFormat.fontSize, sourceBlock.fontSize, accuracy: 0.01)
         XCTAssertEqual(reopened.sourceFormat.textColor, sourceBlock.textColor)
         XCTAssertEqual(reopened.sourceFormat.alignment, sourceBlock.alignment ?? .left)
+    }
+
+    func testReopenedInlineTextEditWithoutManualStyleUsesOriginalFormat() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Nearby styled text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let originalPage = try XCTUnwrap(PDFDocument(data: fixture.pdfData)?.page(at: 0))
+        let analysis = PDFTextAnalysisEngine().analyze(
+            data: fixture.pdfData,
+            pageIndex: 0,
+            pageRefID: fixture.refs[0].id,
+            fallbackPage: originalPage
+        )
+        let sourceBlock = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Nearby") })
+        let editedBounds = sourceBlock.bounds.insetBy(dx: -2, dy: -2)
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Same style replacement",
+            editedBounds: editedBounds,
+            fontName: "Courier-Bold",
+            fontSize: sourceBlock.fontSize + 6,
+            textColor: .systemRed,
+            alignment: .right
+        ))
+
+        let editedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let reopened = try XCTUnwrap(viewModel.editableTextBlock(
+            at: CGPoint(x: editedBounds.midX, y: editedBounds.midY),
+            on: editedPage,
+            in: viewModel.loadedPDFs.first?.1
+        ))
+
+        XCTAssertEqual(reopened.block.fontName, sourceBlock.fontName)
+        XCTAssertEqual(reopened.block.fontSize, sourceBlock.fontSize, accuracy: 0.01)
+        XCTAssertEqual(reopened.block.textColor, sourceBlock.textColor)
+        XCTAssertEqual(reopened.block.alignment, sourceBlock.alignment ?? .left)
+    }
+
+    func testRestoreOriginalStyleClearsExistingManualStyleFlag() throws {
+        let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Nearby styled text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let originalPage = try XCTUnwrap(PDFDocument(data: fixture.pdfData)?.page(at: 0))
+        let analysis = PDFTextAnalysisEngine().analyze(
+            data: fixture.pdfData,
+            pageIndex: 0,
+            pageRefID: fixture.refs[0].id,
+            fallbackPage: originalPage
+        )
+        let sourceBlock = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Nearby") })
+        let editedBounds = sourceBlock.bounds.insetBy(dx: -2, dy: -2)
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Styled replacement",
+            editedBounds: editedBounds,
+            fontName: "Courier-Bold",
+            fontSize: sourceBlock.fontSize + 6,
+            textColor: .systemRed,
+            alignment: .right,
+            didManuallyChangeStyle: true
+        ))
+        XCTAssertTrue(viewModel.document.workspace.pageEditStates.first?.operations.first?.didManuallyChangeStyle == true)
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Styled replacement",
+            editedBounds: editedBounds,
+            fontName: sourceBlock.fontName,
+            fontSize: sourceBlock.fontSize,
+            textColor: sourceBlock.textColor.nsColor,
+            alignment: sourceBlock.alignment?.nsTextAlignment ?? .left,
+            didManuallyChangeStyle: false,
+            didRestoreOriginalStyle: true
+        ))
+
+        let restored = try XCTUnwrap(viewModel.document.workspace.pageEditStates.first?.operations.first)
+        XCTAssertFalse(restored.didManuallyChangeStyle)
+        XCTAssertEqual(restored.fontName, sourceBlock.fontName)
+        XCTAssertEqual(restored.fontSize, sourceBlock.fontSize, accuracy: 0.01)
+        XCTAssertEqual(restored.textColor, sourceBlock.textColor)
+        XCTAssertEqual(restored.alignment, sourceBlock.alignment ?? .left)
     }
 
     func testReopenedAutoSizedInlineTextEditUsesOriginalParagraphWidth() throws {
@@ -1545,27 +1639,156 @@ final class InlineTextEditPlacementTests: XCTestCase {
     func testInlineEditorToolbarControlsReceiveHitTestsWhenToolbarIsOffset() throws {
         let fixture = try makeInlineEditorFixture(pdfViewFrame: CGRect(x: 0, y: 0, width: 1800, height: 1000))
         let matchButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title == "Match nearby"
+            button.title.isEmpty && button.toolTip?.hasPrefix("Match this edit") == true
         })
         let copyFormat = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title == "Copy style"
+            button.title.isEmpty && button.toolTip?.hasPrefix("Copy the nearby") == true
         })
         let applyFormat = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title == "Apply style"
+            button.title.isEmpty && button.toolTip?.hasPrefix("Apply the copied format") == true
+        })
+        let restoreFormat = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title.isEmpty && button.toolTip?.hasPrefix("Restore this edit") == true
         })
         let bold = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "B"
         })
         let alignment = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSSegmentedControl) in true })
 
-        for view in [matchButton, copyFormat, applyFormat, bold, alignment] as [NSView] {
+        for view in [matchButton, copyFormat, applyFormat, restoreFormat, bold, alignment] as [NSView] {
             XCTAssertGreaterThan(view.convert(.zero, to: fixture.overlay).x, 100)
             let point = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: fixture.overlay)
             XCTAssertTrue(fixture.overlay.hitTest(point) === view)
         }
     }
 
-    func testInlineEditorCommitsParagraphColumnWidthWhenTextIsShorter() throws {
+    func testInlineEditorCopyThenApplyUsesNearbyOriginalFormat() throws {
+        let pageRef = PageRef(memberDocId: UUID(), sourcePageIndex: 0)
+        let editedBlock = EditableTextBlock(
+            pageRefID: pageRef.id,
+            text: "Edited text",
+            bounds: CGRect(x: 96, y: 620, width: 260, height: 28),
+            lines: [],
+            columnBounds: CGRect(x: 96, y: 0, width: 260, height: 792),
+            fontName: "Courier-Bold",
+            fontSize: 18,
+            textColor: .init(nsColor: .systemRed),
+            alignment: .right,
+            rotation: 0,
+            baseline: 620,
+            confidence: .high
+        )
+        let nearbyColumn = CGRect(x: 72, y: 0, width: 430, height: 792)
+        let nearbyBounds = CGRect(x: 72, y: 650, width: 360, height: 16)
+        let nearbyFormat = PDFTextEditFormat(
+            fontName: "Helvetica",
+            fontSize: 10,
+            textColor: .documentText,
+            alignment: .left,
+            bounds: nearbyBounds,
+            columnBounds: nearbyColumn
+        )
+        let fixture = try makeInlineEditorFixture(
+            text: editedBlock.text,
+            pageRef: pageRef,
+            block: editedBlock,
+            sourceFormat: nearbyFormat,
+            pdfViewFrame: CGRect(x: 0, y: 0, width: 1400, height: 1000)
+        )
+        let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
+        let copy = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title.isEmpty && button.toolTip?.hasPrefix("Copy the nearby") == true
+        })
+        let apply = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title.isEmpty && button.toolTip?.hasPrefix("Apply the copied format") == true
+        })
+        let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Done"
+        })
+
+        textView.string = "Replacement text"
+        copy.performClick(nil)
+        XCTAssertEqual(fixture.viewModel.copiedInlineTextFormat, nearbyFormat)
+        apply.performClick(nil)
+        done.performClick(nil)
+
+        let committed = try XCTUnwrap(fixture.committedEdit())
+        XCTAssertEqual(committed.fontName, "Helvetica")
+        XCTAssertEqual(committed.fontSize, 10, accuracy: 0.01)
+        XCTAssertEqual(committed.alignment, .left)
+        XCTAssertEqual(committed.editedBounds.minX, nearbyBounds.minX, accuracy: 0.01)
+        XCTAssertEqual(committed.editedBounds.width, nearbyBounds.width, accuracy: 0.01)
+    }
+
+    func testInlineEditorRestoreOriginalFormatClearsManualStyleChange() throws {
+        let fixture = try makeInlineEditorFixture()
+        let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
+        let bold = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "B"
+        })
+        let restore = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title.isEmpty && button.toolTip?.hasPrefix("Restore this edit") == true
+        })
+        let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Done"
+        })
+
+        textView.string = "Changed words"
+        bold.performClick(nil)
+        restore.performClick(nil)
+        done.performClick(nil)
+
+        let committed = try XCTUnwrap(fixture.committedEdit())
+        XCTAssertEqual(committed.fontSize, 8, accuracy: 0.01)
+        XCTAssertEqual(committed.fontName, "Helvetica")
+        XCTAssertFalse(committed.didManuallyChangeStyle)
+    }
+
+    func testInlineEditorRestoreOriginalFormatCommitsColorOnlyRestore() throws {
+        let pageRef = PageRef(memberDocId: UUID(), sourcePageIndex: 0)
+        let editedBlock = EditableTextBlock(
+            pageRefID: pageRef.id,
+            text: "Original text",
+            bounds: CGRect(x: 72, y: 650, width: 160, height: 16),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 8,
+            textColor: .init(nsColor: .systemRed),
+            alignment: .left,
+            rotation: 0,
+            baseline: 650,
+            confidence: .high
+        )
+        let sourceFormat = PDFTextEditFormat(
+            fontName: "Helvetica",
+            fontSize: 8,
+            textColor: .documentText,
+            alignment: .left,
+            bounds: editedBlock.bounds,
+            columnBounds: editedBlock.columnBounds
+        )
+        let fixture = try makeInlineEditorFixture(
+            text: editedBlock.text,
+            pageRef: pageRef,
+            block: editedBlock,
+            sourceFormat: sourceFormat
+        )
+        let restore = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title.isEmpty && button.toolTip?.hasPrefix("Restore this edit") == true
+        })
+        let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
+            button.title == "Done"
+        })
+
+        restore.performClick(nil)
+        done.performClick(nil)
+
+        let committed = try XCTUnwrap(fixture.committedEdit())
+        XCTAssertTrue(colorsApproximatelyEqual(committed.textColor, sourceFormat.textColor.nsColor))
+        XCTAssertFalse(committed.didManuallyChangeStyle)
+    }
+
+    func testInlineEditorCommitsParagraphBoundsWidthWhenTextIsShorter() throws {
         let pageRef = PageRef(memberDocId: UUID(), sourcePageIndex: 0)
         let firstLine = PDFTextLine(
             text: "First long line",
@@ -1608,8 +1831,8 @@ final class InlineTextEditPlacementTests: XCTestCase {
         done.performClick(nil)
 
         let committed = try XCTUnwrap(fixture.committedEdit())
-        XCTAssertEqual(committed.editedBounds.minX, columnBounds.minX, accuracy: 0.01)
-        XCTAssertEqual(committed.editedBounds.width, columnBounds.width, accuracy: 0.01)
+        XCTAssertEqual(committed.editedBounds.minX, block.bounds.minX, accuracy: 0.01)
+        XCTAssertEqual(committed.editedBounds.width, block.bounds.width, accuracy: 0.01)
     }
 
     func testInlineEditorMatchAppliesNearbyParagraphColumnGeometry() throws {
@@ -1628,12 +1851,13 @@ final class InlineTextEditPlacementTests: XCTestCase {
             confidence: .high
         )
         let nearbyColumn = CGRect(x: 72, y: 0, width: 430, height: 792)
+        let nearbyBounds = CGRect(x: 72, y: 650, width: 360, height: 16)
         let nearbyFormat = PDFTextEditFormat(
             fontName: "Helvetica",
             fontSize: 10,
             textColor: .documentText,
             alignment: .left,
-            bounds: CGRect(x: 72, y: 650, width: 430, height: 16),
+            bounds: nearbyBounds,
             columnBounds: nearbyColumn
         )
         let fixture = try makeInlineEditorFixture(
@@ -1645,7 +1869,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
         )
         let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
         let match = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title == "Match nearby"
+            button.title.isEmpty && button.toolTip?.hasPrefix("Match this edit") == true
         })
         let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "Done"
@@ -1656,14 +1880,14 @@ final class InlineTextEditPlacementTests: XCTestCase {
 
         match.performClick(nil)
         let matchedPageBounds = fixture.pdfView.convert(textView.frame, to: fixture.page).standardized
-        XCTAssertEqual(matchedPageBounds.minX, nearbyColumn.minX, accuracy: 0.01)
-        XCTAssertEqual(matchedPageBounds.width, nearbyColumn.width, accuracy: 0.01)
+        XCTAssertEqual(matchedPageBounds.minX, nearbyBounds.minX, accuracy: 0.01)
+        XCTAssertEqual(matchedPageBounds.width, nearbyBounds.width, accuracy: 0.01)
 
         done.performClick(nil)
 
         let committed = try XCTUnwrap(fixture.committedEdit())
-        XCTAssertEqual(committed.editedBounds.minX, nearbyColumn.minX, accuracy: 0.01)
-        XCTAssertEqual(committed.editedBounds.width, nearbyColumn.width, accuracy: 0.01)
+        XCTAssertEqual(committed.editedBounds.minX, nearbyBounds.minX, accuracy: 0.01)
+        XCTAssertEqual(committed.editedBounds.width, nearbyBounds.width, accuracy: 0.01)
         XCTAssertEqual(committed.block.bounds, narrowBlock.bounds)
         XCTAssertEqual(committed.block.columnBounds, nearbyColumn)
     }
@@ -1707,6 +1931,35 @@ final class InlineTextEditPlacementTests: XCTestCase {
         sizeField.stringValue = "8"
         doneButton.performClick(nil)
 
+        XCTAssertNil(fixture.committedEdit())
+    }
+
+    func testInlineEditorUndoDoesNotFallThroughToWorkspaceUndoWhileEditing() throws {
+        let fixture = try makeInlineEditorFixture()
+        let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
+        let undoManager = UndoManager()
+        var workspaceUndoInvoked = false
+        undoManager.registerUndo(withTarget: fixture.viewModel) { _ in
+            workspaceUndoInvoked = true
+        }
+        fixture.viewModel.undoManager = undoManager
+
+        let event = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: .command,
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "z",
+            charactersIgnoringModifiers: "z",
+            isARepeat: false,
+            keyCode: 6
+        ))
+        textView.keyDown(with: event)
+
+        XCTAssertFalse(workspaceUndoInvoked)
+        XCTAssertTrue(undoManager.canUndo)
         XCTAssertNil(fixture.committedEdit())
     }
 
@@ -2310,7 +2563,7 @@ final class PDFProcessingEngineTests: XCTestCase {
         XCTAssertEqual(processingEngine.validateCallCount, 2)
     }
 
-    func testImportFilesLimitsBatchToTenAndExplainsHowToContinue() async throws {
+    func testImportFilesLimitsBatchToMaximumBatchSizeAndExplainsHowToContinue() async throws {
         var tempURLs: [URL] = []
         defer {
             for url in tempURLs {
@@ -2401,7 +2654,7 @@ final class WorkspaceDocumentTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: resolvedURL.path))
     }
 
-    func testImportBatchAllowsTenFiles() {
+    func testImportBatchAllowsMaximumBatchSizeFiles() {
         let urls = (0..<maximumImportBatchSize).map { URL(fileURLWithPath: "/tmp/import-\($0).pdf") }
 
         let batch = limitedImportBatch(from: urls)
@@ -2410,13 +2663,33 @@ final class WorkspaceDocumentTests: XCTestCase {
         XCTAssertFalse(batch.wasLimited)
     }
 
-    func testImportBatchLimitsMoreThanTenFiles() {
+    func testImportBatchLimitsMoreThanMaximumBatchSizeFiles() {
         let urls = (0..<(maximumImportBatchSize + 1)).map { URL(fileURLWithPath: "/tmp/import-\($0).pdf") }
 
         let batch = limitedImportBatch(from: urls)
 
         XCTAssertEqual(batch.urls, Array(urls.prefix(maximumImportBatchSize)))
         XCTAssertTrue(batch.wasLimited)
+    }
+
+    func testDropResolverLimitsProviderWorkToMaximumBatchSize() async {
+        let providers = (0..<(maximumImportBatchSize + 1)).map { index in
+            let url = URL(fileURLWithPath: "/tmp/drop-\(index).pdf")
+            let provider = NSItemProvider()
+            provider.registerDataRepresentation(
+                forTypeIdentifier: UTType.fileURL.identifier,
+                visibility: .all
+            ) { completion in
+                completion(url.dataRepresentation, nil)
+                return nil
+            }
+            return provider
+        }
+
+        let urls = await resolvedImportURLs(from: providers)
+
+        XCTAssertEqual(urls.count, maximumImportBatchSize)
+        XCTAssertEqual(urls.last?.lastPathComponent, "drop-\(maximumImportBatchSize - 1).pdf")
     }
 
     func testAppInfoPlistDoesNotAdvertiseWorkspaceSaveFormat() throws {
@@ -4692,6 +4965,7 @@ private struct InlineEditorFixture {
     let pdfView: OrifoldPDFView
     let page: PDFPage
     let overlay: InlineTextEditorOverlay
+    let viewModel: WorkspaceViewModel
     let committedEdit: () -> InlineTextEditorOverlay.EditResult?
 }
 
@@ -4724,9 +4998,10 @@ private func makeInlineEditorFixture(
         confidence: .high
     )
     var committed: InlineTextEditorOverlay.EditResult?
+    let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
     let overlay = InlineTextEditorOverlay(
         frame: pdfView.bounds,
-        viewModel: WorkspaceViewModel(document: WorkspaceDocument()),
+        viewModel: viewModel,
         pdfView: pdfView,
         page: page,
         pageRef: pageRef,
@@ -4738,7 +5013,7 @@ private func makeInlineEditorFixture(
         }
     }
     pdfView.addSubview(overlay)
-    return InlineEditorFixture(pdfView: pdfView, page: page, overlay: overlay) {
+    return InlineEditorFixture(pdfView: pdfView, page: page, overlay: overlay, viewModel: viewModel) {
         committed
     }
 }

@@ -64,7 +64,7 @@ struct SidebarView: View {
                                 .symbolRenderingMode(.hierarchical)
                             Text("Drop to add documents")
                                 .font(.dsHeadline())
-                            Text("Up to 10 files at a time")
+                            Text("Up to 50 files at a time")
                                 .font(.dsCaption())
                         }
                         .foregroundStyle(Color.dsAccent)

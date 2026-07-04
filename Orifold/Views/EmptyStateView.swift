@@ -41,7 +41,7 @@ struct EmptyStateView: View {
                             Text("Fold scattered pages into one polished PDF.")
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("Combine, arrange, annotate, and export documents in one calm workspace.")
+                            Text("Combine, arrange, annotate, and export documents in one calm workspace. Start with up to 50 files at once.")
                                 .font(.dsBody())
                                 .foregroundStyle(Color.dsTextSecondary)
                                 .multilineTextAlignment(.center)
@@ -70,7 +70,7 @@ struct EmptyStateView: View {
                             Text(isDropTargeted ? "Release to import" : "Drop files to begin")
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("PDF, Word, HTML, text, images. Up to 10 files.")
+                            Text("PDF, Word, HTML, text, images. Up to 50 files.")
                                 .font(.dsCaption())
                                 .foregroundStyle(Color.dsTextTertiary)
                         }

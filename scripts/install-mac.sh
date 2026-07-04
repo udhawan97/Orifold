@@ -279,6 +279,16 @@ stop_running_app() {
     fi
 }
 
+remove_build_cache_path() {
+    local path="$1"
+    [[ -e "$path" || -L "$path" ]] || return 0
+    /usr/bin/chflags -R nouchg,noschg "$path" 2>/dev/null || true
+    /bin/chmod -R u+w "$path" 2>/dev/null || true
+    /usr/bin/find "$path" -name .DS_Store -delete 2>/dev/null || true
+    /bin/rm -rf "$path"
+    [[ ! -e "$path" && ! -L "$path" ]] || fail "Could not remove SwiftPM build cache: $path"
+}
+
 install_staged_app() {
     [[ -d "$STAGED_APP" ]] || fail "No staged app bundle was prepared."
 
@@ -397,7 +407,9 @@ build_from_source() {
 
     if [[ $CLEAN_BUILD -eq 1 ]]; then
         print_step "Cleaning local SwiftPM build output"
-        /bin/rm -rf "$PROJECT_ROOT/.build/release" "$PROJECT_ROOT/.build/checkouts" "$PROJECT_ROOT/.build/repositories"
+        remove_build_cache_path "$PROJECT_ROOT/.build/release"
+        remove_build_cache_path "$PROJECT_ROOT/.build/checkouts"
+        remove_build_cache_path "$PROJECT_ROOT/.build/repositories"
     fi
 
     print_step "Building $APP_NAME with SwiftPM"

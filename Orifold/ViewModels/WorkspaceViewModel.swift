@@ -263,6 +263,7 @@ final class WorkspaceViewModel {
     var formSummary = PDFFormSummary()
     var highlightFormFields = false
     var selectedFormFieldIndex: Int? = nil
+    var isNightModeEnabled = false
 
     var hasPendingSignaturePlacement: Bool {
         pendingSignatureData != nil && pendingSignatureOptions != nil
@@ -563,7 +564,20 @@ final class WorkspaceViewModel {
     }
 
     private func performImport(urls: [URL], insertingAfter targetPageRefID: UUID? = nil) async {
-        for url in urls {
+        await MainActor.run {
+            self.operationProgress.start(
+                title: "Importing files",
+                detail: importProgressDetail(currentIndex: 0, totalCount: urls.count),
+                isCancellable: false
+            )
+        }
+        for (index, url) in urls.enumerated() {
+            await MainActor.run {
+                self.operationProgress.update(
+                    fraction: Double(index) / Double(max(urls.count, 1)),
+                    detail: importProgressDetail(currentIndex: index + 1, totalCount: urls.count, fileName: url.lastPathComponent)
+                )
+            }
             let result = await importDocument(from: url)
             await MainActor.run {
                 switch result {
@@ -578,12 +592,34 @@ final class WorkspaceViewModel {
             }
         }
         await MainActor.run {
+            self.operationProgress.update(
+                fraction: 1,
+                detail: importProgressDetail(currentIndex: urls.count, totalCount: urls.count)
+            )
             self.rebuild()
             self.isImporting = false
+            self.operationProgress.finish()
             if self.pendingPasswordPDF != nil {
                 self.isShowingPasswordPrompt = true
             }
         }
+    }
+
+    private func importProgressDetail(currentIndex: Int, totalCount: Int, fileName: String? = nil) -> String {
+        guard totalCount > 1 else {
+            if let fileName, !fileName.isEmpty {
+                return fileName
+            }
+            return "Preparing document"
+        }
+        guard currentIndex > 0 else {
+            return "Preparing \(totalCount) files"
+        }
+        let countText = "File \(min(currentIndex, totalCount)) of \(totalCount)"
+        guard let fileName, !fileName.isEmpty else {
+            return countText
+        }
+        return "\(countText) - \(fileName)"
     }
 
     private struct AsyncImportedDocument {
@@ -1849,6 +1885,12 @@ final class WorkspaceViewModel {
                $0.sourceBounds.insetBy(dx: -2, dy: -2).contains(pagePoint)
            }) {
             let syntheticBounds = reopenedBounds(for: existingOp)
+            let sourceFormat = originalFormat(for: existingOp, in: analysis)
+            let shouldPreserveReplacementStyle = existingOp.didManuallyChangeStyle
+            let reopenedFontName = shouldPreserveReplacementStyle ? existingOp.fontName : (sourceFormat?.fontName ?? existingOp.fontName)
+            let reopenedFontSize = shouldPreserveReplacementStyle ? existingOp.fontSize : (sourceFormat?.fontSize ?? existingOp.fontSize)
+            let reopenedTextColor = shouldPreserveReplacementStyle ? existingOp.textColor : (sourceFormat?.textColor ?? existingOp.textColor)
+            let reopenedAlignment = shouldPreserveReplacementStyle ? existingOp.alignment : (sourceFormat?.alignment ?? existingOp.alignment)
             let syntheticBlock = EditableTextBlock(
                 id: existingOp.sourceBlockID,
                 pageRefID: ref.id,
@@ -1856,16 +1898,15 @@ final class WorkspaceViewModel {
                 bounds: syntheticBounds,
                 lines: [],
                 columnBounds: existingOp.columnBounds,
-                fontName: existingOp.fontName,
-                fontSize: existingOp.fontSize,
-                textColor: existingOp.textColor,
-                alignment: existingOp.alignment,
+                fontName: reopenedFontName,
+                fontSize: reopenedFontSize,
+                textColor: reopenedTextColor,
+                alignment: reopenedAlignment,
                 rotation: 0,
                 baseline: syntheticBounds.minY,
                 confidence: .high
             )
-            let sourceFormat = originalFormat(for: existingOp, in: analysis) ?? PDFTextEditFormat(block: syntheticBlock)
-            return (ref, syntheticBlock, sourceFormat)
+            return (ref, syntheticBlock, sourceFormat ?? PDFTextEditFormat(block: syntheticBlock))
         }
         let block = textAnalysisEngine.hitTest(pagePoint, in: analysis) ??
             insertionTextBlock(at: pagePoint, pageRefID: ref.id, page: page, nearbyBlocks: analysis.blocks)
@@ -1988,7 +2029,9 @@ final class WorkspaceViewModel {
         alignment: NSTextAlignment,
         didManuallyReposition: Bool = false,
         didManuallyResizeWidth: Bool = false,
-        didManuallyResizeHeight: Bool = false
+        didManuallyResizeHeight: Bool = false,
+        didManuallyChangeStyle: Bool = false,
+        didRestoreOriginalStyle: Bool = false
     ) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let basePage = originalBasePage(for: pageRef) else {
@@ -2013,7 +2056,8 @@ final class WorkspaceViewModel {
             isInsertion: sourceBlock.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && sourceBlock.lines.isEmpty,
             didManuallyReposition: didManuallyReposition,
             didManuallyResizeWidth: didManuallyResizeWidth,
-            didManuallyResizeHeight: didManuallyResizeHeight
+            didManuallyResizeHeight: didManuallyResizeHeight,
+            didManuallyChangeStyle: didManuallyChangeStyle
         )
         // When updating an existing op (same sourceBlockID), preserve the original
         // sourceBounds so erase targeting and edit identity remain tied to the
@@ -2028,6 +2072,9 @@ final class WorkspaceViewModel {
             operation.didManuallyReposition = operation.didManuallyReposition || existingOp.didManuallyReposition
             operation.didManuallyResizeWidth = operation.didManuallyResizeWidth || existingOp.didManuallyResizeWidth
             operation.didManuallyResizeHeight = operation.didManuallyResizeHeight || existingOp.didManuallyResizeHeight
+            operation.didManuallyChangeStyle = didRestoreOriginalStyle
+                ? operation.didManuallyChangeStyle
+                : (operation.didManuallyChangeStyle || existingOp.didManuallyChangeStyle)
         }
         // The live editor has already committed its page-space box. Keep that geometry
         // intact, then let measuredBounds expand only as needed for longer text.

@@ -438,7 +438,7 @@ private struct PetControlPopover: View {
                 Text("Foldy is here to help")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
-                Text("Start with Choose Files. Once a document is open, I will keep tips brief and stay out of the way.")
+                Text("Start with Choose Files or drop up to 50 files. Once a document is open, I will keep tips brief and stay out of the way.")
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)

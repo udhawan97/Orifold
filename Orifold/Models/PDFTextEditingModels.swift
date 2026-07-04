@@ -65,13 +65,14 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
     var didManuallyReposition: Bool = false
     var didManuallyResizeWidth: Bool = false
     var didManuallyResizeHeight: Bool = false
+    var didManuallyChangeStyle: Bool = false
     var createdAt: Date = Date()
     var modifiedAt: Date = Date()
 
     enum CodingKeys: String, CodingKey {
         case id, pageRefID, sourceBlockID, sourceBounds, sourceLineBounds, sourceText, editedBounds, columnBounds
         case replacementText, fontName, fontSize, textColor, alignment, isInsertion
-        case didManuallyReposition, didManuallyResizeWidth, didManuallyResizeHeight
+        case didManuallyReposition, didManuallyResizeWidth, didManuallyResizeHeight, didManuallyChangeStyle
         case createdAt, modifiedAt
     }
 
@@ -93,6 +94,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         didManuallyReposition: Bool = false,
         didManuallyResizeWidth: Bool = false,
         didManuallyResizeHeight: Bool = false,
+        didManuallyChangeStyle: Bool = false,
         createdAt: Date = Date(),
         modifiedAt: Date = Date()
     ) {
@@ -113,6 +115,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         self.didManuallyReposition = didManuallyReposition
         self.didManuallyResizeWidth = didManuallyResizeWidth
         self.didManuallyResizeHeight = didManuallyResizeHeight
+        self.didManuallyChangeStyle = didManuallyChangeStyle
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
     }
@@ -136,6 +139,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         didManuallyReposition = try c.decodeIfPresent(Bool.self, forKey: .didManuallyReposition) ?? false
         didManuallyResizeWidth = try c.decodeIfPresent(Bool.self, forKey: .didManuallyResizeWidth) ?? false
         didManuallyResizeHeight = try c.decodeIfPresent(Bool.self, forKey: .didManuallyResizeHeight) ?? false
+        didManuallyChangeStyle = try c.decodeIfPresent(Bool.self, forKey: .didManuallyChangeStyle) ?? false
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         modifiedAt = try c.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
     }
