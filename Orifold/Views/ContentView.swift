@@ -419,12 +419,20 @@ private struct ExportSheet: View {
             }
             .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isProtectionExpanded)
             .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: protectWithPassword)
+            .onChange(of: viewModel.hasCryptographicSignaturePlacement) { _, hasSignature in
+                guard hasSignature else { return }
+                protectWithPassword = false
+                isProtectionExpanded = false
+                sanitizeForSharing = false
+                isSanitizeExpanded = false
+            }
             .onChange(of: selectedFormat) { _, _ in
                 if !canProtectSelectedFormat {
                     protectWithPassword = false
                 }
                 if selectedFormat != .pdf {
                     reduceFileSize = false
+                    sanitizeForSharing = false
                 }
             }
 
