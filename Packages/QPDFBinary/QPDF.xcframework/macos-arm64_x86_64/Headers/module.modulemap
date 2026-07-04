@@ -1,0 +1,7 @@
+module CQPDF {
+    header "qpdf/qpdf-c.h"
+    header "qpdf/qpdfjob-c.h"
+    header "qpdf/qpdflogger-c.h"
+    link "c++"
+    export *
+}

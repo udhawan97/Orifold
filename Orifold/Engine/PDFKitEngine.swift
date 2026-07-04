@@ -248,8 +248,23 @@ enum DocumentImportConverter {
         }
 
         if detectedType.conforms(to: .pdf) {
-            guard let document = PDFDocument(data: data) else { throw ConversionError.unreadableDocument }
-            guard document.pageCount > 0 else { throw ConversionError.emptyDocument }
+            var document = PDFDocument(data: data)
+            if document == nil {
+                // PDFKit gave up; qpdf's recovery scans for objects by brute
+                // force and can often rebuild a valid document from a broken
+                // xref table, missing trailer, or other structural damage
+                // PDFKit won't tolerate.
+                if let repaired = QPDFService.repaired(data) {
+                    document = PDFDocument(data: repaired)
+                }
+            }
+            guard let document else { throw ConversionError.unreadableDocument }
+            // A locked document's page count is unreliable before unlocking --
+            // PDFKit can't read the page tree if it lives inside an encrypted
+            // object stream, so it reports 0 pages even for a normal,
+            // non-empty encrypted PDF. Defer the empty check until after the
+            // password prompt unlocks it.
+            guard document.isLocked || document.pageCount > 0 else { throw ConversionError.emptyDocument }
             return ImportedDocument(pdfDocument: document, sourcePayload: nil)
         }
         if detectedType.conforms(to: .orifoldSVG) {

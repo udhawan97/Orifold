@@ -317,6 +317,9 @@ private struct ExportSheet: View {
     @State private var reduceFileSize = false
     @State private var isCompressionExpanded = false
     @State private var compressionPreset: PDFCompressionPreset = .balanced
+    @State private var sanitizeForSharing = false
+    @State private var removesMetadata = false
+    @State private var isSanitizeExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var shouldReduceMotion: Bool {
@@ -455,6 +458,38 @@ private struct ExportSheet: View {
             .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isCompressionExpanded)
             .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: reduceFileSize)
 
+            if selectedFormat == .pdf {
+                DisclosureGroup(isExpanded: $isSanitizeExpanded) {
+                    VStack(alignment: .leading, spacing: .dsSM) {
+                        Toggle("Remove document metadata (author, producer, dates)", isOn: $removesMetadata)
+                            .disabled(!sanitizeForSharing)
+                        Text("Strips auto-run actions, embedded JavaScript, and embedded files.")
+                            .font(.dsCaption())
+                            .foregroundStyle(Color.dsTextTertiary)
+                    }
+                    .padding(.top, .dsSM)
+                } label: {
+                    Toggle("Sanitize for sharing", isOn: Binding(
+                        get: { sanitizeForSharing },
+                        set: { newValue in
+                            sanitizeForSharing = newValue && !viewModel.hasCryptographicSignaturePlacement
+                            if sanitizeForSharing {
+                                isSanitizeExpanded = true
+                            }
+                        }
+                    ))
+                    .disabled(viewModel.hasCryptographicSignaturePlacement)
+                }
+                .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isSanitizeExpanded)
+                .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: sanitizeForSharing)
+
+                if viewModel.hasCryptographicSignaturePlacement {
+                    Text("Sanitizing is unavailable because this PDF has a digital signature.")
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextTertiary)
+                }
+            }
+
             if viewModel.hasFillableFormFields && selectedFormat == .pdf {
                 DisclosureGroup(isExpanded: $isFormLockExpanded) {
                     Toggle("Lock form answers in place", isOn: $lockFormAnswers)
@@ -501,6 +536,9 @@ private struct ExportSheet: View {
         options.lockFormAnswers = selectedFormat == .pdf && viewModel.hasFillableFormFields && lockFormAnswers
         if selectedFormat == .pdf && reduceFileSize {
             options.compressionPreset = compressionPreset
+        }
+        if selectedFormat == .pdf && sanitizeForSharing {
+            options.sanitization = PDFSanitizationOptions(removesMetadata: removesMetadata)
         }
         if viewModel.exportWorkspace(as: selectedFormat, options: options) {
             isPresented = false

@@ -18,6 +18,8 @@ settings:
 packages:
   PDFiumBinary:
     path: Packages/PDFiumBinary
+  QPDFBinary:
+    path: Packages/QPDFBinary
   swift-crypto:
     url: https://github.com/apple/swift-crypto.git
     from: 3.0.0
@@ -44,6 +46,8 @@ targets:
     dependencies:
       - package: PDFiumBinary
         product: PDFium
+      - package: QPDFBinary
+        product: CQPDF
       - package: swift-crypto
         product: Crypto
       - package: swift-asn1
@@ -98,7 +102,7 @@ targets:
             LSItemContentTypes: [public.text, public.plain-text, public.utf8-plain-text, public.rtf, net.daringfireball.markdown, public.comma-separated-values-text, public.tab-separated-values-text, public.json, public.xml, com.apple.property-list]
           - CFBundleTypeExtensions: [png, jpg, jpeg, gif, tif, tiff, heic, bmp, webp]
             CFBundleTypeName: Image
-            CFBundleTypeRole: Viewer
+            CFBundleTypeRole: Editor
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.image, public.png, public.jpeg, com.compuserve.gif, public.tiff, public.heic, com.microsoft.bmp, org.webmproject.webp]
     entitlements:
@@ -118,6 +122,7 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
         ENABLE_PREVIEWS: YES
+        OTHER_LDFLAGS: ["-lc++", "-lz"]
 
   OrifoldTests:
     type: bundle.unit-test
@@ -128,6 +133,8 @@ targets:
     dependencies:
       - package: PDFiumBinary
         product: PDFium
+      - package: QPDFBinary
+        product: CQPDF
       - target: Orifold
     settings:
       base:

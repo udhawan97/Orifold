@@ -5,15 +5,37 @@ struct WorkspaceExportOptions: Equatable {
     var lockFormAnswers: Bool
     var compressionPreset: PDFCompressionPreset?
     var embedsEditableWorkspaceState: Bool
+    var sanitization: PDFSanitizationOptions?
 
     init(encryption: PDFEncryptionOptions? = nil,
          lockFormAnswers: Bool = false,
          compressionPreset: PDFCompressionPreset? = nil,
-         embedsEditableWorkspaceState: Bool = false) {
+         embedsEditableWorkspaceState: Bool = false,
+         sanitization: PDFSanitizationOptions? = nil) {
         self.encryption = encryption
         self.lockFormAnswers = lockFormAnswers
         self.compressionPreset = compressionPreset
         self.embedsEditableWorkspaceState = embedsEditableWorkspaceState
+        self.sanitization = sanitization
+    }
+}
+
+struct PDFSanitizationOptions: Equatable {
+    var removesMetadata: Bool
+
+    init(removesMetadata: Bool = false) {
+        self.removesMetadata = removesMetadata
+    }
+}
+
+enum PDFSanitizationError: Error, Equatable {
+    case sanitizationFailed
+
+    var userMessage: String {
+        switch self {
+        case .sanitizationFailed:
+            return "Orifold could not sanitize this PDF. Export without \"Sanitize for sharing,\" or try again."
+        }
     }
 }
 

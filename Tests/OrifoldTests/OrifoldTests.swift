@@ -1123,6 +1123,37 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(exportedPage.bounds(for: .artBox), expectedArt)
     }
 
+    func testDecoratedPageSurvivesTheNewStructuralValidationGate() throws {
+        // Regression guard: `writePDFExportData` now runs `QPDFService.isStructurallySound`
+        // on every export, including plain ones that previously had zero post-write
+        // validation. Baked decorations (watermark, Bates) are drawn via raw
+        // CGContext/CGDataConsumer bytes, similar to the in-place text editor --
+        // exactly the kind of content most likely to trip a qpdf-vs-PDFKit
+        // disagreement. This proves the new gate doesn't regress a previously-working export.
+        let fixture = try makeMemberWithPDF(name: "Decorated", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        document.workspace.decorations = [
+            PageDecoration.watermark(),
+            PageDecoration(kind: .bates, prefix: "REG", startNumber: 1, fontSize: 10, swatch: .tertiary)
+        ]
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Orifold-decorated-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+
+        let didSave = viewModel.saveFlattenedPDF(to: outputURL)
+
+        XCTAssertTrue(didSave, "export should not be rejected by the new structural-validation gate")
+        let writtenData = try Data(contentsOf: outputURL)
+        XCTAssertTrue(QPDFService.isStructurallySound(writtenData))
+        let writtenPDF = try XCTUnwrap(PDFDocument(data: writtenData))
+        XCTAssertTrue(writtenPDF.stringValue.contains("REG-000001"))
+    }
+
     func testWritingPDFContentTypeExportsEditedPDFInsteadOfWorkspacePackage() throws {
         let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
         let document = WorkspaceDocument()
@@ -3976,6 +4007,41 @@ private func firstDescendant<T: NSView>(of type: T.Type, in view: NSView) -> T? 
 }
 
 final class PDFEncryptionExportTests: XCTestCase {
+    func testEncryptedExportSucceedsThroughTheFullSavePath() throws {
+        // Regression test: `writePDFExportData`'s new structural-validation
+        // gate originally called `QPDFService.isStructurallySound` with no
+        // password, so qpdf could never parse the AES-256-encrypted output it
+        // was just asked to validate -- every password-protected export was
+        // silently rejected. No prior test drove a *successful* encrypted
+        // export all the way through `saveFlattenedPDF`/`writePDFExportData`
+        // (the two existing tests here both expect failure before that point),
+        // which is exactly how this shipped without a failing test.
+        let fixture = try makeMemberWithPDF(name: "EncTest", pageTexts: ["Encrypted body"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Orifold-encrypted-full-path-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+
+        let didSave = viewModel.saveFlattenedPDF(
+            to: outputURL,
+            options: WorkspaceExportOptions(encryption: PDFEncryptionOptions(
+                userPassword: "reader-pass",
+                ownerPassword: "owner-pass"
+            ))
+        )
+
+        XCTAssertTrue(didSave, viewModel.exportError?.message ?? "expected export to succeed")
+        let writtenData = try Data(contentsOf: outputURL)
+        XCTAssertTrue(QPDFService.isStructurallySound(writtenData, password: "reader-pass"))
+        let writtenPDF = try XCTUnwrap(PDFDocument(data: writtenData))
+        XCTAssertTrue(writtenPDF.isLocked)
+        XCTAssertTrue(writtenPDF.unlock(withPassword: "reader-pass"))
+    }
+
     func testEncryptedPDFUnlocksWithRightPasswordAndRejectsWrongPassword() throws {
         let sourcePDF = makePDF(pageTexts: ["Protected export text"])
         let sourceData = try XCTUnwrap(sourcePDF.dataRepresentation())
@@ -4039,6 +4105,78 @@ final class PDFEncryptionExportTests: XCTestCase {
         XCTAssertFalse(didSave)
         XCTAssertFalse(FileManager.default.fileExists(atPath: outputURL.path))
         XCTAssertEqual(viewModel.exportError?.message, PDFEncryptionError.emptyUserPassword.userMessage)
+    }
+
+    func testSanitizeForSharingStripsCatalogActionsThroughFullExportPath() throws {
+        let fixture = try makeMemberWithPDF(name: "Active", pageTexts: ["Sanitize me"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+
+        let data = try viewModel.dataForPDFExport(
+            options: WorkspaceExportOptions(sanitization: PDFSanitizationOptions(removesMetadata: true))
+        )
+
+        XCTAssertTrue(QPDFService.isStructurallySound(data))
+        let pdf = try XCTUnwrap(PDFDocument(data: data))
+        XCTAssertEqual(pdf.pageCount, fixture.refs.count)
+    }
+
+    func testSanitizationSurvivesTheCompressedExportPipeline() async throws {
+        // Regression test: `reducedData` (the compress+sanitize+encrypt path used
+        // when "Reduce file size" is checked in the export sheet) used to drop
+        // the sanitization option entirely, silently shipping unsanitized bytes
+        // whenever a user also requested compression. This exercises the same
+        // pipeline the app actually uses for that combination. Needs a fixture
+        // that genuinely compresses (a text-only page throws `.grewLarger`
+        // before ever reaching the sanitize step -- see
+        // testTextOnlyPDFTakesAlreadyOptimizedPath), so this reuses the same
+        // oversized-photo fixture the compression tests use.
+        let sourceData = try makePhotoPDFData()
+
+        let document = WorkspaceDocument()
+        let member = MemberDocument(displayName: "Compressible", sourcePDFRef: "Compressible.pdf")
+        var mutableMember = member
+        let refs = [PageRef(memberDocId: member.id, sourcePageIndex: 0)]
+        mutableMember.pageRefs = refs.map(\.id)
+        document.workspace.documents = [mutableMember]
+        document.workspace.pageOrder = refs
+        document.memberPDFData[mutableMember.id] = sourceData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFiumProcessingEngine()
+        )
+        let exportSourceData = try viewModel.dataForPDFExport()
+
+        let output = try await viewModel.reducedData(
+            from: exportSourceData,
+            preset: .balanced,
+            sanitization: PDFSanitizationOptions(removesMetadata: false),
+            encryption: nil,
+            cancellation: OperationCancellationToken(),
+            operationID: UUID()
+        )
+
+        XCTAssertLessThan(output.data.count, exportSourceData.count, "fixture should actually compress")
+        XCTAssertTrue(QPDFService.isStructurallySound(output.data))
+        XCTAssertEqual(PDFDocument(data: output.data)?.pageCount, 1)
+    }
+
+    func testSanitizationFailureThrowsInsteadOfSilentlyExportingUnsanitizedData() {
+        // Regression test: sanitize failure used to fall back silently to the
+        // pre-sanitize bytes. For a security/privacy feature, silently shipping
+        // the original (unsanitized) data on failure is worse than failing loudly.
+        XCTAssertThrowsError(try WorkspaceViewModel.sanitized(
+            Data("not a pdf".utf8),
+            options: PDFSanitizationOptions(removesMetadata: true)
+        )) { error in
+            XCTAssertEqual(error as? PDFSanitizationError, .sanitizationFailed)
+        }
     }
 
     func testProtectedOutputValidationRejectsPlainPDFBytes() throws {

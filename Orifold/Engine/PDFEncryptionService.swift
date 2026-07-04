@@ -1,4 +1,3 @@
-import CoreGraphics
 import Foundation
 import PDFKit
 
@@ -12,22 +11,19 @@ enum PDFEncryptionService {
         }
         let shouldVerifyText = pdfData.count <= maxVerifiedTextBytes
         let expectedPageStrings = shouldVerifyText ? pageStrings(in: sourcePDF) : nil
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("Orifold-encrypted-\(UUID().uuidString).pdf")
-        defer { try? FileManager.default.removeItem(at: tempURL) }
 
-        let writeOptions: [PDFDocumentWriteOption: Any] = [
-            .userPasswordOption: options.userPassword,
-            .ownerPasswordOption: options.ownerPassword,
-            PDFDocumentWriteOption(rawValue: kCGPDFContextAllowsPrinting as String): options.allowsPrinting,
-            PDFDocumentWriteOption(rawValue: kCGPDFContextAllowsCopying as String): options.allowsCopying,
-            PDFDocumentWriteOption(rawValue: kCGPDFContextEncryptionKeyLength as String): 128
-        ]
-
-        guard sourcePDF.write(to: tempURL, withOptions: writeOptions) else {
-            throw PDFEncryptionError.writeFailed
+        let encrypted: Data
+        do {
+            encrypted = try QPDFService.encryptedAES256(
+                pdfData,
+                userPassword: options.userPassword,
+                ownerPassword: options.ownerPassword,
+                allowsPrinting: options.allowsPrinting,
+                allowsCopying: options.allowsCopying
+            )
+        } catch {
+            throw PDFEncryptionError.cannotOpenSourcePDF
         }
-        let encrypted = try Data(contentsOf: tempURL)
         try validateEncryptedData(encrypted, options: options, expectedPageStrings: expectedPageStrings)
         return encrypted
     }
