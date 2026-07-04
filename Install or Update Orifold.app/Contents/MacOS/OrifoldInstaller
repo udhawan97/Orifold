@@ -1,0 +1,66 @@
+#!/bin/zsh -f
+set -u
+
+APP_NAME="Orifold"
+BUNDLE_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd)"
+PROJECT_ROOT="$(cd -- "$BUNDLE_DIR/.." && pwd)"
+INSTALLER="$PROJECT_ROOT/scripts/install-mac.sh"
+LOG_FILE="$PROJECT_ROOT/.build/install.log"
+
+show_dialog() {
+    local title="$1"
+    local message="$2"
+    if [[ "${ORIFOLD_INSTALLER_NO_DIALOGS:-0}" == "1" ]]; then
+        printf "%s: %s\n" "$title" "$message"
+        return 0
+    fi
+    /usr/bin/osascript <<APPLESCRIPT >/dev/null
+display dialog "$message" buttons {"OK"} default button "OK" with title "$title"
+APPLESCRIPT
+}
+
+notify() {
+    local title="$1"
+    local message="$2"
+    if [[ "${ORIFOLD_INSTALLER_NO_DIALOGS:-0}" == "1" ]]; then
+        printf "%s: %s\n" "$title" "$message"
+        return 0
+    fi
+    /usr/bin/osascript <<APPLESCRIPT >/dev/null
+display notification "$message" with title "$title"
+APPLESCRIPT
+}
+
+mkdir -p "$PROJECT_ROOT/.build"
+
+if [[ ! -f "$INSTALLER" ]]; then
+    show_dialog "$APP_NAME Installer" "Could not find scripts/install-mac.sh next to this installer app."
+    exit 1
+fi
+
+chmod +x "$INSTALLER" 2>/dev/null || true
+
+notify "$APP_NAME Installer" "Building and installing $APP_NAME. This may take a few minutes."
+
+{
+    printf "%s app launcher\n" "$APP_NAME"
+    printf "Project: %s\n" "$PROJECT_ROOT"
+    printf "Started: %s\n\n" "$(date)"
+} > "$LOG_FILE"
+
+INSTALL_ARGS=()
+if [[ "${ORIFOLD_INSTALLER_NO_OPEN:-0}" == "1" ]]; then
+    INSTALL_ARGS+=(--no-open)
+fi
+
+if /bin/zsh -f "$INSTALLER" "${INSTALL_ARGS[@]}" >> "$LOG_FILE" 2>&1; then
+    if [[ "${ORIFOLD_INSTALLER_NO_OPEN:-0}" == "1" ]]; then
+        show_dialog "$APP_NAME Installer" "$APP_NAME is installed."
+    else
+        show_dialog "$APP_NAME Installer" "$APP_NAME is installed and should be open now."
+    fi
+    exit 0
+fi
+
+show_dialog "$APP_NAME Installer" "Setup did not finish. The log is here:\n$LOG_FILE"
+exit 1

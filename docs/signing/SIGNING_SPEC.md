@@ -1,12 +1,12 @@
-# pdFold Digital Signature — Implementation Spec
+# Orifold Digital Signature — Implementation Spec
 
-Authentic, industry-standard PDF digital signatures for pdFold (macOS / Swift / SwiftUI).
+Authentic, industry-standard PDF digital signatures for Orifold (macOS / Swift / SwiftUI).
 Build with `swift build`; test with `swift test`. Xcode is NOT installed — do not use xcodebuild.
 
 This spec is the shared contract for parallel subagents. The Swift interfaces already
-exist as a compiling **walking skeleton** in [`PDFold/Signing/SigningContracts.swift`](../../PDFold/Signing/SigningContracts.swift);
+exist as a compiling **walking skeleton** in [`Orifold/Signing/SigningContracts.swift`](../../Orifold/Signing/SigningContracts.swift);
 every method throws `SigningError.notImplemented`. The acceptance tests in
-[`Tests/PDFoldTests/PDFSigningTests.swift`](../../Tests/PDFoldTests/PDFSigningTests.swift) are
+[`Tests/OrifoldTests/PDFSigningTests.swift`](../../Tests/OrifoldTests/PDFSigningTests.swift) are
 RED until you implement the modules. **Make them pass without weakening any assertion.**
 
 ## Two tiers, one appearance
@@ -23,12 +23,12 @@ RED until you implement the modules. **Make them pass without weakening any asse
   `/Contents` hex; any later edit invalidates it. Multi-signer = successive incremental updates,
   each preserving prior signatures.
 - Never export private keys unnecessarily — prefer `SecKeyCreateSignature`.
-- Existing `.pdfold` / `SignaturePlacement` data must still decode (back-compat).
+- Existing `.orifold` / `SignaturePlacement` data must still decode (back-compat).
 - `swift build` and the full `swift test` suite must stay green at each integration point.
 
 ---
 
-## Module A — SigningIdentity  (files: `PDFold/Signing/Identity/`)
+## Module A — SigningIdentity  (files: `Orifold/Signing/Identity/`)
 Unified identity yielding leaf cert, chain (leaf→issuers), and a signing primitive.
 ```
 protocol SigningIdentity {
@@ -43,7 +43,7 @@ Providers: (1) `.p12`/`.pfx` via `SecPKCS12Import` (passphrase prompt); (2) Keyc
 swift-crypto), stored in Keychain, labelled "self-signed (identity not independently trusted)".
 
 ## Cost & trust model — and the in-app certificate guide
-pdFold and everything it bundles are 100% free and open source. The signing *capability* costs
+Orifold and everything it bundles are 100% free and open source. The signing *capability* costs
 nothing. The only thing that can cost money is an optional **CA-issued Digital ID**, and that is a
 third-party purchase external to the app — this is inherent to PKI (no software can grant trust).
 The UI must communicate this clearly and professionally so self-signed's "identity not verified"
@@ -63,18 +63,18 @@ disclosure that expands the step guide. A "Learn more…" link opens the bundled
 guide so it stays accurate.
 
 > **Short popover copy (verbatim):**
-> *"Signing in pdFold is free. A signature made with a self-signed or Keychain ID is valid and
+> *"Signing in Orifold is free. A signature made with a self-signed or Keychain ID is valid and
 > tamper-evident, but recipients will see 'identity not verified' until they trust it once. To have
 > Adobe Acrobat/Reader trust your identity automatically, you need a CA-issued Digital ID from a
 > trusted provider (an 'AATL' certificate). These are a paid third-party product (~US $180–600/yr).
-> pdFold never charges for signing — you buy the certificate directly from the provider, then import
+> Orifold never charges for signing — you buy the certificate directly from the provider, then import
 > the `.p12` file here."*
 
 The full acquisition steps + provider links live in `docs/signing/CERTIFICATE_GUIDE.md`; the app
-bundles `PDFold/Resources/CERTIFICATE_GUIDE.md`, which must stay in sync. Do NOT hardcode a
+bundles `Orifold/Resources/CERTIFICATE_GUIDE.md`, which must stay in sync. Do NOT hardcode a
 different set of links in Swift; load/echo the guide so there is a single source of truth.
 
-## Module B — CMSSignatureBuilder  (files: `PDFold/Signing/CMS/`)
+## Module B — CMSSignatureBuilder  (files: `Orifold/Signing/CMS/`)
 Hand-build a **detached CMS SignedData** (RFC 5652) as DER with swift-asn1 + swift-certificates.
 Signed attributes MUST include: `content-type` (id-data), `message-digest` = SHA-256 of the
 ByteRange bytes, `signing-time`, and **ESS `signing-certificate-v2` (id-aa-signingCertificateV2)** —
@@ -87,7 +87,7 @@ func buildCMS(byteRangeBytes: Data, identity: SigningIdentity, timestamp: TimeSt
 Fallback flag to emit `adbe.pkcs7.detached` if strict CAdES attributes can't be finished — but PAdES
 is the goal; if you fall back, STOP and report the tradeoff rather than shipping it silently.
 
-## Module C — TimestampClient  (files: `PDFold/Signing/Timestamp/`)
+## Module C — TimestampClient  (files: `Orifold/Signing/Timestamp/`)
 RFC-3161. Build TimeStampReq over SHA-256 of the SignerInfo signature value, POST to a configurable
 TSA URL (default a free TSA, e.g. `https://freetsa.org/tsr`; user-overridable). Parse TimeStampResp,
 validate status, extract the TimeStampToken. On failure, allow graceful fallback to B-B (no timestamp)
@@ -96,7 +96,7 @@ with a visible warning — never block/crash.
 func fetchTimestamp(for signatureValue: Data, tsaURL: URL) async throws -> TimeStampToken
 ```
 
-## Module D — PDFIncrementalSigner  ⚠ HIGHEST RISK — byte-exact  (files: `PDFold/Signing/PDF/`)
+## Module D — PDFIncrementalSigner  ⚠ HIGHEST RISK — byte-exact  (files: `Orifold/Signing/PDF/`)
 Contracts already stubbed: `SignatureByteRange`, `PDFByteRangeCalculator`, `SignatureFieldSpec`,
 `PDFAppearanceStream`, `PDFSigner` / `PDFIncrementalSigner`.
 
@@ -130,7 +130,7 @@ Off-by-one in steps 3–5 is the #1 real-world signing bug — the tests in
 `PDFByteRangeCalculatorTests` pin it exactly. Reference algorithm: Apache PDFBox `CreateSignature`
 and node `@signpdf`.
 
-## Module E — SignatureAppearance + export-survival baking  (files: `PDFold/Signing/Appearance/`)
+## Module E — SignatureAppearance + export-survival baking  (files: `Orifold/Signing/Appearance/`)
 One renderer, two outputs, so visual + crypto look identical.
 - Render Typed name (embed/subset a SIL-OFL or otherwise FOSS handwriting font) and Initials into
   (a) a PDF Form XObject (`/AP /N`) for crypto widgets and (b) a "bake into page content" path.
@@ -142,9 +142,9 @@ One renderer, two outputs, so visual + crypto look identical.
   signature survives export → reopen. Test: `SignatureExportSurvivalTests`.
 
 ## Module F — UI + Model + Integration
-Files: `PDFold/Views/SignaturePalette.swift`, `PDFold/Models/SignaturePlacement.swift`,
-`PDFold/ViewModels/WorkspaceViewModel.swift`, `PDFold/Document/WorkspaceDocument.swift`,
-`PDFold/Views/InspectorView.swift`, `Package.swift`.
+Files: `Orifold/Views/SignaturePalette.swift`, `Orifold/Models/SignaturePlacement.swift`,
+`Orifold/ViewModels/WorkspaceViewModel.swift`, `Orifold/Document/WorkspaceDocument.swift`,
+`Orifold/Views/InspectorView.swift`, `Package.swift`.
 - Extend `SignaturePlacement` with `kind` (`.visualTyped` / `.visualInitials` / `.cryptographic`),
   optional signer identity ref, reason, location, contactInfo, subFilter, timestamp-applied flag.
   Keep Codable + back-compat decode.

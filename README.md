@@ -1,10 +1,10 @@
 <br>
 
 <p align="center">
-  <img src="docs/assets/pdfold-icon.png" alt="pdFold app icon" width="180">
+  <img src="docs/assets/orifold-icon.png" alt="Orifold app icon" width="180">
 </p>
 
-<h1 align="center">pdFold</h1>
+<h1 align="center">Orifold</h1>
 
 <p align="center">
   <em>The PDF workspace that never phones home.</em>
@@ -46,18 +46,18 @@
 
 ---
 
-## Why pdFold
+## Why Orifold
 
-pdFold is for the moment when a simple PDF task becomes six PDFs, two screenshots, a Word document, a scanned form, and one file named `final_final_revised_ACTUAL.pdf`.
+Orifold is for the moment when a simple PDF task becomes six PDFs, two screenshots, a Word document, a scanned form, and one file named `final_final_revised_ACTUAL.pdf`.
 
-It gives that pile a single local workspace. Import files, reorder pages, annotate, edit detected text, fill and lock forms, add stamps, make scans searchable, compress the output, protect it with a password, and export the result. pdFold can't stop you from naming the export `final_final_revised_ACTUAL_v2.pdf` — but it can make sure that file is the one that's actually final.
+It gives that pile a single local workspace. Import files, reorder pages, annotate, edit detected text, fill and lock forms, add stamps, make scans searchable, compress the output, protect it with a password, and export the result. Orifold can't stop you from naming the export `final_final_revised_ACTUAL_v2.pdf` — but it can make sure that file is the one that's actually final.
 
-Preview is great — right up until the job involves more than one file. Acrobat does everything, for a subscription, with a cloud attached. pdFold sits in the gap: merge, OCR, forms, stamps, compression, and password protection — native, local, and free.
+Preview is great — right up until the job involves more than one file. Acrobat does everything, for a subscription, with a cloud attached. Orifold sits in the gap: merge, OCR, forms, stamps, compression, and password protection — native, local, and free.
 
 ## Product Flow
 
 <p align="center">
-  <img src="docs/assets/pdfold-v3-workspace-diagram.svg" alt="pdFold product flow: import mixed files, edit and finish them in one local workspace, then export one clean file — everything runs on your Mac">
+  <img src="docs/assets/orifold-v3-workspace-diagram.svg" alt="Orifold product flow: import mixed files, edit and finish them in one local workspace, then export one clean file — everything runs on your Mac">
 </p>
 
 <p align="center">
@@ -69,12 +69,12 @@ Preview is great — right up until the job involves more than one file. Acrobat
 Paste this into Terminal:
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | zsh
 ```
 
-The installer downloads the latest prebuilt app, places it in `~/Applications/pdFold.app`, and creates Desktop commands for launch/update and uninstall.
+The installer downloads the latest prebuilt app, places it in `~/Applications/Orifold.app`, and creates Desktop commands for launch/update and uninstall.
 
-Direct download: [`pdFold.zip`](https://github.com/udhawan97/PDFold/releases/latest/download/pdFold.zip)
+Direct download: [`Orifold.zip`](https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.zip)
 
 No Xcode. No GitHub account. No compile step. No account creation ceremony, either.
 
@@ -84,8 +84,8 @@ Requires macOS 14 Sonoma or newer. That's the whole list.
 <summary>Homebrew install</summary>
 
 ```zsh
-brew tap udhawan97/pdfold https://github.com/udhawan97/PDFold
-brew install --cask udhawan97/pdfold/pdfold
+brew tap udhawan97/orifold https://github.com/udhawan97/Orifold
+brew install --cask udhawan97/orifold/orifold
 ```
 
 Homebrew installs the same prebuilt app and clears the download quarantine after installation. The one-line installer remains the friendliest path because it also creates Desktop launch/update and uninstall commands.
@@ -126,7 +126,7 @@ Everything below runs on your Mac. The cloud was not consulted.
 ## Architecture
 
 <p align="center">
-  <img src="docs/assets/pdfold-v3-architecture-diagram.svg" alt="pdFold architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts inside a local-only boundary, guarded by a release gate">
+  <img src="docs/assets/orifold-v3-architecture-diagram.svg" alt="Orifold architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts inside a local-only boundary, guarded by a release gate">
 </p>
 
 <p align="center">
@@ -167,27 +167,27 @@ flowchart LR
 
 ## 📦 Release Status
 
-pdFold v6 is the current release. It expands the app from document assembly and markup into a fuller PDF finishing workflow: searchable scans, form export, stamps and decorations, compression, protected output, and a cleaner everyday UI.
+Orifold v6 is the current release. It expands the app from document assembly and markup into a fuller PDF finishing workflow: searchable scans, form export, stamps and decorations, compression, protected output, and a cleaner everyday UI.
 
 | Detail | Status |
 | --- | --- |
-| Release tag | [`release-v6`](https://github.com/udhawan97/PDFold/releases/tag/release-v6) |
-| Release asset | [`pdFold.zip`](https://github.com/udhawan97/PDFold/releases/latest/download/pdFold.zip) |
-| Recommended install | `curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh \| zsh` |
+| Release tag | [`release-v6`](https://github.com/udhawan97/Orifold/releases/tag/release-v6) |
+| Release asset | [`Orifold.zip`](https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.zip) |
+| Recommended install | `curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh \| zsh` |
 | Distribution | Prebuilt macOS app zip, with source builds available for developers |
 | Privacy model | Local document processing; no upload pipeline |
 
 ## 🔄 Updating and Uninstalling
 
-**To update:** double-click **pdFold.command** on the Desktop. The launcher checks the latest release before opening the app. That's the entire update procedure — you may cancel the calendar reminder.
+**To update:** double-click **Orifold.command** on the Desktop. The launcher checks the latest release before opening the app. That's the entire update procedure — you may cancel the calendar reminder.
 
 You can also paste the installer command again:
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | zsh
 ```
 
-**To uninstall:** double-click **Uninstall pdFold.command** on the Desktop. It removes the installed app, generated Desktop commands, installer cache, and pdFold app data — a cleaner exit than most software manages.
+**To uninstall:** double-click **Uninstall Orifold.command** on the Desktop. It removes the installed app, generated Desktop commands, installer cache, and Orifold app data — a cleaner exit than most software manages.
 
 <details>
 <summary>Homebrew and advanced options</summary>
@@ -196,25 +196,25 @@ Update via Homebrew:
 
 ```zsh
 brew update
-brew upgrade --cask udhawan97/pdfold/pdfold
+brew upgrade --cask udhawan97/orifold/orifold
 ```
 
 Uninstall via Homebrew:
 
 ```zsh
-brew uninstall --cask udhawan97/pdfold/pdfold
+brew uninstall --cask udhawan97/orifold/orifold
 ```
 
 Uninstall but keep app support, preferences, caches, and sandbox data:
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
 ```
 </details>
 
 ## A Typical Session
 
-1. Launch pdFold.
+1. Launch Orifold.
 2. Drag in PDFs, Word documents, text files, web exports, data files, scans, or images.
 3. Reorder documents and pages until the workspace matches the story you need to tell.
 4. Annotate, edit text, fill forms, add comments, add stamps, or place a signature.
@@ -224,7 +224,7 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/unins
 
 ## 🔒 Privacy and Security
 
-pdFold is local-first by design. Documents are opened, edited, saved, OCRed, compressed, protected, and exported on your machine.
+Orifold is local-first by design. Documents are opened, edited, saved, OCRed, compressed, protected, and exported on your machine.
 
 The app uses macOS sandboxing and user-selected file access. PDFium validation, Vision OCR, PDFKit composition, compression, encryption, and export verification run locally.
 
@@ -235,7 +235,7 @@ Practical guardrails include:
 - Local validation before and after compression or encryption.
 - Form flattening before decoration burn-in when requested.
 - Export error reporting for failed writes, image rendering, malformed PDFs, or unsafe source round trips.
-- Hidden pdFold comment metadata stripped before flat PDF export.
+- Hidden Orifold comment metadata stripped before flat PDF export.
 - Installer, uninstaller, packaging, build, and test checks in the release gate.
 
 <details>
@@ -254,7 +254,7 @@ These entitlements allow sandboxed read/write access to files selected by the us
 The whole thing is 59 Swift files, roughly 21,000 lines, with 202 tests standing guard in the release gate.
 
 ```text
-PDFold/
+Orifold/
   App/             App entry point and command wiring
   Document/        macOS document package read/write support
   Engine/          PDF loading, conversion, OCR, compression, encryption, forms, export helpers
@@ -265,7 +265,7 @@ PDFold/
   Views/           SwiftUI interface components
 scripts/
   install-mac.sh       Release-first installer, source builder, and release packager
-  uninstall-mac.sh     Clean uninstaller for installed app artifacts and pdFold app data
+  uninstall-mac.sh     Clean uninstaller for installed app artifacts and Orifold app data
 install.sh             Hosted one-line bootstrap
 ```
 
@@ -275,7 +275,7 @@ install.sh             Hosted one-line bootstrap
 Open the project in Xcode:
 
 ```zsh
-open PDFold.xcodeproj
+open Orifold.xcodeproj
 ```
 
 Build and test:
@@ -283,28 +283,28 @@ Build and test:
 ```zsh
 swift build
 swift test
-xcodebuild build -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
-xcodebuild test -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ```
 
 Create the same release zip used by GitHub Releases:
 
 ```zsh
-./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
 
 Create a Developer ID signed and notarized release zip:
 
 ```zsh
-PDFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
-PDFOLD_NOTARIZE=1 \
-PDFOLD_APPLE_ID="apple-id@example.com" \
-PDFOLD_APPLE_TEAM_ID="TEAMID" \
-PDFOLD_APPLE_APP_SPECIFIC_PASSWORD="app-specific-password" \
-./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
+ORIFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+ORIFOLD_NOTARIZE=1 \
+ORIFOLD_APPLE_ID="apple-id@example.com" \
+ORIFOLD_APPLE_TEAM_ID="TEAMID" \
+ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD="app-specific-password" \
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
 
-GitHub Actions uses the same path when these secrets are configured: `PDFOLD_DEVELOPER_ID_CERTIFICATE_BASE64`, `PDFOLD_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `PDFOLD_SIGNING_IDENTITY`, `PDFOLD_APPLE_ID`, `PDFOLD_APPLE_TEAM_ID`, and `PDFOLD_APPLE_APP_SPECIFIC_PASSWORD`.
+GitHub Actions uses the same path when these secrets are configured: `ORIFOLD_DEVELOPER_ID_CERTIFICATE_BASE64`, `ORIFOLD_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `ORIFOLD_SIGNING_IDENTITY`, `ORIFOLD_APPLE_ID`, `ORIFOLD_APPLE_TEAM_ID`, and `ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD`.
 
 Install from the current source checkout without opening the app:
 
@@ -324,27 +324,27 @@ App metadata: `CFBundleShortVersionString` `v6`, `CFBundleVersion` `6`.
 | Tests | `swift test` and Xcode tests pass |
 | Metadata | App plists and entitlements lint cleanly |
 | Installer | Shell scripts parse with `zsh -n` |
-| Package | `./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip` creates the release artifact |
+| Package | `./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip` creates the release artifact |
 | User workflow | Import, search, annotate, forms, OCR, stamps, compression, protected export, update, and uninstall work on a local Mac |
 
 Release gate commands:
 
 ```zsh
-plutil -lint PDFold/Resources/Info.plist
-plutil -lint PDFold/Resources/PDFold.entitlements
+plutil -lint Orifold/Resources/Info.plist
+plutil -lint Orifold/Resources/Orifold.entitlements
 zsh -n install.sh
 zsh -n scripts/install-mac.sh
 zsh -n scripts/uninstall-mac.sh
 zsh -n scripts/install-mac.command
-zsh -n "Install or Update pdFold.command"
-zsh -n "Uninstall pdFold.command"
-zsh -n "Install or Update pdFold.app/Contents/MacOS/pdFoldInstaller"
-plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
+zsh -n "Install or Update Orifold.command"
+zsh -n "Uninstall Orifold.command"
+zsh -n "Install or Update Orifold.app/Contents/MacOS/OrifoldInstaller"
+plutil -lint "Install or Update Orifold.app/Contents/Info.plist"
 swift build
 swift test
-xcodebuild build -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
-xcodebuild test -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
-./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
+xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
 </details>
 
@@ -370,28 +370,28 @@ Use the Quick Start command from Terminal, or download the repository first and 
 Open Terminal in the project folder and run:
 
 ```zsh
-chmod +x "Install or Update pdFold.command" "Uninstall pdFold.command" "Install or Update pdFold.app/Contents/MacOS/pdFoldInstaller" scripts/install-mac.sh scripts/install-mac.command scripts/uninstall-mac.sh
+chmod +x "Install or Update Orifold.command" "Uninstall Orifold.command" "Install or Update Orifold.app/Contents/MacOS/OrifoldInstaller" scripts/install-mac.sh scripts/install-mac.command scripts/uninstall-mac.sh
 ```
 
-Then double-click `Install or Update pdFold.app` again from Finder.
+Then double-click `Install or Update Orifold.app` again from Finder.
 </details>
 
 <details>
 <summary>The installer says no prebuilt release is available</summary>
 
-The normal installer uses a prebuilt app and does not need developer tools. This message means the GitHub release asset `pdFold.zip` has not been published yet or could not be downloaded.
+The normal installer uses a prebuilt app and does not need developer tools. This message means the GitHub release asset `Orifold.zip` has not been published yet or could not be downloaded.
 
-Wait for the release workflow to publish `pdFold.zip`, then run the installer again. Developer source builds can opt in with:
+Wait for the release workflow to publish `Orifold.zip`, then run the installer again. Developer source builds can opt in with:
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | PDFOLD_ALLOW_SOURCE_BUILD=1 zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | ORIFOLD_ALLOW_SOURCE_BUILD=1 zsh
 ```
 </details>
 
 <details>
 <summary>macOS warns the app is from an unidentified developer</summary>
 
-pdFold release builds are ad-hoc signed but not notarized. The one-line installer and Homebrew cask remove download quarantine from the installed app. If macOS still warns, open it from Finder, then use **Open** from the security prompt.
+Orifold release builds are ad-hoc signed but not notarized. The one-line installer and Homebrew cask remove download quarantine from the installed app. If macOS still warns, open it from Finder, then use **Open** from the security prompt.
 
 Fully quiet Gatekeeper behavior requires a release zip built with Apple Developer ID signing and notarization secrets configured in GitHub Actions.
 </details>
@@ -401,23 +401,23 @@ Fully quiet Gatekeeper behavior requires a release zip built with Apple Develope
 
 Open `.build/install.log` in the project folder. It contains the latest installer/build output.
 
-When using the README install command, the prebuilt release attempt is also logged at `~/.pdfold/prebuilt-install.log`.
+When using the README install command, the prebuilt release attempt is also logged at `~/.orifold/prebuilt-install.log`.
 </details>
 
 ## Contributing
 
-Bug reports and feature requests are welcome in [Issues](https://github.com/udhawan97/PDFold/issues). If you're building from source, the <a href="#developer-notes">Developer Notes</a> and release gate commands are the whole onboarding doc — if `swift test` passes, you're set up.
+Bug reports and feature requests are welcome in [Issues](https://github.com/udhawan97/Orifold/issues). If you're building from source, the <a href="#developer-notes">Developer Notes</a> and release gate commands are the whole onboarding doc — if `swift test` passes, you're set up.
 
 ## License
 
-pdFold is available under the [MIT License](LICENSE).
+Orifold is available under the [MIT License](LICENSE).
 
 ---
 
 <p align="center">
-  If pdFold rescued you from <code>final_final_revised_ACTUAL_v3.pdf</code>, consider
-  <a href="https://github.com/udhawan97/PDFold/stargazers">starring the repo</a>.<br>
-  Since nothing you do in pdFold ever leaves your Mac, stars are the only telemetry we get.
+  If Orifold rescued you from <code>final_final_revised_ACTUAL_v3.pdf</code>, consider
+  <a href="https://github.com/udhawan97/Orifold/stargazers">starring the repo</a>.<br>
+  Since nothing you do in Orifold ever leaves your Mac, stars are the only telemetry we get.
 </p>
 
 <p align="center">
@@ -425,5 +425,5 @@ pdFold is available under the [MIT License](LICENSE).
 </p>
 
 <p align="center">
-  <a href="#pdfold">Back to top ↑</a>
+  <a href="#orifold">Back to top ↑</a>
 </p>

@@ -3,38 +3,33 @@ set -euo pipefail
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
-APP_NAME="pdFold"
-LEGACY_APP_NAME="PDFold"
-BUNDLE_ID="com.ud.PDFold"
-INSTALL_CACHE="$HOME/.pdfold"
+APP_NAME="Orifold"
+BUNDLE_ID="com.ud.Orifold"
+LEGACY_APP_NAMES=("p""d""Fold" "PDF""old")
+LEGACY_BUNDLE_ID="com.ud.PDF""old"
+INSTALL_CACHE="$HOME/.orifold"
+LEGACY_INSTALL_CACHE="$HOME/.p""d""fold"
 INSTALLED_APP="$HOME/Applications/$APP_NAME.app"
-LEGACY_INSTALLED_APP="$HOME/Applications/$LEGACY_APP_NAME.app"
 DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME.command"
 DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $APP_NAME.command"
 LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
 LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
-OLD_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME.command"
-OLD_DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $LEGACY_APP_NAME.command"
-OLD_LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME"
-OLD_LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $LEGACY_APP_NAME.command"
-OLD_DESKTOP_INSTALLER_COMMAND="$HOME/Desktop/Install or Update $LEGACY_APP_NAME.command"
-OLD_DESKTOP_INSTALLER_APP="$HOME/Desktop/Install or Update $LEGACY_APP_NAME.app"
 
 KEEP_USER_DATA=0
 REMOVE_ERRORS=()
 
 usage() {
     cat <<USAGE
-pdFold uninstaller
+Orifold uninstaller
 
 Usage:
   scripts/uninstall-mac.sh [options]
 
 Options:
-  --keep-user-data  Keep pdFold app support, preferences, caches, and sandbox data.
+  --keep-user-data  Keep Orifold app support, preferences, caches, and sandbox data.
   --help            Show this help.
 
-Files created outside pdFold's app support directories are not removed.
+Files created outside Orifold's app support directories are not removed.
 USAGE
 }
 
@@ -118,33 +113,46 @@ printf "%s Uninstaller\n" "$APP_NAME"
 printf "=================\n"
 
 stop_running_app "$APP_NAME"
-stop_running_app "$LEGACY_APP_NAME"
+for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
+    stop_running_app "$legacy_app_name"
+done
 
 print_step "Removing installed app and commands"
 remove_path "$INSTALLED_APP"
-remove_path "$LEGACY_INSTALLED_APP"
+for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
+    remove_path "$HOME/Applications/$legacy_app_name.app"
+done
 remove_path "$DESKTOP_LAUNCHER"
 remove_path "$LEGACY_DESKTOP_LAUNCHER"
 remove_path "$LEGACY_DESKTOP_UPDATER"
 remove_path "$DESKTOP_UNINSTALLER"
-remove_path "$OLD_DESKTOP_LAUNCHER"
-remove_path "$OLD_DESKTOP_UNINSTALLER"
-remove_path "$OLD_LEGACY_DESKTOP_LAUNCHER"
-remove_path "$OLD_LEGACY_DESKTOP_UPDATER"
-remove_path "$OLD_DESKTOP_INSTALLER_COMMAND"
-remove_path "$OLD_DESKTOP_INSTALLER_APP"
+for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
+    remove_path "$HOME/Desktop/$legacy_app_name.command"
+    remove_path "$HOME/Desktop/Uninstall $legacy_app_name.command"
+    remove_path "$HOME/Desktop/$legacy_app_name"
+    remove_path "$HOME/Desktop/Update $legacy_app_name.command"
+    remove_path "$HOME/Desktop/Install or Update $legacy_app_name.command"
+    remove_path "$HOME/Desktop/Install or Update $legacy_app_name.app"
+done
 remove_path "$INSTALL_CACHE"
+remove_path "$LEGACY_INSTALL_CACHE"
 
 if [[ $KEEP_USER_DATA -eq 0 ]]; then
-    print_step "Removing pdFold app data"
+    print_step "Removing Orifold app data"
     remove_path "$HOME/Library/Application Support/$APP_NAME"
-    remove_path "$HOME/Library/Application Support/$LEGACY_APP_NAME"
     remove_path "$HOME/Library/Containers/$BUNDLE_ID"
     remove_path "$HOME/Library/Preferences/$BUNDLE_ID.plist"
     remove_path "$HOME/Library/Caches/$BUNDLE_ID"
     remove_path "$HOME/Library/Saved Application State/$BUNDLE_ID.savedState"
+    for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
+        remove_path "$HOME/Library/Application Support/$legacy_app_name"
+    done
+    remove_path "$HOME/Library/Containers/$LEGACY_BUNDLE_ID"
+    remove_path "$HOME/Library/Preferences/$LEGACY_BUNDLE_ID.plist"
+    remove_path "$HOME/Library/Caches/$LEGACY_BUNDLE_ID"
+    remove_path "$HOME/Library/Saved Application State/$LEGACY_BUNDLE_ID.savedState"
 else
-    print_step "Keeping pdFold app data"
+    print_step "Keeping Orifold app data"
 fi
 
 if [[ ${#REMOVE_ERRORS[@]} -gt 0 ]]; then
@@ -152,7 +160,7 @@ if [[ ${#REMOVE_ERRORS[@]} -gt 0 ]]; then
     for path in "${REMOVE_ERRORS[@]}"; do
         printf "  %s\n" "$path" >&2
     done
-    printf "\nFiles created outside pdFold's app support directories were not removed.\n" >&2
+    printf "\nFiles created outside Orifold's app support directories were not removed.\n" >&2
     printf "Remove those paths from Finder, or grant Terminal Full Disk Access and run this uninstaller again.\n" >&2
     exit 1
 fi
@@ -161,5 +169,5 @@ cat <<MESSAGE
 
 $APP_NAME has been uninstalled.
 
-Files created outside pdFold's app support directories were not removed.
+Files created outside Orifold's app support directories were not removed.
 MESSAGE

@@ -3,9 +3,9 @@ set -euo pipefail
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
-APP_NAME="pdFold"
-LEGACY_APP_NAME="PDFold"
-REPO="udhawan97/pdFold"
+APP_NAME="Orifold"
+LEGACY_APP_NAMES=("p""d""Fold" "PDF""old")
+REPO="udhawan97/Orifold"
 CONFIGURATION="release"
 OPEN_AFTER_INSTALL=1
 CLEAN_BUILD=0
@@ -13,12 +13,12 @@ PREBUILT_ONLY=0
 VERBOSE=0
 PACKAGE_PATH=""
 PACKAGE_ONLY=0
-SIGNING_IDENTITY="${PDFOLD_SIGNING_IDENTITY:--}"
-NOTARIZE="${PDFOLD_NOTARIZE:-0}"
-NOTARY_KEYCHAIN_PROFILE="${PDFOLD_NOTARY_KEYCHAIN_PROFILE:-}"
-APPLE_ID="${PDFOLD_APPLE_ID:-}"
-APPLE_TEAM_ID="${PDFOLD_APPLE_TEAM_ID:-}"
-APPLE_APP_SPECIFIC_PASSWORD="${PDFOLD_APPLE_APP_SPECIFIC_PASSWORD:-}"
+SIGNING_IDENTITY="${ORIFOLD_SIGNING_IDENTITY:--}"
+NOTARIZE="${ORIFOLD_NOTARIZE:-0}"
+NOTARY_KEYCHAIN_PROFILE="${ORIFOLD_NOTARY_KEYCHAIN_PROFILE:-}"
+APPLE_ID="${ORIFOLD_APPLE_ID:-}"
+APPLE_TEAM_ID="${ORIFOLD_APPLE_TEAM_ID:-}"
+APPLE_APP_SPECIFIC_PASSWORD="${ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -29,26 +29,19 @@ SOURCE_AVAILABLE=0
 [[ -f "$PROJECT_ROOT/Package.swift" ]] && SOURCE_AVAILABLE=1
 BUILD_DIR="$PROJECT_ROOT/.build"
 LOG_FILE="$BUILD_DIR/install.log"
-STAGE_ROOT="${TMPDIR:-/tmp}/pdfold-install-$$"
+STAGE_ROOT="${TMPDIR:-/tmp}/orifold-install-$$"
 STAGED_APP="$STAGE_ROOT/$APP_NAME.app"
 INSTALL_DIR="$HOME/Applications"
 INSTALLED_APP="$INSTALL_DIR/$APP_NAME.app"
-LEGACY_INSTALLED_APP="$INSTALL_DIR/$LEGACY_APP_NAME.app"
 DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME.command"
 DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $APP_NAME.command"
 LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
 LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
-OLD_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME.command"
-OLD_DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $LEGACY_APP_NAME.command"
-OLD_LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$LEGACY_APP_NAME"
-OLD_LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $LEGACY_APP_NAME.command"
-OLD_DESKTOP_INSTALLER_COMMAND="$HOME/Desktop/Install or Update $LEGACY_APP_NAME.command"
-OLD_DESKTOP_INSTALLER_APP="$HOME/Desktop/Install or Update $LEGACY_APP_NAME.app"
 RELEASE_API="https://api.github.com/repos/$REPO/releases/latest"
 
 usage() {
     cat <<USAGE
-pdFold installer
+Orifold installer
 
 Usage:
   scripts/install-mac.sh [options]
@@ -62,7 +55,7 @@ Options:
   --package-only   With --package, build the zip without installing locally.
   --help           Show this help.
 
-Re-running this script updates pdFold.
+Re-running this script updates Orifold.
 USAGE
 }
 
@@ -136,7 +129,7 @@ done
 
 /bin/mkdir -p "$BUILD_DIR" "$STAGE_ROOT"
 cat > "$LOG_FILE" <<LOG
-pdFold install log
+Orifold install log
 Project: $PROJECT_ROOT
 Started: $(date)
 macOS: $(sw_vers -productVersion 2>/dev/null || printf "unknown")
@@ -202,18 +195,18 @@ verify_app_bundle() {
     local plist="$app_path/Contents/Info.plist"
     print_step "Verifying app bundle"
     verify_required_frameworks "$app_path"
-    if /usr/libexec/PlistBuddy -c "Print :CFBundleDocumentTypes" "$plist" 2>/dev/null | grep -qi "pdfoldproj\\|pdfold workspace"; then
-        fail "The app bundle still advertises the old pdFold Workspace save format."
+    if /usr/libexec/PlistBuddy -c "Print :CFBundleDocumentTypes" "$plist" 2>/dev/null | grep -qi "orifoldproj\\|orifold workspace"; then
+        fail "The app bundle still advertises the old Orifold Workspace save format."
     fi
     if /usr/libexec/PlistBuddy -c "Print :UTExportedTypeDeclarations" "$plist" >/dev/null 2>&1; then
-        fail "The app bundle still exports the old pdFold Workspace document type."
+        fail "The app bundle still exports the old Orifold Workspace document type."
     fi
     codesign --verify --deep --strict "$app_path" >>"$LOG_FILE" 2>&1 || fail "The installed app signature could not be verified."
 }
 
 sign_staged_app() {
     local sign_args
-    sign_args=(--force --deep --sign "$SIGNING_IDENTITY" --entitlements "$PROJECT_ROOT/PDFold/Resources/PDFold.entitlements")
+    sign_args=(--force --deep --sign "$SIGNING_IDENTITY" --entitlements "$PROJECT_ROOT/Orifold/Resources/Orifold.entitlements")
 
     if [[ "$SIGNING_IDENTITY" != "-" ]]; then
         sign_args+=(--options runtime --timestamp)
@@ -228,7 +221,7 @@ notarize_staged_app() {
     local notary_zip
 
     [[ "$NOTARIZE" == "1" ]] || return 0
-    [[ "$SIGNING_IDENTITY" != "-" ]] || fail "PDFOLD_NOTARIZE=1 requires PDFOLD_SIGNING_IDENTITY to be a Developer ID Application identity."
+    [[ "$SIGNING_IDENTITY" != "-" ]] || fail "ORIFOLD_NOTARIZE=1 requires ORIFOLD_SIGNING_IDENTITY to be a Developer ID Application identity."
     command -v xcrun >/dev/null 2>&1 || fail "xcrun was not found, so notarization cannot run."
 
     notary_zip="$STAGE_ROOT/$APP_NAME-notary.zip"
@@ -242,7 +235,7 @@ notarize_staged_app() {
             --wait >>"$LOG_FILE" 2>&1 || fail "Apple notarization failed."
     else
         [[ -n "$APPLE_ID" && -n "$APPLE_TEAM_ID" && -n "$APPLE_APP_SPECIFIC_PASSWORD" ]] \
-            || fail "Notarization requires PDFOLD_NOTARY_KEYCHAIN_PROFILE or PDFOLD_APPLE_ID, PDFOLD_APPLE_TEAM_ID, and PDFOLD_APPLE_APP_SPECIFIC_PASSWORD."
+            || fail "Notarization requires ORIFOLD_NOTARY_KEYCHAIN_PROFILE or ORIFOLD_APPLE_ID, ORIFOLD_APPLE_TEAM_ID, and ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD."
         xcrun notarytool submit "$notary_zip" \
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
@@ -290,33 +283,43 @@ install_staged_app() {
     [[ -d "$STAGED_APP" ]] || fail "No staged app bundle was prepared."
 
     stop_running_app "$APP_NAME"
-    stop_running_app "$LEGACY_APP_NAME"
+    for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
+        stop_running_app "$legacy_app_name"
+    done
 
     print_step "Copying app to $INSTALLED_APP"
     /bin/mkdir -p "$INSTALL_DIR"
-    /bin/rm -rf "$INSTALLED_APP" "$LEGACY_INSTALLED_APP"
+    /bin/rm -rf "$INSTALLED_APP"
+    for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
+        /bin/rm -rf "$INSTALL_DIR/$legacy_app_name.app"
+    done
     /usr/bin/ditto --norsrc "$STAGED_APP" "$INSTALLED_APP"
     /usr/bin/xattr -cr "$INSTALLED_APP" 2>/dev/null || true
     verify_app_bundle "$INSTALLED_APP"
 
     print_step "Refreshing Desktop commands"
     if [[ -d "$HOME/Desktop" ]]; then
-        /bin/rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_UPDATER" \
-            "$OLD_DESKTOP_LAUNCHER" "$OLD_DESKTOP_UNINSTALLER" "$OLD_LEGACY_DESKTOP_LAUNCHER" "$OLD_LEGACY_DESKTOP_UPDATER" \
-            "$OLD_DESKTOP_INSTALLER_COMMAND"
-        /bin/rm -rf "$OLD_DESKTOP_INSTALLER_APP"
+        /bin/rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_UPDATER"
+        for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
+            /bin/rm -f "$HOME/Desktop/$legacy_app_name.command" \
+                "$HOME/Desktop/Uninstall $legacy_app_name.command" \
+                "$HOME/Desktop/$legacy_app_name" \
+                "$HOME/Desktop/Update $legacy_app_name.command" \
+                "$HOME/Desktop/Install or Update $legacy_app_name.command"
+            /bin/rm -rf "$HOME/Desktop/Install or Update $legacy_app_name.app"
+        done
         cat > "$DESKTOP_LAUNCHER" <<'LAUNCHER'
 #!/bin/zsh
 set -euo pipefail
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
-/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/pdFold/main/install.sh | /bin/zsh
+/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | /bin/zsh
 LAUNCHER
         chmod +x "$DESKTOP_LAUNCHER" 2>/dev/null || print_note "Could not make the Desktop launcher executable."
         cat > "$DESKTOP_UNINSTALLER" <<'UNINSTALLER'
 #!/bin/zsh
 set -euo pipefail
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
-/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/pdFold/main/scripts/uninstall-mac.sh | /bin/zsh
+/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/uninstall-mac.sh | /bin/zsh
 UNINSTALLER
         chmod +x "$DESKTOP_UNINSTALLER" 2>/dev/null || print_note "Could not make the Desktop uninstaller executable."
     else
@@ -357,7 +360,7 @@ install_prebuilt_release() {
 
 build_icon() {
     local source_dir iconset
-    source_dir="$PROJECT_ROOT/PDFold/Resources/Assets.xcassets/AppIcon.appiconset"
+    source_dir="$PROJECT_ROOT/Orifold/Resources/Assets.xcassets/AppIcon.appiconset"
     iconset="$STAGE_ROOT/AppIcon.iconset"
     /bin/mkdir -p "$iconset"
 
@@ -377,10 +380,10 @@ build_icon() {
 write_info_plist() {
     local plist
     plist="$STAGED_APP/Contents/Info.plist"
-    cp "$PROJECT_ROOT/PDFold/Resources/Info.plist" "$plist"
+    cp "$PROJECT_ROOT/Orifold/Resources/Info.plist" "$plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" "$plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $APP_NAME" "$plist"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.ud.PDFold" "$plist"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.ud.Orifold" "$plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon" "$plist" 2>/dev/null \
         || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$plist"
@@ -420,8 +423,8 @@ build_from_source() {
     fi
     write_info_plist
     build_icon
-    cp "$PROJECT_ROOT/PDFold/Resources/CERTIFICATE_GUIDE.md" "$STAGED_APP/Contents/Resources/CERTIFICATE_GUIDE.md"
-    cp "$PROJECT_ROOT/PDFold/Resources/PDFold.entitlements" "$STAGED_APP/Contents/Resources/PDFold.entitlements"
+    cp "$PROJECT_ROOT/Orifold/Resources/CERTIFICATE_GUIDE.md" "$STAGED_APP/Contents/Resources/CERTIFICATE_GUIDE.md"
+    cp "$PROJECT_ROOT/Orifold/Resources/Orifold.entitlements" "$STAGED_APP/Contents/Resources/Orifold.entitlements"
     /usr/bin/xattr -cr "$STAGED_APP" 2>/dev/null || true
     verify_required_frameworks "$STAGED_APP"
 

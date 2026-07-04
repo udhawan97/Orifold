@@ -1,4 +1,4 @@
-# pdFold release-v4 Release Notes
+# Orifold release-v4 Release Notes
 
 ## GitHub Release Fields
 
@@ -6,14 +6,14 @@ Tag: `release-v4`
 
 Target: latest commit tagged by `release-v4`
 
-Release title: `pdFold release-v4 - inline editing, digital signatures, and Xcode build parity`
+Release title: `Orifold release-v4 - inline editing, digital signatures, and Xcode build parity`
 
-Asset to upload: `pdFold.zip`
+Asset to upload: `Orifold.zip`
 
 Build the asset with:
 
 ```zsh
-./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
 
 ## Release Notes
@@ -22,13 +22,13 @@ Build the asset with:
 
 **Release:** Latest release  
 **Release date:** July 1, 2026  
-**Tag:** [`release-v4`](https://github.com/udhawan97/PDFold/releases/tag/release-v4)
+**Tag:** [`release-v4`](https://github.com/udhawan97/Orifold/releases/tag/release-v4)
 
 ---
 
 ## ✦ A More Precise Native PDF Editor
 
-pdFold release-v4 focuses on the editing and signing paths that matter most in dense real-world PDFs: click existing text, edit it in place, sign documents, and export a PDF that keeps the original page stable.
+Orifold release-v4 focuses on the editing and signing paths that matter most in dense real-world PDFs: click existing text, edit it in place, sign documents, and export a PDF that keeps the original page stable.
 
 The local-first document workspace, installer, automatic update flow, clean uninstall command, PDFium validation, and multi-format export from v3 remain intact. Version 4 hardens inline PDF text editing, PDF save metadata, authentic PDF signatures, bundled signing guidance, Xcode project parity, release automation, and regression coverage so the app behaves more like a serious Mac PDF workflow tool.
 
@@ -119,41 +119,41 @@ The latest release target includes the follow-up signature fixes after the origi
 
 release-v4 also tightens the release path.
 
-- The checked-in Xcode project now includes signing sources, signing tests, Swift package products, bundled certificate-guide resources, and a shared `PDFold` scheme for build/test verification.
+- The checked-in Xcode project now includes signing sources, signing tests, Swift package products, bundled certificate-guide resources, and a shared `Orifold` scheme for build/test verification.
 - Xcode tests use the app debug dylib without launching the full app, while SwiftPM continues to cover the WebKit HTML pagination path.
 - `release-v*` tags now trigger the release workflow.
-- Tagged releases publish `pdFold.zip` and are marked as the latest GitHub release.
-- Rolling `pdFold-latest` builds still refresh from `main`, but no longer steal the latest-release pointer from versioned releases.
-- README download links point at `https://github.com/udhawan97/PDFold/releases/latest/download/pdFold.zip`.
+- Tagged releases publish `Orifold.zip` and are marked as the latest GitHub release.
+- Rolling `Orifold-latest` builds still refresh from `main`, but no longer steal the latest-release pointer from versioned releases.
+- README download links point at `https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.zip`.
 
 ---
 
 ## Install
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | zsh
 ```
 
-The installer downloads the latest `pdFold.zip`, installs `pdFold.app` to `~/Applications`, creates Desktop commands for launch/update and uninstall, clears quarantine metadata, and opens pdFold.
+The installer downloads the latest `Orifold.zip`, installs `Orifold.app` to `~/Applications`, creates Desktop commands for launch/update and uninstall, clears quarantine metadata, and opens Orifold.
 
-Direct download: [`pdFold.zip`](https://github.com/udhawan97/PDFold/releases/latest/download/pdFold.zip)
+Direct download: [`Orifold.zip`](https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.zip)
 
 ---
 
 ## Update
 
-After installing release-v4, double-click `pdFold.command` on the Desktop. It checks the latest release before opening the app.
+After installing release-v4, double-click `Orifold.command` on the Desktop. It checks the latest release before opening the app.
 
 ---
 
 ## Uninstall
 
-Double-click `Uninstall pdFold.command` on the Desktop.
+Double-click `Uninstall Orifold.command` on the Desktop.
 
-To keep pdFold app support, preferences, caches, and sandbox data:
+To keep Orifold app support, preferences, caches, and sandbox data:
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
 ```
 
 ---
@@ -161,20 +161,20 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/unins
 ## Verification
 
 ```zsh
-plutil -lint PDFold/Resources/Info.plist
-plutil -lint PDFold/Resources/PDFold.entitlements
+plutil -lint Orifold/Resources/Info.plist
+plutil -lint Orifold/Resources/Orifold.entitlements
 zsh -n install.sh
 zsh -n scripts/install-mac.sh
 zsh -n scripts/uninstall-mac.sh
 zsh -n scripts/install-mac.command
-zsh -n "Install or Update pdFold.command"
-zsh -n "Uninstall pdFold.command"
-plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
+zsh -n "Install or Update Orifold.command"
+zsh -n "Uninstall Orifold.command"
+plutil -lint "Install or Update Orifold.app/Contents/Info.plist"
 swift build
 swift test
-xcodebuild build -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
-xcodebuild test -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
-./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
+xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
 
 ---
@@ -218,7 +218,7 @@ Commits:
 - `8088ac7` App name changes
 - `9a4ec5b` Fix inline text editing: lost edits on export, misplaced/overlapping replacement text, dropped annotations, and font fidelity
 - `fd596f7` Adding fixes for notes feature
-- `d82cef0` renaming app to pdFold
+- `d82cef0` renaming app to Orifold
 - `955fe43` Shell script fixes
 - `d609234` CI fixes
 - `bc5b2e1` Merge branch 'claude/relaxed-tharp-3a55e3'
@@ -231,10 +231,10 @@ Commits:
 
 ## Release Checklist
 
-- Confirm `PDFold/Resources/Info.plist` is `3.0` / `4`.
+- Confirm `Orifold/Resources/Info.plist` is `3.0` / `4`.
 - Confirm `project.yml` is `3.0` / `4`.
-- Confirm `PDFold/Resources/CERTIFICATE_GUIDE.md` is included in SwiftPM resources, Xcode app resources, and installer packaging.
-- Confirm the Xcode project includes the signing source files, signing tests, Swift package products, and shared `PDFold` test scheme.
+- Confirm `Orifold/Resources/CERTIFICATE_GUIDE.md` is included in SwiftPM resources, Xcode app resources, and installer packaging.
+- Confirm the Xcode project includes the signing source files, signing tests, Swift package products, and shared `Orifold` test scheme.
 - Run the verification commands above.
 - Confirm the `release-v4` tag points at the intended release commit locally and on `origin`.
-- Confirm the GitHub release for `release-v4` is marked latest and contains `pdFold.zip`.
+- Confirm the GitHub release for `release-v4` is marked latest and contains `Orifold.zip`.

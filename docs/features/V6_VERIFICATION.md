@@ -1,4 +1,4 @@
-# pdFold v6 Verification
+# Orifold v6 Verification
 
 Date: July 2, 2026
 
@@ -6,7 +6,7 @@ This records the final Acrobat-parity v6 release gate after modules C, E, B, D, 
 
 ## Final Integrated Gate
 
-Added `V6IntegratedFlowTests.testFinalGateAllFiveFeaturesTogether` in `Tests/PDFoldTests/PDFoldTests.swift`.
+Added `V6IntegratedFlowTests.testFinalGateAllFiveFeaturesTogether` in `Tests/OrifoldTests/OrifoldTests.swift`.
 
 The test exercises the combined flow in release order:
 
@@ -20,7 +20,7 @@ The test exercises the combined flow in release order:
 8. Validate intermediate and final PDF artifacts with PDFium.
 9. Re-import the protected PDF, unlock it, and verify the expected form and searchable-scan text survives.
 
-The gate also verifies the existing product decision that workspace writes are PDF-only. The app intentionally does not advertise `.pdfoldproj` as a writable document type; existing tests cover that behavior.
+The gate also verifies the existing product decision that workspace writes are PDF-only. The app intentionally does not advertise `.orifoldproj` as a writable document type; existing tests cover that behavior.
 
 ## Audit Findings And Fixes
 

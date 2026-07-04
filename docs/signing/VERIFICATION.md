@@ -13,25 +13,25 @@ fail-closed `missingIdentity` behavior when no identity has been resolved.
 A self-signed signer was generated with OpenSSL (free — the "identity not verified" path), packaged
 as PKCS#12, and fed through the SAME component pipeline the app's Sign & Export must call
 (`PKCS12SigningIdentityProvider` → `PDFIncrementalSigner` → `CMSSignatureBuilder`) via the gated
-test `Tests/PDFoldTests/SigningVerificationHarness.swift`.
+test `Tests/OrifoldTests/SigningVerificationHarness.swift`.
 
 ```
 # 1. self-signed signer cert + key, packaged as .p12 (no CA, no cost)
 openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes \
-  -subj "/CN=pdFold Test Signer/O=pdFold/C=US" \
+  -subj "/CN=Orifold Test Signer/O=Orifold/C=US" \
   -addext "keyUsage=critical,digitalSignature,nonRepudiation"
 openssl pkcs12 -export -inkey key.pem -in cert.pem -out id.p12 -passout pass:test -legacy \
-  -name "pdFold Test Signer"
+  -name "Orifold Test Signer"
 
 # 2. sign a sample PDF through the real pipeline
-PDFOLD_P12_PATH=id.p12 PDFOLD_P12_PASS=test PDFOLD_SIGN_OUT=signed.pdf \
+ORIFOLD_P12_PATH=id.p12 ORIFOLD_P12_PASS=test ORIFOLD_SIGN_OUT=signed.pdf \
   swift test --filter SigningVerificationHarness
 # -> wrote signed PDF: signed.pdf (34266 bytes)
 
 # Optional PAdES B-T run: request a RFC-3161 token over the CMS signature value before SignerInfo
-# is finalized. PDFOLD_TSA_URL can override the default https://freetsa.org/tsr endpoint.
-PDFOLD_P12_PATH=id.p12 PDFOLD_P12_PASS=test PDFOLD_SIGN_OUT=signed-bt.pdf \
-  PDFOLD_SIGN_TIMESTAMP=1 swift test --filter SigningVerificationHarness
+# is finalized. ORIFOLD_TSA_URL can override the default https://freetsa.org/tsr endpoint.
+ORIFOLD_P12_PATH=id.p12 ORIFOLD_P12_PASS=test ORIFOLD_SIGN_OUT=signed-bt.pdf \
+  ORIFOLD_SIGN_TIMESTAMP=1 swift test --filter SigningVerificationHarness
 # -> wrote signed PDF: signed-bt.pdf (34266 bytes)
 
 # 3. validate
@@ -45,8 +45,8 @@ openssl asn1parse -inform DER -in signed.pdf.sig0
 Digital Signature Info of: signed.pdf
 Signature #1:
   - Signature Field Name: Signature 9
-  - Signer Certificate Common Name: pdFold Test Signer
-  - Signer full Distinguished Name: C=US,O=pdFold,CN=pdFold Test Signer
+  - Signer Certificate Common Name: Orifold Test Signer
+  - Signer full Distinguished Name: C=US,O=Orifold,CN=Orifold Test Signer
   - Signing Time: Jul 01 2026 07:07:15
   - Signing Hash Algorithm: SHA-256
   - Signature Type: ETSI.CAdES.detached
@@ -77,11 +77,11 @@ attributes for PAdES:
 1103: OBJECT :messageDigest
 1153: OBJECT :id-smime-aa-signingCertificateV2   <-- ESS signing-certificate-v2 (makes it valid PAdES)
 ```
-Signer certificate is embedded (`subject = issuer = CN=pdFold Test Signer` — self-signed as
+Signer certificate is embedded (`subject = issuer = CN=Orifold Test Signer` — self-signed as
 expected).
 
 ## Result 3 — PAdES B-T timestamp run
-The same harness was rerun with `PDFOLD_SIGN_TIMESTAMP=1`, which drives the app-equivalent callback:
+The same harness was rerun with `ORIFOLD_SIGN_TIMESTAMP=1`, which drives the app-equivalent callback:
 ```swift
 try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity) { signatureValue in
     try Self.fetchTimestampSynchronously(for: signatureValue, tsaURL: tsaURL).cmsTimeStampToken
@@ -94,8 +94,8 @@ NSS_Init failed: security library: bad database.
 Digital Signature Info of: tmp/signing-v4/signed-bt.pdf
 Signature #1:
   - Signature Field Name: Signature 9
-  - Signer Certificate Common Name: pdFold Test Signer
-  - Signer full Distinguished Name: C=US,O=pdFold,CN=pdFold Test Signer
+  - Signer Certificate Common Name: Orifold Test Signer
+  - Signer full Distinguished Name: C=US,O=Orifold,CN=Orifold Test Signer
   - Signing Time: Jul 01 2026 07:16:38
   - Signing Hash Algorithm: SHA-256
   - Signature Type: ETSI.CAdES.detached
@@ -117,7 +117,7 @@ the timestamp unsigned attribute and embedded RFC-3161 token:
 `swift build` and full `swift test` are green — **78 tests, 0 failures**, including the 8 byte-exact
 signing acceptance tests in `PDFSigningTests.swift` (ByteRange/Contents splicing, append-only
 incremental update, multi-signer preservation, export-survival). The opt-in
-`SigningVerificationHarness` remains skipped in the normal suite unless the `PDFOLD_*` environment
+`SigningVerificationHarness` remains skipped in the normal suite unless the `ORIFOLD_*` environment
 variables are supplied.
 
 ## Remaining external scope
@@ -133,7 +133,7 @@ Module F now resolves Import .p12, Choose Keychain ID, and Generate self-signed 
 try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity)
 ```
 
-When the timestamp toggle is on, pdFold requests a `CMSTimeStampToken` via `TimestampClient` over
+When the timestamp toggle is on, Orifold requests a `CMSTimeStampToken` via `TimestampClient` over
 the CMS signature value, passes it into the CMS builder before `SignerInfo` is finalized, and embeds
 it as PAdES B-T. If the TSA is unavailable, export continues as PAdES B-B and surfaces a visible
 warning. If no identity was resolved, signing still fails closed with `SigningError.missingIdentity`.

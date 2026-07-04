@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "pdFold",
+    name: "Orifold",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "pdFold", targets: ["PDFold"])
+        .executable(name: "Orifold", targets: ["Orifold"])
     ],
     dependencies: [
         .package(path: "Packages/PDFiumBinary"),
@@ -15,17 +15,17 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "PDFold",
+            name: "Orifold",
             dependencies: [
                 .product(name: "PDFium", package: "PDFiumBinary"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "SwiftASN1", package: "swift-asn1"),
                 .product(name: "X509", package: "swift-certificates")
             ],
-            path: "PDFold",
+            path: "Orifold",
             exclude: [
                 "Resources/Info.plist",
-                "Resources/PDFold.entitlements"
+                "Resources/Orifold.entitlements"
             ],
             resources: [
                 .process("Resources/Assets.xcassets"),
@@ -34,9 +34,9 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "PDFoldTests",
-            dependencies: ["PDFold"],
-            path: "Tests/PDFoldTests"
+            name: "OrifoldTests",
+            dependencies: ["Orifold"],
+            path: "Tests/OrifoldTests"
         )
     ]
 )

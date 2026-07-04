@@ -1,4 +1,4 @@
-# v6 pdFold
+# v6 Orifold
 
 ## GitHub Release Fields
 
@@ -6,29 +6,29 @@ Tag: `release-v6`
 
 Target: latest commit tagged by `release-v6`
 
-Release title: `v6 pdFold`
+Release title: `v6 Orifold`
 
-Asset to upload: `pdFold.zip`
+Asset to upload: `Orifold.zip`
 
 Build the asset with:
 
 ```zsh
-./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
 
 ## Release Notes
 
-# v6 pdFold
+# v6 Orifold
 
 **Release:** Latest release
 **Release date:** July 3, 2026
-**Tag:** [`release-v6`](https://github.com/udhawan97/PDFold/releases/tag/release-v6)
+**Tag:** [`release-v6`](https://github.com/udhawan97/Orifold/releases/tag/release-v6)
 
 ---
 
 ## A More Complete Local PDF Finishing Workspace
 
-pdFold v6 expands the app from document assembly and markup into a fuller PDF finishing workflow: make scans searchable, complete forms, add stamps and page decorations, reduce file size, protect the final PDF, and keep the exported result aligned with what you saw in the workspace.
+Orifold v6 expands the app from document assembly and markup into a fuller PDF finishing workflow: make scans searchable, complete forms, add stamps and page decorations, reduce file size, protect the final PDF, and keep the exported result aligned with what you saw in the workspace.
 
 The local-first document workspace, one-line installer, automatic update flow, clean uninstall command, inline text editing, comments, signatures, PDF-first save path, source-aware export, and multi-format export remain intact. Version 6 adds OCR, form export controls, decoration baking, compression, encryption, stricter export snapshots, and UI polish around the everyday reading and annotation surface.
 
@@ -40,7 +40,7 @@ This is primarily a **searchable scans, forms, stamps, protected export, compres
 
 ### Searchable Scans With Local OCR
 
-pdFold can turn image-only scan pages into searchable PDF pages without sending the document to a remote service.
+Orifold can turn image-only scan pages into searchable PDF pages without sending the document to a remote service.
 
 - Local Vision OCR recognizes scan text and writes it back as invisible selectable/searchable text.
 - OCR work is cancellable and reports clear progress.
@@ -51,7 +51,7 @@ pdFold can turn image-only scan pages into searchable PDF pages without sending 
 
 Forms are now part of the normal workspace instead of a fragile edge case.
 
-- pdFold scans imported PDFs for form fields and shows form status in the reader.
+- Orifold scans imported PDFs for form fields and shows form status in the reader.
 - Users can reset form values when they need a clean start.
 - Export can lock form answers by flattening widgets into the final PDF.
 - Tests cover text fields, checkboxes, malformed radio groups, reset/undo behavior, and unsupported dynamic-form markers.
@@ -67,7 +67,7 @@ Version 6 adds document decorations for packet preparation and review workflows.
 
 ### Protected PDF Export
 
-pdFold can export password-protected PDFs and verify the result before handing it back to the user.
+Orifold can export password-protected PDFs and verify the result before handing it back to the user.
 
 - User and owner passwords are validated before writing output.
 - Printing and copying permissions are checked after encryption.
@@ -81,7 +81,7 @@ The compression path reduces image-heavy PDFs while keeping validation strict.
 - Image-heavy PDFs can be downsampled and rewritten through the local PDF processing path.
 - Compressed output must remain smaller than the source.
 - Text integrity and PDF validity are checked after compression.
-- If a PDF is already optimized or cannot be safely reduced, pdFold reports that instead of writing a misleading larger copy.
+- If a PDF is already optimized or cannot be safely reduced, Orifold reports that instead of writing a misleading larger copy.
 
 ### Stricter Export Integrity
 
@@ -106,18 +106,18 @@ The document workspace got several small fixes that make repeated use feel less 
 ## Install
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/install.sh | zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | zsh
 ```
 
-The installer downloads the latest `pdFold.zip`, installs `pdFold.app` to `~/Applications`, creates Desktop commands for launch/update and uninstall, clears quarantine metadata, and opens pdFold.
+The installer downloads the latest `Orifold.zip`, installs `Orifold.app` to `~/Applications`, creates Desktop commands for launch/update and uninstall, clears quarantine metadata, and opens Orifold.
 
-Direct download: [`pdFold.zip`](https://github.com/udhawan97/PDFold/releases/latest/download/pdFold.zip)
+Direct download: [`Orifold.zip`](https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.zip)
 
 Homebrew users can install the same prebuilt release app:
 
 ```zsh
-brew tap udhawan97/pdfold https://github.com/udhawan97/PDFold
-brew install --cask udhawan97/pdfold/pdfold
+brew tap udhawan97/orifold https://github.com/udhawan97/Orifold
+brew install --cask udhawan97/orifold/orifold
 ```
 
 The cask clears download quarantine after installation, matching the one-line installer. Release builds are fully Gatekeeper-trusted once the release workflow is configured with Apple Developer ID signing and notarization secrets.
@@ -126,18 +126,18 @@ The cask clears download quarantine after installation, matching the one-line in
 
 ## Update
 
-After installing v6, double-click `pdFold.command` on the Desktop. It checks the latest release before opening the app.
+After installing v6, double-click `Orifold.command` on the Desktop. It checks the latest release before opening the app.
 
 ---
 
 ## Uninstall
 
-Double-click `Uninstall pdFold.command` on the Desktop.
+Double-click `Uninstall Orifold.command` on the Desktop.
 
-To keep pdFold app support, preferences, caches, and sandbox data:
+To keep Orifold app support, preferences, caches, and sandbox data:
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
 ```
 
 ---
@@ -148,21 +148,21 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/PDFold/main/scripts/unins
 ### Verification
 
 ```zsh
-plutil -lint PDFold/Resources/Info.plist
-plutil -lint PDFold/Resources/PDFold.entitlements
+plutil -lint Orifold/Resources/Info.plist
+plutil -lint Orifold/Resources/Orifold.entitlements
 zsh -n install.sh
 zsh -n scripts/install-mac.sh
 zsh -n scripts/uninstall-mac.sh
 zsh -n scripts/install-mac.command
-zsh -n "Install or Update pdFold.command"
-zsh -n "Uninstall pdFold.command"
-zsh -n "Install or Update pdFold.app/Contents/MacOS/pdFoldInstaller"
-plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
+zsh -n "Install or Update Orifold.command"
+zsh -n "Uninstall Orifold.command"
+zsh -n "Install or Update Orifold.app/Contents/MacOS/OrifoldInstaller"
+plutil -lint "Install or Update Orifold.app/Contents/Info.plist"
 swift build
 swift test
-xcodebuild build -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
-xcodebuild test -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
-./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
+xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
 
 ### Git Summary
@@ -200,28 +200,28 @@ Commits:
 
 Notable files:
 
-- `PDFold/Engine/PDFOCRService.swift`
-- `PDFold/Engine/PDFCompressionService.swift`
-- `PDFold/Engine/PDFEncryptionService.swift`
-- `PDFold/Engine/PDFFormSupport.swift`
-- `PDFold/Engine/PDFDecorationExportBaker.swift`
-- `PDFold/Models/WorkspaceExportOptions.swift`
-- `PDFold/Models/PageDecoration.swift`
-- `PDFold/ViewModels/WorkspaceViewModel.swift`
-- `PDFold/Views/ReadingCanvas.swift`
-- `PDFold/Views/InspectorView.swift`
-- `PDFold/Views/StampPalette.swift`
-- `Tests/PDFoldTests/PDFOCRTests.swift`
-- `Tests/PDFoldTests/PDFoldTests.swift`
-- `Tests/PDFoldTests/SourceDocumentRoundTripTests.swift`
+- `Orifold/Engine/PDFOCRService.swift`
+- `Orifold/Engine/PDFCompressionService.swift`
+- `Orifold/Engine/PDFEncryptionService.swift`
+- `Orifold/Engine/PDFFormSupport.swift`
+- `Orifold/Engine/PDFDecorationExportBaker.swift`
+- `Orifold/Models/WorkspaceExportOptions.swift`
+- `Orifold/Models/PageDecoration.swift`
+- `Orifold/ViewModels/WorkspaceViewModel.swift`
+- `Orifold/Views/ReadingCanvas.swift`
+- `Orifold/Views/InspectorView.swift`
+- `Orifold/Views/StampPalette.swift`
+- `Tests/OrifoldTests/PDFOCRTests.swift`
+- `Tests/OrifoldTests/OrifoldTests.swift`
+- `Tests/OrifoldTests/SourceDocumentRoundTripTests.swift`
 - `docs/features/V6_VERIFICATION.md`
 
 ### Release Checklist
 
-- Confirm `PDFold/Resources/Info.plist` is `v6` / `6`.
+- Confirm `Orifold/Resources/Info.plist` is `v6` / `6`.
 - Confirm `project.yml` is `v6` / `6`.
 - Run the verification commands above.
 - Confirm the `release-v6` tag points at the intended release commit locally and on `origin`.
-- Confirm the GitHub release for `release-v6` is marked latest and contains `pdFold.zip`.
+- Confirm the GitHub release for `release-v6` is marked latest and contains `Orifold.zip`.
 
 </details>

@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 20
     env:
       DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
-      PDFOLD_HAS_DEVELOPER_ID_CERTIFICATE: ${{ secrets.PDFOLD_DEVELOPER_ID_CERTIFICATE_BASE64 != '' && '1' || '0' }}
+      ORIFOLD_HAS_DEVELOPER_ID_CERTIFICATE: ${{ secrets.ORIFOLD_DEVELOPER_ID_CERTIFICATE_BASE64 != '' && '1' || '0' }}
 
     steps:
       - name: Checkout
@@ -45,14 +45,14 @@ jobs:
           swift --version
 
       - name: Import Developer ID certificate
-        if: ${{ env.PDFOLD_HAS_DEVELOPER_ID_CERTIFICATE == '1' }}
+        if: ${{ env.ORIFOLD_HAS_DEVELOPER_ID_CERTIFICATE == '1' }}
         env:
-          CERTIFICATE_BASE64: ${{ secrets.PDFOLD_DEVELOPER_ID_CERTIFICATE_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.PDFOLD_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          CERTIFICATE_BASE64: ${{ secrets.ORIFOLD_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.ORIFOLD_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
         run: |
-          keychain="$RUNNER_TEMP/pdfold-signing.keychain-db"
+          keychain="$RUNNER_TEMP/orifold-signing.keychain-db"
           keychain_password="$(openssl rand -base64 32)"
-          certificate_path="$RUNNER_TEMP/pdfold-developer-id.p12"
+          certificate_path="$RUNNER_TEMP/orifold-developer-id.p12"
 
           echo "$CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
           security create-keychain -p "$keychain_password" "$keychain"
@@ -74,23 +74,23 @@ jobs:
 
       - name: Build distributable zip
         env:
-          PDFOLD_SIGNING_IDENTITY: ${{ secrets.PDFOLD_SIGNING_IDENTITY || '-' }}
-          PDFOLD_NOTARIZE: ${{ secrets.PDFOLD_SIGNING_IDENTITY != '' && secrets.PDFOLD_APPLE_ID != '' && secrets.PDFOLD_APPLE_TEAM_ID != '' && secrets.PDFOLD_APPLE_APP_SPECIFIC_PASSWORD != '' && '1' || '0' }}
-          PDFOLD_APPLE_ID: ${{ secrets.PDFOLD_APPLE_ID }}
-          PDFOLD_APPLE_TEAM_ID: ${{ secrets.PDFOLD_APPLE_TEAM_ID }}
-          PDFOLD_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.PDFOLD_APPLE_APP_SPECIFIC_PASSWORD }}
+          ORIFOLD_SIGNING_IDENTITY: ${{ secrets.ORIFOLD_SIGNING_IDENTITY || '-' }}
+          ORIFOLD_NOTARIZE: ${{ secrets.ORIFOLD_SIGNING_IDENTITY != '' && secrets.ORIFOLD_APPLE_ID != '' && secrets.ORIFOLD_APPLE_TEAM_ID != '' && secrets.ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD != '' && '1' || '0' }}
+          ORIFOLD_APPLE_ID: ${{ secrets.ORIFOLD_APPLE_ID }}
+          ORIFOLD_APPLE_TEAM_ID: ${{ secrets.ORIFOLD_APPLE_TEAM_ID }}
+          ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
           zsh scripts/install-mac.sh \
             --clean \
             --no-open \
             --package-only \
-            --package "$RUNNER_TEMP/pdFold.zip"
+            --package "$RUNNER_TEMP/Orifold.zip"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pdFold
-          path: ${{ runner.temp }}/pdFold.zip
+          name: Orifold
+          path: ${{ runner.temp }}/Orifold.zip
           if-no-files-found: error
 
       - name: Compute tagged release title
@@ -102,14 +102,14 @@ jobs:
           if [[ "$tag" == release-* ]]; then
             display_version="${tag#release-}"
           fi
-          echo "title=${display_version} pdFold" >> "$GITHUB_OUTPUT"
+          echo "title=${display_version} Orifold" >> "$GITHUB_OUTPUT"
 
       - name: Publish tagged GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ steps.release-title.outputs.title }}
-          files: ${{ runner.temp }}/pdFold.zip
+          files: ${{ runner.temp }}/Orifold.zip
           generate_release_notes: true
           make_latest: true
           overwrite_files: true
@@ -118,12 +118,12 @@ jobs:
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: pdFold-latest
-          name: pdFold Latest
+          tag_name: Orifold-latest
+          name: Orifold Latest
           body: |
             Automatically built from `${{ github.sha }}`.
 
-            This release exists so the one-line installer can install pdFold without requiring Xcode or Apple's Command Line Tools.
-          files: ${{ runner.temp }}/pdFold.zip
+            This release exists so the one-line installer can install Orifold without requiring Xcode or Apple's Command Line Tools.
+          files: ${{ runner.temp }}/Orifold.zip
           overwrite_files: true
           make_latest: false

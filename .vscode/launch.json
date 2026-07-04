@@ -4,41 +4,41 @@
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:PDFold}",
-            "name": "Debug PDFold",
-            "target": "PDFold",
+            "cwd": "${workspaceFolder:Orifold}",
+            "name": "Debug Orifold",
+            "target": "Orifold",
             "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug PDFold"
+            "preLaunchTask": "swift: Build Debug Orifold"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:PDFold}",
-            "name": "Release PDFold",
-            "target": "PDFold",
+            "cwd": "${workspaceFolder:Orifold}",
+            "name": "Release Orifold",
+            "target": "Orifold",
             "configuration": "release",
-            "preLaunchTask": "swift: Build Release PDFold"
+            "preLaunchTask": "swift: Build Release Orifold"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:PDFold}",
-            "name": "Debug pdFold",
-            "target": "pdFold",
+            "cwd": "${workspaceFolder:Orifold}",
+            "name": "Debug Orifold",
+            "target": "Orifold",
             "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug pdFold"
+            "preLaunchTask": "swift: Build Debug Orifold"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:PDFold}",
-            "name": "Release pdFold",
-            "target": "pdFold",
+            "cwd": "${workspaceFolder:Orifold}",
+            "name": "Release Orifold",
+            "target": "Orifold",
             "configuration": "release",
-            "preLaunchTask": "swift: Build Release pdFold"
+            "preLaunchTask": "swift: Build Release Orifold"
         }
     ]
 }

@@ -1,4 +1,4 @@
-# v5 pdFold
+# v5 Orifold
 
 ## GitHub Release Fields
 
@@ -6,47 +6,47 @@ Tag: `release-v5`
 
 Target: latest commit tagged by `release-v5`
 
-Release title: `v5 pdFold`
+Release title: `v5 Orifold`
 
-Asset to upload: `pdFold.zip`
+Asset to upload: `Orifold.zip`
 
 Build the asset with:
 
 ```zsh
-./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
 
 ## Release Notes
 
-# v5 pdFold
+# v5 Orifold
 
 **Release:** Latest release  
 **Release date:** July 1, 2026  
-**Tag:** [`release-v5`](https://github.com/udhawan97/pdFold/releases/tag/release-v5)
+**Tag:** [`release-v5`](https://github.com/udhawan97/Orifold/releases/tag/release-v5)
 
 ---
 
 ## A Cleaner Save, Export, and Editing Release
 
-pdFold v5 tightens the everyday workflow around saving, exporting, and small editing details. Normal macOS Save/Save As now stays PDF-first, while the export menu keeps the broader formats users expect when they need DOCX, Markdown, text, HTML, image pages, or print output.
+Orifold v5 tightens the everyday workflow around saving, exporting, and small editing details. Normal macOS Save/Save As now stays PDF-first, while the export menu keeps the broader formats users expect when they need DOCX, Markdown, text, HTML, image pages, or print output.
 
 The release also preserves original source data for supported non-PDF imports, adds safer same-format export behavior, covers the source round trip with focused tests, and includes a more organized toolbar plus an optional in-app helper.
 
 ## Install
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/pdFold/main/install.sh | zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | zsh
 ```
 
-Direct download: [`pdFold.zip`](https://github.com/udhawan97/pdFold/releases/latest/download/pdFold.zip)
+Direct download: [`Orifold.zip`](https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.zip)
 
-The installer downloads the latest `pdFold.zip`, installs `pdFold.app` to `~/Applications`, creates Desktop commands for launch/update and uninstall, clears quarantine metadata, and opens pdFold.
+The installer downloads the latest `Orifold.zip`, installs `Orifold.app` to `~/Applications`, creates Desktop commands for launch/update and uninstall, clears quarantine metadata, and opens Orifold.
 
 Homebrew users can install the same prebuilt release app through the repository cask:
 
 ```zsh
-brew tap udhawan97/pdfold https://github.com/udhawan97/pdFold
-brew install --cask udhawan97/pdfold/pdfold
+brew tap udhawan97/orifold https://github.com/udhawan97/Orifold
+brew install --cask udhawan97/orifold/orifold
 ```
 
 ---
@@ -56,7 +56,7 @@ brew install --cask udhawan97/pdfold/pdfold
 ### PDF-First Save Path
 
 - Standard macOS Save and Save As write flat PDF output by default.
-- The previous `.pdfoldproj` workspace save type has been removed from app metadata and installer checks.
+- The previous `.orifoldproj` workspace save type has been removed from app metadata and installer checks.
 - Existing export/share choices remain available for users who need another output format.
 
 ### Source-Aware Export
@@ -76,7 +76,7 @@ brew install --cask udhawan97/pdfold/pdfold
 ### Toolbar and Optional Helper Polish
 
 - Search, contents, signature, edit, annotation, export, guide, and inspector controls are grouped more deliberately in the toolbar.
-- Foldy, the optional pdFold helper, reacts to common actions and can be hidden from the app menu or popover.
+- Foldy, the optional Orifold helper, reacts to common actions and can be hidden from the app menu or popover.
 - Helper bubbles avoid blocking normal canvas input.
 
 ### Installation Choices
@@ -89,18 +89,18 @@ brew install --cask udhawan97/pdfold/pdfold
 
 ## Update
 
-After installing v5, double-click `pdFold.command` on the Desktop. It checks the latest release before opening the app.
+After installing v5, double-click `Orifold.command` on the Desktop. It checks the latest release before opening the app.
 
 ---
 
 ## Uninstall
 
-Double-click `Uninstall pdFold.command` on the Desktop.
+Double-click `Uninstall Orifold.command` on the Desktop.
 
-To keep pdFold app support, preferences, caches, and sandbox data:
+To keep Orifold app support, preferences, caches, and sandbox data:
 
 ```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/pdFold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
 ```
 
 ---
@@ -111,21 +111,21 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/pdFold/main/scripts/unins
 ### Verification
 
 ```zsh
-plutil -lint PDFold/Resources/Info.plist
-plutil -lint PDFold/Resources/PDFold.entitlements
+plutil -lint Orifold/Resources/Info.plist
+plutil -lint Orifold/Resources/Orifold.entitlements
 zsh -n install.sh
 zsh -n scripts/install-mac.sh
 zsh -n scripts/uninstall-mac.sh
 zsh -n scripts/install-mac.command
-zsh -n "Install or Update pdFold.command"
-zsh -n "Uninstall pdFold.command"
-zsh -n "Install or Update pdFold.app/Contents/MacOS/pdFoldInstaller"
-plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
+zsh -n "Install or Update Orifold.command"
+zsh -n "Uninstall Orifold.command"
+zsh -n "Install or Update Orifold.app/Contents/MacOS/OrifoldInstaller"
+plutil -lint "Install or Update Orifold.app/Contents/Info.plist"
 swift build
 swift test
-xcodebuild build -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
-xcodebuild test -quiet -project PDFold.xcodeproj -scheme PDFold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
-./scripts/install-mac.sh --package-only --package /tmp/pdFold.zip
+xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
 
 ### Git Summary
@@ -141,7 +141,7 @@ Summary:
 Commits:
 
 - `HEAD` Extend CodeQL timeout
-- `bc17433` Normalize pdFold install links
+- `bc17433` Normalize Orifold install links
 - `97c175b` Add optional Homebrew cask
 - `b92d4f6` Polish release README and CI test
 - `f709d96` Stabilize CI plist validation
@@ -154,27 +154,27 @@ Commits:
 
 Notable files:
 
-- `PDFold/Document/WorkspaceDocument.swift`
-- `PDFold/ViewModels/WorkspaceViewModel.swift`
-- `PDFold/Engine/PDFKitEngine.swift`
-- `PDFold/Models/SourceDocumentPayload.swift`
-- `PDFold.xcodeproj/project.pbxproj`
-- `Casks/pdfold.rb`
+- `Orifold/Document/WorkspaceDocument.swift`
+- `Orifold/ViewModels/WorkspaceViewModel.swift`
+- `Orifold/Engine/PDFKitEngine.swift`
+- `Orifold/Models/SourceDocumentPayload.swift`
+- `Orifold.xcodeproj/project.pbxproj`
+- `Casks/orifold.rb`
 - `install.sh`
 - `scripts/install-mac.sh`
 - `.github/workflows/ci.yml`
 - `.github/workflows/codeql.yml`
-- `PDFold/Views/ContentView.swift`
-- `PDFold/Views/ReadingCanvas.swift`
-- `PDFold/Pet/PetBuddy.swift`
-- `Tests/PDFoldTests/SourceDocumentRoundTripTests.swift`
+- `Orifold/Views/ContentView.swift`
+- `Orifold/Views/ReadingCanvas.swift`
+- `Orifold/Pet/PetBuddy.swift`
+- `Tests/OrifoldTests/SourceDocumentRoundTripTests.swift`
 
 ### Release Checklist
 
-- Confirm `PDFold/Resources/Info.plist` is `3.0` / `5`.
+- Confirm `Orifold/Resources/Info.plist` is `3.0` / `5`.
 - Confirm `project.yml` is `3.0` / `5`.
 - Run the verification commands above.
 - Confirm the `release-v5` tag points at the intended release commit locally and on `origin`.
-- Confirm the GitHub release for `release-v5` is marked latest and contains `pdFold.zip`.
+- Confirm the GitHub release for `release-v5` is marked latest and contains `Orifold.zip`.
 
 </details>

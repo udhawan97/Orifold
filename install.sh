@@ -3,14 +3,14 @@ set -euo pipefail
 
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
-APP_NAME="pdFold"
-REPO="udhawan97/pdFold"
+APP_NAME="Orifold"
+REPO="udhawan97/Orifold"
 RAW_BASE="https://raw.githubusercontent.com/$REPO/main"
-WORK_DIR="$HOME/.pdfold"
+WORK_DIR="$HOME/.orifold"
 SRC_DIR="$WORK_DIR/src"
 INSTALLER="$SRC_DIR/scripts/install-mac.sh"
-VERBOSE="${PDFOLD_INSTALL_VERBOSE:-0}"
-ALLOW_SOURCE_BUILD="${PDFOLD_ALLOW_SOURCE_BUILD:-0}"
+VERBOSE="${ORIFOLD_INSTALL_VERBOSE:-0}"
+ALLOW_SOURCE_BUILD="${ORIFOLD_ALLOW_SOURCE_BUILD:-0}"
 
 print_step() {
     printf "\n==> %s\n" "$1"
@@ -36,7 +36,7 @@ fail() {
 
 print_step "Installing or updating $APP_NAME"
 print_note "Trying the prebuilt app first. No Xcode or Command Line Tools needed."
-print_debug "Set PDFOLD_ALLOW_SOURCE_BUILD=1 to permit a developer source build fallback."
+print_debug "Set ORIFOLD_ALLOW_SOURCE_BUILD=1 to permit a developer source build fallback."
 
 REMOTE_INSTALLER="$WORK_DIR/install-mac.sh"
 PREBUILT_LOG="$WORK_DIR/prebuilt-install.log"
@@ -58,7 +58,7 @@ else
 fi
 
 if [[ "$ALLOW_SOURCE_BUILD" != "1" ]]; then
-    fail "No prebuilt pdFold release could be installed. The maintainer needs to publish a GitHub release asset named pdFold.zip. Developer source builds can opt in with PDFOLD_ALLOW_SOURCE_BUILD=1."
+    fail "No prebuilt Orifold release could be installed. The maintainer needs to publish a GitHub release asset named Orifold.zip. Developer source builds can opt in with ORIFOLD_ALLOW_SOURCE_BUILD=1."
 fi
 
 print_note "Developer source build fallback enabled."
@@ -80,10 +80,10 @@ else
     TARBALL="$WORK_DIR/source.tar.gz"
     /usr/bin/curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/heads/main" -o "$TARBALL"
     /usr/bin/tar -xzf "$TARBALL" -C "$WORK_DIR"
-    if [[ -d "$WORK_DIR/pdFold-main" ]]; then
-        mv "$WORK_DIR/pdFold-main" "$SRC_DIR"
+    if [[ -d "$WORK_DIR/Orifold-main" ]]; then
+        mv "$WORK_DIR/Orifold-main" "$SRC_DIR"
     else
-        mv "$WORK_DIR/PDFold-main" "$SRC_DIR"
+        fail "Source archive did not contain Orifold-main."
     fi
 fi
 

@@ -47,10 +47,10 @@ jobs:
 
       - name: Validate property lists
         run: |
-          plutil -lint PDFold/Resources/Info.plist
-          plutil -lint PDFold/Resources/PDFold.entitlements
-          plutil -lint "Install or Update pdFold.app/Contents/Info.plist"
-          if grep -E "pdfoldproj|UTExportedTypeDeclarations|pdFold Workspace" PDFold/Resources/Info.plist; then
+          plutil -lint Orifold/Resources/Info.plist
+          plutil -lint Orifold/Resources/Orifold.entitlements
+          plutil -lint "Install or Update Orifold.app/Contents/Info.plist"
+          if grep -E "orifoldproj|UTExportedTypeDeclarations|Orifold Workspace" Orifold/Resources/Info.plist; then
             echo "Info.plist still advertises the retired workspace document type."
             exit 1
           fi
@@ -61,9 +61,9 @@ jobs:
           zsh -n scripts/install-mac.sh
           zsh -n scripts/install-mac.command
           zsh -n scripts/uninstall-mac.sh
-          zsh -n "Install or Update pdFold.command"
-          zsh -n "Uninstall pdFold.command"
-          zsh -n "Install or Update pdFold.app/Contents/MacOS/pdFoldInstaller"
+          zsh -n "Install or Update Orifold.command"
+          zsh -n "Uninstall Orifold.command"
+          zsh -n "Install or Update Orifold.app/Contents/MacOS/OrifoldInstaller"
 
       - name: Swift Package build
         run: swift build
@@ -74,24 +74,24 @@ jobs:
       - name: Xcode build
         run: |
           xcodebuild \
-            -project PDFold.xcodeproj \
-            -scheme PDFold \
+            -project Orifold.xcodeproj \
+            -scheme Orifold \
             -configuration Debug \
             -destination 'generic/platform=macOS' \
-            -derivedDataPath "$RUNNER_TEMP/PDFoldDerivedData" \
-            -resultBundlePath "$RUNNER_TEMP/PDFold.xcresult" \
+            -derivedDataPath "$RUNNER_TEMP/OrifoldDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/Orifold.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
             build
 
       - name: Xcode tests
         run: |
           xcodebuild \
-            -project PDFold.xcodeproj \
-            -scheme PDFold \
+            -project Orifold.xcodeproj \
+            -scheme Orifold \
             -configuration Debug \
             -destination 'platform=macOS,arch=arm64' \
-            -derivedDataPath "$RUNNER_TEMP/PDFoldDerivedData" \
-            -resultBundlePath "$RUNNER_TEMP/PDFoldTests.xcresult" \
+            -derivedDataPath "$RUNNER_TEMP/OrifoldDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/OrifoldTests.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
             test
 
@@ -99,8 +99,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: PDFold-xcresults
+          name: Orifold-xcresults
           path: |
-            ${{ runner.temp }}/PDFold.xcresult
-            ${{ runner.temp }}/PDFoldTests.xcresult
+            ${{ runner.temp }}/Orifold.xcresult
+            ${{ runner.temp }}/OrifoldTests.xcresult
           if-no-files-found: ignore
