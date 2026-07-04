@@ -13,7 +13,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-banner-dark.svg">
-  <img src="docs/assets/hero-banner-light.svg" alt="50 messy files go in, one polished, searchable, password-protected PDF comes out — 100% native Swift, 0 network calls, ~24k lines of Swift, 2 sandbox entitlements" width="880">
+  <img src="docs/assets/hero-banner-light.svg" alt="50 messy files go in, one polished, searchable, password-protected PDF comes out — up to 50 files per workspace, 0 files ever uploaded, 12+ PDF tools in one app, $0 forever" width="880">
 </picture>
 
 <br>
