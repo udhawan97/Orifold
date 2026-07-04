@@ -564,6 +564,49 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(viewModel.document.workspace.pageEditStates.first?.operations.first?.replacementText, "Redoable replacement")
     }
 
+    func testUndoCommandShowsMessageAfterLastUndo() throws {
+        let fixture = try makeMemberWithPDF(name: "Undoable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+
+        viewModel.rotatePage(fixture.refs[0], by: 90)
+        XCTAssertTrue(undoManager.canUndo)
+
+        viewModel.performUndoCommand()
+
+        XCTAssertFalse(undoManager.canUndo)
+        XCTAssertEqual(viewModel.loadedPDFs[0].1.page(at: 0)?.rotation, 0)
+        XCTAssertEqual(viewModel.editingStatus?.message, "You are back at the beginning. Nothing left to undo.")
+        XCTAssertFalse(viewModel.editingStatus?.isError ?? true)
+    }
+
+    func testUndoCommandReportsEmptyUndoStackWithoutCrashing() throws {
+        let fixture = try makeMemberWithPDF(name: "Undoable", pageTexts: ["Original text"])
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+
+        viewModel.performUndoCommand()
+
+        XCTAssertEqual(viewModel.editingStatus?.message, "Nothing left to undo.")
+        XCTAssertFalse(viewModel.editingStatus?.isError ?? true)
+    }
+
     func testInlineTextEditDoesNotClipReplacementLongerThanOriginalWord() throws {
         let fixture = try makeMemberWithPDF(name: "Editable", pageTexts: ["Original text"])
         let document = WorkspaceDocument()

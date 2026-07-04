@@ -27,7 +27,7 @@
 <br>
 <br>
 
-<img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">&nbsp;&nbsp;<img alt="Release v6" src="https://img.shields.io/badge/release-v6-2563EB?style=for-the-badge&logo=github&logoColor=white">&nbsp;&nbsp;<img alt="100% local" src="https://img.shields.io/badge/privacy-100%25%20local-10B981?style=for-the-badge">&nbsp;&nbsp;<img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6B7280?style=for-the-badge">
+<img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">&nbsp;&nbsp;<img alt="Release v7" src="https://img.shields.io/badge/release-v7-2563EB?style=for-the-badge&logo=github&logoColor=white">&nbsp;&nbsp;<img alt="100% local" src="https://img.shields.io/badge/privacy-100%25%20local-10B981?style=for-the-badge">&nbsp;&nbsp;<img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6B7280?style=for-the-badge">
 
 <br>
 <br>
@@ -41,6 +41,7 @@
 <img alt="SwiftUI" src="https://img.shields.io/badge/SwiftUI-0A84FF?style=flat-square&logo=swift&logoColor=white">&nbsp;
 <img alt="PDFKit" src="https://img.shields.io/badge/PDFKit-111111?style=flat-square&logo=apple&logoColor=white">&nbsp;
 <img alt="PDFium" src="https://img.shields.io/badge/PDFium-4285F4?style=flat-square&logo=googlechrome&logoColor=white">&nbsp;
+<img alt="qpdf" src="https://img.shields.io/badge/qpdf-6E56CF?style=flat-square&logoColor=white">&nbsp;
 <img alt="Vision OCR" src="https://img.shields.io/badge/Vision_OCR-111111?style=flat-square&logo=apple&logoColor=white">&nbsp;
 <img alt="App Sandbox" src="https://img.shields.io/badge/App_Sandbox-10B981?style=flat-square&logo=apple&logoColor=white">
 
@@ -117,14 +118,15 @@ Everything below runs on your Mac. The cloud was not consulted.
 
 | | Do this | Get this |
 | :---: | --- | --- |
-| 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV | One workspace instead of a folder of chaos |
+| 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV — even corrupt files | One workspace instead of a folder of chaos; broken PDFs repaired on the way in |
 | 🗂️ | **Organize** — reorder, rotate, delete pages across documents | A clean packet from messy source files |
 | ✏️ | **Annotate & edit** — highlight, notes, ink, text boxes, edit PDF text in place | Reviewed documents without a print-sign-scan loop |
 | 🖋️ | **Sign & fill forms** — draw signatures, complete form fields, lock answers | Finished paperwork, no third-party e-sign service |
 | 🔍 | **OCR scans** — local Vision OCR makes scanned pages searchable | ⌘F finally works on that thing your printer emailed you |
 | 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels | Packets and exhibits that look intentional |
-| 🗜️ | **Compress** — downsample oversized images, validate the result | Attachments that stop bouncing off email size limits |
-| 🔒 | **Protect & export** — password-protect, or export DOCX, Markdown, HTML, PNG, JPEG | The format the next person actually needs |
+| 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
+| 🧼 | **Sanitize for sharing** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't intend to send |
+| 🔒 | **Protect & export** — real AES-256 password, or export DOCX, Markdown, HTML, PNG, JPEG | The format the next person actually needs, locked when it matters |
 
 > [!TIP]
 > **Meet Foldy 🤝** — Orifold ships with a small built-in buddy who reacts to what you do with short tips and the occasional wisecrack ("Highlighted. Future-you will pretend they read the rest."). Helpful when you're new, easy to silence when you're not: toggle **Show Orifold Buddy** from the app's menu.
@@ -136,7 +138,7 @@ Everything below runs on your Mac. The cloud was not consulted.
 
 | Area | What you can do |
 | --- | --- |
-| **Import** | Open PDFs, Word documents, HTML, Markdown, text, CSV, JSON, XML, and common image formats — up to 50 files per workspace |
+| **Import** | Open PDFs, Word documents, HTML, Markdown, text, CSV, JSON, XML, and common image formats — up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
 | **Organize** | Reorder documents and pages, rotate, delete, add section banners, navigate from the sidebar |
 | **Read & search** | Native PDF canvas, page indicator, inspector, workspace-wide search, password unlock prompts |
 | **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text |
@@ -145,8 +147,10 @@ Everything below runs on your Mac. The cloud was not consulted.
 | **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
 | **Scans & OCR** | Local Vision OCR makes scans searchable; recognized text survives export |
 | **Stamps & decorations** | Watermarks, page numbers, Bates labels, movable stamps burned into exported PDFs |
-| **Compression** | Downsample oversized PDF images with post-compression validation |
-| **Protection** | Password-protected export with permission checks and post-export verification |
+| **Compression** | Downsample oversized PDF images, then a lossless qpdf object-stream pass repacks the structure; post-compression validation confirms the result |
+| **Sanitize** | Optional export pass strips catalog auto-run actions, embedded JavaScript, embedded files, and (opt-in) document metadata |
+| **Protection** | Real AES-256 (PDF 2.0 / R6) password protection with permission checks and post-export verification |
+| **Export integrity** | Every exported PDF passes a qpdf structural check before it reaches disk |
 | **Export** | PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, or print |
 | **Install & update** | One-line installer, Desktop launch/update helpers, clean uninstaller, Homebrew cask |
 </details>
@@ -175,7 +179,7 @@ The app enables exactly two entitlements:
 - `com.apple.security.app-sandbox`
 - `com.apple.security.files.user-selected.read-write`
 
-Practical guardrails include password prompts for protected PDFs, import size limits, local validation before and after compression or encryption, form flattening before decoration burn-in, export error reporting for malformed PDFs or failed writes, and hidden Orifold comment metadata stripped before flat PDF export.
+Practical guardrails include password prompts for protected PDFs, import size limits, local validation before and after compression or encryption, a qpdf structural check gating every export, an optional sanitize pass that strips auto-run actions and embedded JavaScript, form flattening before decoration burn-in, export error reporting for malformed PDFs or failed writes, and hidden Orifold comment metadata stripped before flat PDF export.
 </details>
 
 ## 🔄 Updating & Uninstalling
@@ -216,9 +220,9 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/unin
 | | |
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
-| **Codebase** | 51 Swift source files, ~24,000 lines |
-| **Tests** | 247 tests gating every release |
-| **PDF engines** | PDFKit (composition) + PDFium (validation & compression) + Vision (OCR) |
+| **Codebase** | 52 Swift source files, ~24,000 lines |
+| **Tests** | 276 tests gating every release |
+| **PDF engines** | PDFKit (composition) + PDFium (image compression) + qpdf (repair, AES-256, sanitize, structural validation) + Vision (OCR) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds the release zip; installer, Homebrew cask, and uninstaller ship from this repo |
 
@@ -235,7 +239,7 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/unin
 | --- | --- |
 | SwiftUI app | Document window, sidebar, canvas, annotation toolbar, search, inspector, password prompts, export controls |
 | Workspace state | Imported documents, page order, undo snapshots, comments, tags, signatures, form summaries, decorations |
-| PDF services | PDFKit composition, PDFium validation and compression, Vision OCR, encryption, form flattening, decoration baking, signing helpers |
+| PDF services | PDFKit composition, PDFium image compression, qpdf repair/AES-256/sanitize/structural validation, Vision OCR, form flattening, decoration baking, signing helpers |
 | Local storage | Saved PDF data, workspace metadata, source payloads, comments, signatures, page edit state |
 | Release tooling | One-line installer, package builder, Desktop update launcher, uninstaller, GitHub Actions release asset, validation tests |
 
@@ -244,8 +248,8 @@ flowchart LR
     Files["📁 Source files<br/>PDF, Word, HTML, Markdown, text, data, images"]
     UI["🖼️ SwiftUI views<br/>sidebar, canvas, toolbar, inspector"]
     State["🧠 Workspace state<br/>pages, comments, forms, decorations"]
-    Services["⚙️ Local engines<br/>PDFKit, PDFium, Vision OCR, signing"]
-    Export["📤 Export pipeline<br/>flatten, bake, compress, encrypt, validate"]
+    Services["⚙️ Local engines<br/>PDFKit, PDFium, qpdf, Vision OCR, signing"]
+    Export["📤 Export pipeline<br/>flatten, bake, compress, sanitize, encrypt, validate"]
     Artifacts["✅ Artifacts<br/>PDF, DOCX, MD, TXT, HTML, PNG, JPEG"]
 
     Files --> UI --> State --> Services --> Export --> Artifacts
@@ -262,13 +266,14 @@ Orifold/
   App/             App entry point and command wiring
   DesignSystem/    Shared visual tokens and styling
   Document/        macOS document package read/write support
-  Engine/          PDF loading, conversion, OCR, compression, encryption, forms, export
+  Engine/          PDF loading, repair, conversion, OCR, compression, encryption, sanitize, forms, export
   Models/          Workspace, page, annotation, comment, export, and decoration models
   Pet/             Foldy, the in-app buddy
   Resources/       App metadata, entitlements, assets
   Signing/         Signing identities, CMS construction, timestamping, verification
   ViewModels/      Workspace state, document operations, search, export, undo
   Views/           SwiftUI interface components
+Packages/          Vendored binary engines — PDFiumBinary, QPDFBinary (universal static libs)
 Tests/             Test suites run in the release gate
 scripts/
   install-mac.sh   Release-first installer, source builder, release packager
@@ -310,7 +315,7 @@ Install from the current source checkout without opening the app:
 ./scripts/install-mac.sh --no-open
 ```
 
-App metadata: `CFBundleShortVersionString` `v6`, `CFBundleVersion` `6`.
+App metadata: `CFBundleShortVersionString` `v7`, `CFBundleVersion` `7`.
 </details>
 
 <details>
@@ -410,7 +415,8 @@ Check `.build/install.log` in the project folder for build output, and `~/.orifo
 
 ## 🗺️ Roadmap
 
-- More export presets
+- True content redaction (remove text/images, not just cover them)
+- Side-by-side document compare
 - Faster large-document navigation
 - Automated UI smoke tests
 
@@ -431,5 +437,5 @@ Orifold is available under the [MIT License](LICENSE).
 </p>
 
 <p align="center">
-  Built with SwiftUI, PDFKit, PDFium, and Vision — all running on your machine.
+  Built with SwiftUI, PDFKit, PDFium, qpdf, and Vision — all running on your machine.
 </p>

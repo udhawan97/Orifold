@@ -124,7 +124,7 @@
     <text x="62" y="36" class="eye" fill="#DDD6FE">ENGINE — PROTOCOL SEAM</text>
     <rect x="613" y="16" width="207" height="24" rx="12" fill="#0B1322" stroke="#26364E"/>
     <text x="716.5" y="32" text-anchor="middle" class="badge">Orifold/Engine · Signing</text>
-    <text x="24" y="62" class="body">Swappable engines behind protocols — PDFKit composes, PDFium validates and rewrites.</text>
+    <text x="24" y="62" class="body">Swappable engines behind protocols — PDFKit composes, PDFium &amp; qpdf validate and rewrite.</text>
     <g>
       <rect x="24" y="74" width="110" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
       <text x="79" y="91" text-anchor="middle" class="chip" fill="#DDD6FE">PDFKitEngine</text>
@@ -132,6 +132,8 @@
       <text x="233" y="91" text-anchor="middle" class="chip" fill="#DDD6FE">PDFiumProcessingEngine</text>
       <rect x="332" y="74" width="117" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
       <text x="390.5" y="91" text-anchor="middle" class="chip" fill="#DDD6FE">PDFOCRService</text>
+      <rect x="459" y="74" width="108" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+      <text x="513" y="91" text-anchor="middle" class="chip" fill="#DDD6FE">QPDFService</text>
       <rect x="24" y="108" width="171" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
       <text x="109.5" y="125" text-anchor="middle" class="chip" fill="#DDD6FE">PDFCompressionService</text>
       <rect x="205" y="108" width="164" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
@@ -174,7 +176,7 @@
       <rect x="625" y="50" width="143" height="28" rx="14" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
       <text x="696.5" y="68" text-anchor="middle" class="pill" fill="#FDE68A">Validate &amp; write</text>
     </g>
-    <text x="24" y="99" class="code">PDFFormSupport · PDFDecorationExportBaker · PDFCompressionService · PDFEncryptionService</text>
+    <text x="24" y="99" class="code">PDFFormSupport · PDFDecorationExportBaker · PDFCompressionService · QPDFService · PDFEncryptionService</text>
   </g>
 
   <!-- L5a · local storage -->

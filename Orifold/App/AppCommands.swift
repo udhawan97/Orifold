@@ -71,18 +71,19 @@ private struct ReduceFileSizeCommandButton: View {
 private struct UndoRedoCommandButtons: View {
     @Environment(\.undoManager) private var undoManager
     @FocusedValue(\.orifoldIsImporting) private var isImporting
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     private var importInProgress: Bool { isImporting == true }
 
     var body: some View {
         Button("Undo") {
-            undoManager?.undo()
+            viewModel?.performUndoCommand()
         }
         .keyboardShortcut("z", modifiers: .command)
-        .disabled(importInProgress || undoManager?.canUndo != true)
+        .disabled(importInProgress || viewModel == nil)
 
         Button("Redo") {
-            undoManager?.redo()
+            viewModel?.performRedoCommand()
         }
         .keyboardShortcut("z", modifiers: [.command, .shift])
         .disabled(importInProgress || undoManager?.canRedo != true)

@@ -1466,6 +1466,30 @@ final class WorkspaceViewModel {
         canPerformMutatingAction()
     }
 
+    func performUndoCommand() {
+        guard canPerformMutatingAction() else { return }
+        guard let undoManager else {
+            showEditMessage("Nothing to undo.", isError: false)
+            return
+        }
+        guard undoManager.canUndo else {
+            showEditMessage("Nothing left to undo.", isError: false)
+            return
+        }
+
+        undoManager.undo()
+
+        if !undoManager.canUndo {
+            showEditMessage("You are back at the beginning. Nothing left to undo.", isError: false)
+        }
+    }
+
+    func performRedoCommand() {
+        guard canPerformMutatingAction() else { return }
+        guard let undoManager, undoManager.canRedo else { return }
+        undoManager.redo()
+    }
+
     #if DEBUG
     func setProcessingStateForTesting(compressionActive: Bool = false, ocrActive: Bool = false) {
         activeCompressionTask = compressionActive ? Task { } : nil
