@@ -315,6 +315,8 @@ final class WorkspaceViewModel {
     @ObservationIgnored private var activeCompressionTask: Task<Void, Never>?
     @ObservationIgnored private var activeCompressionCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeCompressionID: UUID?
+    @ObservationIgnored private var activeImportTask: Task<Void, Never>?
+    @ObservationIgnored private var activeImportCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeOCRTask: Task<Void, Never>?
     @ObservationIgnored private var activeOCRCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeOCRID: UUID?
@@ -526,6 +528,8 @@ final class WorkspaceViewModel {
 
     deinit {
         cancelPendingSearch()
+        activeImportCancellation?.cancel()
+        activeImportTask?.cancel()
         activeCompressionTask?.cancel()
         activeOCRTask?.cancel()
     }
@@ -540,8 +544,10 @@ final class WorkspaceViewModel {
         }
         guard !batch.urls.isEmpty else { return }
         guard beginImportIfPossible() else { return }
-        Task { [weak self] in
-            await self?.performImport(urls: batch.urls, insertingAfter: targetPageRefID)
+        let cancellation = OperationCancellationToken()
+        activeImportCancellation = cancellation
+        activeImportTask = Task { [weak self] in
+            await self?.performImport(urls: batch.urls, insertingAfter: targetPageRefID, cancellation: cancellation)
         }
     }
 
@@ -563,31 +569,35 @@ final class WorkspaceViewModel {
         return true
     }
 
-    private func performImport(urls: [URL], insertingAfter targetPageRefID: UUID? = nil) async {
+    private func performImport(urls: [URL], insertingAfter targetPageRefID: UUID? = nil, cancellation: OperationCancellationToken) async {
         await MainActor.run {
             self.operationProgress.start(
                 title: "Importing files",
                 detail: importProgressDetail(currentIndex: 0, totalCount: urls.count),
-                isCancellable: false
+                isCancellable: true
             )
         }
+        var insertionAnchorID = targetPageRefID
+        var failures: [AsyncImportFailure] = []
+        var importedCount = 0
         for (index, url) in urls.enumerated() {
+            if cancellation.isCancelled || Task.isCancelled { break }
             await MainActor.run {
                 self.operationProgress.update(
                     fraction: Double(index) / Double(max(urls.count, 1)),
                     detail: importProgressDetail(currentIndex: index + 1, totalCount: urls.count, fileName: url.lastPathComponent)
                 )
             }
-            let result = await importDocument(from: url)
+            let result = await importDocument(from: url, cancellation: cancellation)
             await MainActor.run {
                 switch result {
                 case .success(let imported):
-                    self.attachImportedDocument(imported.document, from: imported.url, insertingAfter: targetPageRefID)
+                    if let member = self.attachImportedDocument(imported.document, from: imported.url, insertingAfter: insertionAnchorID) {
+                        insertionAnchorID = member.pageRefs.last
+                        importedCount += 1
+                    }
                 case .failure(let failure):
-                    self.importError = ImportError(
-                        fileName: failure.url.lastPathComponent,
-                        message: "Could not open \"\(failure.url.lastPathComponent)\". \(DocumentImportConverter.userMessage(for: failure.error))"
-                    )
+                    failures.append(failure)
                 }
             }
         }
@@ -598,11 +608,30 @@ final class WorkspaceViewModel {
             )
             self.rebuild()
             self.isImporting = false
+            self.activeImportTask = nil
+            self.activeImportCancellation = nil
             self.operationProgress.finish()
+            if cancellation.isCancelled || Task.isCancelled {
+                self.editingStatus = .warning(importedCount > 0 ? "Import canceled after adding \(importedCount) file\(importedCount == 1 ? "" : "s")." : "Import canceled.")
+            } else if !failures.isEmpty {
+                self.importError = self.importError(for: failures, importedCount: importedCount, totalCount: urls.count)
+            }
             if self.pendingPasswordPDF != nil {
                 self.isShowingPasswordPrompt = true
             }
         }
+    }
+
+    func cancelActiveOperation() {
+        if isImporting {
+            activeImportCancellation?.cancel()
+            activeImportTask?.cancel()
+            return
+        }
+        activeCompressionCancellation?.cancel()
+        activeCompressionTask?.cancel()
+        activeOCRCancellation?.cancel()
+        activeOCRTask?.cancel()
     }
 
     private func importProgressDetail(currentIndex: Int, totalCount: Int, fileName: String? = nil) -> String {
@@ -622,6 +651,24 @@ final class WorkspaceViewModel {
         return "\(countText) - \(fileName)"
     }
 
+    private func importError(for failures: [AsyncImportFailure], importedCount: Int, totalCount: Int) -> ImportError {
+        guard failures.count > 1 else {
+            let failure = failures[0]
+            return ImportError(
+                fileName: failure.url.lastPathComponent,
+                message: "Could not open \"\(failure.url.lastPathComponent)\". \(DocumentImportConverter.userMessage(for: failure.error))"
+            )
+        }
+
+        let names = failures.prefix(3).map { $0.url.lastPathComponent }.joined(separator: ", ")
+        let suffix = failures.count > 3 ? ", and \(failures.count - 3) more" : ""
+        let importedText = importedCount > 0 ? " \(importedCount) of \(totalCount) files were added." : " No files were added."
+        return ImportError(
+            fileName: "Selected Files",
+            message: "Could not open \(failures.count) files: \(names)\(suffix).\(importedText)"
+        )
+    }
+
     private struct AsyncImportedDocument {
         var url: URL
         var document: DocumentImportConverter.ImportedDocument
@@ -632,15 +679,20 @@ final class WorkspaceViewModel {
         var error: Error
     }
 
-    private func importDocument(from url: URL) async -> Result<AsyncImportedDocument, AsyncImportFailure> {
+    private func importDocument(from url: URL, cancellation: OperationCancellationToken) async -> Result<AsyncImportedDocument, AsyncImportFailure> {
         await Task.detached(priority: .userInitiated) {
             let fileName = url.lastPathComponent
+            guard !cancellation.isCancelled, !Task.isCancelled else {
+                return .failure(AsyncImportFailure(url: URL(fileURLWithPath: fileName), error: CancellationError()))
+            }
             let isSecurityScoped = url.startAccessingSecurityScopedResource()
             defer {
                 if isSecurityScoped { url.stopAccessingSecurityScopedResource() }
             }
             do {
                 let document = try await DocumentImportConverter.importedDocumentAsync(from: url)
+                try Task.checkCancellation()
+                guard !cancellation.isCancelled else { throw CancellationError() }
                 return .success(AsyncImportedDocument(url: url, document: document))
             } catch {
                 let failedURL = URL(fileURLWithPath: fileName)
@@ -678,17 +730,18 @@ final class WorkspaceViewModel {
         attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload)
     }
 
+    @discardableResult
     private func attachImportedDocument(_ imported: DocumentImportConverter.ImportedDocument,
                                         from url: URL,
-                                        insertingAfter targetPageRefID: UUID? = nil) {
+                                        insertingAfter targetPageRefID: UUID? = nil) -> MemberDocument? {
         let pdf = imported.pdfDocument
         if pdf.isLocked {
             pendingPasswordURL = url
             pendingPasswordPDF = pdf
             isShowingPasswordPrompt = true
-            return
+            return nil
         }
-        attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload, insertingAfter: targetPageRefID)
+        return attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload, insertingAfter: targetPageRefID)
     }
 
     func unlock(pdf: PDFDocument, password: String, url: URL) -> Bool {
@@ -701,10 +754,11 @@ final class WorkspaceViewModel {
         return true
     }
 
+    @discardableResult
     private func attachPDF(_ pdf: PDFDocument,
                            from url: URL,
                            sourcePayload: SourceDocumentPayload? = nil,
-                           insertingAfter targetPageRefID: UUID? = nil) {
+                           insertingAfter targetPageRefID: UUID? = nil) -> MemberDocument? {
         sanitizeInkAnnotations(in: pdf)
 
         guard let data = PDFSerializer.data(from: pdf) else {
@@ -712,7 +766,7 @@ final class WorkspaceViewModel {
                 fileName: url.lastPathComponent,
                 message: "Orifold could not prepare this file for saving. Try exporting it to PDF first, then import the exported file."
             )
-            return
+            return nil
         }
         smokeValidatePDFData(data)
 
@@ -742,6 +796,7 @@ final class WorkspaceViewModel {
         loadedPDFs.append((member, pdf))
         syncLoadedPDFsOrder()
         PetBuddyHook.trigger(.addFile)
+        return member
     }
 
     private func smokeValidatePDFData(_ data: Data?, password: String? = nil) {
@@ -760,6 +815,7 @@ final class WorkspaceViewModel {
         cancelPendingSearch()
         combinedPDF = engine.concatenate(documents: loadedPDFs, includeBanners: true)
         pageCount = document.workspace.pageOrder.count
+        normalizePageSelection()
         refreshFormSummary()
         refreshScannedPageSummary()
         // PDFSelections are bound to the old document; drop them so search navigation
@@ -767,6 +823,18 @@ final class WorkspaceViewModel {
         searchResults = []
         searchResultsQuery = ""
         searchResultIndex = -1
+    }
+
+    private func normalizePageSelection() {
+        let validIDs = Set(document.workspace.pageOrder.map(\.id))
+        selectedPageRefIDs = selectedPageRefIDs.filter { validIDs.contains($0) }
+        if let selectedPageRefID, validIDs.contains(selectedPageRefID) {
+            return
+        }
+        selectedPageRefID = selectedPageRefIDs.first ?? document.workspace.pageOrder.first?.id
+        if let selectedPageRefID, selectedPageRefIDs.isEmpty {
+            selectedPageRefIDs = [selectedPageRefID]
+        }
     }
 
     func combinedPageIndex(forWorkspacePageNumber pageNumber: Int) -> Int? {
@@ -848,6 +916,7 @@ final class WorkspaceViewModel {
         removedIds.forEach { document.memberPDFData.removeValue(forKey: $0) }
         removedIds.forEach { document.sourcePayloads.removeValue(forKey: $0) }
         loadedPDFs.removeAll { removedIds.contains($0.0.id) }
+        selectedPageRefIDs.subtract(removedPageRefIDs)
         rebuildPageOrder()
         rebuild()
         registerUndo(snapshot: snapshot, actionName: "Remove Document")
@@ -3458,13 +3527,6 @@ final class WorkspaceViewModel {
         }
     }
 
-    func cancelActiveOperation() {
-        activeCompressionCancellation?.cancel()
-        activeCompressionTask?.cancel()
-        activeOCRCancellation?.cancel()
-        activeOCRTask?.cancel()
-    }
-
     private func exportCompressedPDF(options: WorkspaceExportOptions) -> Bool {
         guard let preset = options.compressionPreset else { return false }
         let targetURL: URL
@@ -3850,6 +3912,7 @@ final class WorkspaceViewModel {
                 edits,
                 to: original,
                 memberName: member.displayName,
+                member: member,
                 replacementTransform: replacementTransform(for: targetFormat),
                 sourceNeedleTransform: sourceNeedleTransform(for: targetFormat)
             )
@@ -3965,6 +4028,7 @@ final class WorkspaceViewModel {
         _ edits: [PDFTextEditOperation],
         to original: String,
         memberName: String,
+        member: MemberDocument? = nil,
         replacementTransform: (String) -> String = { $0 },
         sourceNeedleTransform: (String) -> String? = { _ in nil }
     ) throws -> String {
@@ -3973,6 +4037,7 @@ final class WorkspaceViewModel {
             for: edits,
             in: original,
             memberName: memberName,
+            member: member,
             sourceNeedleTransform: sourceNeedleTransform
         )
         for replacement in replacements.sorted(by: { $0.range.lowerBound > $1.range.lowerBound }) {
@@ -3985,6 +4050,7 @@ final class WorkspaceViewModel {
         for edits: [PDFTextEditOperation],
         in original: String,
         memberName: String,
+        member: MemberDocument?,
         sourceNeedleTransform: (String) -> String?
     ) throws -> [StringReplacement] {
         var replacements: [StringReplacement] = []
@@ -4000,6 +4066,12 @@ final class WorkspaceViewModel {
                 if matchedRanges.isEmpty {
                     throw ExportBuildError.cannotMapEdit(memberName: memberName, sourceText: edit.sourceText)
                 }
+                if let member,
+                   let occurrenceIndex = sourceOccurrenceIndex(for: edit, sourceText: edit.sourceText, member: member),
+                   matchedRanges.indices.contains(occurrenceIndex) {
+                    replacements.append(StringReplacement(range: matchedRanges[occurrenceIndex], text: edit.replacementText))
+                    continue
+                }
                 throw ExportBuildError.ambiguousSourceText(memberName: memberName, sourceText: edit.sourceText)
             }
             guard let range = matchedRanges.first else {
@@ -4008,6 +4080,64 @@ final class WorkspaceViewModel {
             replacements.append(StringReplacement(range: range, text: edit.replacementText))
         }
         return replacements
+    }
+
+    private func sourceOccurrenceIndex(for edit: PDFTextEditOperation, sourceText: String, member: MemberDocument) -> Int? {
+        let normalizedNeedle = normalizedSourceText(sourceText)
+        guard !normalizedNeedle.isEmpty,
+              let editedPagePosition = member.pageRefs.firstIndex(of: edit.pageRefID) else {
+            return nil
+        }
+
+        var occurrenceOffset = 0
+        for pagePosition in member.pageRefs.indices {
+            let pageRefID = member.pageRefs[pagePosition]
+            guard let pageRef = document.workspace.pageOrder.first(where: { $0.id == pageRefID }),
+                  let basePage = originalBasePage(for: pageRef) else {
+                continue
+            }
+            let blocks = textAnalysisEngine
+                .analyze(
+                    data: originalMemberPDFData[member.id] ?? document.memberPDFData[member.id] ?? Data(),
+                    pageIndex: pageRef.sourcePageIndex,
+                    pageRefID: pageRef.id,
+                    fallbackPage: basePage
+                )
+                .blocks
+                .filter { normalizedSourceText($0.text) == normalizedNeedle }
+                .sorted(by: sourceReadingOrder)
+
+            if pagePosition == editedPagePosition {
+                guard let localIndex = nearestSourceBlockIndex(to: edit.sourceBounds, in: blocks) else {
+                    return nil
+                }
+                return occurrenceOffset + localIndex
+            }
+            occurrenceOffset += blocks.count
+        }
+        return nil
+    }
+
+    private func nearestSourceBlockIndex(to sourceBounds: CGRect, in blocks: [EditableTextBlock]) -> Int? {
+        guard !blocks.isEmpty else { return nil }
+        let sourceCenter = CGPoint(x: sourceBounds.standardized.midX, y: sourceBounds.standardized.midY)
+        return blocks.indices.min {
+            distanceSquared(from: sourceCenter, to: blocks[$0].bounds) < distanceSquared(from: sourceCenter, to: blocks[$1].bounds)
+        }
+    }
+
+    private func sourceReadingOrder(_ lhs: EditableTextBlock, _ rhs: EditableTextBlock) -> Bool {
+        let verticalTolerance = max(lhs.fontSize, rhs.fontSize, 4)
+        if abs(lhs.bounds.midY - rhs.bounds.midY) > verticalTolerance {
+            return lhs.bounds.midY > rhs.bounds.midY
+        }
+        return lhs.bounds.minX < rhs.bounds.minX
+    }
+
+    private func normalizedSourceText(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func applyTextEdits(_ edits: [PDFTextEditOperation], to attributed: NSMutableAttributedString, memberName: String) throws {
@@ -4799,10 +4929,6 @@ final class WorkspaceViewModel {
             if let updated = document.workspace.documents.first(where: { $0.id == memberID }) {
                 loadedPDFs[loadedIndex].0 = updated
             }
-        }
-        selectedPageRefIDs.subtract(uniqueIDs)
-        if let selectedPageRefID, uniqueIDs.contains(selectedPageRefID) {
-            self.selectedPageRefID = selectedPageRefIDs.first
         }
         rebuild()
         undoManager?.registerUndo(withTarget: self) { vm in

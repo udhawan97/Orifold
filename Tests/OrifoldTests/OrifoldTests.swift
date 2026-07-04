@@ -2593,6 +2593,96 @@ final class PDFProcessingEngineTests: XCTestCase {
         XCTAssertEqual(viewModel.pageCount, maximumImportBatchSize)
         XCTAssertEqual(viewModel.importError?.message, importBatchLimitMessage)
     }
+
+    func testImportFilesLoadsFiftyPDFsReliably() async throws {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Orifold-50-import-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let urls = try (0..<maximumImportBatchSize).map { index in
+            let pdfData = try makePDF(pageTexts: ["batch \(index)"]).dataRepresentation().unwrap()
+            let url = tempDirectory.appendingPathComponent(String(format: "batch-%02d.pdf", index))
+            try pdfData.write(to: url)
+            return url
+        }
+        let viewModel = WorkspaceViewModel(
+            document: WorkspaceDocument(),
+            engine: PDFKitEngine(),
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let start = Date()
+
+        viewModel.importFiles(urls: urls)
+        try await waitForImportsToFinish(in: viewModel)
+
+        XCTAssertNil(viewModel.importError)
+        XCTAssertEqual(viewModel.memberDocuments.count, maximumImportBatchSize)
+        XCTAssertEqual(viewModel.pageCount, maximumImportBatchSize)
+        XCTAssertEqual(viewModel.memberDocuments.map(\.displayName).first, "batch-00")
+        XCTAssertEqual(viewModel.memberDocuments.map(\.displayName).last, "batch-49")
+        XCTAssertLessThan(Date().timeIntervalSince(start), 15)
+    }
+
+    func testImportFilesContinuesAfterCorruptAndZeroByteFiles() async throws {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Orifold-mixed-import-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let goodA = tempDirectory.appendingPathComponent("good-a.pdf")
+        let corrupt = tempDirectory.appendingPathComponent("corrupt.pdf")
+        let zeroByte = tempDirectory.appendingPathComponent("zero-byte.pdf")
+        let goodB = tempDirectory.appendingPathComponent("good-b.pdf")
+        try makePDF(pageTexts: ["good a"]).dataRepresentation().unwrap().write(to: goodA)
+        try Data("not a pdf".utf8).write(to: corrupt)
+        XCTAssertTrue(FileManager.default.createFile(atPath: zeroByte.path, contents: Data()))
+        try makePDF(pageTexts: ["good b"]).dataRepresentation().unwrap().write(to: goodB)
+        let viewModel = WorkspaceViewModel(
+            document: WorkspaceDocument(),
+            engine: PDFKitEngine(),
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+
+        viewModel.importFiles(urls: [goodA, corrupt, zeroByte, goodB])
+        try await waitForImportsToFinish(in: viewModel)
+
+        XCTAssertEqual(viewModel.memberDocuments.map(\.displayName), ["good-a", "good-b"])
+        XCTAssertEqual(viewModel.pageCount, 2)
+        XCTAssertEqual(viewModel.importError?.fileName, "Selected Files")
+        XCTAssertTrue(viewModel.importError?.message.contains("Could not open 2 files") == true)
+        XCTAssertTrue(viewModel.importError?.message.contains("2 of 4 files were added") == true)
+    }
+
+    func testImportFilesInsertedAfterTargetKeepBatchOrder() async throws {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Orifold-target-import-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Existing", pageTexts: ["existing"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let first = tempDirectory.appendingPathComponent("first.pdf")
+        let second = tempDirectory.appendingPathComponent("second.pdf")
+        try makePDF(pageTexts: ["first"]).dataRepresentation().unwrap().write(to: first)
+        try makePDF(pageTexts: ["second"]).dataRepresentation().unwrap().write(to: second)
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            engine: PDFKitEngine(),
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+
+        viewModel.importFiles(urls: [first, second], insertingAfter: fixture.refs[0].id)
+        try await waitForImportsToFinish(in: viewModel)
+
+        XCTAssertEqual(viewModel.memberDocuments.map(\.displayName), ["Existing", "first", "second"])
+        XCTAssertEqual(document.workspace.pageOrder.map(\.memberDocId), viewModel.memberDocuments.flatMap { member in
+            Array(repeating: member.id, count: member.pageRefs.count)
+        })
+    }
 }
 
 final class WorkspaceDocumentTests: XCTestCase {
@@ -2617,6 +2707,16 @@ final class WorkspaceDocumentTests: XCTestCase {
 
         XCTAssertThrowsError(try WorkspaceDocument(testingFile: file, contentType: .folder)) { error in
             XCTAssertEqual((error as? CocoaError)?.code, .fileReadCorruptFile)
+        }
+    }
+
+    func testOpeningZeroBytePDFThrowsInsteadOfCreatingBlankWorkspace() {
+        let file = FileWrapper(regularFileWithContents: Data())
+
+        XCTAssertThrowsError(try WorkspaceDocument(testingFile: file, contentType: .pdf)) { error in
+            guard case DocumentImportConverter.ConversionError.emptyDocument = error else {
+                return XCTFail("Expected emptyDocument, got \(error)")
+            }
         }
     }
 
@@ -3110,6 +3210,72 @@ final class WorkspaceViewModelTests: XCTestCase {
         ])
         XCTAssertEqual(viewModel.loadedPDFs[0].1.pageCount, 2)
         XCTAssertEqual(viewModel.combinedPageIndex(forWorkspacePageNumber: 3), 4)
+    }
+
+    func testDeletingSelectedPageMovesSelectionToLivePage() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Pages", pageTexts: ["one", "two", "three"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+
+        viewModel.selectPage(fixture.refs[1])
+        viewModel.deletePage(fixture.refs[1])
+
+        XCTAssertFalse(viewModel.document.workspace.pageOrder.contains { $0.id == fixture.refs[1].id })
+        XCTAssertNotEqual(viewModel.selectedPageRefID, fixture.refs[1].id)
+        XCTAssertTrue(viewModel.selectedPageRefID.map { id in
+            viewModel.document.workspace.pageOrder.contains { $0.id == id }
+        } ?? false)
+        XCTAssertTrue(viewModel.selectedPageRefIDs.allSatisfy { id in
+            viewModel.document.workspace.pageOrder.contains { $0.id == id }
+        })
+    }
+
+    func testRemovingSelectedDocumentMovesSelectionToRemainingDocument() throws {
+        let document = WorkspaceDocument()
+        let first = try makeMemberWithPDF(name: "First", pageTexts: ["one"])
+        let second = try makeMemberWithPDF(name: "Second", pageTexts: ["two"])
+        document.workspace.documents = [first.member, second.member]
+        document.workspace.pageOrder = first.refs + second.refs
+        document.memberPDFData[first.member.id] = first.pdfData
+        document.memberPDFData[second.member.id] = second.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+
+        viewModel.selectPage(first.refs[0])
+        viewModel.removeDocument(first.member)
+
+        XCTAssertEqual(viewModel.document.workspace.documents.map(\.id), [second.member.id])
+        XCTAssertEqual(viewModel.selectedPageRefID, second.refs[0].id)
+        XCTAssertEqual(viewModel.selectedPageRefIDs, [second.refs[0].id])
+    }
+
+    @MainActor
+    func testImportingAfterTargetPageInsertsDocumentAfterTargetDocument() async throws {
+        let document = WorkspaceDocument()
+        let first = try makeMemberWithPDF(name: "First", pageTexts: ["one"])
+        let second = try makeMemberWithPDF(name: "Second", pageTexts: ["two"])
+        document.workspace.documents = [first.member, second.member]
+        document.workspace.pageOrder = first.refs + second.refs
+        document.memberPDFData[first.member.id] = first.pdfData
+        document.memberPDFData[second.member.id] = second.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let importURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Inserted \(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: importURL) }
+        try makePDF(pageTexts: ["inserted"]).dataRepresentation().unwrap().write(to: importURL)
+
+        viewModel.importFiles(urls: [importURL], insertingAfter: first.refs[0].id)
+        try await waitForImportsToFinish(in: viewModel)
+
+        XCTAssertEqual(viewModel.document.workspace.documents.map(\.displayName), [
+            "First",
+            importURL.deletingPathExtension().lastPathComponent,
+            "Second"
+        ])
+        XCTAssertEqual(viewModel.document.workspace.pageOrder.first?.id, first.refs[0].id)
+        XCTAssertEqual(viewModel.document.workspace.pageOrder.last?.id, second.refs[0].id)
     }
 
     func testSelectingDocumentJumpsToItsFirstPage() throws {

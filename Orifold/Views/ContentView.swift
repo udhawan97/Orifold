@@ -32,7 +32,9 @@ struct ContentView: View {
                 EmptyStateView(viewModel: viewModel)
             } else {
                 NavigationSplitView(columnVisibility: $columnVisibility) {
-                    SidebarView(viewModel: viewModel, onImportDrop: handleDrop)
+                    SidebarView(viewModel: viewModel) { providers, targetPageRefID in
+                        handleDrop(providers: providers, insertingAfter: targetPageRefID)
+                    }
                         .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 320)
                 } detail: {
                     HStack(spacing: 0) {
@@ -56,8 +58,9 @@ struct ContentView: View {
                     .onDrop(
                         of: importDropContentTypes,
                         isTargeted: $isWorkspaceDropTargeted,
-                        perform: handleDrop
-                    )
+                    ) { providers in
+                        handleDrop(providers: providers)
+                    }
                 }
                 .navigationTitle(viewModel.document.workspace.title)
                 .toolbar { mainToolbar }
@@ -151,7 +154,9 @@ struct ContentView: View {
             Button { openFiles() } label: {
                 Label("Add Files", systemImage: "plus.circle")
             }
-            .acceptsImportDrops(perform: handleDrop)
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
             .help("Add files to this workspace (⌘⇧O)")
             .keyboardShortcut("o", modifiers: [.command, .shift])
         }
@@ -161,14 +166,18 @@ struct ContentView: View {
             Button { showTOC.toggle() } label: {
                 Label("Contents", systemImage: "list.bullet.rectangle.portrait")
             }
-            .acceptsImportDrops(perform: handleDrop)
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
             .help("Table of contents")
         }
 
         // Center: annotation tools + color swatch
         ToolbarItem(placement: .principal) {
             AnnotationToolPicker(viewModel: viewModel)
-                .acceptsImportDrops(isTargeted: $isNavigationDropTargeted, showsHighlight: true, perform: handleDrop)
+                .acceptsImportDrops(isTargeted: $isNavigationDropTargeted, showsHighlight: true) { providers in
+                    handleDrop(providers: providers)
+                }
         }
 
         // Trailing: search, document actions, view controls, help
@@ -176,7 +185,9 @@ struct ContentView: View {
             Button { viewModel.isShowingSearch.toggle() } label: {
                 Label("Search", systemImage: "magnifyingglass")
             }
-            .acceptsImportDrops(perform: handleDrop)
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
             .help("Search (⌘F)")
             .keyboardShortcut("f", modifiers: .command)
 
@@ -191,14 +202,18 @@ struct ContentView: View {
             } label: {
                 Label("Export", systemImage: "square.and.arrow.up")
             }
-            .acceptsImportDrops(perform: handleDrop)
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
             .help("Export / Print (⌘⇧E)")
             .keyboardShortcut("e", modifiers: [.command, .shift])
 
             Button { showInspector.toggle() } label: {
                 Label("Inspector", systemImage: "sidebar.right")
             }
-            .acceptsImportDrops(perform: handleDrop)
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
             .help("Toggle inspector")
 
             Button {
@@ -206,11 +221,15 @@ struct ContentView: View {
             } label: {
                 Label("Night Mode", systemImage: viewModel.isNightModeEnabled ? "moon.stars.fill" : "moon.stars")
             }
-            .acceptsImportDrops(perform: handleDrop)
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
             .help(viewModel.isNightModeEnabled ? "Turn off night document tone" : "Dim and warm document pages for night reading")
 
             GuideButton(autoShow: true)
-                .acceptsImportDrops(perform: handleDrop)
+                .acceptsImportDrops { providers in
+                    handleDrop(providers: providers)
+                }
         }
     }
 
@@ -249,7 +268,7 @@ struct ContentView: View {
             .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isWorkspaceDropTargeted)
     }
 
-    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+    private func handleDrop(providers: [NSItemProvider], insertingAfter targetPageRefID: UUID? = nil) -> Bool {
         resolveImportURLs(from: providers, maxCount: maximumImportBatchSize) { urls, wasLimited in
             guard !urls.isEmpty else {
                 viewModel.importError = WorkspaceViewModel.ImportError(
@@ -264,7 +283,12 @@ struct ContentView: View {
                     message: importDropProviderLimitMessage
                 )
             }
-            importFilesWithBatchLimit(urls: urls, into: viewModel, sourceName: "Dropped Files")
+            importFilesWithBatchLimit(
+                urls: urls,
+                into: viewModel,
+                insertingAfter: targetPageRefID,
+                sourceName: "Dropped Files"
+            )
         }
         return true
     }

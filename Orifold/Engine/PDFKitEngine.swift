@@ -249,6 +249,7 @@ enum DocumentImportConverter {
 
         if detectedType.conforms(to: .pdf) {
             guard let document = PDFDocument(data: data) else { throw ConversionError.unreadableDocument }
+            guard document.pageCount > 0 else { throw ConversionError.emptyDocument }
             return ImportedDocument(pdfDocument: document, sourcePayload: nil)
         }
         if detectedType.conforms(to: .orifoldSVG) {

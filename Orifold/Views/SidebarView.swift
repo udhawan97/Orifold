@@ -5,7 +5,7 @@ import AppKit
 
 struct SidebarView: View {
     var viewModel: WorkspaceViewModel
-    var onImportDrop: ([NSItemProvider]) -> Bool = { _ in false }
+    var onImportDrop: ([NSItemProvider], UUID?) -> Bool = { _, _ in false }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expandedDocs: Set<UUID> = []
     @State private var isImportDropTargeted = false
@@ -27,14 +27,18 @@ struct SidebarView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
-                .onDrop(of: importDropContentTypes, isTargeted: $isImportDropTargeted, perform: onImportDrop)
+                .onDrop(of: importDropContentTypes, isTargeted: $isImportDropTargeted) { providers in
+                    onImportDrop(providers, nil)
+                }
 
                 ForEach(viewModel.memberDocuments) { member in
                     MemberDocRow(member: member, viewModel: viewModel, expandedDocs: $expandedDocs)
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 3, leading: 10, bottom: 3, trailing: 10))
-                        .onDrop(of: importDropContentTypes, isTargeted: $isImportDropTargeted, perform: onImportDrop)
+                        .onDrop(of: importDropContentTypes, isTargeted: $isImportDropTargeted) { providers in
+                            onImportDrop(providers, member.pageRefs.last)
+                        }
                 }
                 .onMove { viewModel.moveDocument(from: $0, to: $1) }
                 .onDelete { viewModel.removeDocument(at: $0) }
@@ -47,8 +51,9 @@ struct SidebarView: View {
         .onDrop(
             of: importDropContentTypes,
             isTargeted: $isImportDropTargeted,
-            perform: onImportDrop
-        )
+        ) { providers in
+            onImportDrop(providers, nil)
+        }
     }
 
     private var importDropOverlay: some View {

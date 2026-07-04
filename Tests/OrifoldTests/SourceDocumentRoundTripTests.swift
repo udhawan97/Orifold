@@ -241,6 +241,51 @@ final class SourceDocumentRoundTripTests: XCTestCase {
         XCTAssertEqual(text, "Beta\nGamma\n")
     }
 
+    func testDuplicateSourceTextExportUsesEditedPDFOccurrence() throws {
+        let viewModel = try makeViewModel(
+            data: Data("Repeat item.\nRepeat item.\n".utf8),
+            contentType: .plainText,
+            filename: "sample.txt"
+        )
+        let member = try XCTUnwrap(viewModel.loadedPDFs.first?.0)
+        let pageRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        let pdfData = try XCTUnwrap(viewModel.document.memberPDFData[member.id])
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let repeatedBlocks = PDFTextAnalysisEngine()
+            .analyze(data: pdfData, pageIndex: 0, pageRefID: pageRef.id, fallbackPage: page)
+            .blocks
+            .filter { $0.text == "Repeat item." }
+            .sorted {
+                if abs($0.bounds.midY - $1.bounds.midY) > max($0.fontSize, $1.fontSize, 4) {
+                    return $0.bounds.midY > $1.bounds.midY
+                }
+                return $0.bounds.minX < $1.bounds.minX
+            }
+        let secondRepeat = try XCTUnwrap(repeatedBlocks.dropFirst().first)
+
+        viewModel.document.workspace.pageEditStates = [
+            PageEditState(pageRefID: pageRef.id, operations: [
+                PDFTextEditOperation(
+                    pageRefID: pageRef.id,
+                    sourceBlockID: secondRepeat.id,
+                    sourceBounds: secondRepeat.bounds,
+                    sourceText: "Repeat item.",
+                    editedBounds: secondRepeat.bounds,
+                    replacementText: "Edited second",
+                    fontName: secondRepeat.fontName,
+                    fontSize: secondRepeat.fontSize,
+                    textColor: secondRepeat.textColor,
+                    alignment: .left
+                )
+            ])
+        ]
+
+        let exported = try viewModel.dataForWorkspaceExport(as: .text)
+        let text = try XCTUnwrap(String(data: exported, encoding: .utf8))
+
+        XCTAssertEqual(text, "Repeat item.\nEdited second\n")
+    }
+
     func testSourceExportRejectsUnmappedInsertedTextInsteadOfAppendingAtEnd() throws {
         let viewModel = try makeViewModel(
             data: Data("Alpha\n\nBeta\n".utf8),
