@@ -1,196 +1,173 @@
-<br>
-
 <p align="center">
-  <img src="docs/assets/orifold-icon.png" alt="Orifold app icon" width="180">
+  <img src="docs/assets/orifold-icon.png" alt="Orifold app icon" width="160">
 </p>
 
 <h1 align="center">Orifold</h1>
 
 <p align="center">
-  <em>The PDF workspace that never phones home.</em>
+  <em>Designed from necessity. Built for privacy. Refined for focus</em>
 </p>
 
 <p align="center">
-  <strong>From six scattered files to one polished, searchable, password-protected PDF.<br>No account. No upload. No subscription.</strong>
+  <strong>Drop in up to 50 messy files. Walk away with one polished, searchable, password-protected PDF.</strong><br>
+  No account. No upload. No subscription.
 </p>
 
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">
-  &nbsp;&nbsp;
+  &nbsp;
   <img alt="Release v6" src="https://img.shields.io/badge/release-v6-2563EB?style=for-the-badge&logo=github&logoColor=white">
-  &nbsp;&nbsp;
-  <img alt="Local first" src="https://img.shields.io/badge/privacy-local%20first-10B981?style=for-the-badge&logo=icloud&logoColor=white">
-  &nbsp;&nbsp;
-  <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6B7280?style=for-the-badge&logo=opensourceinitiative&logoColor=white">
+  &nbsp;
+  <img alt="100% local" src="https://img.shields.io/badge/privacy-100%25%20local-10B981?style=for-the-badge">
+  &nbsp;
+  <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6B7280?style=for-the-badge">
 </p>
 
 <p align="center">
-  <img alt="SwiftUI" src="https://img.shields.io/badge/interface-SwiftUI-0A84FF?style=for-the-badge&logo=swift&logoColor=white">
-  &nbsp;&nbsp;
-  <img alt="PDFKit plus PDFium" src="https://img.shields.io/badge/engine-PDFKit%20%2B%20PDFium-10B981?style=for-the-badge">
-</p>
-
-<p align="center">
-  <a href="#-quick-start"><strong>Quick Start</strong></a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="#-features"><strong>Features</strong></a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="#product-flow"><strong>Product Flow</strong></a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="#architecture"><strong>Architecture</strong></a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="#-privacy-and-security"><strong>Privacy</strong></a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="#developer-notes"><strong>Developers</strong></a>
+  <a href="#-install-in-30-seconds"><strong>Install</strong></a>
+  &nbsp;·&nbsp;
+  <a href="#-what-it-does"><strong>Features</strong></a>
+  &nbsp;·&nbsp;
+  <a href="#-privacy"><strong>Privacy</strong></a>
+  &nbsp;·&nbsp;
+  <a href="#%EF%B8%8F-under-the-hood"><strong>Under the Hood</strong></a>
+  &nbsp;·&nbsp;
+  <a href="#-troubleshooting"><strong>Help</strong></a>
 </p>
 
 ---
 
-## Why Orifold
+## 📄 The Problem
 
-Orifold is for the moment when a simple PDF task becomes six PDFs, two screenshots, a Word document, a scanned form, and one file named `final_final_revised_ACTUAL.pdf`.
+A "simple PDF task" is never simple. It's six PDFs, two screenshots, a Word document, a scanned form, and a file named `final_final_revised_ACTUAL.pdf`.
 
-It gives that pile a single local workspace. Import files, reorder pages, annotate, edit detected text, fill and lock forms, add stamps, make scans searchable, compress the output, protect it with a password, and export the result. Orifold can't stop you from naming the export `final_final_revised_ACTUAL_v2.pdf` — but it can make sure that file is the one that's actually final.
-
-Preview is great — right up until the job involves more than one file. Acrobat does everything, for a subscription, with a cloud attached. Orifold sits in the gap: merge, OCR, forms, stamps, compression, and password protection — native, local, and free.
-
-## Product Flow
+Preview gives up the moment more than one file is involved. Acrobat does everything — for a subscription, with a cloud attached. **Orifold sits in the gap**: merge, annotate, OCR, forms, stamps, compression, and password protection — native, local, and free.
 
 <p align="center">
   <img src="docs/assets/orifold-v3-workspace-diagram.svg" alt="Orifold product flow: import mixed files, edit and finish them in one local workspace, then export one clean file — everything runs on your Mac">
 </p>
 
-<p align="center">
-  <em>Bring in mixed files, work locally, then export a clean, searchable, protected, or smaller result.</em>
-</p>
+## ⚡ Install in 30 Seconds
 
-## ⚡ Quick Start
-
-Paste this into Terminal:
+Paste this into Terminal and press Return:
 
 ```zsh
 curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | zsh
 ```
 
-The installer downloads the latest prebuilt app, places it in `~/Applications/Orifold.app`, and creates Desktop commands for launch/update and uninstall.
+That's it. The installer downloads the prebuilt app to `~/Applications/Orifold.app` and puts two helpers on your Desktop: **Orifold.command** (launch + auto-update) and **Uninstall Orifold.command** (a clean exit).
 
-Direct download: [`Orifold.zip`](https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.zip)
+No Xcode. No GitHub account. No compile step. Requires macOS 14 Sonoma or newer — that's the whole list.
 
-No Xcode. No GitHub account. No compile step. No account creation ceremony, either.
-
-Requires macOS 14 Sonoma or newer. That's the whole list.
+> [!TIP]
+> Never used Terminal? Open **Applications → Utilities → Terminal**, paste the line above, press Return. You're now a power user.
 
 <details>
-<summary>Homebrew install</summary>
+<summary>🍺 &nbsp;Prefer Homebrew?</summary>
+
+<br>
 
 ```zsh
 brew tap udhawan97/orifold https://github.com/udhawan97/Orifold
 brew install --cask udhawan97/orifold/orifold
 ```
 
-Homebrew installs the same prebuilt app and clears the download quarantine after installation. The one-line installer remains the friendliest path because it also creates Desktop launch/update and uninstall commands.
+Installs the same prebuilt app and clears the download quarantine. The one-line installer is still the friendliest path — it also creates the Desktop launch/update and uninstall helpers.
 </details>
 
 <details>
-<summary>How to open Terminal</summary>
+<summary>📥 &nbsp;Prefer a direct download?</summary>
 
-Open **Applications** → **Utilities** → **Terminal**, paste the command above, and press Return.
+<br>
+
+Grab [`Orifold.zip`](https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.zip) from the latest release, unzip, and drag `Orifold.app` into Applications. If macOS complains about an unidentified developer, right-click the app and choose **Open**.
 </details>
 
 <details>
-<summary>Building from source instead?</summary>
+<summary>🛠️ &nbsp;Building from source?</summary>
 
-Developer source builds need Apple Command Line Tools with Swift 5.9+. The normal installer downloads a prebuilt `.app` and does not need Command Line Tools — they only appear when building from source. See <a href="#developer-notes">Developer Notes</a>.
+<br>
+
+Source builds need Apple Command Line Tools with Swift 5.9+. The normal installer never needs them — it downloads a prebuilt app. See [Under the Hood](#%EF%B8%8F-under-the-hood).
 </details>
 
-## ✨ Features
+## ✨ What It Does
 
 Everything below runs on your Mac. The cloud was not consulted.
 
-| Area | What you can do | Built for |
-| --- | --- | --- |
-| Import | Open PDFs, Word documents, HTML, Markdown, text, CSV, JSON, XML, and common image formats | Turning mixed inputs into one workspace |
-| Organize | Reorder documents and pages, rotate pages, delete pages, use section banners, and navigate from the sidebar | Assembling a clean packet from messy source files |
-| Read and search | Use a native PDF canvas, page indicator, sidebar navigation, inspector, workspace search, and password unlock prompts | Finding the right page without losing context |
-| Annotate | Highlight, add notes, draw ink, underline, strike out, place text boxes, and edit detected PDF text | Reviewing and correcting documents in place |
-| Comments and metadata | Add workspace comments, tags, document details, and inspector-visible annotation lists | Keeping review context attached to the file |
-| Signatures | Draw and place signatures, then export signed PDF output locally | Handling lightweight signature workflows without leaving the app |
-| Forms | Detect PDF form fields, edit answers, reset forms, and lock answers during export | Finishing forms before sending the final copy |
-| Scans and OCR | Make scanned pages searchable with local Vision OCR and preserve recognized text in export | Making ⌘F work on that thing your printer emailed you |
-| Stamps and decorations | Add watermarks, page numbers, Bates labels, and movable stamps that burn into exported PDFs | Preparing packets, exhibits, and reviewed drafts |
-| Compression | Downsample oversized PDF images and validate the compressed result | Helping your "quick attachment" stop bouncing off email size limits |
-| Protection | Export password-protected PDFs with permission checks and post-export verification | Sharing sensitive documents more deliberately |
-| Export | Save normal PDFs or export PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, or print output | Sending the format the next person actually needs |
-| Install and update | Install with one command, use Desktop launch/update helpers, uninstall cleanly, or install through Homebrew | Making the app usable by people who do not build software |
+| | Do this | Get this |
+| :---: | --- | --- |
+| 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV | One workspace instead of a folder of chaos |
+| 🗂️ | **Organize** — reorder, rotate, delete pages across documents | A clean packet from messy source files |
+| ✏️ | **Annotate & edit** — highlight, notes, ink, text boxes, edit PDF text in place | Reviewed documents without a print-sign-scan loop |
+| 🖋️ | **Sign & fill forms** — draw signatures, complete form fields, lock answers | Finished paperwork, no third-party e-sign service |
+| 🔍 | **OCR scans** — local Vision OCR makes scanned pages searchable | ⌘F finally works on that thing your printer emailed you |
+| 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels | Packets and exhibits that look intentional |
+| 🗜️ | **Compress** — downsample oversized images, validate the result | Attachments that stop bouncing off email size limits |
+| 🔒 | **Protect & export** — password-protect, or export DOCX, Markdown, HTML, PNG, JPEG | The format the next person actually needs |
 
-## Architecture
-
-<p align="center">
-  <img src="docs/assets/orifold-v3-architecture-diagram.svg" alt="Orifold architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts inside a local-only boundary, guarded by a release gate">
-</p>
-
-<p align="center">
-  <em>Unidirectional flow inside a local-only boundary — and a release gate standing outside it.</em>
-</p>
+> [!TIP]
+> **Meet Foldy 🤝** — Orifold ships with a small built-in buddy who reacts to what you do with short tips and the occasional wisecrack ("Highlighted. Future-you will pretend they read the rest."). Helpful when you're new, easy to silence when you're not: toggle **Show Orifold Buddy** from the app's menu.
 
 <details>
-<summary>Layer-by-layer responsibilities</summary>
+<summary>📋 &nbsp;Full capability list, feature by feature</summary>
 
-| Layer | Responsibility |
+<br>
+
+| Area | What you can do |
 | --- | --- |
-| SwiftUI app | Document window, sidebar, canvas, annotation toolbar, search, inspector, password prompts, and export controls |
-| Workspace state | Imported documents, page order, undo snapshots, comments, tags, signatures, form summaries, and decorations |
-| PDF services | PDFKit composition, PDFium validation and compression support, Vision OCR, encryption, form flattening, decoration baking, and signing helpers |
-| Local storage | Saved PDF data, workspace metadata, source payloads, comments, signatures, and page edit state |
-| Release tooling | One-line installer, package builder, Desktop update launcher, uninstaller, GitHub Actions release asset, and validation tests |
+| **Import** | Open PDFs, Word documents, HTML, Markdown, text, CSV, JSON, XML, and common image formats — up to 50 files per workspace |
+| **Organize** | Reorder documents and pages, rotate, delete, add section banners, navigate from the sidebar |
+| **Read & search** | Native PDF canvas, page indicator, inspector, workspace-wide search, password unlock prompts |
+| **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text |
+| **Comments & metadata** | Workspace comments, tags, document details, inspector-visible annotation lists |
+| **Signatures** | Draw and place signatures, export signed PDFs locally |
+| **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
+| **Scans & OCR** | Local Vision OCR makes scans searchable; recognized text survives export |
+| **Stamps & decorations** | Watermarks, page numbers, Bates labels, movable stamps burned into exported PDFs |
+| **Compression** | Downsample oversized PDF images with post-compression validation |
+| **Protection** | Password-protected export with permission checks and post-export verification |
+| **Export** | PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, or print |
+| **Install & update** | One-line installer, Desktop launch/update helpers, clean uninstaller, Homebrew cask |
 </details>
 
+## 💡 Three Tips Worth Knowing
+
+1. **Merging isn't a separate step.** Drop files in, rearrange pages in the sidebar until the workspace tells the story you need, export once.
+2. **Flatten before sharing.** Locking form answers and baking stamps at export means nobody "accidentally" edits your final copy.
+3. **⌘Z is fearless.** Page deletes, rotations, and edits all live in undo history, so experiment freely.
+
+## 🔒 Privacy
+
+Orifold is local-first by design — not as a setting, as an architecture.
+
+- 🖥️ **Everything runs on your Mac.** Import, OCR, compression, encryption, and export never touch a network.
+- 🛡️ **Sandboxed.** The app uses macOS App Sandbox with user-selected file access only.
+- 📡 **Zero telemetry.** There is no analytics pipeline. There isn't even a server to send it to.
+
 <details>
-<summary>Same picture, as a Mermaid graph</summary>
+<summary>🔍 &nbsp;The fine print (sandbox entitlements & guardrails)</summary>
 
-```mermaid
-flowchart LR
-    Files["Source files<br/>PDF, Word, HTML, Markdown, text, data, images"]
-    UI["SwiftUI views<br/>sidebar, canvas, toolbar, inspector"]
-    State["Workspace state<br/>WorkspaceViewModel — pages, comments, forms, decorations"]
-    Services["Local engines<br/>PDFKit, PDFium, Vision OCR, signing"]
-    Export["Export pipeline<br/>flatten forms, bake stamps, compress, encrypt, validate"]
-    Artifacts["Artifacts<br/>PDF, DOCX, MD, TXT, HTML, PNG, JPEG"]
+<br>
 
-    Files --> UI
-    UI --> State
-    State --> Services
-    Services --> Export
-    Export --> Artifacts
-```
+The app enables exactly two entitlements:
+
+- `com.apple.security.app-sandbox`
+- `com.apple.security.files.user-selected.read-write`
+
+Practical guardrails include password prompts for protected PDFs, import size limits, local validation before and after compression or encryption, form flattening before decoration burn-in, export error reporting for malformed PDFs or failed writes, and hidden Orifold comment metadata stripped before flat PDF export.
 </details>
 
-## 📦 Release Status
+## 🔄 Updating & Uninstalling
 
-Orifold v6 is the current release. It expands the app from document assembly and markup into a fuller PDF finishing workflow: searchable scans, form export, stamps and decorations, compression, protected output, and a cleaner everyday UI.
+**Update:** double-click **Orifold.command** on your Desktop. It checks the latest release before launching. That's the entire procedure — you may cancel the calendar reminder.
 
-| Detail | Status |
-| --- | --- |
-| Release tag | [`release-v6`](https://github.com/udhawan97/Orifold/releases/tag/release-v6) |
-| Release asset | [`Orifold.zip`](https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.zip) |
-| Recommended install | `curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh \| zsh` |
-| Distribution | Prebuilt macOS app zip, with source builds available for developers |
-| Privacy model | Local document processing; no upload pipeline |
-
-## 🔄 Updating and Uninstalling
-
-**To update:** double-click **Orifold.command** on the Desktop. The launcher checks the latest release before opening the app. That's the entire update procedure — you may cancel the calendar reminder.
-
-You can also paste the installer command again:
-
-```zsh
-curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | zsh
-```
-
-**To uninstall:** double-click **Uninstall Orifold.command** on the Desktop. It removes the installed app, generated Desktop commands, installer cache, and Orifold app data — a cleaner exit than most software manages.
+**Uninstall:** double-click **Uninstall Orifold.command**. It removes the app, the Desktop helpers, the installer cache, and app data — a cleaner exit than most software manages.
 
 <details>
-<summary>Homebrew and advanced options</summary>
+<summary>⚙️ &nbsp;Homebrew and advanced options</summary>
+
+<br>
 
 Update via Homebrew:
 
@@ -205,74 +182,88 @@ Uninstall via Homebrew:
 brew uninstall --cask udhawan97/orifold/orifold
 ```
 
-Uninstall but keep app support, preferences, caches, and sandbox data:
+Uninstall but keep preferences, caches, and sandbox data:
 
 ```zsh
 curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
 ```
 </details>
 
-## A Typical Session
+## 🏗️ Under the Hood
 
-1. Launch Orifold.
-2. Drag in PDFs, Word documents, text files, web exports, data files, scans, or images.
-3. Reorder documents and pages until the workspace matches the story you need to tell.
-4. Annotate, edit text, fill forms, add comments, add stamps, or place a signature.
-5. Search across the combined document set.
-6. Make scans searchable, compress the PDF, or protect the output when needed.
-7. Save a normal PDF or export another format.
+*For developers, contributors, and anyone evaluating how this is built.*
 
-## 🔒 Privacy and Security
+| | |
+| --- | --- |
+| **Language** | Swift 5.9+, 100% SwiftUI interface |
+| **Codebase** | 51 Swift source files, ~24,000 lines |
+| **Tests** | 247 tests gating every release |
+| **PDF engines** | PDFKit (composition) + PDFium (validation & compression) + Vision (OCR) |
+| **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
+| **Distribution** | GitHub Actions builds the release zip; installer, Homebrew cask, and uninstaller ship from this repo |
 
-Orifold is local-first by design. Documents are opened, edited, saved, OCRed, compressed, protected, and exported on your machine.
-
-The app uses macOS sandboxing and user-selected file access. PDFium validation, Vision OCR, PDFKit composition, compression, encryption, and export verification run locally.
-
-Practical guardrails include:
-
-- Password prompts for protected PDFs.
-- Import size limits for accidental giant files.
-- Local validation before and after compression or encryption.
-- Form flattening before decoration burn-in when requested.
-- Export error reporting for failed writes, image rendering, malformed PDFs, or unsafe source round trips.
-- Hidden Orifold comment metadata stripped before flat PDF export.
-- Installer, uninstaller, packaging, build, and test checks in the release gate.
+<p align="center">
+  <img src="docs/assets/orifold-v3-architecture-diagram.svg" alt="Orifold architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts inside a local-only boundary, guarded by a release gate">
+</p>
 
 <details>
-<summary>Sandbox details</summary>
+<summary>🧱 &nbsp;Layer-by-layer responsibilities</summary>
 
-The app enables:
+<br>
 
-- `com.apple.security.app-sandbox`
-- `com.apple.security.files.user-selected.read-write`
+| Layer | Responsibility |
+| --- | --- |
+| SwiftUI app | Document window, sidebar, canvas, annotation toolbar, search, inspector, password prompts, export controls |
+| Workspace state | Imported documents, page order, undo snapshots, comments, tags, signatures, form summaries, decorations |
+| PDF services | PDFKit composition, PDFium validation and compression, Vision OCR, encryption, form flattening, decoration baking, signing helpers |
+| Local storage | Saved PDF data, workspace metadata, source payloads, comments, signatures, page edit state |
+| Release tooling | One-line installer, package builder, Desktop update launcher, uninstaller, GitHub Actions release asset, validation tests |
 
-These entitlements allow sandboxed read/write access to files selected by the user.
+```mermaid
+flowchart LR
+    Files["📁 Source files<br/>PDF, Word, HTML, Markdown, text, data, images"]
+    UI["🖼️ SwiftUI views<br/>sidebar, canvas, toolbar, inspector"]
+    State["🧠 Workspace state<br/>pages, comments, forms, decorations"]
+    Services["⚙️ Local engines<br/>PDFKit, PDFium, Vision OCR, signing"]
+    Export["📤 Export pipeline<br/>flatten, bake, compress, encrypt, validate"]
+    Artifacts["✅ Artifacts<br/>PDF, DOCX, MD, TXT, HTML, PNG, JPEG"]
+
+    Files --> UI --> State --> Services --> Export --> Artifacts
+```
 </details>
 
-## Developer Notes
+<details>
+<summary>📁 &nbsp;Project layout</summary>
 
-The whole thing is 59 Swift files, roughly 21,000 lines, with 202 tests standing guard in the release gate.
+<br>
 
 ```text
 Orifold/
   App/             App entry point and command wiring
+  DesignSystem/    Shared visual tokens and styling
   Document/        macOS document package read/write support
-  Engine/          PDF loading, conversion, OCR, compression, encryption, forms, export helpers
-  Models/          Workspace, page, annotation, comment, export option, and decoration models
-  Resources/       App metadata, entitlements, assets, and certificate guide
-  Signing/         Signing identities, CMS construction, timestamping, and verification helpers
+  Engine/          PDF loading, conversion, OCR, compression, encryption, forms, export
+  Models/          Workspace, page, annotation, comment, export, and decoration models
+  Pet/             Foldy, the in-app buddy
+  Resources/       App metadata, entitlements, assets
+  Signing/         Signing identities, CMS construction, timestamping, verification
   ViewModels/      Workspace state, document operations, search, export, undo
   Views/           SwiftUI interface components
+Tests/             Test suites run in the release gate
 scripts/
-  install-mac.sh       Release-first installer, source builder, and release packager
-  uninstall-mac.sh     Clean uninstaller for installed app artifacts and Orifold app data
-install.sh             Hosted one-line bootstrap
+  install-mac.sh   Release-first installer, source builder, release packager
+  uninstall-mac.sh Clean uninstaller
+install.sh         Hosted one-line bootstrap
+Casks/orifold.rb   Homebrew cask
 ```
+</details>
 
 <details>
-<summary>Build, test, package, and source-install commands</summary>
+<summary>🔨 &nbsp;Build, test, and package</summary>
 
-Open the project in Xcode:
+<br>
+
+Open in Xcode:
 
 ```zsh
 open Orifold.xcodeproj
@@ -287,24 +278,11 @@ xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 
 xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ```
 
-Create the same release zip used by GitHub Releases:
+Create the same release zip GitHub Releases ships:
 
 ```zsh
 ./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
-
-Create a Developer ID signed and notarized release zip:
-
-```zsh
-ORIFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
-ORIFOLD_NOTARIZE=1 \
-ORIFOLD_APPLE_ID="apple-id@example.com" \
-ORIFOLD_APPLE_TEAM_ID="TEAMID" \
-ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD="app-specific-password" \
-./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
-```
-
-GitHub Actions uses the same path when these secrets are configured: `ORIFOLD_DEVELOPER_ID_CERTIFICATE_BASE64`, `ORIFOLD_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `ORIFOLD_SIGNING_IDENTITY`, `ORIFOLD_APPLE_ID`, `ORIFOLD_APPLE_TEAM_ID`, and `ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD`.
 
 Install from the current source checkout without opening the app:
 
@@ -316,18 +294,26 @@ App metadata: `CFBundleShortVersionString` `v6`, `CFBundleVersion` `6`.
 </details>
 
 <details>
-<summary>Quality checks and release gate</summary>
+<summary>✍️ &nbsp;Signed & notarized release builds</summary>
 
-| Check | What to verify |
-| --- | --- |
-| Build | `swift build` completes |
-| Tests | `swift test` and Xcode tests pass |
-| Metadata | App plists and entitlements lint cleanly |
-| Installer | Shell scripts parse with `zsh -n` |
-| Package | `./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip` creates the release artifact |
-| User workflow | Import, search, annotate, forms, OCR, stamps, compression, protected export, update, and uninstall work on a local Mac |
+<br>
 
-Release gate commands:
+```zsh
+ORIFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+ORIFOLD_NOTARIZE=1 \
+ORIFOLD_APPLE_ID="apple-id@example.com" \
+ORIFOLD_APPLE_TEAM_ID="TEAMID" \
+ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD="app-specific-password" \
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
+```
+
+GitHub Actions uses the same path when these secrets are configured: `ORIFOLD_DEVELOPER_ID_CERTIFICATE_BASE64`, `ORIFOLD_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `ORIFOLD_SIGNING_IDENTITY`, `ORIFOLD_APPLE_ID`, `ORIFOLD_APPLE_TEAM_ID`, `ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD`.
+</details>
+
+<details>
+<summary>✅ &nbsp;Release gate — every command that must pass before shipping</summary>
+
+<br>
 
 ```zsh
 plutil -lint Orifold/Resources/Info.plist
@@ -346,26 +332,32 @@ xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 
 xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
 ```
+
+Plus a manual pass on the user workflow: import, search, annotate, forms, OCR, stamps, compression, protected export, update, uninstall.
 </details>
-
-## 🗺️ Roadmap
-
-- More export presets.
-- Faster large-document navigation.
-- Automated UI smoke tests.
 
 ## 🔧 Troubleshooting
 
 <details>
-<summary>Clicking the installer opens a GitHub page instead of installing</summary>
+<summary>Clicking the installer link opens a GitHub page instead of installing</summary>
 
-That is expected on GitHub. README links open files in the browser; they do not execute Mac installer scripts.
+<br>
 
-Use the Quick Start command from Terminal, or download the repository first and run the installer from Finder.
+That's expected — README links open files in the browser; they don't execute installer scripts. Copy the [install command](#-install-in-30-seconds) into Terminal instead.
 </details>
 
 <details>
-<summary>Double-clicking the installer says it cannot be opened</summary>
+<summary>macOS warns the app is from an unidentified developer</summary>
+
+<br>
+
+Release builds are ad-hoc signed but not notarized. The one-line installer and Homebrew cask clear the download quarantine automatically. If macOS still warns, right-click the app in Finder and choose **Open** from the security prompt.
+</details>
+
+<details>
+<summary>Double-clicking a <code>.command</code> file says it cannot be opened</summary>
+
+<br>
 
 Open Terminal in the project folder and run:
 
@@ -379,9 +371,9 @@ Then double-click `Install or Update Orifold.app` again from Finder.
 <details>
 <summary>The installer says no prebuilt release is available</summary>
 
-The normal installer uses a prebuilt app and does not need developer tools. This message means the GitHub release asset `Orifold.zip` has not been published yet or could not be downloaded.
+<br>
 
-Wait for the release workflow to publish `Orifold.zip`, then run the installer again. Developer source builds can opt in with:
+The GitHub release asset `Orifold.zip` hasn't been published yet or couldn't be downloaded. Wait for the release workflow, then rerun the installer. Developers can opt into a source build:
 
 ```zsh
 curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | ORIFOLD_ALLOW_SOURCE_BUILD=1 zsh
@@ -389,26 +381,24 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh |
 </details>
 
 <details>
-<summary>macOS warns the app is from an unidentified developer</summary>
+<summary>Something failed and the Terminal window closed too fast</summary>
 
-Orifold release builds are ad-hoc signed but not notarized. The one-line installer and Homebrew cask remove download quarantine from the installed app. If macOS still warns, open it from Finder, then use **Open** from the security prompt.
+<br>
 
-Fully quiet Gatekeeper behavior requires a release zip built with Apple Developer ID signing and notarization secrets configured in GitHub Actions.
+Check `.build/install.log` in the project folder for build output, and `~/.orifold/prebuilt-install.log` for the prebuilt install attempt.
 </details>
 
-<details>
-<summary>The build fails and the terminal window closes too fast</summary>
+## 🗺️ Roadmap
 
-Open `.build/install.log` in the project folder. It contains the latest installer/build output.
+- More export presets
+- Faster large-document navigation
+- Automated UI smoke tests
 
-When using the README install command, the prebuilt release attempt is also logged at `~/.orifold/prebuilt-install.log`.
-</details>
+## 🤝 Contributing
 
-## Contributing
+Bug reports and feature requests are welcome in [Issues](https://github.com/udhawan97/Orifold/issues). Building from source? [Under the Hood](#%EF%B8%8F-under-the-hood) is the whole onboarding doc — if `swift test` passes, you're set up.
 
-Bug reports and feature requests are welcome in [Issues](https://github.com/udhawan97/Orifold/issues). If you're building from source, the <a href="#developer-notes">Developer Notes</a> and release gate commands are the whole onboarding doc — if `swift test` passes, you're set up.
-
-## License
+## 📜 License
 
 Orifold is available under the [MIT License](LICENSE).
 
@@ -422,8 +412,4 @@ Orifold is available under the [MIT License](LICENSE).
 
 <p align="center">
   Built with SwiftUI, PDFKit, PDFium, and Vision — all running on your machine.
-</p>
-
-<p align="center">
-  <a href="#orifold">Back to top ↑</a>
 </p>

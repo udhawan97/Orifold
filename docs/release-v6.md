@@ -10,6 +10,8 @@ Release title: `v6 Orifold`
 
 Asset to upload: `Orifold.zip`
 
+Automation: `.github/workflows/sync-release-v6.yml` checks `origin/main` every 30 minutes, moves `release-v6` only when `main` has advanced, and then dispatches the release workflow to rebuild the latest v6 asset.
+
 Build the asset with:
 
 ```zsh
@@ -221,7 +223,7 @@ Notable files:
 - Confirm `Orifold/Resources/Info.plist` is `v6` / `6`.
 - Confirm `project.yml` is `v6` / `6`.
 - Run the verification commands above.
-- Confirm the `release-v6` tag points at the intended release commit locally and on `origin`.
+- Confirm the `release-v6` tag points at `origin/main` locally and on `origin`.
 - Confirm the GitHub release for `release-v6` is marked latest and contains `Orifold.zip`.
 
 </details>

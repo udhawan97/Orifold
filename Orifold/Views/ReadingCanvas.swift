@@ -330,6 +330,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         view.displaysPageBreaks = false
         view.backgroundColor = .dsCanvasNS
         view.pageOverlayViewProvider = context.coordinator
+        view.setNightModeEnabled(viewModel.isNightModeEnabled)
 
         // Wire up delete key handler
         view.onDeleteKey = { [weak coordinator = context.coordinator] in
@@ -453,6 +454,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         context.coordinator.viewModel = viewModel
         context.coordinator.inkOverlay.isHidden = (viewModel.currentTool != .ink)
         context.coordinator.inkOverlay.inkColor = viewModel.inkColor
+        nsView.setNightModeEnabled(viewModel.isNightModeEnabled)
         context.coordinator.refreshSignatureOverlay()
         context.coordinator.refreshDecorationOverlays()
         context.coordinator.refreshCommentOverlays()
@@ -727,7 +729,9 @@ struct PDFViewRepresentable: NSViewRepresentable {
                             alignment: edit.alignment,
                             didManuallyReposition: edit.didManuallyReposition,
                             didManuallyResizeWidth: edit.didManuallyResizeWidth,
-                            didManuallyResizeHeight: edit.didManuallyResizeHeight
+                            didManuallyResizeHeight: edit.didManuallyResizeHeight,
+                            didManuallyChangeStyle: edit.didManuallyChangeStyle,
+                            didRestoreOriginalStyle: edit.didRestoreOriginalStyle
                         )
                     }
                 case .revertToOriginal:
@@ -1091,8 +1095,44 @@ final class OrifoldPDFView: PDFView {
     var onTabKey: ((Bool) -> Bool)?
     var onSelectionCommitted: (() -> Void)?
     var onCommentMenu: (() -> Void)?
+    private let nightToneOverlay = NightToneOverlayView()
+    private var isNightModeEnabled = false
 
     override var acceptsFirstResponder: Bool { true }
+
+    func setNightModeEnabled(_ enabled: Bool) {
+        guard enabled != isNightModeEnabled || nightToneOverlay.superview == nil else { return }
+        isNightModeEnabled = enabled
+        backgroundColor = enabled
+            ? NSColor(srgbRed: 0.035, green: 0.039, blue: 0.048, alpha: 1)
+            : .dsCanvasNS
+        if enabled {
+            installNightToneOverlayIfNeeded()
+        }
+        nightToneOverlay.isHidden = !enabled
+        nightToneOverlay.alphaValue = enabled ? 1 : 0
+        layoutNightToneOverlay()
+    }
+
+    private func installNightToneOverlayIfNeeded() {
+        guard nightToneOverlay.superview == nil else {
+            nightToneOverlay.removeFromSuperview()
+            addSubview(nightToneOverlay, positioned: .above, relativeTo: nil)
+            return
+        }
+        addSubview(nightToneOverlay, positioned: .above, relativeTo: nil)
+    }
+
+    private func layoutNightToneOverlay() {
+        guard nightToneOverlay.superview != nil else { return }
+        nightToneOverlay.frame = bounds
+        nightToneOverlay.autoresizingMask = [.width, .height]
+    }
+
+    override func layout() {
+        super.layout()
+        layoutNightToneOverlay()
+    }
 
     override func keyDown(with event: NSEvent) {
         // Delete (51) or Forward Delete (117)
@@ -1131,6 +1171,22 @@ final class OrifoldPDFView: PDFView {
 
     @objc private func commentFromContextMenu(_ sender: Any?) {
         onCommentMenu?()
+    }
+}
+
+private final class NightToneOverlayView: NSView {
+    override var isOpaque: Bool { false }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(srgbRed: 0.94, green: 0.72, blue: 0.43, alpha: 0.24).cgColor
+        layer?.compositingFilter = "multiplyBlendMode"
+    }
+
+    required init?(coder: NSCoder) {
+        nil
     }
 }
 
@@ -2184,6 +2240,8 @@ final class NoteEditorViewController: NSViewController {
         var didManuallyReposition: Bool
         var didManuallyResizeWidth: Bool
         var didManuallyResizeHeight: Bool
+        var didManuallyChangeStyle: Bool
+        var didRestoreOriginalStyle: Bool
     }
 
     enum Completion {
@@ -2224,6 +2282,7 @@ final class NoteEditorViewController: NSViewController {
     private let matchFormatButton = NSButton(title: "", target: nil, action: nil)
     private let copyFormatButton = NSButton(title: "", target: nil, action: nil)
     private let applyFormatButton = NSButton(title: "", target: nil, action: nil)
+    private let restoreFormatButton = NSButton(title: "", target: nil, action: nil)
     private var toolbarContentWidth: CGFloat = 640
     private var editorFontFamily: String
     private var documentFontSize: CGFloat
@@ -2242,6 +2301,7 @@ final class NoteEditorViewController: NSViewController {
     private var matchedFormatBounds: CGRect?
     private var matchedFormatColumnBounds: CGRect?
     private var didChangeStyle = false
+    private var didRestoreOriginalStyle = false
     private let originalText: String
     private let originalFontFamily: String
     private let originalFontSize: CGFloat
@@ -2570,30 +2630,35 @@ final class NoteEditorViewController: NSViewController {
 
         matchFormatButton.target = self
         matchFormatButton.action = #selector(matchNearbyFormat)
-        matchFormatButton.bezelStyle = .rounded
-        matchFormatButton.title = "Match nearby"
-        matchFormatButton.image = NSImage(systemSymbolName: "wand.and.stars", accessibilityDescription: "Match nearby style")
+        matchFormatButton.image = NSImage(systemSymbolName: "textformat", accessibilityDescription: "Match nearby style")
         matchFormatButton.imagePosition = .imageOnly
-        matchFormatButton.toolTip = "Auto-match this edit to the nearby PDF text — same font, color, alignment, margins, and wrapping"
+        matchFormatButton.bezelStyle = .rounded
+        matchFormatButton.toolTip = "Match this edit to the nearby PDF text, including font, color, alignment, margins, and wrapping."
         cursor.place(matchFormatButton, width: 30)
 
         copyFormatButton.target = self
-        copyFormatButton.action = #selector(copyCurrentFormat)
-        copyFormatButton.title = "Copy style"
-        copyFormatButton.image = NSImage(systemSymbolName: "paintbrush", accessibilityDescription: "Copy style")
+        copyFormatButton.action = #selector(copyNearbyFormat)
+        copyFormatButton.image = NSImage(systemSymbolName: "paintbrush", accessibilityDescription: "Copy format")
         copyFormatButton.imagePosition = .imageOnly
         copyFormatButton.bezelStyle = .rounded
-        copyFormatButton.toolTip = "Copy this edit's style — font, color, alignment, margins, and wrapping"
+        copyFormatButton.toolTip = "Copy the nearby/original PDF text style, including font, color, alignment, margins, and wrapping."
         cursor.place(copyFormatButton, width: 30)
 
         applyFormatButton.target = self
         applyFormatButton.action = #selector(applyCopiedFormat)
-        applyFormatButton.title = "Apply style"
-        applyFormatButton.image = NSImage(systemSymbolName: "paintbrush.pointed", accessibilityDescription: "Apply copied style")
+        applyFormatButton.image = NSImage(systemSymbolName: "paintbrush.pointed", accessibilityDescription: "Apply copied format")
         applyFormatButton.imagePosition = .imageOnly
         applyFormatButton.bezelStyle = .rounded
-        applyFormatButton.toolTip = "Apply the copied style to this edit"
+        applyFormatButton.toolTip = "Apply the copied format to this edit."
         cursor.place(applyFormatButton, width: 30)
+
+        restoreFormatButton.target = self
+        restoreFormatButton.action = #selector(restoreOriginalFormat)
+        restoreFormatButton.image = NSImage(systemSymbolName: "arrow.uturn.backward.circle", accessibilityDescription: "Restore original style")
+        restoreFormatButton.imagePosition = .imageOnly
+        restoreFormatButton.bezelStyle = .rounded
+        restoreFormatButton.toolTip = "Restore this edit to the original detected PDF text formatting."
+        cursor.place(restoreFormatButton, width: 30)
         cursor.addDivider()
 
         if isExistingEdit {
@@ -2681,7 +2746,9 @@ final class NoteEditorViewController: NSViewController {
     /// canvas — including the narrower canvas that results when the inspector panel is
     /// open, since `bounds` here already reflects that shrunk width.
     private func toolbarFrame(near editorRect: CGRect) -> CGRect {
-        let size = toolbarSize
+        let preferredSize = toolbarSize
+        let width = min(preferredSize.width, max(320, bounds.width - 16))
+        let size = CGSize(width: width, height: preferredSize.height)
         let x = min(max(editorRect.midX - size.width / 2, 8), max(8, bounds.width - size.width - 8))
         let aboveY = editorRect.maxY + 8
         let y = aboveY + size.height < bounds.height ? aboveY : max(8, editorRect.minY - size.height - 8)
@@ -2775,11 +2842,10 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func preferredTextColumnWidth(fromX minX: CGFloat, fallbackWidth: CGFloat) -> CGFloat {
-        guard let pdfView, let page, let columnBounds = effectiveColumnBounds else {
-            return max(visualMinimumEditorWidth, fallbackWidth)
+        if let pdfView, let page, let bounds = matchedFormatBounds?.standardized, bounds.width > 0 {
+            return max(visualMinimumEditorWidth, pdfView.convert(bounds, from: page).standardized.width)
         }
-        let columnRect = pdfView.convert(columnBounds, from: page).standardized
-        return max(visualMinimumEditorWidth, fallbackWidth, columnRect.maxX - minX)
+        return max(visualMinimumEditorWidth, fallbackWidth)
     }
 
     private var effectiveColumnBounds: CGRect? {
@@ -2788,12 +2854,11 @@ final class NoteEditorViewController: NSViewController {
 
     private var effectivePageBoundsForLayout: CGRect {
         var bounds = block.bounds.standardized
-        if let matchedColumn = matchedFormatColumnBounds?.standardized, matchedColumn.width > 0 {
-            bounds.origin.x = matchedColumn.minX
-            bounds.size.width = matchedColumn.width
-        } else if let matchedBounds = matchedFormatBounds?.standardized, matchedBounds.width > 0 {
+        if let matchedBounds = matchedFormatBounds?.standardized, matchedBounds.width > 0 {
             bounds.origin.x = matchedBounds.minX
             bounds.size.width = matchedBounds.width
+        } else if let matchedColumn = matchedFormatColumnBounds?.standardized, matchedColumn.width > 0 {
+            bounds.origin.x = matchedColumn.minX
         }
         return bounds
     }
@@ -2930,10 +2995,10 @@ final class NoteEditorViewController: NSViewController {
         apply(format: sourceFormat, markStyleChange: markStyleChange)
     }
 
-    @objc private func copyCurrentFormat() {
-        viewModel?.copiedInlineTextFormat = currentFormat
+    @objc private func copyNearbyFormat() {
+        viewModel?.copiedInlineTextFormat = sourceFormat
         viewModel?.isInlineTextFormatPainterArmed = true
-        viewModel?.showEditMessage("Copied this text style. Click another text edit to apply it automatically, or press Apply style here.", isError: false)
+        viewModel?.showEditMessage("Copied nearby PDF text style. Click another text edit to apply it automatically, or press Apply here.", isError: false)
         refocusEditor()
     }
 
@@ -2958,6 +3023,15 @@ final class NoteEditorViewController: NSViewController {
         viewModel.showEditMessage("Applied copied style to this edit. Press Done to save it.", isError: false)
     }
 
+    @objc private func restoreOriginalFormat() {
+        applySourceFormat(markStyleChange: false)
+        didChangeStyle = false
+        didRestoreOriginalStyle = true
+        viewModel?.isInlineTextFormatPainterArmed = false
+        viewModel?.showEditMessage("Restored original text formatting. Press Done to save it.", isError: false)
+        refocusEditor()
+    }
+
     private var currentFormat: PDFTextEditFormat {
         PDFTextEditFormat(
             fontName: documentFont().fontName,
@@ -2979,6 +3053,7 @@ final class NoteEditorViewController: NSViewController {
         applyParagraphGeometry(from: format)
         if markStyleChange {
             didChangeStyle = true
+            didRestoreOriginalStyle = false
         }
         applyFormatting()
         layoutEditor()
@@ -2999,7 +3074,8 @@ final class NoteEditorViewController: NSViewController {
             textView.undoManager?.undo()
             resizeTextViewHeight()
         } else {
-            window?.undoManager?.undo()
+            viewModel?.showEditMessage("Nothing to undo in this text box. Press Done or Cancel before undoing document changes.", isError: false)
+            refocusEditor()
         }
     }
 
@@ -3357,13 +3433,12 @@ final class NoteEditorViewController: NSViewController {
         var pageBounds = pdfView.convert(viewFrame, to: page).standardized
         pageBounds.size.width = max(1, pageBounds.width)
         pageBounds.size.height = max(1, pageBounds.height)
-        let sourcePageBounds = block.bounds.standardized
         if !didManuallyReposition {
             pageBounds.origin.x = preferredPageOriginX()
         }
         if !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if !didManuallyResizeWidth {
-                pageBounds.size.width = max(pageBounds.width, sourcePageBounds.width, preferredPageColumnWidth(fromX: pageBounds.minX))
+                pageBounds.size.width = max(pageBounds.width, preferredPageParagraphWidth())
             }
         }
         let result = EditResult(
@@ -3377,7 +3452,9 @@ final class NoteEditorViewController: NSViewController {
             alignment: editorAlignment,
             didManuallyReposition: didManuallyReposition,
             didManuallyResizeWidth: didManuallyResizeWidth,
-            didManuallyResizeHeight: didManuallyResizeHeight
+            didManuallyResizeHeight: didManuallyResizeHeight,
+            didManuallyChangeStyle: didChangeStyle,
+            didRestoreOriginalStyle: didRestoreOriginalStyle
         )
         if formattingDiffersFromSource {
             viewModel?.showEditMessage(
@@ -3398,11 +3475,11 @@ final class NoteEditorViewController: NSViewController {
         )
     }
 
-    private func preferredPageColumnWidth(fromX minX: CGFloat) -> CGFloat {
-        guard let columnBounds = effectiveColumnBounds?.standardized else {
-            return block.bounds.standardized.width
+    private func preferredPageParagraphWidth() -> CGFloat {
+        if let bounds = matchedFormatBounds?.standardized, bounds.width > 0 {
+            return bounds.width
         }
-        return max(block.bounds.standardized.width, columnBounds.maxX - minX)
+        return block.bounds.standardized.width
     }
 
     private func preferredPageOriginX() -> CGFloat {
@@ -3441,6 +3518,7 @@ final class NoteEditorViewController: NSViewController {
             abs(documentFontSize - originalFontSize) < 0.01 &&
             editorFontTraits == originalFontTraits &&
             editorAlignment == originalAlignment &&
+            Self.colorsApproximatelyEqual(editorTextColor, block.textColor.nsColor, tolerance: 0.025) &&
             !didManuallyReposition &&
             !didManuallyResizeWidth &&
             !didManuallyResizeHeight &&

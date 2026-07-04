@@ -41,7 +41,7 @@ struct EmptyStateView: View {
                             Text("Fold scattered pages into one polished PDF.")
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("Combine, arrange, annotate, and export documents in one calm workspace.")
+                            Text("Combine, arrange, annotate, and export documents in one calm workspace. Start with up to 50 files at once.")
                                 .font(.dsBody())
                                 .foregroundStyle(Color.dsTextSecondary)
                                 .multilineTextAlignment(.center)
@@ -70,7 +70,7 @@ struct EmptyStateView: View {
                             Text(isDropTargeted ? "Release to import" : "Drop files to begin")
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("PDF, Word, HTML, text, images. Up to 10 files.")
+                            Text("PDF, Word, HTML, text, images. Up to 50 files.")
                                 .font(.dsCaption())
                                 .foregroundStyle(Color.dsTextTertiary)
                         }
@@ -127,13 +127,19 @@ struct EmptyStateView: View {
                 .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isDropTargeted)
         }
         .onDrop(of: importDropContentTypes, isTargeted: $isDropTargeted) { providers in
-            resolveImportURLs(from: providers) { urls in
+            resolveImportURLs(from: providers) { urls, wasLimited in
                 guard !urls.isEmpty else {
                     viewModel.importError = WorkspaceViewModel.ImportError(
                         fileName: "Dropped Files",
                         message: "Orifold could not find a supported document in that drop."
                     )
                     return
+                }
+                if wasLimited {
+                    viewModel.importError = WorkspaceViewModel.ImportError(
+                        fileName: "Dropped Files",
+                        message: importDropProviderLimitMessage
+                    )
                 }
                 importFilesWithBatchLimit(urls: urls, into: viewModel, sourceName: "Dropped Files")
             }
@@ -258,7 +264,7 @@ private struct EmptyStatePill: View {
                     .font(.system(size: 11, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .rotationEffect(reduceMotion || !isHovered ? .zero : .degrees(-5))
-                    .symbolEffect(.bounce, value: isHovered)
+                    .symbolEffect(.bounce, value: reduceMotion ? false : isHovered)
                 Text(option.title)
                     .font(.system(size: 11, weight: .medium))
             }

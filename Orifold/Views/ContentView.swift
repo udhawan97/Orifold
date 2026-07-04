@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var isWorkspaceDropTargeted = false
     @State private var isNavigationDropTargeted = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @AppStorage("orifoldNightModeEnabled") private var persistedNightModeEnabled = false
     @Environment(\.undoManager) private var undoManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -81,8 +82,14 @@ struct ContentView: View {
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: viewModel.operationProgress.isActive)
         .focusedSceneValue(\.orifoldIsImporting, viewModel.isImporting)
         .focusedSceneValue(\.orifoldWorkspaceViewModel, viewModel)
-        .onAppear { viewModel.undoManager = undoManager }
+        .onAppear {
+            viewModel.undoManager = undoManager
+            viewModel.isNightModeEnabled = persistedNightModeEnabled
+        }
         .onChange(of: undoManager) { _, um in viewModel.undoManager = um }
+        .onChange(of: viewModel.isNightModeEnabled) { _, enabled in
+            persistedNightModeEnabled = enabled
+        }
         .onChange(of: viewModel.selectedCommentID) { _, newValue in
             guard newValue != nil else { return }
             inspectorTab = .comments
@@ -194,6 +201,14 @@ struct ContentView: View {
             .acceptsImportDrops(perform: handleDrop)
             .help("Toggle inspector")
 
+            Button {
+                viewModel.isNightModeEnabled.toggle()
+            } label: {
+                Label("Night Mode", systemImage: viewModel.isNightModeEnabled ? "moon.stars.fill" : "moon.stars")
+            }
+            .acceptsImportDrops(perform: handleDrop)
+            .help(viewModel.isNightModeEnabled ? "Turn off night document tone" : "Dim and warm document pages for night reading")
+
             GuideButton(autoShow: true)
                 .acceptsImportDrops(perform: handleDrop)
         }
@@ -219,7 +234,7 @@ struct ContentView: View {
                             Text("Drop to add documents")
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsAccent)
-                            Text("Up to 10 files at a time")
+                            Text("Up to 50 files at a time")
                                 .font(.dsCaption())
                                 .foregroundStyle(Color.dsAccent.opacity(0.82))
                         }
@@ -235,13 +250,19 @@ struct ContentView: View {
     }
 
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
-        resolveImportURLs(from: providers) { urls in
+        resolveImportURLs(from: providers, maxCount: maximumImportBatchSize) { urls, wasLimited in
             guard !urls.isEmpty else {
                 viewModel.importError = WorkspaceViewModel.ImportError(
                     fileName: "Dropped Files",
                     message: "Orifold could not find a supported document in that drop."
                 )
                 return
+            }
+            if wasLimited {
+                viewModel.importError = WorkspaceViewModel.ImportError(
+                    fileName: "Dropped Files",
+                    message: importDropProviderLimitMessage
+                )
             }
             importFilesWithBatchLimit(urls: urls, into: viewModel, sourceName: "Dropped Files")
         }
@@ -466,12 +487,32 @@ private struct ExportSheet: View {
 private struct WorkspaceOperationProgressView: View {
     @Bindable var progress: WorkspaceOperationProgress
     var cancel: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isBreathing = false
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
 
     var body: some View {
         HStack(spacing: .dsMD) {
-            ProgressView(value: progress.fraction)
-                .progressViewStyle(.linear)
-                .frame(width: 150)
+            ZStack {
+                Circle()
+                    .stroke(Color.dsAccent.opacity(0.16), lineWidth: 5)
+                Circle()
+                    .trim(from: 0, to: max(0.08, progress.fraction))
+                    .stroke(
+                        LinearGradient.dsAccent,
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: progress.fraction)
+                Image(systemName: "tray.and.arrow.down.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(LinearGradient.dsAccent)
+                    .scaleEffect(isBreathing && !shouldReduceMotion ? 1.08 : 1)
+            }
+            .frame(width: 34, height: 34)
             VStack(alignment: .leading, spacing: 2) {
                 Text(progress.title)
                     .font(.dsCaption())
@@ -480,7 +521,12 @@ private struct WorkspaceOperationProgressView: View {
                     Text(progress.detail)
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
+                ProgressView(value: progress.fraction)
+                    .progressViewStyle(.linear)
+                    .frame(width: 190)
             }
             if progress.isCancellable {
                 Button("Cancel", action: cancel)
@@ -493,6 +539,13 @@ private struct WorkspaceOperationProgressView: View {
         .overlay {
             RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
                 .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+        .shadow(color: Color.dsAccent.opacity(0.18), radius: 18, x: 0, y: 8)
+        .onAppear {
+            guard !shouldReduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.95).repeatForever(autoreverses: true)) {
+                isBreathing = true
+            }
         }
     }
 }
@@ -828,10 +881,11 @@ private struct AnnotationPalettePopover: View {
 
 // MARK: - Shared drop helper
 
-let maximumImportBatchSize = 10
+let maximumImportBatchSize = 50
 let importDropContentTypes = WorkspaceDocument.importableContentTypes + [.fileURL, .url]
-let importBatchPanelMessage = "Select up to 10 files. To add more, run Add Files again and choose the next 10."
-let importBatchLimitMessage = "Only 10 files can be added at a time. The first 10 from this selection will be added. To add more, run Add Files again and choose the next 10."
+let importBatchPanelMessage = "Select up to 50 files. Larger batches can be added after this import finishes."
+let importBatchLimitMessage = "Only 50 files can be added at a time. The first 50 from this selection will be added. To add more, run Add Files again after this import finishes."
+let importDropProviderLimitMessage = "Orifold prepared 50 files from this drop. If you expected more, run another import after this one finishes."
 
 func configureImportOpenPanel(_ panel: NSOpenPanel) {
     panel.allowsMultipleSelection = true
@@ -862,27 +916,46 @@ func limitedImportBatch(from urls: [URL]) -> (urls: [URL], wasLimited: Bool) {
     (Array(urls.prefix(maximumImportBatchSize)), urls.count > maximumImportBatchSize)
 }
 
-func resolveImportURLs(from providers: [NSItemProvider], completion: @escaping ([URL]) -> Void) {
-    var resolvedURLs: [(index: Int, url: URL)] = []
-    let lock = DispatchQueue(label: "Orifold.importURLs")
-    let group = DispatchGroup()
+func resolveImportURLs(from providers: [NSItemProvider], maxCount: Int = maximumImportBatchSize, completion: @escaping ([URL], Bool) -> Void) {
+    let effectiveMaxCount = max(0, maxCount)
+    guard effectiveMaxCount > 0 else {
+        DispatchQueue.main.async {
+            completion([], !providers.isEmpty)
+        }
+        return
+    }
 
-    for (index, provider) in providers.enumerated() {
-        group.enter()
+    var resolvedURLs: [URL] = []
+    var seenURLs: Set<String> = []
+    var nextProviderIndex = 0
 
+    func resolveNextProvider() {
+        guard resolvedURLs.count < effectiveMaxCount else {
+            completion(resolvedURLs, nextProviderIndex < providers.count)
+            return
+        }
+        guard nextProviderIndex < providers.count else {
+            completion(resolvedURLs, false)
+            return
+        }
+
+        let provider = providers[nextProviderIndex]
+        nextProviderIndex += 1
         loadImportURL(from: provider) { url in
-            defer { group.leave() }
-            guard let url, isSupportedImportURL(url) else { return }
-            lock.sync { resolvedURLs.append((index, url)) }
+            if let url, isSupportedImportURL(url) {
+                let key = url.fileURLIdentityKey
+                if seenURLs.insert(key).inserted {
+                    resolvedURLs.append(url)
+                }
+            }
+            DispatchQueue.main.async {
+                resolveNextProvider()
+            }
         }
     }
 
-    group.notify(queue: .main) {
-        let urls = resolvedURLs
-            .sorted { $0.index < $1.index }
-            .map(\.url)
-            .uniquedByFileURL()
-        completion(urls)
+    DispatchQueue.main.async {
+        resolveNextProvider()
     }
 }
 
@@ -1057,9 +1130,14 @@ private extension Array where Element == URL {
     func uniquedByFileURL() -> [URL] {
         var seen: Set<String> = []
         return filter { url in
-            let key = url.isFileURL ? url.standardizedFileURL.path : url.absoluteString
-            return seen.insert(key).inserted
+            seen.insert(url.fileURLIdentityKey).inserted
         }
+    }
+}
+
+private extension URL {
+    var fileURLIdentityKey: String {
+        isFileURL ? standardizedFileURL.path : absoluteString
     }
 }
 
