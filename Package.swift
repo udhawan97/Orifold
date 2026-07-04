@@ -9,6 +9,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "Packages/PDFiumBinary"),
+        .package(path: "Packages/QPDFBinary"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
         .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.0.0")
@@ -18,6 +19,7 @@ let package = Package(
             name: "Orifold",
             dependencies: [
                 .product(name: "PDFium", package: "PDFiumBinary"),
+                .product(name: "CQPDF", package: "QPDFBinary"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "SwiftASN1", package: "swift-asn1"),
                 .product(name: "X509", package: "swift-certificates")
@@ -31,6 +33,10 @@ let package = Package(
                 .process("Resources/Assets.xcassets"),
                 .copy("Resources/CERTIFICATE_GUIDE.md"),
                 .copy("Resources/THIRD-PARTY-NOTICES.md")
+            ],
+            linkerSettings: [
+                .linkedLibrary("c++"),
+                .linkedLibrary("z")
             ]
         ),
         .testTarget(

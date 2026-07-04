@@ -179,7 +179,7 @@ final class WorkspaceOperationProgress {
     }
 }
 
-private final class OperationCancellationToken: @unchecked Sendable {
+final class OperationCancellationToken: @unchecked Sendable {
     private let lock = NSLock()
     private var cancelled = false
 
@@ -3354,6 +3354,8 @@ final class WorkspaceViewModel {
                 exportError = ExportError(message: encryptionError.userMessage)
             } else if let assemblyError = error as? PDFKitEngine.ExportAssemblyError {
                 exportError = ExportError(message: assemblyError.localizedDescription)
+            } else if let validationError = error as? PDFExportValidationError {
+                exportError = ExportError(message: validationError.userMessage)
             } else {
                 exportError = ExportError(message: "Orifold could not save the PDF: \(error.localizedDescription)")
             }
@@ -3362,7 +3364,7 @@ final class WorkspaceViewModel {
     }
 
     func dataForPDFExport(options: WorkspaceExportOptions = WorkspaceExportOptions()) throws -> Data {
-        if options.encryption != nil, hasCryptographicSignaturePlacement {
+        if (options.encryption != nil || options.sanitization != nil), hasCryptographicSignaturePlacement {
             throw PDFEncryptionError.digitalSignatureConflict
         }
         let snapshot = WorkspacePackage(
@@ -3381,12 +3383,25 @@ final class WorkspaceViewModel {
         } else {
             reducedData = pdfData
         }
-        guard let encryption = options.encryption else { return reducedData }
-        let encryptedData = try PDFEncryptionService.encryptedData(from: reducedData, options: encryption)
+        let sanitizedData = try Self.sanitized(reducedData, options: options.sanitization)
+        guard let encryption = options.encryption else { return sanitizedData }
+        let encryptedData = try PDFEncryptionService.encryptedData(from: sanitizedData, options: encryption)
         if options.compressionPreset != nil {
             _ = try PDFiumProcessingEngine().validatePDF(data: encryptedData, password: encryption.userPassword)
         }
         return encryptedData
+    }
+
+    /// Applies `options.sanitization` if present. Throws rather than falling
+    /// back to unsanitized data on failure -- sanitize is a privacy/security
+    /// feature, so silently shipping the original bytes when it can't run
+    /// would be worse than failing the export outright.
+    static func sanitized(_ data: Data, options: PDFSanitizationOptions?) throws -> Data {
+        guard let options else { return data }
+        guard let result = QPDFService.sanitized(data, removingMetadata: options.removesMetadata) else {
+            throw PDFSanitizationError.sanitizationFailed
+        }
+        return result
     }
 
     func reduceFileSize(preset: PDFCompressionPreset = .balanced) {
@@ -3430,6 +3445,9 @@ final class WorkspaceViewModel {
                 if cancellation.isCancelled || Task.isCancelled {
                     throw PDFCompressionError.cancelled
                 }
+                guard QPDFService.isStructurallySound(result.data) else {
+                    throw PDFExportValidationError.structurallyUnsound
+                }
                 try result.data.write(to: targetURL, options: .atomic)
                 await MainActor.run {
                     guard self.activeCompressionID == operationID else { return }
@@ -3467,6 +3485,10 @@ final class WorkspaceViewModel {
 
     private func exportCompressedPDF(options: WorkspaceExportOptions) -> Bool {
         guard let preset = options.compressionPreset else { return false }
+        if (options.encryption != nil || options.sanitization != nil), hasCryptographicSignaturePlacement {
+            exportError = ExportError(message: PDFEncryptionError.digitalSignatureConflict.userMessage)
+            return false
+        }
         let targetURL: URL
         let defaultName: String
         if loadedPDFs.count == 1,
@@ -3506,18 +3528,26 @@ final class WorkspaceViewModel {
         let operationID = UUID()
         activeCompressionCancellation = cancellation
         activeCompressionID = operationID
-        activeCompressionTask = Task { [weak self, sourceData, targetURL, preset, encryption, cancellation, operationID] in
+        let sanitization = options.sanitization
+        activeCompressionTask = Task { [weak self, sourceData, targetURL, preset, sanitization, encryption, cancellation, operationID] in
             guard let self else { return }
             do {
                 let output = try await self.reducedData(
                     from: sourceData,
                     preset: preset,
+                    sanitization: sanitization,
                     encryption: encryption,
                     cancellation: cancellation,
                     operationID: operationID
                 )
                 if cancellation.isCancelled || Task.isCancelled {
                     throw PDFCompressionError.cancelled
+                }
+                // Same structural gate writePDFExportData applies to the
+                // plain export path -- this path writes directly and would
+                // otherwise skip it entirely.
+                guard QPDFService.isStructurallySound(output.data, password: encryption?.userPassword) else {
+                    throw PDFExportValidationError.structurallyUnsound
                 }
                 try output.data.write(to: targetURL, options: .atomic)
                 await MainActor.run {
@@ -3548,9 +3578,10 @@ final class WorkspaceViewModel {
         return true
     }
 
-    private func reducedData(
+    func reducedData(
         from sourceData: Data,
         preset: PDFCompressionPreset,
+        sanitization: PDFSanitizationOptions? = nil,
         encryption: PDFEncryptionOptions?,
         cancellation: OperationCancellationToken,
         operationID: UUID
@@ -3579,10 +3610,14 @@ final class WorkspaceViewModel {
             if cancellation.isCancelled || Task.isCancelled {
                 throw PDFCompressionError.cancelled
             }
-            guard let encryption else {
-                return (data: result.data, compressionResult: result)
+            let sanitizedData = try Self.sanitized(result.data, options: sanitization)
+            if cancellation.isCancelled || Task.isCancelled {
+                throw PDFCompressionError.cancelled
             }
-            let encrypted = try PDFEncryptionService.encryptedData(from: result.data, options: encryption)
+            guard let encryption else {
+                return (data: sanitizedData, compressionResult: result)
+            }
+            let encrypted = try PDFEncryptionService.encryptedData(from: sanitizedData, options: encryption)
             if cancellation.isCancelled || Task.isCancelled {
                 throw PDFCompressionError.cancelled
             }
@@ -3594,10 +3629,25 @@ final class WorkspaceViewModel {
         }.value
     }
 
+    enum PDFExportValidationError: Error, Equatable {
+        case structurallyUnsound
+
+        var userMessage: String {
+            switch self {
+            case .structurallyUnsound:
+                return "Orifold wrote the PDF but a structural check found it invalid, so the export was discarded. Try exporting again."
+            }
+        }
+    }
+
     private func writePDFExportData(_ data: Data, to targetURL: URL, validationOptions: PDFEncryptionOptions?) throws {
-        guard let validationOptions else {
-            try data.write(to: targetURL, options: .atomic)
-            return
+        // Defense in depth: qpdf's structural checker runs on every export,
+        // encrypted or not, catching malformed output PDFKit's own leniency
+        // might read back successfully but other PDF readers would reject.
+        // Encrypted data must be checked with its user password -- qpdf can't
+        // parse (and would wrongly report as unsound) a file it can't decrypt.
+        guard QPDFService.isStructurallySound(data, password: validationOptions?.userPassword) else {
+            throw PDFExportValidationError.structurallyUnsound
         }
 
         let directory = targetURL.deletingLastPathComponent()
@@ -3607,7 +3657,10 @@ final class WorkspaceViewModel {
 
         try data.write(to: tempURL, options: .atomic)
         let writtenData = try Data(contentsOf: tempURL)
-        try PDFEncryptionService.validateEncryptedData(writtenData, options: validationOptions)
+
+        if let validationOptions {
+            try PDFEncryptionService.validateEncryptedData(writtenData, options: validationOptions)
+        }
 
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: targetURL.path) {
@@ -4136,6 +4189,12 @@ final class WorkspaceViewModel {
     private func userMessage(for error: Error, exporting format: WorkspaceExportFormat) -> String {
         if let encryptionError = error as? PDFEncryptionError {
             return encryptionError.userMessage
+        }
+        if let sanitizationError = error as? PDFSanitizationError {
+            return sanitizationError.userMessage
+        }
+        if let validationError = error as? PDFExportValidationError {
+            return validationError.userMessage
         }
         switch error {
         case ExportBuildError.cannotMapEdit(let memberName, let sourceText):

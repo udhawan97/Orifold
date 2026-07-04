@@ -248,8 +248,17 @@ enum DocumentImportConverter {
         }
 
         if detectedType.conforms(to: .pdf) {
-            guard let document = PDFDocument(data: data) else { throw ConversionError.unreadableDocument }
-            return ImportedDocument(pdfDocument: document, sourcePayload: nil)
+            if let document = PDFDocument(data: data) {
+                return ImportedDocument(pdfDocument: document, sourcePayload: nil)
+            }
+            // PDFKit gave up; qpdf's recovery scans for objects by brute force
+            // and can often rebuild a valid document from a broken xref table,
+            // missing trailer, or other structural damage PDFKit won't tolerate.
+            if let repaired = QPDFService.repaired(data),
+               let repairedDocument = PDFDocument(data: repaired) {
+                return ImportedDocument(pdfDocument: repairedDocument, sourcePayload: nil)
+            }
+            throw ConversionError.unreadableDocument
         }
         if detectedType.conforms(to: .orifoldSVG) {
             return ImportedDocument(pdfDocument: try renderImage(data, title: filename), sourcePayload: nil)

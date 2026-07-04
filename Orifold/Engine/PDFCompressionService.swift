@@ -144,6 +144,17 @@ enum PDFCompressionService {
         progress?(0.9)
         guard compressedData.count < pdfData.count else { throw PDFCompressionError.grewLarger }
 
+        // Lossless pass: regenerate object streams via qpdf. This only touches
+        // the PDF's internal object/dictionary structure, never image or
+        // content-stream bytes, so it composes with whichever lossy path won
+        // above instead of competing with it. Only adopted if it actually
+        // shrinks the file and still passes qpdf's own structural check.
+        if let optimized = QPDFService.optimized(compressedData, linearize: false),
+           optimized.count < compressedData.count,
+           QPDFService.isStructurallySound(optimized) {
+            compressedData = optimized
+        }
+
         try validate(compressedData, expectedPageText: originalPageText, processingEngine: processingEngine)
         try checkCancellation(isCancelled)
         progress?(1.0)

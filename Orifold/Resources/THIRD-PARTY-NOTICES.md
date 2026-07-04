@@ -1,6 +1,6 @@
 # Orifold Third-Party Notices
 
-Last updated: 2026-07-03
+Last updated: 2026-07-04
 
 This file is included in the Orifold app bundle and repository to provide
 license notices for third-party code distributed with the app.
@@ -21,6 +21,14 @@ Orifold redistributes PDFium through the Swift Package dependency
 The PDFium binary is built from Chromium PDFium sources. The upstream release
 notes for the pinned package identify `bblanchon/pdfium-binaries` as the source
 of the built PDFium binaries.
+
+Orifold redistributes qpdf through the Swift Package dependency
+`Packages/QPDFBinary`, built from unmodified upstream qpdf source
+(`qpdf/qpdf`, v12.3.0) as a static library bundled with a statically linked
+libjpeg-turbo (v3.1.0, required by qpdf's JPEG passthrough filter). Both are
+built directly by this repository's own build process from their official
+upstream sources -- neither is a redistribution of a third party's prebuilt
+binary.
 
 ## Other Linked Third-Party Packages
 
@@ -112,6 +120,56 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---
+
+## qpdf
+
+Copyright (c) 2005-2025 Jay Berkenbilt, Copyright (c) 2022-2025 Jay Berkenbilt
+and Manfred Holger
+
+Licensed under the Apache License, Version 2.0 (see the Apache License 2.0
+text later in this file). qpdf's source is unmodified upstream source from
+https://github.com/qpdf/qpdf, built by this repository as a static library.
+
+---
+
+## libjpeg-turbo
+
+Copyright (C)2009-2024 D. R. Commander. All Rights Reserved.
+Copyright (C)2015 Viktor Szathmáry. All Rights Reserved.
+
+This software is based in part on the work of the Independent JPEG Group.
+
+libjpeg-turbo is covered by two compatible BSD-style licenses: the IJG
+(Independent JPEG Group) License for the libjpeg API, and the Modified
+(3-clause) BSD License below for the TurboJPEG API and build system. Orifold
+statically links only the libjpeg API (required by qpdf's JPEG passthrough
+filter), built unmodified from https://github.com/libjpeg-turbo/libjpeg-turbo.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+- Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+- Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+- Neither the name of the libjpeg-turbo Project nor the names of its
+  contributors may be used to endorse or promote products derived from this
+  software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS",
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 ---
 
@@ -295,8 +353,8 @@ This product contains derivations of various scripts from SwiftNIO SSH.
 
 ## Apache License 2.0
 
-The following license text applies to Swift Crypto, Swift ASN.1, and Swift
-Certificates.
+The following license text applies to qpdf, Swift Crypto, Swift ASN.1, and
+Swift Certificates.
 
                                  Apache License
                            Version 2.0, January 2004
