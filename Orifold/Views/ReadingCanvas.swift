@@ -2266,14 +2266,24 @@ final class NoteEditorViewController: NSViewController {
     private let familyPopup = NSPopUpButton()
     private let sizeStepper = NSStepper()
     private let sizeField = NSTextField(string: "")
-    private let boldButton = NSButton(title: "B", target: nil, action: nil)
-    private let italicButton = NSButton(title: "I", target: nil, action: nil)
-    private let alignControl = NSSegmentedControl(labels: ["L", "C", "R"], trackingMode: .selectOne, target: nil, action: nil)
+    private let boldButton = NSButton(title: "", target: nil, action: nil)
+    private let italicButton = NSButton(title: "", target: nil, action: nil)
+    private let alignControl = NSSegmentedControl(
+        images: [
+            NSImage(systemSymbolName: "text.alignleft", accessibilityDescription: "Align left") ?? NSImage(),
+            NSImage(systemSymbolName: "text.aligncenter", accessibilityDescription: "Align center") ?? NSImage(),
+            NSImage(systemSymbolName: "text.alignright", accessibilityDescription: "Align right") ?? NSImage()
+        ],
+        trackingMode: .selectOne,
+        target: nil,
+        action: nil
+    )
     private let colorPopup = NSPopUpButton()
     private let matchFormatButton = NSButton(title: "", target: nil, action: nil)
     private let copyFormatButton = NSButton(title: "", target: nil, action: nil)
     private let applyFormatButton = NSButton(title: "", target: nil, action: nil)
     private let restoreFormatButton = NSButton(title: "", target: nil, action: nil)
+    private var toolbarContentWidth: CGFloat = 640
     private var editorFontFamily: String
     private var documentFontSize: CGFloat
     private var editorFontTraits: NSFontTraitMask
@@ -2496,7 +2506,48 @@ final class NoteEditorViewController: NSViewController {
         applyFormatting()
     }
 
+    /// Compact horizontal layout cursor: places each control left-to-right, tracks the
+    /// running content width, and inserts a wider gap (with an optional divider hairline)
+    /// between logical groups so the toolbar reads as clusters of related actions rather
+    /// than one long undifferentiated row.
+    private final class ToolbarLayoutCursor {
+        let toolbar: NSView
+        var x: CGFloat
+        private let edgeInset: CGFloat
+        private let controlHeight: CGFloat
+        private let controlY: CGFloat
+
+        init(toolbar: NSView, edgeInset: CGFloat, controlHeight: CGFloat, controlY: CGFloat) {
+            self.toolbar = toolbar
+            self.x = edgeInset
+            self.edgeInset = edgeInset
+            self.controlHeight = controlHeight
+            self.controlY = controlY
+        }
+
+        @discardableResult
+        func place(_ view: NSView, width: CGFloat, gapAfter: CGFloat = 6) -> CGRect {
+            let frame = CGRect(x: x, y: controlY, width: width, height: controlHeight)
+            view.frame = frame
+            toolbar.addSubview(view)
+            x = frame.maxX + gapAfter
+            return frame
+        }
+
+        func addDivider(gapBefore: CGFloat = 4, gapAfter: CGFloat = 10) {
+            x += gapBefore
+            let divider = NSBox(frame: CGRect(x: x, y: 5, width: 1, height: controlHeight - 4))
+            divider.boxType = .separator
+            toolbar.addSubview(divider)
+            x += 1 + gapAfter
+        }
+
+        var finalWidth: CGFloat { x + edgeInset - 6 }
+    }
+
     private func setupToolbar() {
+        let cursor = ToolbarLayoutCursor(toolbar: toolbar, edgeInset: 8, controlHeight: 26, controlY: 8)
+
         let families = Self.fontFamilyMenuItems(originalFamily: editorFontFamily)
         familyPopup.addItems(withTitles: families)
         if let match = families.first(where: { editorFontFamily.localizedCaseInsensitiveCompare($0) == .orderedSame }) {
@@ -2508,8 +2559,8 @@ final class NoteEditorViewController: NSViewController {
         }
         familyPopup.target = self
         familyPopup.action = #selector(changeFamily(_:))
-        familyPopup.frame = CGRect(x: 8, y: 8, width: 142, height: 26)
-        toolbar.addSubview(familyPopup)
+        familyPopup.toolTip = "Font"
+        cursor.place(familyPopup, width: 124)
 
         sizeField.alignment = .center
         sizeField.font = .systemFont(ofSize: 12, weight: .medium)
@@ -2521,37 +2572,38 @@ final class NoteEditorViewController: NSViewController {
         sizeField.action = #selector(commitSizeField(_:))
         sizeField.delegate = self
         sizeField.toolTip = "Font size"
-        sizeField.frame = CGRect(x: 154, y: 8, width: 42, height: 26)
-        toolbar.addSubview(sizeField)
+        cursor.place(sizeField, width: 34, gapAfter: 2)
 
         sizeStepper.minValue = 4
         sizeStepper.maxValue = 96
         sizeStepper.integerValue = Int(round(documentFontSize))
         sizeStepper.target = self
         sizeStepper.action = #selector(changeSize(_:))
-        sizeStepper.toolTip = "Font size"
-        sizeStepper.frame = CGRect(x: 200, y: 8, width: 20, height: 26)
-        toolbar.addSubview(sizeStepper)
+        sizeStepper.toolTip = "Increase or decrease font size"
+        cursor.place(sizeStepper, width: 20)
+        cursor.addDivider()
 
         boldButton.target = self
         boldButton.action = #selector(toggleBold)
         boldButton.setButtonType(.toggle)
         boldButton.bezelStyle = .rounded
-        boldButton.font = .boldSystemFont(ofSize: 12)
+        boldButton.title = "B"
+        boldButton.image = NSImage(systemSymbolName: "bold", accessibilityDescription: "Bold")
+        boldButton.imagePosition = .imageOnly
         boldButton.state = editorFontTraits.contains(.boldFontMask) ? .on : .off
-        boldButton.toolTip = "Bold"
-        boldButton.frame = CGRect(x: 234, y: 8, width: 32, height: 26)
-        toolbar.addSubview(boldButton)
+        boldButton.toolTip = "Bold (⌘B)"
+        cursor.place(boldButton, width: 28, gapAfter: 2)
 
         italicButton.target = self
         italicButton.action = #selector(toggleItalic)
         italicButton.setButtonType(.toggle)
         italicButton.bezelStyle = .rounded
-        italicButton.font = NSFontManager.shared.convert(NSFont.systemFont(ofSize: 12), toHaveTrait: .italicFontMask)
+        italicButton.image = NSImage(systemSymbolName: "italic", accessibilityDescription: "Italic")
+        italicButton.imagePosition = .imageOnly
         italicButton.state = editorFontTraits.contains(.italicFontMask) ? .on : .off
-        italicButton.toolTip = "Italic"
-        italicButton.frame = CGRect(x: 270, y: 8, width: 32, height: 26)
-        toolbar.addSubview(italicButton)
+        italicButton.toolTip = "Italic (⌘I)"
+        cursor.place(italicButton, width: 28)
+        cursor.addDivider()
 
         alignControl.target = self
         alignControl.action = #selector(changeAlignment(_:))
@@ -2559,23 +2611,22 @@ final class NoteEditorViewController: NSViewController {
         alignControl.setToolTip("Align left", forSegment: 0)
         alignControl.setToolTip("Align center", forSegment: 1)
         alignControl.setToolTip("Align right", forSegment: 2)
-        alignControl.frame = CGRect(x: 314, y: 8, width: 82, height: 26)
-        toolbar.addSubview(alignControl)
+        cursor.place(alignControl, width: 78)
+        cursor.addDivider()
 
         colorPopup.target = self
         colorPopup.action = #selector(changeTextColor(_:))
         colorPopup.toolTip = "Text color"
-        colorPopup.frame = CGRect(x: 410, y: 8, width: 102, height: 26)
         populateColorPopup()
-        toolbar.addSubview(colorPopup)
+        cursor.place(colorPopup, width: 88)
+        cursor.addDivider()
 
         let signature = NSButton(title: "", target: self, action: #selector(addSignatureBox))
         signature.image = NSImage(systemSymbolName: "signature", accessibilityDescription: "Signature")
         signature.imagePosition = .imageOnly
         signature.bezelStyle = .rounded
-        signature.toolTip = "Add signature box"
-        signature.frame = CGRect(x: 522, y: 8, width: 34, height: 26)
-        toolbar.addSubview(signature)
+        signature.toolTip = "Insert a signature box here"
+        cursor.place(signature, width: 30)
 
         matchFormatButton.target = self
         matchFormatButton.action = #selector(matchNearbyFormat)
@@ -2583,8 +2634,7 @@ final class NoteEditorViewController: NSViewController {
         matchFormatButton.imagePosition = .imageOnly
         matchFormatButton.bezelStyle = .rounded
         matchFormatButton.toolTip = "Match this edit to the nearby PDF text, including font, color, alignment, margins, and wrapping."
-        matchFormatButton.frame = CGRect(x: 566, y: 8, width: 34, height: 26)
-        toolbar.addSubview(matchFormatButton)
+        cursor.place(matchFormatButton, width: 30)
 
         copyFormatButton.target = self
         copyFormatButton.action = #selector(copyNearbyFormat)
@@ -2592,8 +2642,7 @@ final class NoteEditorViewController: NSViewController {
         copyFormatButton.imagePosition = .imageOnly
         copyFormatButton.bezelStyle = .rounded
         copyFormatButton.toolTip = "Copy the nearby/original PDF text style, including font, color, alignment, margins, and wrapping."
-        copyFormatButton.frame = CGRect(x: 608, y: 8, width: 34, height: 26)
-        toolbar.addSubview(copyFormatButton)
+        cursor.place(copyFormatButton, width: 30)
 
         applyFormatButton.target = self
         applyFormatButton.action = #selector(applyCopiedFormat)
@@ -2601,8 +2650,7 @@ final class NoteEditorViewController: NSViewController {
         applyFormatButton.imagePosition = .imageOnly
         applyFormatButton.bezelStyle = .rounded
         applyFormatButton.toolTip = "Apply the copied format to this edit."
-        applyFormatButton.frame = CGRect(x: 650, y: 8, width: 34, height: 26)
-        toolbar.addSubview(applyFormatButton)
+        cursor.place(applyFormatButton, width: 30)
 
         restoreFormatButton.target = self
         restoreFormatButton.action = #selector(restoreOriginalFormat)
@@ -2610,37 +2658,41 @@ final class NoteEditorViewController: NSViewController {
         restoreFormatButton.imagePosition = .imageOnly
         restoreFormatButton.bezelStyle = .rounded
         restoreFormatButton.toolTip = "Restore this edit to the original detected PDF text formatting."
-        restoreFormatButton.frame = CGRect(x: 692, y: 8, width: 34, height: 26)
-        toolbar.addSubview(restoreFormatButton)
+        cursor.place(restoreFormatButton, width: 30)
+        cursor.addDivider()
 
-        var buttonX: CGFloat = 738
         if isExistingEdit {
-            let revert = NSButton(title: "Revert", target: self, action: #selector(revertButton))
+            let revert = NSButton(title: "", target: self, action: #selector(revertButton))
+            revert.image = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: "Revert")
+            revert.imagePosition = .imageOnly
             revert.bezelStyle = .rounded
             revert.toolTip = "Remove this edit and restore the original text"
-            revert.frame = CGRect(x: buttonX, y: 8, width: 66, height: 26)
-            toolbar.addSubview(revert)
-            buttonX += 72
+            cursor.place(revert, width: 30)
         }
 
-        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelButton))
+        let cancel = NSButton(title: "", target: self, action: #selector(cancelButton))
+        cancel.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Cancel")
+        cancel.imagePosition = .imageOnly
         cancel.bezelStyle = .rounded
-        cancel.frame = CGRect(x: buttonX, y: 8, width: 68, height: 26)
-        toolbar.addSubview(cancel)
-        buttonX += 74
+        cancel.toolTip = "Cancel (Esc)"
+        cursor.place(cancel, width: 30)
 
         let done = NSButton(title: "Done", target: self, action: #selector(commitButton))
+        done.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: "Done")
+        done.imagePosition = .imageOnly
         done.bezelStyle = .rounded
         done.contentTintColor = .dsAccentNS
         done.keyEquivalent = "\r"
-        done.frame = CGRect(x: buttonX, y: 8, width: 62, height: 26)
-        toolbar.addSubview(done)
+        done.toolTip = "Done — save this edit (⏎)"
+        cursor.place(done, width: 34, gapAfter: 0)
+
+        toolbarContentWidth = cursor.finalWidth
         refreshColorPopup()
         refreshSizeControls()
     }
 
     private var toolbarSize: CGSize {
-        CGSize(width: isExistingEdit ? 954 : 882, height: 42)
+        CGSize(width: toolbarContentWidth, height: 42)
     }
 
     private func layoutEditor() {
@@ -2690,6 +2742,9 @@ final class NoteEditorViewController: NSViewController {
         resizeTextViewHeight()
     }
 
+    /// Places the toolbar near the editor, clamped so it always stays within the visible
+    /// canvas — including the narrower canvas that results when the inspector panel is
+    /// open, since `bounds` here already reflects that shrunk width.
     private func toolbarFrame(near editorRect: CGRect) -> CGRect {
         let preferredSize = toolbarSize
         let width = min(preferredSize.width, max(320, bounds.width - 16))
