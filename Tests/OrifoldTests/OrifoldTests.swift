@@ -2367,6 +2367,7 @@ final class WorkspaceDocumentTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testDropResolverFallsBackToPDFRepresentationWhenFileURLLoadFails() async throws {
         let pdfData = try makePDF(pageTexts: ["Dropped PDF"]).dataRepresentation().unwrap()
         let tempURL = FileManager.default.temporaryDirectory
