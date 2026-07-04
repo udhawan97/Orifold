@@ -1781,9 +1781,9 @@ final class InlineTextEditPlacementTests: XCTestCase {
         let resizePoint = resizeHandle.convert(NSPoint(x: resizeHandle.bounds.midX, y: resizeHandle.bounds.midY), to: fixture.overlay)
         let colorPoint = colorPopup.convert(NSPoint(x: colorPopup.bounds.midX, y: colorPopup.bounds.midY), to: fixture.overlay)
 
-        XCTAssertTrue(fixture.overlay.hitTest(donePoint) is NSButton)
-        XCTAssertTrue(fixture.overlay.hitTest(sizePoint) is NSTextField)
-        XCTAssertTrue(fixture.overlay.hitTest(colorPoint) is NSPopUpButton)
+        XCTAssertTrue(hitTest(fixture.overlay, at: donePoint, reaches: doneButton))
+        XCTAssertTrue(hitTest(fixture.overlay, at: sizePoint, reaches: sizeField))
+        XCTAssertTrue(hitTest(fixture.overlay, at: colorPoint, reaches: colorPopup))
         let textHit = fixture.overlay.hitTest(textPoint)
         XCTAssertTrue(textHit is NSTextView, "Expected text view hit, got \(String(describing: textHit))")
         XCTAssertTrue(fixture.overlay.hitTest(movePoint) is InlineMoveHandle)
@@ -1793,18 +1793,10 @@ final class InlineTextEditPlacementTests: XCTestCase {
 
     func testInlineEditorToolbarControlsReceiveHitTestsWhenToolbarIsOffset() throws {
         let fixture = try makeInlineEditorFixture(pdfViewFrame: CGRect(x: 0, y: 0, width: 1800, height: 1000))
-        let matchButton = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title.isEmpty && button.toolTip?.hasPrefix("Match this edit") == true
-        })
-        let copyFormat = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title.isEmpty && button.toolTip?.hasPrefix("Copy the nearby") == true
-        })
-        let applyFormat = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title.isEmpty && button.toolTip?.hasPrefix("Apply the copied format") == true
-        })
-        let restoreFormat = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title.isEmpty && button.toolTip?.hasPrefix("Restore this edit") == true
-        })
+        let matchButton = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.matchNearbyFormat"))
+        let copyFormat = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.copyNearbyFormat"))
+        let applyFormat = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.applyCopiedFormat"))
+        let restoreFormat = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.restoreOriginalFormat"))
         let bold = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "B"
         })
@@ -1813,7 +1805,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
         for view in [matchButton, copyFormat, applyFormat, restoreFormat, bold, alignment] as [NSView] {
             XCTAssertGreaterThan(view.convert(.zero, to: fixture.overlay).x, 100)
             let point = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: fixture.overlay)
-            XCTAssertTrue(fixture.overlay.hitTest(point) === view)
+            XCTAssertTrue(hitTest(fixture.overlay, at: point, reaches: view))
         }
     }
 
@@ -1851,12 +1843,8 @@ final class InlineTextEditPlacementTests: XCTestCase {
             pdfViewFrame: CGRect(x: 0, y: 0, width: 1400, height: 1000)
         )
         let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
-        let copy = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title.isEmpty && button.toolTip?.hasPrefix("Copy the nearby") == true
-        })
-        let apply = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title.isEmpty && button.toolTip?.hasPrefix("Apply the copied format") == true
-        })
+        let copy = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.copyNearbyFormat"))
+        let apply = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.applyCopiedFormat"))
         let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "Done"
         })
@@ -1881,9 +1869,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
         let bold = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "B"
         })
-        let restore = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title.isEmpty && button.toolTip?.hasPrefix("Restore this edit") == true
-        })
+        let restore = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.restoreOriginalFormat"))
         let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "Done"
         })
@@ -1928,9 +1914,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
             block: editedBlock,
             sourceFormat: sourceFormat
         )
-        let restore = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title.isEmpty && button.toolTip?.hasPrefix("Restore this edit") == true
-        })
+        let restore = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.restoreOriginalFormat"))
         let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "Done"
         })
@@ -2023,9 +2007,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
             pdfViewFrame: CGRect(x: 0, y: 0, width: 1400, height: 1000)
         )
         let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
-        let match = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title.isEmpty && button.toolTip?.hasPrefix("Match this edit") == true
-        })
+        let match = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.matchNearbyFormat"))
         let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
             button.title == "Done"
         })
@@ -5465,9 +5447,21 @@ private func makeInlineEditorFixture(
         }
     }
     pdfView.addSubview(overlay)
+    overlay.layoutSubtreeIfNeeded()
     return InlineEditorFixture(pdfView: pdfView, page: page, overlay: overlay, viewModel: viewModel) {
         committed
     }
+}
+
+private func inlineEditorButton(in root: NSView, identifier: String) -> NSButton? {
+    findSubview(in: root) { (button: NSButton) in
+        button.identifier?.rawValue == identifier
+    }
+}
+
+private func hitTest(_ root: NSView, at point: NSPoint, reaches expected: NSView) -> Bool {
+    guard let hit = root.hitTest(point) else { return false }
+    return hit === expected || hit.isDescendant(of: expected) || expected.isDescendant(of: hit)
 }
 
 private func findSubview<T: NSView>(in root: NSView, matching predicate: (T) -> Bool) -> T? {

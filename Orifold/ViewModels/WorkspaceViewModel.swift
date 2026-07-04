@@ -317,6 +317,7 @@ final class WorkspaceViewModel {
     @ObservationIgnored private var activeCompressionID: UUID?
     @ObservationIgnored private var activeImportTask: Task<Void, Never>?
     @ObservationIgnored private var activeImportCancellation: OperationCancellationToken?
+    @ObservationIgnored private var pendingPasswordImports: [PendingPasswordImport] = []
     @ObservationIgnored private var activeOCRTask: Task<Void, Never>?
     @ObservationIgnored private var activeOCRCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeOCRID: UUID?
@@ -589,18 +590,22 @@ final class WorkspaceViewModel {
                 )
             }
             let result = await importDocument(from: url, cancellation: cancellation)
-            await MainActor.run {
-                switch result {
-                case .success(let imported):
-                    if let member = self.attachImportedDocument(imported.document, from: imported.url, insertingAfter: insertionAnchorID) {
-                        insertionAnchorID = member.pageRefs.last
-                        importedCount += 1
-                    }
-                case .failure(let failure):
-                    failures.append(failure)
+            switch result {
+            case .success(let imported):
+                let targetID = insertionAnchorID
+                let attachedLastPageID = await MainActor.run {
+                    self.attachImportedDocument(imported.document, from: imported.url, insertingAfter: targetID)?.pageRefs.last
                 }
+                if let attachedLastPageID {
+                    insertionAnchorID = attachedLastPageID
+                    importedCount += 1
+                }
+            case .failure(let failure):
+                failures.append(failure)
             }
         }
+        let finalImportedCount = importedCount
+        let finalFailures = failures
         await MainActor.run {
             self.operationProgress.update(
                 fraction: 1,
@@ -612,9 +617,9 @@ final class WorkspaceViewModel {
             self.activeImportCancellation = nil
             self.operationProgress.finish()
             if cancellation.isCancelled || Task.isCancelled {
-                self.editingStatus = .warning(importedCount > 0 ? "Import canceled after adding \(importedCount) file\(importedCount == 1 ? "" : "s")." : "Import canceled.")
-            } else if !failures.isEmpty {
-                self.importError = self.importError(for: failures, importedCount: importedCount, totalCount: urls.count)
+                self.editingStatus = .warning(finalImportedCount > 0 ? "Import canceled after adding \(finalImportedCount) file\(finalImportedCount == 1 ? "" : "s")." : "Import canceled.")
+            } else if !finalFailures.isEmpty {
+                self.importError = self.importError(for: finalFailures, importedCount: finalImportedCount, totalCount: urls.count)
             }
             if self.pendingPasswordPDF != nil {
                 self.isShowingPasswordPrompt = true
@@ -679,6 +684,12 @@ final class WorkspaceViewModel {
         var error: Error
     }
 
+    private struct PendingPasswordImport {
+        var url: URL
+        var pdf: PDFDocument
+        var insertingAfter: UUID?
+    }
+
     private func importDocument(from url: URL, cancellation: OperationCancellationToken) async -> Result<AsyncImportedDocument, AsyncImportFailure> {
         await Task.detached(priority: .userInitiated) {
             let fileName = url.lastPathComponent
@@ -720,11 +731,7 @@ final class WorkspaceViewModel {
         }
         let pdf = imported.pdfDocument
         if pdf.isLocked {
-            pendingPasswordURL = url
-            pendingPasswordPDF = pdf
-            if !isImporting {
-                isShowingPasswordPrompt = true
-            }
+            enqueuePasswordImport(pdf: pdf, url: url)
             return
         }
         attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload)
@@ -736,9 +743,7 @@ final class WorkspaceViewModel {
                                         insertingAfter targetPageRefID: UUID? = nil) -> MemberDocument? {
         let pdf = imported.pdfDocument
         if pdf.isLocked {
-            pendingPasswordURL = url
-            pendingPasswordPDF = pdf
-            isShowingPasswordPrompt = true
+            enqueuePasswordImport(pdf: pdf, url: url, insertingAfter: targetPageRefID)
             return nil
         }
         return attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload, insertingAfter: targetPageRefID)
@@ -747,11 +752,43 @@ final class WorkspaceViewModel {
     func unlock(pdf: PDFDocument, password: String, url: URL) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard pdf.unlock(withPassword: password) else { return false }
+        let pending = pendingPasswordImports.first
         smokeValidatePDFData(pdf.dataRepresentation(), password: password)
-        attachPDF(pdf, from: url, sourcePayload: nil)
-        pendingPasswordPDF = nil
+        attachPDF(pdf, from: url, sourcePayload: nil, insertingAfter: pending?.insertingAfter)
+        removeCurrentPasswordImport()
         rebuild()
         return true
+    }
+
+    func cancelPendingPasswordImport() {
+        removeCurrentPasswordImport()
+    }
+
+    private func enqueuePasswordImport(pdf: PDFDocument, url: URL, insertingAfter targetPageRefID: UUID? = nil) {
+        pendingPasswordImports.append(PendingPasswordImport(url: url, pdf: pdf, insertingAfter: targetPageRefID))
+        presentPendingPasswordImportIfNeeded()
+    }
+
+    private func removeCurrentPasswordImport() {
+        if !pendingPasswordImports.isEmpty {
+            pendingPasswordImports.removeFirst()
+        }
+        pendingPasswordURL = nil
+        pendingPasswordPDF = nil
+        presentPendingPasswordImportIfNeeded()
+    }
+
+    private func presentPendingPasswordImportIfNeeded() {
+        guard pendingPasswordPDF == nil, pendingPasswordURL == nil else { return }
+        guard let next = pendingPasswordImports.first else {
+            isShowingPasswordPrompt = false
+            return
+        }
+        pendingPasswordURL = next.url
+        pendingPasswordPDF = next.pdf
+        if !isImporting {
+            isShowingPasswordPrompt = true
+        }
     }
 
     @discardableResult

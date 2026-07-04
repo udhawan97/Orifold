@@ -141,6 +141,7 @@ struct ContentView: View {
                     url: url,
                     viewModel: viewModel
                 )
+                .id(url)
             }
         }
     }
@@ -1058,7 +1059,7 @@ private func loadProviderURL(from provider: NSItemProvider, type: UTType, comple
             completion(nil)
             return
         }
-        completion(url)
+        completion(durableDroppedImportURL(from: url))
     }
 }
 
@@ -1130,6 +1131,26 @@ private func copyTemporaryDropFile(from url: URL, contentType: UTType) -> URL? {
         return destination
     } catch {
         return nil
+    }
+}
+
+private func durableDroppedImportURL(from url: URL) -> URL? {
+    guard isTemporaryDropProviderURL(url) else { return url }
+    let resourceType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+    let contentType = resourceType ?? UTType(filenameExtension: url.pathExtension) ?? .data
+    return copyTemporaryDropFile(from: url, contentType: contentType) ?? url
+}
+
+private func isTemporaryDropProviderURL(_ url: URL) -> Bool {
+    let standardizedPath = url.standardizedFileURL.path
+    let temporaryRoots = [
+        FileManager.default.temporaryDirectory.standardizedFileURL.path,
+        URL(fileURLWithPath: NSTemporaryDirectory()).standardizedFileURL.path,
+        "/private/var/folders/",
+        "/var/folders/",
+    ]
+    return temporaryRoots.contains { root in
+        standardizedPath == root || standardizedPath.hasPrefix(root.hasSuffix("/") ? root : "\(root)/")
     }
 }
 

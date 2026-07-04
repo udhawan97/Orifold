@@ -182,6 +182,9 @@ final class WorkspaceDocument: ReferenceFileDocument {
     }
 
     private func importPDFDocument(_ pdf: PDFDocument, filename: String, sourcePayload: SourceDocumentPayload?) throws {
+        guard !pdf.isLocked else {
+            throw DocumentImportConverter.ConversionError.passwordProtected
+        }
         let metadata = Self.metadata(from: pdf)
         if let editableWorkspace = metadata.editableWorkspace,
            !metadata.editableMemberPDFData.isEmpty {

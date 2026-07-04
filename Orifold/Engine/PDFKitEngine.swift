@@ -109,6 +109,7 @@ enum DocumentImportConverter {
 
     enum ConversionError: Error {
         case unsupportedType
+        case passwordProtected
         case unreadableDocument
         case emptyDocument
         case binaryDataMislabelledAsText
@@ -140,6 +141,8 @@ enum DocumentImportConverter {
         switch error {
         case ConversionError.unsupportedType:
             return "This file type is not supported yet."
+        case ConversionError.passwordProtected:
+            return "This PDF is password-protected. Add it to an open workspace with Add Files or drag-and-drop so Orifold can prompt for the password."
         case ConversionError.unreadableDocument:
             return "The file could not be read. It may be corrupt, encrypted, or incomplete."
         case ConversionError.emptyDocument:

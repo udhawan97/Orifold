@@ -34,8 +34,7 @@ struct PasswordPromptView: View {
 
             HStack {
                 Button("Cancel") {
-                    viewModel.pendingPasswordURL = nil
-                    viewModel.pendingPasswordPDF = nil
+                    viewModel.cancelPendingPasswordImport()
                     dismiss()
                 }
                     .keyboardShortcut(.cancelAction)
@@ -50,9 +49,9 @@ struct PasswordPromptView: View {
 
     private func attemptUnlock() {
         if viewModel.unlock(pdf: pdf, password: password, url: url) {
-            viewModel.isShowingPasswordPrompt = false
-            viewModel.pendingPasswordURL = nil
-            dismiss()
+            if viewModel.pendingPasswordPDF == nil {
+                dismiss()
+            }
         } else {
             failed = true
             password = ""

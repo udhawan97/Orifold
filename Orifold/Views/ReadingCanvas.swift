@@ -2638,6 +2638,7 @@ final class NoteEditorViewController: NSViewController {
 
         matchFormatButton.target = self
         matchFormatButton.action = #selector(matchNearbyFormat)
+        matchFormatButton.identifier = NSUserInterfaceItemIdentifier("inlineEditor.matchNearbyFormat")
         matchFormatButton.image = NSImage(systemSymbolName: "eyedropper", accessibilityDescription: "Sample nearby style")
         matchFormatButton.imagePosition = .imageOnly
         matchFormatButton.bezelStyle = .rounded
@@ -2646,6 +2647,7 @@ final class NoteEditorViewController: NSViewController {
 
         copyFormatButton.target = self
         copyFormatButton.action = #selector(copyNearbyFormat)
+        copyFormatButton.identifier = NSUserInterfaceItemIdentifier("inlineEditor.copyNearbyFormat")
         copyFormatButton.image = NSImage(systemSymbolName: "paintbrush", accessibilityDescription: "Copy style")
         copyFormatButton.imagePosition = .imageOnly
         copyFormatButton.bezelStyle = .rounded
@@ -2654,6 +2656,7 @@ final class NoteEditorViewController: NSViewController {
 
         applyFormatButton.target = self
         applyFormatButton.action = #selector(applyCopiedFormat)
+        applyFormatButton.identifier = NSUserInterfaceItemIdentifier("inlineEditor.applyCopiedFormat")
         applyFormatButton.image = NSImage(systemSymbolName: "paintbrush.fill", accessibilityDescription: "Paste copied style")
         applyFormatButton.imagePosition = .imageOnly
         applyFormatButton.bezelStyle = .rounded
@@ -2662,6 +2665,7 @@ final class NoteEditorViewController: NSViewController {
 
         restoreFormatButton.target = self
         restoreFormatButton.action = #selector(restoreOriginalFormat)
+        restoreFormatButton.identifier = NSUserInterfaceItemIdentifier("inlineEditor.restoreOriginalFormat")
         restoreFormatButton.image = NSImage(systemSymbolName: "arrow.uturn.backward.circle", accessibilityDescription: "Restore original style")
         restoreFormatButton.imagePosition = .imageOnly
         restoreFormatButton.bezelStyle = .rounded
