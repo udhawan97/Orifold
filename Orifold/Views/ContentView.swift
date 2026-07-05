@@ -3,21 +3,149 @@ import PDFKit
 import UniformTypeIdentifiers
 import AppKit
 
-private struct ExportSuccessAlert: ViewModifier {
+private struct ExportSuccessOverlay: ViewModifier {
     @Bindable var viewModel: WorkspaceViewModel
 
     func body(content: Content) -> some View {
-        content.alert("contentView.exportSuccess.title", isPresented: Binding(
-            get: { viewModel.exportSuccess != nil },
-            set: { if !$0 { viewModel.exportSuccess = nil } }
-        ), presenting: viewModel.exportSuccess) { success in
-            Button("contentView.showInFinder.button") {
-                NSWorkspace.shared.activateFileViewerSelecting([success.url])
-                viewModel.exportSuccess = nil
+        content.overlay {
+            if let success = viewModel.exportSuccess {
+                ExportSuccessPanel(success: success) {
+                    viewModel.exportSuccess = nil
+                }
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.95).combined(with: .opacity),
+                    removal: .scale(scale: 0.98).combined(with: .opacity)
+                ))
+                .zIndex(100)
             }
-            Button("contentView.ok.button") { viewModel.exportSuccess = nil }
-        } message: { success in
-            Text(success.message)
+        }
+        .animation(.spring(duration: 0.26, bounce: 0.12), value: viewModel.exportSuccess?.id)
+    }
+}
+
+private struct ExportSuccessPanel: View {
+    let success: WorkspaceViewModel.ExportSuccess
+    let onDone: () -> Void
+
+    @State private var finderFailed = false
+    @FocusState private var doneButtonFocused: Bool
+
+    private var fileName: String { success.url.lastPathComponent }
+    private var folderName: String {
+        let name = success.url.deletingLastPathComponent().lastPathComponent
+        return name.isEmpty ? success.url.deletingLastPathComponent().path : name
+    }
+    private var hasFolderPath: Bool { !folderName.isEmpty }
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.22)
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 0) {
+                // Header
+                HStack(alignment: .center, spacing: .dsMD) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 26, weight: .medium))
+                        .foregroundStyle(Color.dsSuccessAccent)
+                        .symbolRenderingMode(.hierarchical)
+                        .accessibilityHidden(true)
+
+                    Text("contentView.exportSuccess.pdfSaved.title")
+                        .font(.dsTitle())
+                        .foregroundStyle(Color.dsTextPrimary)
+                }
+                .padding(.horizontal, .dsXL)
+                .padding(.top, .dsXL)
+                .padding(.bottom, .dsLG)
+
+                Divider()
+
+                // Body
+                VStack(alignment: .leading, spacing: .dsSM) {
+                    Text(fileName)
+                        .font(.dsBody())
+                        .foregroundStyle(Color.dsTextPrimary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+
+                    if hasFolderPath {
+                        HStack(alignment: .firstTextBaseline, spacing: .dsXS) {
+                            Text("contentView.exportSuccess.savedTo.label")
+                                .font(.dsCaption())
+                                .foregroundStyle(Color.dsTextTertiary)
+                            Text(folderName)
+                                .font(.dsCaption())
+                                .foregroundStyle(Color.dsTextSecondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .help(success.url.deletingLastPathComponent().path)
+                        }
+                    }
+
+                    if let detail = success.detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(.dsCaption())
+                            .foregroundStyle(Color.dsTextTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if finderFailed {
+                        Text("contentView.exportSuccess.finderFailed.message")
+                            .font(.dsCaption())
+                            .foregroundStyle(Color.dsErrorAccent)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.horizontal, .dsXL)
+                .padding(.vertical, .dsLG)
+
+                Divider()
+
+                // Buttons
+                HStack(spacing: .dsSM) {
+                    Button {
+                        let fileExists = FileManager.default.fileExists(atPath: success.url.path)
+                        if fileExists {
+                            NSWorkspace.shared.activateFileViewerSelecting([success.url])
+                            onDone()
+                        } else {
+                            finderFailed = true
+                        }
+                    } label: {
+                        Text("contentView.showInFinder.button")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+
+                    Button {
+                        onDone()
+                    } label: {
+                        Text("contentView.done.button")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .tint(Color.dsAccent)
+                    .keyboardShortcut(.defaultAction)
+                    .focused($doneButtonFocused)
+                }
+                .padding(.horizontal, .dsXL)
+                .padding(.vertical, .dsLG)
+            }
+            .background(Color.dsCard, in: RoundedRectangle(cornerRadius: .dsRadiusLg))
+            .overlay {
+                RoundedRectangle(cornerRadius: .dsRadiusLg)
+                    .strokeBorder(Color.dsSeparator, lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.10), radius: 20, x: 0, y: 8)
+            .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+            .frame(width: 320)
+            .onExitCommand { onDone() }
+            .onAppear { doneButtonFocused = true }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(Text("contentView.exportSuccess.pdfSaved.title"))
         }
     }
 }
@@ -181,7 +309,7 @@ struct ContentView: View {
         } message: { err in
             Text(err.message)
         }
-        .modifier(ExportSuccessAlert(viewModel: viewModel))
+        .modifier(ExportSuccessOverlay(viewModel: viewModel))
         .sheet(isPresented: $viewModel.isShowingPasswordPrompt) {
             if let url = viewModel.pendingPasswordURL,
                let pdf = viewModel.pendingPasswordPDF {
