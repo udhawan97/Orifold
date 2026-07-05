@@ -2124,6 +2124,7 @@ final class WorkspaceViewModel {
             let reopenedFontSize = shouldPreserveReplacementStyle ? existingOp.fontSize : sourceFormat.fontSize
             let reopenedTextColor = shouldPreserveReplacementStyle ? existingOp.textColor : sourceFormat.textColor
             let reopenedAlignment = shouldPreserveReplacementStyle ? existingOp.alignment : sourceFormat.alignment
+            let reopenedUnderline = shouldPreserveReplacementStyle ? existingOp.underline : sourceFormat.underline
             let syntheticBlock = EditableTextBlock(
                 id: existingOp.sourceBlockID,
                 pageRefID: ref.id,
@@ -2135,6 +2136,7 @@ final class WorkspaceViewModel {
                 fontSize: reopenedFontSize,
                 textColor: reopenedTextColor,
                 alignment: reopenedAlignment,
+                underline: reopenedUnderline,
                 rotation: 0,
                 baseline: syntheticBounds.minY,
                 confidence: .high
@@ -2284,6 +2286,7 @@ final class WorkspaceViewModel {
         fontSize: CGFloat,
         textColor: NSColor,
         alignment: NSTextAlignment,
+        underline: Bool = false,
         didManuallyReposition: Bool = false,
         didManuallyResizeWidth: Bool = false,
         didManuallyResizeHeight: Bool = false,
@@ -2311,6 +2314,7 @@ final class WorkspaceViewModel {
             fontSize: fontSize,
             textColor: CodableColor(nsColor: textColor),
             alignment: CodableTextAlignment(alignment),
+            underline: underline,
             // `sourceBlock.alignment` is nil when detection couldn't determine one — in
             // that case trust the alignment actually being committed (which, whenever
             // `didManuallyChangeStyle` is false, is exactly what the original showed)
@@ -2320,6 +2324,7 @@ final class WorkspaceViewModel {
                 fontSize: sourceBlock.fontSize,
                 textColor: sourceBlock.textColor,
                 alignment: sourceBlock.alignment ?? CodableTextAlignment(alignment),
+                underline: sourceBlock.underline,
                 bounds: sourceBlock.bounds,
                 columnBounds: sourceBlock.columnBounds
             ),

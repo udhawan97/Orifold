@@ -35,6 +35,7 @@ enum PDFEditedPageRenderer {
         context.beginPDFPage([:] as CFDictionary)
         context.saveGState()
         context.translateBy(x: -mediaBox.minX, y: -mediaBox.minY)
+        drawRasterizedPageBackground(from: page, mediaBox: mediaBox, in: context)
         drawPageBackground(from: page, unrotatedPage: unrotatedPage, mediaBox: mediaBox, in: context)
 
         for operation in operations {
@@ -61,25 +62,65 @@ enum PDFEditedPageRenderer {
         return newPage
     }
 
+    private static func drawRasterizedPageBackground(from page: PDFPage, mediaBox: CGRect, in context: CGContext) {
+        guard let image = renderedRawPageImage(from: page, mediaBox: mediaBox) else { return }
+
+        context.saveGState()
+        context.draw(image, in: mediaBox)
+        context.restoreGState()
+    }
+
+    private static func renderedRawPageImage(from page: PDFPage, mediaBox: CGRect) -> CGImage? {
+        guard mediaBox.width > 0, mediaBox.height > 0 else { return nil }
+
+        let scale: CGFloat = 2
+        let pixelWidth = max(1, Int(ceil(mediaBox.width * scale)))
+        let pixelHeight = max(1, Int(ceil(mediaBox.height * scale)))
+        guard let bitmap = CGContext(
+            data: nil,
+            width: pixelWidth,
+            height: pixelHeight,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+
+        bitmap.setFillColor(NSColor.white.cgColor)
+        bitmap.fill(CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
+        bitmap.scaleBy(x: scale, y: scale)
+        bitmap.translateBy(x: -mediaBox.minX, y: -mediaBox.minY)
+        drawPageRef(page, mediaBox: mediaBox, in: bitmap)
+        return bitmap.makeImage()
+    }
+
     private static func drawPageBackground(from page: PDFPage, unrotatedPage: PDFPage, mediaBox: CGRect, in context: CGContext) {
-        let rotation = ((page.rotation % 360) + 360) % 360
-        if let pageRef = page.pageRef {
+        if page.pageRef != nil {
             context.saveGState()
-            if rotation != 0 {
-                context.concatenate(
-                    pageRef.getDrawingTransform(
-                        .mediaBox,
-                        rect: mediaBox,
-                        rotate: Int32(-rotation),
-                        preserveAspectRatio: true
-                    )
-                )
-            }
-            context.drawPDFPage(pageRef)
+            drawPageRef(page, mediaBox: mediaBox, in: context)
             context.restoreGState()
         } else {
             unrotatedPage.draw(with: .mediaBox, to: context)
         }
+    }
+
+    private static func drawPageRef(_ page: PDFPage, mediaBox: CGRect, in context: CGContext) {
+        guard let pageRef = page.pageRef else { return }
+
+        let rotation = ((page.rotation % 360) + 360) % 360
+        if rotation != 0 {
+            context.concatenate(
+                pageRef.getDrawingTransform(
+                    .mediaBox,
+                    rect: mediaBox,
+                    rotate: Int32(-rotation),
+                    preserveAspectRatio: true
+                )
+            )
+        }
+        context.drawPDFPage(pageRef)
     }
 
     static func eraseBounds(for operation: PDFTextEditOperation) -> [CGRect] {
@@ -416,14 +457,15 @@ private struct ReplacementTextLayout {
             alignment: operation.alignment.ctTextAlignment,
             lineBreakMode: .byWordWrapping
         )
-        attributedString = NSAttributedString(
-            string: operation.replacementText,
-            attributes: [
-                NSAttributedString.Key(kCTFontAttributeName as String): ctFont,
-                NSAttributedString.Key(kCTForegroundColorAttributeName as String): operation.textColor.nsColor.cgColor,
-                NSAttributedString.Key(kCTParagraphStyleAttributeName as String): paragraph
-            ]
-        )
+        var attributes: [NSAttributedString.Key: Any] = [
+            NSAttributedString.Key(kCTFontAttributeName as String): ctFont,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): operation.textColor.nsColor.cgColor,
+            NSAttributedString.Key(kCTParagraphStyleAttributeName as String): paragraph
+        ]
+        if operation.underline {
+            attributes[NSAttributedString.Key(kCTUnderlineStyleAttributeName as String)] = CTUnderlineStyle.single.rawValue
+        }
+        attributedString = NSAttributedString(string: operation.replacementText, attributes: attributes)
         framesetter = CTFramesetterCreateWithAttributedString(attributedString)
     }
 

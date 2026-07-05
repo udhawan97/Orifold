@@ -727,6 +727,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
                             fontSize: edit.fontSize,
                             textColor: edit.textColor,
                             alignment: edit.alignment,
+                            underline: edit.underline,
                             didManuallyReposition: edit.didManuallyReposition,
                             didManuallyResizeWidth: edit.didManuallyResizeWidth,
                             didManuallyResizeHeight: edit.didManuallyResizeHeight,
@@ -2260,6 +2261,7 @@ final class NoteEditorViewController: NSViewController {
         var fontSize: CGFloat
         var textColor: NSColor
         var alignment: NSTextAlignment
+        var underline: Bool
         var didManuallyReposition: Bool
         var didManuallyResizeWidth: Bool
         var didManuallyResizeHeight: Bool
@@ -2292,6 +2294,7 @@ final class NoteEditorViewController: NSViewController {
     private let sizeField = NSTextField(string: "")
     private let boldButton = NSButton(title: "", target: nil, action: nil)
     private let italicButton = NSButton(title: "", target: nil, action: nil)
+    private let underlineButton = NSButton(title: "", target: nil, action: nil)
     private let alignControl = NSSegmentedControl(
         images: [
             NSImage(systemSymbolName: "text.alignleft", accessibilityDescription: L10n.string("readingCanvas.formatting.alignLeft.accessibilityDescription")) ?? NSImage(),
@@ -2320,6 +2323,7 @@ final class NoteEditorViewController: NSViewController {
     private var editorTextColor: NSColor
     private let textColorChoices: [TextColorChoice]
     private var editorAlignment: NSTextAlignment = .left
+    private var editorUnderline: Bool = false
     private var didFinish = false
     private var editorTopY: CGFloat = 0
     private var manualEditorPageOrigin: CGPoint?
@@ -2343,6 +2347,7 @@ final class NoteEditorViewController: NSViewController {
     private let originalFontSize: CGFloat
     private let originalFontTraits: NSFontTraitMask
     private let originalAlignment: NSTextAlignment
+    private let originalUnderline: Bool
     private static let defaultInsertedTextColor = NSColor.black
     private static let defaultTextColorChoices: [TextColorChoice] = [
         TextColorChoice(name: "Black", color: .black, isDetected: false),
@@ -2390,11 +2395,13 @@ final class NoteEditorViewController: NSViewController {
         editorTextColor = Self.initialTextColor(for: block)
         textColorChoices = Self.textColorChoices(for: block, document: pdfView.document, initialColor: editorTextColor)
         editorAlignment = block.alignment?.nsTextAlignment ?? .left
+        editorUnderline = block.underline
         originalText = block.text
         originalFontFamily = editorFontFamily
         originalFontSize = documentFontSize
         originalFontTraits = editorFontTraits
         originalAlignment = editorAlignment
+        originalUnderline = editorUnderline
         super.init(frame: frame)
         setup()
         applyArmedFormatPainterIfNeeded()
@@ -2660,7 +2667,17 @@ final class NoteEditorViewController: NSViewController {
         italicButton.imagePosition = .imageOnly
         italicButton.state = editorFontTraits.contains(.italicFontMask) ? .on : .off
         italicButton.toolTip = L10n.string("readingCanvas.formatting.italic.shortcutTooltip")
-        cursor.place(italicButton, width: 28)
+        cursor.place(italicButton, width: 28, gapAfter: 2)
+
+        underlineButton.target = self
+        underlineButton.action = #selector(toggleUnderline)
+        underlineButton.setButtonType(.toggle)
+        underlineButton.bezelStyle = .rounded
+        underlineButton.image = NSImage(systemSymbolName: "underline", accessibilityDescription: L10n.string("readingCanvas.formatting.underline.accessibilityDescription"))
+        underlineButton.imagePosition = .imageOnly
+        underlineButton.state = editorUnderline ? .on : .off
+        underlineButton.toolTip = L10n.string("readingCanvas.formatting.underline.shortcutTooltip")
+        cursor.place(underlineButton, width: 28)
         cursor.addDivider()
 
         alignControl.target = self
@@ -3072,6 +3089,13 @@ final class NoteEditorViewController: NSViewController {
         refocusEditor()
     }
 
+    @objc private func toggleUnderline() {
+        didChangeStyle = true
+        editorUnderline = underlineButton.state == .on
+        applyFormatting()
+        refocusEditor()
+    }
+
     @objc private func changeAlignment(_ sender: NSSegmentedControl) {
         didChangeStyle = true
         switch sender.selectedSegment {
@@ -3145,6 +3169,7 @@ final class NoteEditorViewController: NSViewController {
             fontSize: documentFontSize,
             textColor: CodableColor(nsColor: editorTextColor),
             alignment: CodableTextAlignment(editorAlignment),
+            underline: editorUnderline,
             bounds: committedFormatBounds,
             columnBounds: effectiveColumnBounds
         )
@@ -3157,6 +3182,7 @@ final class NoteEditorViewController: NSViewController {
         editorFontTraits = NSFontManager.shared.traits(of: sourceFont).intersection([.boldFontMask, .italicFontMask])
         editorTextColor = format.textColor.nsColor
         editorAlignment = format.alignment.nsTextAlignment
+        editorUnderline = format.underline
         applyParagraphGeometry(from: format)
         if markStyleChange {
             didChangeStyle = true
@@ -3208,12 +3234,14 @@ final class NoteEditorViewController: NSViewController {
         refreshSizeControls()
         refreshColorPopup()
         let font = displayFont()
+        let underlineValue = editorUnderline ? NSUnderlineStyle.single.rawValue : 0
         textView.font = font
         textView.textColor = editorTextColor
         textView.alignment = editorAlignment
         textView.typingAttributes = [
             .font: font,
-            .foregroundColor: editorTextColor
+            .foregroundColor: editorTextColor,
+            .underlineStyle: underlineValue
         ]
         if let storage = textView.textStorage {
             // Reapplying font/color/alignment over the whole range on every keystroke and
@@ -3227,7 +3255,8 @@ final class NoteEditorViewController: NSViewController {
             textView.undoManager?.disableUndoRegistration()
             storage.setAttributes([
                 .font: font,
-                .foregroundColor: editorTextColor
+                .foregroundColor: editorTextColor,
+                .underlineStyle: underlineValue
             ], range: fullRange)
             textView.setAlignment(editorAlignment, range: fullRange)
             textView.setSelectedRange(selectedRange)
@@ -3247,6 +3276,7 @@ final class NoteEditorViewController: NSViewController {
         }
         boldButton.state = editorFontTraits.contains(.boldFontMask) ? .on : .off
         italicButton.state = editorFontTraits.contains(.italicFontMask) ? .on : .off
+        underlineButton.state = editorUnderline ? .on : .off
         alignControl.selectedSegment = selectedAlignmentSegment()
     }
 
@@ -3604,6 +3634,7 @@ final class NoteEditorViewController: NSViewController {
             fontSize: documentFontSize,
             textColor: editorTextColor,
             alignment: editorAlignment,
+            underline: editorUnderline,
             didManuallyReposition: didManuallyReposition,
             didManuallyResizeWidth: didManuallyResizeWidth,
             didManuallyResizeHeight: didManuallyResizeHeight,
@@ -3626,6 +3657,7 @@ final class NoteEditorViewController: NSViewController {
             currentFormat.fontName != sourceFormat.fontName ||
             abs(currentFormat.fontSize - sourceFormat.fontSize) >= 0.01 ||
             currentFormat.alignment != sourceFormat.alignment ||
+            currentFormat.underline != sourceFormat.underline ||
             !Self.colorsApproximatelyEqual(currentFormat.textColor.nsColor, sourceFormat.textColor.nsColor, tolerance: 0.025)
         )
     }
@@ -3673,6 +3705,7 @@ final class NoteEditorViewController: NSViewController {
             abs(documentFontSize - originalFontSize) < 0.01 &&
             editorFontTraits == originalFontTraits &&
             editorAlignment == originalAlignment &&
+            editorUnderline == originalUnderline &&
             Self.colorsApproximatelyEqual(editorTextColor, block.textColor.nsColor, tolerance: 0.025) &&
             !didManuallyReposition &&
             !didManuallyResizeWidth &&

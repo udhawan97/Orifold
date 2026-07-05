@@ -38,6 +38,7 @@ struct EditableTextBlock: Codable, Identifiable, Equatable {
     var fontSize: CGFloat
     var textColor: CodableColor
     var alignment: CodableTextAlignment? = nil
+    var underline: Bool = false
     var rotation: CGFloat
     var baseline: CGFloat
     var confidence: PDFTextEditConfidence
@@ -57,6 +58,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
     var fontSize: CGFloat
     var textColor: CodableColor
     var alignment: CodableTextAlignment
+    var underline: Bool = false
     /// The true formatting of the original PDF text this operation replaced, captured
     /// once at creation and preserved verbatim across every re-edit (see
     /// `applyInlineTextEdit`'s existingOp merge). Match/Copy/Restore read this directly
@@ -86,7 +88,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, pageRefID, sourceBlockID, sourceBounds, sourceLineBounds, sourceText, editedBounds, columnBounds
-        case replacementText, fontName, fontSize, textColor, alignment, originalFormat, isInsertion
+        case replacementText, fontName, fontSize, textColor, alignment, underline, originalFormat, isInsertion
         case didManuallyReposition, didManuallyResizeWidth, didManuallyResizeHeight, didManuallyChangeStyle
         case didApplyMatchedGeometry
         case createdAt, modifiedAt
@@ -106,6 +108,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         fontSize: CGFloat,
         textColor: CodableColor,
         alignment: CodableTextAlignment,
+        underline: Bool = false,
         originalFormat: PDFTextEditFormat? = nil,
         isInsertion: Bool = false,
         didManuallyReposition: Bool = false,
@@ -129,11 +132,13 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         self.fontSize = fontSize
         self.textColor = textColor
         self.alignment = alignment
+        self.underline = underline
         self.originalFormat = originalFormat ?? PDFTextEditFormat(
             fontName: fontName,
             fontSize: fontSize,
             textColor: textColor,
             alignment: alignment,
+            underline: underline,
             bounds: sourceBounds,
             columnBounds: columnBounds
         )
@@ -162,6 +167,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
         fontSize = try c.decode(CGFloat.self, forKey: .fontSize)
         textColor = try c.decode(CodableColor.self, forKey: .textColor)
         alignment = try c.decode(CodableTextAlignment.self, forKey: .alignment)
+        underline = try c.decodeIfPresent(Bool.self, forKey: .underline) ?? false
         // Older saved workspaces (pre-dating stored original formatting) have no
         // `originalFormat` payload — best-effort fall back to this operation's own
         // replacement styling/bounds rather than losing Match/Restore for those edits.
@@ -170,6 +176,7 @@ struct PDFTextEditOperation: Codable, Identifiable, Equatable {
             fontSize: fontSize,
             textColor: textColor,
             alignment: alignment,
+            underline: underline,
             bounds: sourceBounds,
             columnBounds: columnBounds
         )
@@ -207,6 +214,7 @@ struct PDFTextEditFormat: Codable, Equatable {
     var fontSize: CGFloat
     var textColor: CodableColor
     var alignment: CodableTextAlignment
+    var underline: Bool = false
     var bounds: CGRect? = nil
     var columnBounds: CGRect? = nil
 
@@ -215,6 +223,7 @@ struct PDFTextEditFormat: Codable, Equatable {
         fontSize: CGFloat,
         textColor: CodableColor,
         alignment: CodableTextAlignment,
+        underline: Bool = false,
         bounds: CGRect? = nil,
         columnBounds: CGRect? = nil
     ) {
@@ -222,6 +231,7 @@ struct PDFTextEditFormat: Codable, Equatable {
         self.fontSize = fontSize
         self.textColor = textColor
         self.alignment = alignment
+        self.underline = underline
         self.bounds = bounds
         self.columnBounds = columnBounds
     }
@@ -231,6 +241,7 @@ struct PDFTextEditFormat: Codable, Equatable {
         self.fontSize = block.fontSize
         self.textColor = block.textColor
         self.alignment = block.alignment ?? .left
+        self.underline = block.underline
         self.bounds = block.bounds
         self.columnBounds = block.columnBounds
     }
