@@ -516,6 +516,35 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(resolved, "Helvetica")
     }
 
+    /// Boundary check just below the bold cutoff: OpenType weight 500 ("Medium") is
+    /// deliberately NOT promoted to bold — only 600+ ("SemiBold" and up) should be. Without
+    /// this test, the `>= 600` threshold in `resolveFontPostScriptName` could silently drift
+    /// (e.g. to `>= 500`) and start mis-bolding medium-weight body text with nothing to catch it.
+    func testFontResolutionDoesNotPromoteMediumWeightBelowBoldCutoff() throws {
+        let resolved = PDFTextAnalysisEngine.testResolveFontPostScriptName(
+            from: "Helvetica",
+            weightHint: 500,
+            italicHint: false
+        )
+        let font = try XCTUnwrap(NSFont(name: resolved, size: 12))
+        let traits = NSFontManager.shared.traits(of: font)
+        XCTAssertFalse(traits.contains(.boldFontMask), "weight 500 (Medium) must stay non-bold, got \(resolved)")
+    }
+
+    /// Boundary check exactly at the bold cutoff: OpenType weight 600 ("SemiBold") must
+    /// promote to bold, mirroring `testFontResolutionPreservesBoldFromDescriptorWeightWhenNameLacksBoldToken`
+    /// (which only tests comfortably-above-threshold weight 700) at the threshold itself.
+    func testFontResolutionPromotesSemiBoldWeightAtBoldCutoff() throws {
+        let resolved = PDFTextAnalysisEngine.testResolveFontPostScriptName(
+            from: "Helvetica",
+            weightHint: 600,
+            italicHint: false
+        )
+        let font = try XCTUnwrap(NSFont(name: resolved, size: 12))
+        let traits = NSFontManager.shared.traits(of: font)
+        XCTAssertTrue(traits.contains(.boldFontMask), "weight 600 (SemiBold) should yield a bold face, got \(resolved)")
+    }
+
     /// A multi-line paragraph's original line pitch (baseline-to-baseline distance) must be
     /// recovered from the captured per-line bounds and fed to CoreText, so wrapped
     /// replacement lines keep the document's leading instead of CoreText's default — the
@@ -7769,7 +7798,10 @@ private final class RepeatedParagraphsFixturePageView: NSView {
         bounds.fill()
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byWordWrapping
-        let font = NSFont(name: "Helvetica", size: 12) ?? NSFont.systemFont(ofSize: 12)
+        // Bold, not regular: the fixture must actually exercise weight preservation through
+        // the full extract -> edit -> render pipeline. A plain-weight fixture can never
+        // detect a bold->regular substitution regression since there is no bold ink to lose.
+        let font = NSFont(name: "Helvetica-Bold", size: 12) ?? NSFont.boldSystemFont(ofSize: 12)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: NSColor.black,
