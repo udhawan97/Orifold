@@ -7,15 +7,15 @@ private struct ExportSuccessAlert: ViewModifier {
     @Bindable var viewModel: WorkspaceViewModel
 
     func body(content: Content) -> some View {
-        content.alert("Export Complete", isPresented: Binding(
+        content.alert("contentView.exportSuccess.title", isPresented: Binding(
             get: { viewModel.exportSuccess != nil },
             set: { if !$0 { viewModel.exportSuccess = nil } }
         ), presenting: viewModel.exportSuccess) { success in
-            Button("Show in Finder") {
+            Button("contentView.showInFinder.button") {
                 NSWorkspace.shared.activateFileViewerSelecting([success.url])
                 viewModel.exportSuccess = nil
             }
-            Button("OK") { viewModel.exportSuccess = nil }
+            Button("contentView.ok.button") { viewModel.exportSuccess = nil }
         } message: { success in
             Text(success.message)
         }
