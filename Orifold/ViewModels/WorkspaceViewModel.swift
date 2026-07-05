@@ -731,7 +731,7 @@ final class WorkspaceViewModel {
             let failure = failures[0]
             return ImportError(
                 fileName: failure.url.lastPathComponent,
-                message: "Could not open \"\(failure.url.lastPathComponent)\". \(DocumentImportConverter.userMessage(for: failure.error))"
+                message: String(localized: "Could not open \"\(failure.url.lastPathComponent)\". \(DocumentImportConverter.userMessage(for: failure.error))", locale: L10n.currentLocale)
             )
         }
 
@@ -740,7 +740,7 @@ final class WorkspaceViewModel {
         let importedText = importedCount > 0 ? " \(importedCount) of \(totalCount) files were added." : " No files were added."
         return ImportError(
             fileName: "Selected Files",
-            message: "Could not open \(failures.count) files: \(names)\(suffix).\(importedText)"
+            message: String(localized: "Could not open \(failures.count) files: \(names)\(suffix).\(importedText)", locale: L10n.currentLocale)
         )
     }
 
@@ -795,7 +795,7 @@ final class WorkspaceViewModel {
         } catch {
             importError = ImportError(
                 fileName: fileName,
-                message: "Could not open \"\(fileName)\". \(DocumentImportConverter.userMessage(for: error))"
+                message: String(localized: "Could not open \"\(fileName)\". \(DocumentImportConverter.userMessage(for: error))", locale: L10n.currentLocale)
             )
             return
         }
@@ -871,7 +871,7 @@ final class WorkspaceViewModel {
         guard let data = PDFSerializer.data(from: pdf) else {
             importError = ImportError(
                 fileName: url.lastPathComponent,
-                message: "Orifold could not prepare this file for saving. Try exporting it to PDF first, then import the exported file."
+                message: L10n.string("error.import.preparePDFForSaving")
             )
             return nil
         }
@@ -3226,14 +3226,14 @@ final class WorkspaceViewModel {
             }
             identity = resolvedIdentity
         } catch SigningError.missingIdentity {
-            exportError = ExportError(message: "Choose or import a signing identity before exporting a digital signature.")
+            exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
             return
         } catch {
-            exportError = ExportError(message: "Orifold could not prepare the signing identity: \(error.localizedDescription)")
+            exportError = ExportError(message: String(localized: "Orifold could not prepare the signing identity: \(error.localizedDescription)", locale: L10n.currentLocale))
             return
         }
         guard let pageIndex = pageIndex(forSignaturePlacement: placement) else {
-            exportError = ExportError(message: "Orifold could not locate the page for that signature.")
+            exportError = ExportError(message: L10n.string("error.export.locatePageForSignature"))
             return
         }
 
@@ -3274,7 +3274,7 @@ final class WorkspaceViewModel {
                 bounds: placement.rect
             )
         } catch {
-            exportError = ExportError(message: "Orifold could not prepare the visible signature appearance: \(error.localizedDescription)")
+            exportError = ExportError(message: String(localized: "Orifold could not prepare the visible signature appearance: \(error.localizedDescription)", locale: L10n.currentLocale))
             return
         }
 
@@ -3305,11 +3305,11 @@ final class WorkspaceViewModel {
         } catch let writeError as ExportWriteError {
             exportError = ExportError(message: writeError.userMessage)
         } catch SigningError.notImplemented {
-            exportError = ExportError(message: "Digital signing is not available in this build yet.")
+            exportError = ExportError(message: L10n.string("error.export.signingNotAvailable"))
         } catch SigningError.missingIdentity {
-            exportError = ExportError(message: "Choose or import a signing identity before exporting a digital signature.")
+            exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
         } catch {
-            exportError = ExportError(message: "Orifold could not sign the PDF: \(error.localizedDescription)")
+            exportError = ExportError(message: String(localized: "Orifold could not sign the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
         }
     }
 
@@ -3658,7 +3658,7 @@ final class WorkspaceViewModel {
             } else if let validationError = error as? PDFExportValidationError {
                 exportError = ExportError(message: validationError.userMessage)
             } else {
-                exportError = ExportError(message: "Orifold could not save the PDF: \(error.localizedDescription)")
+                exportError = ExportError(message: String(localized: "Orifold could not save the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
             }
             return false
         }
@@ -4104,11 +4104,11 @@ final class WorkspaceViewModel {
             return false
         }
         guard let exportDoc = PDFDocument(data: exportData) else {
-            exportError = ExportError(message: "Orifold could not prepare pages for image export.")
+            exportError = ExportError(message: L10n.string("error.export.preparePagesForImageExport"))
             return false
         }
         guard exportDoc.pageCount > 0 else {
-            exportError = ExportError(message: "There are no pages to export.")
+            exportError = ExportError(message: L10n.string("error.export.noPagesToExport"))
             return false
         }
 
@@ -4192,7 +4192,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: "Orifold could not export page images: \(error.localizedDescription)")
+                exportError = ExportError(message: String(localized: "Orifold could not export page images: \(error.localizedDescription)", locale: L10n.currentLocale))
             }
             return false
         }
@@ -4215,7 +4215,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: "Orifold could not write the \(format.menuTitle) export: \(error.localizedDescription)")
+                exportError = ExportError(message: String(localized: "Orifold could not write the \(format.menuTitle) export: \(error.localizedDescription)", locale: L10n.currentLocale))
             }
             return false
         }
@@ -5490,7 +5490,7 @@ final class WorkspaceViewModel {
         }
         guard output.pageCount > 0,
               let data = PDFSerializer.data(from: output) else {
-            exportError = ExportError(message: "Orifold could not prepare the selected pages for export.")
+            exportError = ExportError(message: L10n.string("error.export.preparePagesForExport"))
             return
         }
         let panel = NSSavePanel()
@@ -5507,7 +5507,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: "Orifold could not export the selected pages: \(error.localizedDescription)")
+                exportError = ExportError(message: String(localized: "Orifold could not export the selected pages: \(error.localizedDescription)", locale: L10n.currentLocale))
             }
         }
     }
@@ -5672,7 +5672,7 @@ final class WorkspaceViewModel {
         do {
             let data = try dataForPDFExport()
             guard let document = PDFDocument(data: data) else {
-                exportError = ExportError(message: "Orifold could not prepare this workspace for printing.")
+                exportError = ExportError(message: L10n.string("error.export.preparePrinting"))
                 return
             }
             printableDocument = document

@@ -630,7 +630,7 @@ enum DocumentImportConverter {
         contentType: UTType
     ) throws -> ImportedDocument {
         let payloadText = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? "No extractable text was found in this file."
+            ? L10n.string("content.noExtractableText")
             : text
         let data = Data(payloadText.utf8)
         let attributed = try loadPlainText(from: data)
