@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Orifold",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "Orifold", targets: ["Orifold"])
@@ -31,6 +32,7 @@ let package = Package(
             ],
             resources: [
                 .process("Resources/Assets.xcassets"),
+                .process("Resources/Localizable.xcstrings"),
                 .copy("Resources/CERTIFICATE_GUIDE.md"),
                 .copy("Resources/THIRD-PARTY-NOTICES.md")
             ],
