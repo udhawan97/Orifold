@@ -578,7 +578,7 @@ extension PaperFigure {
             specular: PaperSpecular(from: CGPoint(x: 0.470, y: 0.260), to: CGPoint(x: 0.560, y: 0.360), group: .head),
             palette: .kraft,
             // Big, lively tail wag around the tail base.
-            idle: PaperWag(group: .tail, pivot: CGPoint(x: 0.360, y: 0.720), amplitude: 0.24, speed: 7.6)
+            idle: PaperWag(group: .tail, pivot: CGPoint(x: 0.360, y: 0.720), amplitude: 0.30, speed: 8.2)
         )
     }()
 }
@@ -696,7 +696,7 @@ extension PaperFigure {
             specular: PaperSpecular(from: CGPoint(x: 0.500, y: 0.360), to: CGPoint(x: 0.440, y: 0.470), group: .head),
             palette: .slate,
             // Gentle twin-ear twitch around the crown.
-            idle: PaperWag(group: .wing, pivot: CGPoint(x: 0.500, y: 0.380), amplitude: 0.11, speed: 4.8)
+            idle: PaperWag(group: .wing, pivot: CGPoint(x: 0.500, y: 0.380), amplitude: 0.14, speed: 5.2)
         )
     }()
 }
@@ -708,12 +708,16 @@ private enum FoldMarkRenderer {
         let side = min(size.width, size.height)
         guard side > 0 else { return }
 
-        // Fade + subtle scale-in of the whole mark, plus a gentle idle breath once settled.
+        // Fade + subtle scale-in of the whole mark, plus a gentle idle breath and sway
+        // once settled — this is the default, always-on liveliness (independent of any
+        // hover state), so the pet reads as alive at a glance even at rest.
         context.opacity = state.sheet
-        let breath = 1 + 0.012 * sin(idle.phase * 3.2) * idle.intensity
+        let breath = 1 + 0.022 * sin(idle.phase * 2.6) * idle.intensity
+        let sway = 0.030 * sin(idle.phase * 1.7 + 0.6) * idle.intensity
         let scale = (0.92 + 0.08 * state.sheet) * breath
         let mid = CGPoint(x: size.width / 2, y: size.height / 2)
         context.translateBy(x: mid.x, y: mid.y)
+        context.rotate(by: .radians(sway))
         context.scaleBy(x: scale, y: scale)
         context.translateBy(x: -mid.x, y: -mid.y)
 
