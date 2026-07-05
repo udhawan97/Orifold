@@ -3296,7 +3296,7 @@ final class WorkspaceViewModel {
                 }
                 return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity, timestamp: nil)
             }
-            try signedData.write(to: targetURL, options: .atomic)
+            try writeExportData(signedData, to: targetURL)
             try verifyExportedFile(at: targetURL)
             if let index = document.workspace.signatures.firstIndex(where: { $0.id == placement.id }) {
                 document.workspace.signatures[index].timestampApplied = timestampWasApplied
@@ -3749,7 +3749,7 @@ final class WorkspaceViewModel {
                 guard QPDFService.isStructurallySound(result.data) else {
                     throw PDFExportValidationError.structurallyUnsound
                 }
-                try result.data.write(to: targetURL, options: .atomic)
+                try self.writeExportData(result.data, to: targetURL)
                 try self.verifyExportedFile(at: targetURL)
                 await MainActor.run {
                     guard self.activeCompressionID == operationID else { return }
@@ -3844,7 +3844,7 @@ final class WorkspaceViewModel {
                 guard QPDFService.isStructurallySound(output.data, password: encryption?.userPassword) else {
                     throw PDFExportValidationError.structurallyUnsound
                 }
-                try output.data.write(to: targetURL, options: .atomic)
+                try self.writeExportData(output.data, to: targetURL)
                 try self.verifyExportedFile(at: targetURL)
                 await MainActor.run {
                     guard self.activeCompressionID == operationID else { return }
@@ -3936,9 +3936,11 @@ final class WorkspaceViewModel {
         }
     }
 
-    enum ExportWriteError: Error {
+    enum ExportWriteError: Error, LocalizedError {
         case fileNotFound
         case emptyFile
+
+        var errorDescription: String? { userMessage }
 
         var userMessage: String {
             switch self {
@@ -3967,12 +3969,70 @@ final class WorkspaceViewModel {
         }
     }
 
-    private func finalizeSuccessfulExport(url: URL, format: WorkspaceExportFormat, note: String? = nil) {
-        let detail = [commentExportStatusMessage(for: format), note]
+    /// `commentExportStatusMessage` reports counts across the whole workspace,
+    /// so callers that export only a page subset (not the full workspace)
+    /// must pass `includeCommentStatus: false` -- otherwise the message would
+    /// cite comments that aren't actually in the exported pages.
+    private func finalizeSuccessfulExport(
+        url: URL,
+        format: WorkspaceExportFormat,
+        note: String? = nil,
+        includeCommentStatus: Bool = true
+    ) {
+        let commentStatus = includeCommentStatus ? commentExportStatusMessage(for: format) : nil
+        let detail = [commentStatus, note]
             .compactMap { $0 }
             .joined(separator: " ")
         exportSuccess = ExportSuccess(url: url, detail: detail.isEmpty ? nil : detail)
         PetBuddyHook.trigger(.export)
+    }
+
+    /// Writes export bytes to `targetURL`, preferring a crash-safe temp-file +
+    /// atomic swap so a crash or force-quit mid-write can't leave a truncated
+    /// file at the user's real destination. Falls back to a direct,
+    /// non-atomic write only if the temp-sibling-file write itself can't even
+    /// start -- some sandboxed destinations only grant write access to the
+    /// exact NSSavePanel-chosen path, not sibling paths in the same folder
+    /// (which is also why neither write uses `.atomic`: that option creates
+    /// its own hidden sibling temp file, which would hit the same problem).
+    /// `validate` runs against the written bytes before they're committed to
+    /// `targetURL`, so a validation failure never lands at the real destination.
+    private func writeExportData(_ data: Data, to targetURL: URL, validate: ((Data) throws -> Void)? = nil) throws {
+        let fileManager = FileManager.default
+        let directory = targetURL.deletingLastPathComponent()
+        let tempURL = directory.appendingPathComponent(".Orifold-export-\(UUID().uuidString)")
+
+        let wroteTemp: Bool
+        do {
+            try data.write(to: tempURL)
+            wroteTemp = true
+        } catch {
+            wroteTemp = false
+        }
+
+        if wroteTemp {
+            defer { try? fileManager.removeItem(at: tempURL) }
+            if let validate {
+                try validate(try Data(contentsOf: tempURL))
+            }
+            if fileManager.fileExists(atPath: targetURL.path) {
+                guard try fileManager.replaceItemAt(
+                    targetURL,
+                    withItemAt: tempURL,
+                    backupItemName: nil,
+                    options: [.usingNewMetadataOnly]
+                ) != nil else {
+                    throw ExportWriteError.fileNotFound
+                }
+            } else {
+                try fileManager.moveItem(at: tempURL, to: targetURL)
+            }
+        } else {
+            if let validate {
+                try validate(data)
+            }
+            try data.write(to: targetURL)
+        }
     }
 
     private func writePDFExportData(_ data: Data, to targetURL: URL, validationOptions: PDFEncryptionOptions?) throws {
@@ -3985,51 +4045,11 @@ final class WorkspaceViewModel {
             throw PDFExportValidationError.structurallyUnsound
         }
 
-        let fileManager = FileManager.default
-        let directory = targetURL.deletingLastPathComponent()
-        let tempURL = directory
-            .appendingPathComponent(".Orifold-export-\(UUID().uuidString).pdf")
-
-        // Some sandboxed destinations only grant write access to the exact
-        // file the user picked in NSSavePanel, not sibling temp files in the
-        // same folder -- if the temp-file dance can't even get started there,
-        // fall back to writing targetURL directly rather than failing.
-        let wroteTemp: Bool
-        do {
-            try data.write(to: tempURL, options: .atomic)
-            wroteTemp = true
-        } catch {
-            wroteTemp = false
-        }
-
-        if wroteTemp {
-            defer { try? fileManager.removeItem(at: tempURL) }
-            let writtenData = try Data(contentsOf: tempURL)
-
+        try writeExportData(data, to: targetURL) { writtenData in
             if let validationOptions {
                 try PDFEncryptionService.validateEncryptedData(writtenData, options: validationOptions)
             }
-
-            if fileManager.fileExists(atPath: targetURL.path) {
-                let replacedURL = try fileManager.replaceItemAt(
-                    targetURL,
-                    withItemAt: tempURL,
-                    backupItemName: nil,
-                    options: [.usingNewMetadataOnly]
-                )
-                guard replacedURL != nil else {
-                    throw PDFEncryptionError.writeFailed
-                }
-            } else {
-                try fileManager.moveItem(at: tempURL, to: targetURL)
-            }
-        } else {
-            if let validationOptions {
-                try PDFEncryptionService.validateEncryptedData(data, options: validationOptions)
-            }
-            try data.write(to: targetURL, options: .atomic)
         }
-
         try verifyExportedFile(at: targetURL)
     }
 
@@ -4099,14 +4119,24 @@ final class WorkspaceViewModel {
         panel.prompt = "Export"
         guard panel.runModal() == .OK, let folderURL = panel.url else { return false }
 
+        // Render every page into memory up front so a mid-export render
+        // failure is caught before anything on disk is touched -- neither
+        // the temp-folder path nor the sandbox fallback ever has to unwind a
+        // partially-written or partially-deleted destination folder.
+        var renderedPages: [(filename: String, data: Data)] = []
+        for pageIndex in 0..<exportDoc.pageCount {
+            guard let page = exportDoc.page(at: pageIndex),
+                  let data = imageData(for: page, format: format) else {
+                exportError = ExportError(message: "Orifold could not render page \(pageIndex + 1) for export.")
+                return false
+            }
+            let filename = "page-\(String(format: "%03d", pageIndex + 1)).\(format.fileExtension)"
+            renderedPages.append((filename, data))
+        }
+
         func writePages(into folder: URL) throws {
-            for pageIndex in 0..<exportDoc.pageCount {
-                guard let page = exportDoc.page(at: pageIndex),
-                      let data = imageData(for: page, format: format) else {
-                    throw ExportFailure("Could not render page \(pageIndex + 1).")
-                }
-                let filename = "page-\(String(format: "%03d", pageIndex + 1)).\(format.fileExtension)"
-                try data.write(to: folder.appendingPathComponent(filename), options: .atomic)
+            for page in renderedPages {
+                try page.data.write(to: folder.appendingPathComponent(page.filename))
             }
         }
 
@@ -4122,9 +4152,6 @@ final class WorkspaceViewModel {
             do {
                 try fileManager.createDirectory(at: tempFolderURL, withIntermediateDirectories: true)
                 try writePages(into: tempFolderURL)
-            } catch let renderError as ExportFailure {
-                try? fileManager.removeItem(at: tempFolderURL)
-                throw renderError
             } catch {
                 try? fileManager.removeItem(at: tempFolderURL)
                 wroteTemp = false
@@ -4145,6 +4172,14 @@ final class WorkspaceViewModel {
                     try fileManager.moveItem(at: tempFolderURL, to: folderURL)
                 }
             } else {
+                // Fully replace any existing folder at this path rather than
+                // writing into it -- otherwise leftover pages from a prior,
+                // larger export would survive alongside the new ones. Safe to
+                // delete-then-write here because every page was already
+                // rendered successfully above.
+                if fileManager.fileExists(atPath: folderURL.path) {
+                    try fileManager.removeItem(at: folderURL)
+                }
                 try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
                 try writePages(into: folderURL)
             }
@@ -4172,7 +4207,7 @@ final class WorkspaceViewModel {
         guard panel.runModal() == .OK, let url = panel.url else { return false }
 
         do {
-            try data.write(to: url, options: .atomic)
+            try writeExportData(data, to: url)
             try verifyExportedFile(at: url)
             finalizeSuccessfulExport(url: url, format: format)
             return true
@@ -5465,9 +5500,9 @@ final class WorkspaceViewModel {
         panel.title = "Export Selected Pages"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            try data.write(to: url, options: .atomic)
+            try writeExportData(data, to: url)
             try verifyExportedFile(at: url)
-            finalizeSuccessfulExport(url: url, format: .pdf)
+            finalizeSuccessfulExport(url: url, format: .pdf, includeCommentStatus: false)
         } catch {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
