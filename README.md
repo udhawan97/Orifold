@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/orifold-icon-apple.webp" alt="Animated Orifold app icon" width="168">
+<img src="docs/assets/orifold-crane-fold.svg" alt="Animated Orifold logo: a sheet of paper folds into an origami crane, then becomes the app icon" width="168">
 
 # Orifold
 
