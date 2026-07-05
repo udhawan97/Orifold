@@ -3312,12 +3312,41 @@ final class NoteEditorViewController: NSViewController {
         return choices
     }
 
+    /// Hard cap on how many pages `detectedDocumentTextColors` will analyze, independent of
+    /// how many colors it has found. Every inline-editor open previously re-ran a full
+    /// PDFium parse (`FPDF_LoadMemDocument` + per-page analysis) for every page up to the
+    /// first `maxDetectedTextColors` (24) distinct-looking colors — on a document where
+    /// pages mostly repeat the same one or two colors (typical prose), that early-exit
+    /// rarely fires early, so a long document paid an O(pageCount) full-document re-parse,
+    /// synchronously on the main thread, for a single click. Capping the page scan bounds
+    /// the worst case regardless of color density.
+    private static let maxScannedPagesForDetectedColors = 8
+
+    /// Caches the last computed detected-color list keyed by the source `PDFDocument`
+    /// instance's identity. `regenerateEditedPage`/`rebuild()` always produce a FRESH
+    /// `PDFDocument` object after any edit, so this cache naturally invalidates itself on
+    /// every document mutation without needing an explicit invalidation hook — a stale
+    /// entry is simply never looked up again. Bounded to the single most recent document
+    /// since only one document is being edited at a time.
+    private static var detectedDocumentTextColorsCache: (id: ObjectIdentifier, colors: [NSColor])?
+
     private static func detectedDocumentTextColors(in document: PDFDocument?) -> [NSColor] {
         guard let document else { return [] }
+        let documentID = ObjectIdentifier(document)
+        if let cached = detectedDocumentTextColorsCache, cached.id == documentID {
+            return cached.colors
+        }
+        let colors = computeDetectedDocumentTextColors(in: document)
+        detectedDocumentTextColorsCache = (documentID, colors)
+        return colors
+    }
+
+    private static func computeDetectedDocumentTextColors(in document: PDFDocument) -> [NSColor] {
         var colors: [NSColor] = []
+        let scannedPageCount = min(document.pageCount, maxScannedPagesForDetectedColors)
         if let data = document.dataRepresentation() {
             let engine = PDFTextAnalysisEngine()
-            for pageIndex in 0..<document.pageCount {
+            for pageIndex in 0..<scannedPageCount {
                 let page = document.page(at: pageIndex)
                 let analysis = engine.analyze(data: data, pageIndex: pageIndex, fallbackPage: page)
                 colors.append(contentsOf: analysis.blocks.map { $0.textColor.nsColor })
@@ -3326,7 +3355,7 @@ final class NoteEditorViewController: NSViewController {
             if !colors.isEmpty { return colors }
         }
 
-        for pageIndex in 0..<document.pageCount {
+        for pageIndex in 0..<scannedPageCount {
             guard let page = document.page(at: pageIndex),
                   let attributed = page.attributedString,
                   attributed.length > 0 else { continue }

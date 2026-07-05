@@ -993,6 +993,48 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         )
     }
 
+    /// `PDFPage.draw(with:to:)` bakes the page's own rotation into what it renders.
+    /// `regeneratedPage` draws the background into a context sized to the RAW (unrotated)
+    /// mediaBox — for a non-square page rotated 90°/270°, drawing an ALREADY-rotated page
+    /// into that unrotated-shaped context clips/loses the content entirely (confirmed
+    /// empirically while diagnosing this bug: nothing renders at all). That lost/blank
+    /// background then becomes the "raw" content of the regenerated page, which gets
+    /// rotation re-applied on top for display — so the whole page goes blank after any
+    /// edit on a 90°/270°-rotated non-square page, not just the edited region. This
+    /// reproduces that on a 612x792 (non-square) page and confirms page content the edit
+    /// never touched still renders after regeneration.
+    func testInlineTextEditOnRotatedNonSquarePagePreservesUntouchedBackgroundContent() throws {
+        let pdf = makeTwoLinePDF()
+        let page = try XCTUnwrap(pdf.page(at: 0))
+        XCTAssertNotEqual(page.bounds(for: .mediaBox).width, page.bounds(for: .mediaBox).height, "fixture must be non-square to exercise the rotation clipping bug")
+        XCTAssertTrue(page.string?.contains("Stale lower line") ?? false, "sanity check: fixture must contain this text before editing")
+        // A small, unrelated insertion far from "Short"/"Stale lower line" — the edit
+        // itself is not what's under test; the untouched background is. Checking
+        // extracted text (rather than rendered pixels) directly proves whether the
+        // original background content survived regeneration at all, independent of
+        // where on the page it ends up.
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: CGRect(x: 400, y: 100, width: 1, height: 1),
+            editedBounds: CGRect(x: 400, y: 100, width: 60, height: 16),
+            replacementText: "New",
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .documentText,
+            alignment: .left,
+            isInsertion: true
+        )
+        page.rotation = 90
+
+        let regenerated = try XCTUnwrap(PDFEditedPageRenderer.regeneratedPage(from: page, applying: [operation]))
+        XCTAssertEqual(regenerated.rotation, 90, "the regenerated page must keep reporting the original rotation for viewers")
+        XCTAssertTrue(
+            regenerated.string?.contains("Stale lower line") ?? false,
+            "the original page's untouched background text must survive regenerating a 90°-rotated non-square page — it must not go blank"
+        )
+    }
+
     func testInlineTextEditDoesNotEraseAutoGrownBoundsBeyondOriginalText() throws {
         let sourceBounds = CGRect(x: 72, y: 686, width: 42, height: 18)
         let editedBounds = CGRect(x: 72, y: 626, width: 260, height: 78)
@@ -1191,6 +1233,33 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertGreaterThan(measured.height, 24, "paragraph should keep its multi-line height, not collapse to a single line")
     }
 
+    func testMeasuredBoundsCapsAutomaticHeightToWhatFitsOnThePage() throws {
+        // A pathologically long paste (tens of thousands of characters) has no other cap on
+        // height the way width is capped to the page's right margin — unchecked, the box
+        // grows far taller than the page itself, drawing content off-page rather than
+        // failing or wrapping visibly.
+        let originalBounds = CGRect(x: 72, y: 700, width: 120, height: 16)
+        let hugeReplacement = Array(repeating: "word", count: 20_000).joined(separator: " ")
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: originalBounds,
+            editedBounds: originalBounds,
+            columnBounds: CGRect(x: 72, y: 0, width: 300, height: 792),
+            replacementText: hugeReplacement,
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .documentText,
+            alignment: .left
+        )
+        let pageBounds = CGRect(x: 0, y: 0, width: 612, height: 792)
+
+        let measured = PDFEditedPageRenderer.measuredBounds(for: operation, pageBounds: pageBounds)
+
+        XCTAssertLessThanOrEqual(measured.height, pageBounds.height, "the box must never grow taller than the page itself")
+        XCTAssertGreaterThanOrEqual(measured.minY, pageBounds.minY - 1, "the box's bottom edge must not be pushed off the bottom of the page")
+    }
+
     func testMeasuredBoundsPreservesManualResizeGeometry() throws {
         let committed = CGRect(x: 80, y: 640, width: 110, height: 44)
         let operation = PDFTextEditOperation(
@@ -1277,6 +1346,63 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         let regeneratedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
         XCTAssertEqual(regeneratedPage.annotations.count, 1, "highlight annotation was dropped by the text-edit regeneration")
         XCTAssertEqual(regeneratedPage.annotations.first?.type, "Highlight")
+    }
+
+    /// `/ByteRange` is a PDF construct used only by signature dictionaries, so its presence
+    /// in the raw bytes is a reliable signal of a pre-existing digital signature — even one
+    /// placed by a third party (DocuSign, Adobe Sign, a notarized document) before the file
+    /// ever reached Orifold, which `hasCryptographicSignaturePlacement` cannot see since it
+    /// only tracks signatures Orifold's own session placed. Any inline edit fully
+    /// re-serializes the member's PDF bytes, which breaks a `/ByteRange`-based signature's
+    /// hash regardless of which page was edited — so the warning must fire unconditionally
+    /// for the whole member, not just the edited page.
+    func testInlineTextEditWarnsWhenImportedPDFAlreadyContainsAThirdPartySignature() throws {
+        let fixture = try makeMemberWithPDF(name: "Presigned", pageTexts: ["Original text"])
+        var presignedData = fixture.pdfData
+        // Simulate a pre-existing signature dictionary without needing a real cryptographic
+        // signature: a PDF comment (`%...`) outside the content stream is inert to parsers,
+        // so this keeps the fixture a valid, loadable PDF while embedding the marker byte
+        // sequence `hasThirdPartyCryptographicSignature` scans for.
+        presignedData.append(Data("\n% /ByteRange [0 100 200 300]\n".utf8))
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = presignedData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        XCTAssertFalse(viewModel.hasCryptographicSignaturePlacement, "fixture places no Orifold-own signature")
+        XCTAssertTrue(viewModel.hasThirdPartyCryptographicSignature)
+
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id,
+            text: "Original text",
+            bounds: CGRect(x: 70, y: 700, width: 120, height: 24),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 700,
+            confidence: .high
+        )
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Replacement text",
+            editedBounds: CGRect(x: 70, y: 700, width: 180, height: 28),
+            fontName: "Helvetica",
+            fontSize: 16,
+            textColor: .black,
+            alignment: .left
+        ))
+
+        XCTAssertEqual(
+            viewModel.editingStatus?.message,
+            "This document already contains a digital signature from another source. Editing it will invalidate that signature."
+        )
     }
 
     func testInlineTextEditPreservesPageDisplayBoxesThroughExport() throws {
@@ -1589,6 +1715,67 @@ final class InlineTextEditPlacementTests: XCTestCase {
 
         XCTAssertFalse(NSFontManager.shared.traits(of: regular).contains(.boldFontMask))
         XCTAssertTrue(NSFontManager.shared.traits(of: bold).contains(.boldFontMask))
+    }
+
+    /// Opening the inline editor calls `InlineTextEditorOverlay`'s detected-text-color scan,
+    /// which previously re-ran a full PDFium parse for EVERY page of the document, stopping
+    /// only once 24 distinct-looking colors were found. On a document where most pages
+    /// contribute no text at all (blank/image pages, common as covers or section breaks),
+    /// that count-based threshold never fires, so the scan ran across the WHOLE document —
+    /// an unbounded, main-thread cost scaling with page count for a single click to edit
+    /// text. This builds a document with several leading blank pages and a distinctively
+    /// colored line only on a LATER page, past the fixed page-scan cap, and confirms that
+    /// color is never surfaced — proving the scan is bounded by page count, not merely by
+    /// how many colors happen to turn up early. A wall-clock timing assertion would be
+    /// flaky across machines; this is deterministic.
+    func testInlineEditorDetectedColorScanStopsAfterAFixedPageCountRegardlessOfColorDensity() throws {
+        let distinctiveColor = NSColor(srgbRed: 51.0 / 255, green: 153.0 / 255, blue: 230.0 / 255, alpha: 1)
+        let pdf = PDFDocument()
+        for pageIndex in 0..<20 {
+            // Blank pages contribute zero detected blocks/colors, so the OLD code's
+            // count-based early exit (24 colors) never fires — it must keep scanning.
+            let text = pageIndex == 15 ? "Distinctive colored line" : ""
+            let color = pageIndex == 15 ? distinctiveColor : NSColor.black
+            let view = SolidColorTextFixturePageView(frame: CGRect(x: 0, y: 0, width: 612, height: 792), text: text, color: color)
+            let pageData = view.dataWithPDF(inside: view.bounds)
+            guard let pageDoc = PDFDocument(data: pageData), let page = pageDoc.page(at: 0) else {
+                return XCTFail("failed to build fixture page")
+            }
+            pdf.insert(page, at: pageIndex)
+        }
+
+        let pdfView = OrifoldPDFView(frame: CGRect(x: 0, y: 0, width: 900, height: 1000))
+        pdfView.document = pdf
+        pdfView.autoScales = false
+        pdfView.scaleFactor = 1
+        pdfView.layoutDocumentView()
+        let page = try XCTUnwrap(pdf.page(at: 0))
+        let pageRef = PageRef(memberDocId: UUID(), sourcePageIndex: 0)
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        let block = EditableTextBlock(
+            pageRefID: pageRef.id, text: "irrelevant",
+            bounds: CGRect(x: 72, y: 650, width: 160, height: 16), lines: [],
+            fontName: "Helvetica", fontSize: 8, textColor: .documentText,
+            rotation: 0, baseline: 650, confidence: .high
+        )
+
+        let overlay = InlineTextEditorOverlay(
+            frame: pdfView.bounds, viewModel: viewModel, pdfView: pdfView, page: page,
+            pageRef: pageRef, block: block, sourceFormat: PDFTextEditFormat(block: block)
+        ) { _ in }
+        pdfView.addSubview(overlay)
+        overlay.layoutSubtreeIfNeeded()
+
+        let colorPopup = try XCTUnwrap(findSubview(in: overlay) { (popup: NSPopUpButton) in
+            popup.toolTip == "Text color"
+        })
+        let hasDistinctiveColorItem = (0..<colorPopup.numberOfItems).contains { index in
+            colorPopup.item(at: index)?.title.localizedCaseInsensitiveContains("#3399E6") ?? false
+        }
+        XCTAssertFalse(
+            hasDistinctiveColorItem,
+            "the detected-color scan must stop at a fixed page count and never reach a color that only appears on a later page"
+        )
     }
 
     func testInlineTextEditHonorsCommittedEditorGeometry() throws {
@@ -2506,6 +2693,60 @@ final class DocumentImportConverterTests: XCTestCase {
         XCTAssertTrue(text.contains("Shared detail"))
         XCTAssertTrue(text.contains("42"))
         assertText(text, contains: "Summary", before: "Details")
+    }
+
+    /// XLSX/PPTX/EPUB/RTFD imports flatten to plain rendered text with no
+    /// `SourceDocumentPayload` captured (confirmed: `importedExtractedTextDocument` and
+    /// `importedRTFDFileWrapper` in PDFKitEngine.swift both return `sourcePayload: nil`).
+    /// Before this fix, exporting such a workspace to a source-backed format (word/rtf/
+    /// text/markdown/html) fell through to the SAME generic flatten-from-rendered-PDF-text
+    /// fallback used for ordinary PDF-origin content — producing a plausible-looking
+    /// .docx/.rtf/etc. file with none of the spreadsheet's real structure, and zero
+    /// indication anything was lost. It must instead fail clearly, directing the user to
+    /// PDF export.
+    func testExportingXLSXOriginWorkspaceAsSourceFormatFailsCleanlyInsteadOfSilentlyFlattening() async throws {
+        let data = makeStoredZIPData(entries: [
+            "xl/workbook.xml": """
+            <workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+              <sheets><sheet name="Summary" sheetId="1" r:id="rId1"/></sheets>
+            </workbook>
+            """,
+            "xl/_rels/workbook.xml.rels": """
+            <Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>
+            """,
+            "xl/worksheets/sheet1.xml": "<worksheet><sheetData><row><c><v>42</v></c></row></sheetData></worksheet>"
+        ])
+        let imported = try await DocumentImportConverter.importedDocumentAsync(
+            from: data,
+            contentType: .orifoldXLSX,
+            filename: "budget.xlsx",
+            baseURL: nil
+        )
+        XCTAssertNil(imported.sourcePayload, "sanity check: XLSX import must not capture a source payload")
+        let pdfData = try XCTUnwrap(PDFSerializer.data(from: imported.pdfDocument))
+        var member = MemberDocument(displayName: "budget", sourcePDFRef: "budget.xlsx")
+        let refs = (0..<imported.pdfDocument.pageCount).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+        member.pageRefs = refs.map(\.id)
+        let document = WorkspaceDocument()
+        document.workspace.documents = [member]
+        document.workspace.pageOrder = refs
+        document.memberPDFData[member.id] = pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+
+        for format: WorkspaceExportFormat in [.word, .legacyWord, .odt, .rtf, .text, .markdown, .html] {
+            XCTAssertThrowsError(try viewModel.dataForWorkspaceExport(as: format), format.rawValue) { error in
+                guard case WorkspaceViewModel.ExportBuildError.originFormatHasNoSourcePayload(let memberName, let originFormatDescription) = error else {
+                    XCTFail("Expected originFormatHasNoSourcePayload for \(format.rawValue), got \(error)")
+                    return
+                }
+                XCTAssertEqual(memberName, "budget")
+                XCTAssertEqual(originFormatDescription, "Excel spreadsheet (.xlsx)")
+            }
+        }
+
+        // PDF export must still work unaffected — the whole point is PDF stays available
+        // as the safe fallback.
+        XCTAssertNoThrow(try viewModel.dataForPDFExport())
     }
 
     func testPresentationImportUsesNaturalSlideOrderAndSpeakerNotes() async throws {
@@ -5642,6 +5883,36 @@ private final class TextFixturePageView: NSView {
             withAttributes: [
                 .font: NSFont.systemFont(ofSize: 16),
                 .foregroundColor: NSColor.black
+            ]
+        )
+    }
+}
+
+private final class SolidColorTextFixturePageView: NSView {
+    private let text: String
+    private let color: NSColor
+
+    override var isFlipped: Bool { true }
+
+    init(frame: CGRect, text: String, color: NSColor) {
+        self.text = text
+        self.color = color
+        super.init(frame: frame)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        bounds.fill()
+        guard !text.isEmpty else { return }
+        NSString(string: text).draw(
+            in: CGRect(x: 72, y: 72, width: 468, height: 648),
+            withAttributes: [
+                .font: NSFont.systemFont(ofSize: 16),
+                .foregroundColor: color
             ]
         )
     }

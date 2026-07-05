@@ -9,6 +9,22 @@ enum PDFEditedPageRenderer {
         let mediaBox = page.bounds(for: .mediaBox)
         guard mediaBox.width > 0, mediaBox.height > 0 else { return nil }
 
+        // `PDFPage.draw(with:to:)` bakes the page's own `/Rotate` value into what it
+        // renders (confirmed empirically): drawing a rotated page into a context sized to
+        // the RAW (unrotated) mediaBox clips or distorts 90°/270° content entirely, since
+        // the visually-rotated content's footprint doesn't match the raw box dimensions.
+        // Meanwhile every edit's geometry (`sourceBounds`/`editedBounds`) comes from
+        // PDFium/text-analysis, which reports RAW/unrotated content-stream coordinates —
+        // drawing the background WITH rotation applied while erase-patches/replacement
+        // text use RAW coordinates would place them in two different coordinate spaces.
+        // Sidestep this: draw the background from a rotation-neutralized COPY of the page
+        // (so it renders in the same raw space the edit geometry already uses), then tag
+        // the final output page with the ORIGINAL rotation so viewers rotate the whole
+        // thing — background and edits together — for display, exactly as the original
+        // page did.
+        guard let unrotatedPage = page.copy() as? PDFPage else { return nil }
+        unrotatedPage.rotation = 0
+
         let data = NSMutableData()
         var outputBox = CGRect(origin: .zero, size: mediaBox.size)
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
@@ -19,12 +35,12 @@ enum PDFEditedPageRenderer {
         context.beginPDFPage([:] as CFDictionary)
         context.saveGState()
         context.translateBy(x: -mediaBox.minX, y: -mediaBox.minY)
-        page.draw(with: .mediaBox, to: context)
+        unrotatedPage.draw(with: .mediaBox, to: context)
 
         for operation in operations {
             let eraseBounds = eraseBounds(for: operation)
             for sourceBounds in eraseBounds {
-                drawErasePatch(for: sourceBounds, on: page, in: context)
+                drawErasePatch(for: sourceBounds, on: unrotatedPage, in: context)
             }
         }
         for operation in operations {
@@ -125,9 +141,21 @@ enum PDFEditedPageRenderer {
         }
 
         let measured = layout.suggestedSize(constrainedTo: CGSize(width: width, height: 10_000))
+        // A pathologically long paste (tens of thousands of characters) has no other cap on
+        // height the way width is capped by the page's right margin — left unchecked, the
+        // box (and the erase/replacement geometry baked into the exported PDF) can grow far
+        // taller than the page itself, silently drawing the edit off-page instead of failing
+        // or visibly wrapping. Cap auto-height to what can actually fit above the box's
+        // fixed top edge within the page, the same way width is already capped to what fits
+        // before the page's right edge. A manual resize is the user's own explicit choice,
+        // so it is never overridden here, matching `didManuallyResizeWidth`'s behavior above.
+        let heightPageLimit: CGFloat? = {
+            guard let page = pageBounds?.standardized, page.height > 0 else { return nil }
+            return max(24, operation.editedBounds.maxY - page.minY - 8)
+        }()
         let height = operation.didManuallyResizeHeight
             ? max(1, operation.editedBounds.height)
-            : max(1, ceil(measured.height) + 4)
+            : min(max(1, ceil(measured.height) + 4), heightPageLimit ?? .greatestFiniteMagnitude)
 
         // Anchor to the box's TOP edge, matching the live inline editor — which grows
         // downward from a fixed top as text wraps (InlineTextEditorOverlay.resizeTextViewHeight).

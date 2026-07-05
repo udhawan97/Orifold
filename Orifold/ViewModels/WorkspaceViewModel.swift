@@ -426,6 +426,28 @@ final class WorkspaceViewModel {
         document.workspace.signatures.contains { $0.isCryptographic }
     }
 
+    /// True when any loaded member's PDF bytes already contain a digital signature that
+    /// Orifold itself did not place — e.g. a PDF signed elsewhere (DocuSign, Adobe Sign, a
+    /// notarized government document) before it was imported. `hasCryptographicSignaturePlacement`
+    /// only tracks signatures placed via Orifold's own signing UI (`workspace.signatures`),
+    /// so a pre-signed import previously got no warning at all before an edit silently
+    /// invalidated it: any edit fully re-serializes the member's PDF bytes
+    /// (`PDFSerializer.data(from:)`), which does not preserve the exact byte layout a
+    /// `/ByteRange`-based signature's hash was computed over. `/ByteRange` is a PDF
+    /// construct used only by signature dictionaries (per the PDF spec), so its presence in
+    /// the raw bytes is a reliable, vendor-agnostic signal — checked here as a lightweight
+    /// byte scan rather than a full AcroForm parse, consistent with the other lightweight
+    /// content-sniffing helpers already used elsewhere in this codebase (e.g.
+    /// `DocumentImportConverter.looksLikeHTML`).
+    var hasThirdPartyCryptographicSignature: Bool {
+        let byteRangeMarker = Data("/ByteRange".utf8)
+        return document.workspace.documents.contains { member in
+            let data = originalMemberPDFData[member.id] ?? document.memberPDFData[member.id]
+            guard let data else { return false }
+            return data.range(of: byteRangeMarker) != nil
+        }
+    }
+
     var pdfNoteComments: [PDFNoteComment] {
         _ = commentRevision
         var notes: [PDFNoteComment] = []
@@ -1913,8 +1935,11 @@ final class WorkspaceViewModel {
     }
 
     private func warnIfEditingWouldInvalidateSignatures() {
-        guard hasCryptographicSignaturePlacement else { return }
-        editingStatus = .warning("Editing after a digital signature invalidates existing signatures.")
+        if hasCryptographicSignaturePlacement {
+            editingStatus = .warning("Editing after a digital signature invalidates existing signatures.")
+        } else if hasThirdPartyCryptographicSignature {
+            editingStatus = .warning("This document already contains a digital signature from another source. Editing it will invalidate that signature.")
+        }
     }
 
     func selectPage(_ ref: PageRef, extendingSelection: Bool = false) {
@@ -4005,11 +4030,49 @@ final class WorkspaceViewModel {
         case pdfOnlyEditsCannotMap(memberName: String)
         case editedPackageFormatRequiresPDF(formatName: String)
         case cannotEncode(formatName: String)
+        case originFormatHasNoSourcePayload(memberName: String, originFormatDescription: String)
+    }
+
+    /// File extensions whose import path (`DocumentImportConverter`) explicitly declines to
+    /// capture a `SourceDocumentPayload` — RTFD packages and Office/EPUB containers are
+    /// flattened to plain text or a rendered attributed string at import time, with no
+    /// faithful original bytes kept. Exporting such a member to any rich/plain-text SOURCE
+    /// format (not PDF/image) would otherwise silently fall through to the same generic
+    /// flatten-from-rendered-PDF-text fallback used for ordinary PDF-origin content — except
+    /// here the user's mental model is "my Excel/RTFD file," and the result would silently
+    /// contain none of that file's real structure/formatting/images with no indication
+    /// anything was lost. `MemberDocument.sourcePDFRef` retains the original import
+    /// filename, so its extension is enough to detect this without persisting new state.
+    private static let fidelityDeclinedOriginExtensions: [String: String] = [
+        "rtfd": "RTFD",
+        "xlsx": "Excel spreadsheet (.xlsx)",
+        "pptx": "PowerPoint presentation (.pptx)",
+        "epub": "EPUB e-book"
+    ]
+
+    private func fidelityDeclinedOriginDescription(for member: MemberDocument) -> String? {
+        let ext = URL(fileURLWithPath: member.sourcePDFRef).pathExtension.lowercased()
+        return Self.fidelityDeclinedOriginExtensions[ext]
     }
 
     func dataForWorkspaceExport(as format: WorkspaceExportFormat) throws -> Data {
         if let sourceData = try sourcePreservingDataForWorkspaceExport(as: format) {
             return sourceData
+        }
+
+        // Only formats that actually claim source fidelity (word/legacyWord/odt/rtf/
+        // text/markdown/html) are at risk here — .pdf/.png/.jpeg always render from the
+        // live PDF and never claimed to preserve a non-PDF original, so they proceed
+        // unaffected (`sourceFormat(for:)` returns nil for them).
+        if sourceFormat(for: format) != nil {
+            for member in document.workspace.documents {
+                if let originDescription = fidelityDeclinedOriginDescription(for: member) {
+                    throw ExportBuildError.originFormatHasNoSourcePayload(
+                        memberName: member.displayName,
+                        originFormatDescription: originDescription
+                    )
+                }
+            }
         }
 
         switch format {
@@ -4467,6 +4530,8 @@ final class WorkspaceViewModel {
             return "Orifold can preserve the original \(formatName) bytes when unchanged, but edited package exports are not faithful enough yet. Export as PDF to preserve the edit."
         case ExportBuildError.cannotEncode(let formatName):
             return "Orifold could not encode the \(formatName) export."
+        case ExportBuildError.originFormatHasNoSourcePayload(let memberName, let originFormatDescription):
+            return "\"\(memberName)\" was imported from a \(originFormatDescription) file, which Orifold flattens to plain text and cannot reconstruct into \(format.menuTitle). Export as PDF to keep the current content, or re-export from the original \(originFormatDescription) file if you need it in another format."
         case ExportBuildError.unsupportedRichTextFormat:
             return "Orifold does not have a rich-text writer for \(format.menuTitle)."
         case PDFDecorationExportBaker.BakeError.invalidPDF:
