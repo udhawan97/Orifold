@@ -3968,7 +3968,7 @@ final class WorkspaceViewModel {
         var userMessage: String {
             switch self {
             case .structurallyUnsound:
-                return "Orifold wrote the PDF but a structural check found it invalid, so the export was discarded. Try exporting again."
+                return L10n.string("error.export.structurallyUnsound")
             }
         }
     }
@@ -3982,9 +3982,9 @@ final class WorkspaceViewModel {
         var userMessage: String {
             switch self {
             case .fileNotFound:
-                return "Orifold could not confirm the export was written to disk. The destination folder may have rejected the write -- check permissions and try again."
+                return L10n.string("error.export.writeFileNotFound")
             case .emptyFile:
-                return "Orifold wrote an empty file, so the export was discarded. Check that the destination has free space and permission to write, then try again."
+                return L10n.string("error.export.writeEmptyFile")
             }
         }
     }
@@ -4793,50 +4793,53 @@ final class WorkspaceViewModel {
         case ExportBuildError.cannotMapEdit(let memberName, let sourceText):
             let preview = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
             let detail = preview.isEmpty ? "." : ": \"\(preview)\"."
-            return "Orifold could not map an edit in \"\(memberName)\" back to the original \(format.menuTitle) source\(detail) Export as PDF to preserve the visual edit, or edit text that exists in the original document."
+            return String(localized: "Orifold could not map an edit in \"\(memberName)\" back to the original \(format.menuTitle) source\(detail) Export as PDF to preserve the visual edit, or edit text that exists in the original document.", locale: L10n.currentLocale)
         case ExportBuildError.ambiguousSourceText(let memberName, let sourceText):
             let preview = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
             let detail = preview.isEmpty ? "." : ": \"\(preview)\"."
-            return "Orifold found more than one matching source text in \"\(memberName)\"\(detail) Export as PDF to preserve the visual edit."
+            return String(localized: "Orifold found more than one matching source text in \"\(memberName)\"\(detail) Export as PDF to preserve the visual edit.", locale: L10n.currentLocale)
         case ExportBuildError.pdfOnlyEditsCannotMap(let memberName):
-            return "Orifold found PDF-only annotations, signatures, or page changes in \"\(memberName)\". Export as PDF to preserve those visual edits."
+            return String(localized: "Orifold found PDF-only annotations, signatures, or page changes in \"\(memberName)\". Export as PDF to preserve those visual edits.", locale: L10n.currentLocale)
         case ExportBuildError.editedPackageFormatRequiresPDF(let formatName):
-            return "Orifold can preserve the original \(formatName) bytes when unchanged, but edited package exports are not faithful enough yet. Export as PDF to preserve the edit."
+            return String(localized: "Orifold can preserve the original \(formatName) bytes when unchanged, but edited package exports are not faithful enough yet. Export as PDF to preserve the edit.", locale: L10n.currentLocale)
         case ExportBuildError.cannotEncode(let formatName):
-            return "Orifold could not encode the \(formatName) export."
+            return String(localized: "Orifold could not encode the \(formatName) export.", locale: L10n.currentLocale)
         case ExportBuildError.originFormatHasNoSourcePayload(let memberName, let originFormatDescription):
-            return "\"\(memberName)\" was imported from a \(originFormatDescription) file, which Orifold flattens to plain text and cannot reconstruct into \(format.menuTitle). Export as PDF to keep the current content, or re-export from the original \(originFormatDescription) file if you need it in another format."
+            return String(localized: "\"\(memberName)\" was imported from a \(originFormatDescription) file, which Orifold flattens to plain text and cannot reconstruct into \(format.menuTitle). Export as PDF to keep the current content, or re-export from the original \(originFormatDescription) file if you need it in another format.", locale: L10n.currentLocale)
         case ExportBuildError.unsupportedRichTextFormat:
-            return "Orifold does not have a rich-text writer for \(format.menuTitle)."
+            return String(localized: "Orifold does not have a rich-text writer for \(format.menuTitle).", locale: L10n.currentLocale)
         case PDFDecorationExportBaker.BakeError.invalidPDF:
-            return "Orifold could not apply decorations to this PDF. Reopen the document and try exporting again."
+            return L10n.string("error.export.decorationInvalidPDF")
         case PDFDecorationExportBaker.BakeError.pageOrderMismatch:
-            return "Orifold could not match decorations to the current page order. Reopen the document and try exporting again."
+            return L10n.string("error.export.decorationPageOrderMismatch")
         case PDFDecorationExportBaker.BakeError.invalidDecoration:
-            return "Orifold could not apply a decoration to this PDF. Add text or turn the decoration off."
+            return L10n.string("error.export.invalidDecoration")
         case PDFDecorationExportBaker.BakeError.invalidStampDecoration:
-            return "Orifold could not apply a stamp to this PDF. Remove the stamp and place it again."
+            return L10n.string("error.export.invalidStampDecoration")
         case PDFDecorationExportBaker.BakeError.documentTooLargeForDecorationExport:
-            return "Orifold could not decorate this PDF because it is too large to process safely. Export without decorations, or split the PDF into smaller files."
+            return L10n.string("error.export.documentTooLargeForDecoration")
         case PDFFormSupport.FormError.invalidPDF:
-            return "Orifold could not lock the form answers in this PDF. Reopen the document and try exporting again."
+            return L10n.string("error.export.formInvalidPDF")
         case PDFFormSupport.FormError.pageOrderMismatch:
-            return "Orifold could not match form fields to the current page order. Reopen the document and try exporting again."
+            return L10n.string("error.export.formPageOrderMismatch")
         case let compressionError as PDFCompressionError:
-            return compressionError.errorDescription ?? "Orifold could not reduce the file size. Try exporting without reducing file size."
+            return compressionError.errorDescription ?? L10n.string("error.export.reduceFileSizeFailed")
         case let ocrError as PDFOCRError:
-            return ocrError.errorDescription ?? "Orifold could not make this document searchable. Try a clearer scan or export without searchable text."
+            return ocrError.errorDescription ?? L10n.string("error.export.ocrFailed")
         case _ as PDFProcessingError:
-            return "Orifold could not verify the reduced PDF. Try exporting without reducing file size."
+            return L10n.string("error.export.verifyReducedPDFFailed")
         case let error as PDFKitEngine.ExportAssemblyError:
             return error.localizedDescription
         default:
-            return "Orifold could not create the \(format.menuTitle) export: \(error.localizedDescription)"
+            return String(localized: "Orifold could not create the \(format.menuTitle) export: \(error.localizedDescription)", locale: L10n.currentLocale)
         }
     }
 
     private func compressionSummary(_ result: PDFCompressionResult) -> String {
-        "\(formattedByteCount(result.originalByteCount)) → \(formattedByteCount(result.compressedByteCount)), \(result.percentSmaller)% smaller"
+        let original = formattedByteCount(result.originalByteCount)
+        let compressed = formattedByteCount(result.compressedByteCount)
+        let percent = result.percentSmaller
+        return String(localized: "\(original) → \(compressed), \(percent)% smaller", locale: L10n.currentLocale)
     }
 
     private func formattedByteCount(_ count: Int) -> String {

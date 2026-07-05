@@ -191,7 +191,9 @@ struct MemberDocRow: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.dsTextPrimary)
                         .lineLimit(1)
-                    Text("\(member.pageRefs.count) page\(member.pageRefs.count == 1 ? "" : "s")")
+                    Text(member.pageRefs.count == 1
+                         ? L10n.format("sidebar.pageCount.one", member.pageRefs.count)
+                         : L10n.format("sidebar.pageCount.other", member.pageRefs.count))
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
@@ -391,7 +393,7 @@ struct ThumbnailCell: View {
                         .frame(minWidth: 15, minHeight: 15)
                         .background(Color.dsAccent, in: Circle())
                         .offset(x: 5, y: -5)
-                        .accessibilityLabel("\(commentCount) comments on page")
+                        .accessibilityLabel(L10n.format("sidebar.commentsOnPage.accessibilityLabel", commentCount))
                 }
             }
             .shadow(color: .black.opacity(0.10), radius: 3, x: 0, y: 1)
@@ -485,7 +487,11 @@ struct ThumbnailCell: View {
             Button("sidebar.deletePages.confirmation.cancel", role: .cancel) {}
         } message: {
             let count = viewModel.pageRefsForCurrentSelection(including: pageRef).count
-            Text(count == 1 ? "sidebar.deletePages.confirmation.messageSingular" : "This removes \(count) pages and their page-bound signatures, stamps, and anchors.")
+            if count == 1 {
+                Text("sidebar.deletePages.confirmation.messageSingular")
+            } else {
+                Text(L10n.format("sidebar.removePages.confirmation.plural", count))
+            }
         }
     }
 

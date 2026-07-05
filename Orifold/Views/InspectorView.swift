@@ -842,7 +842,7 @@ private struct InspectorDecorateView: View {
                     TextField("inspector.decorate.bates.prefix.placeholder", text: batesPrefix)
                         .textFieldStyle(.roundedBorder)
                     Stepper(value: batesStartNumber, in: 0...999_999) {
-                        Text("Start number \(viewModel.decorationStartNumber(for: .bates))")
+                        Text(L10n.format("inspector.decorate.startNumber", viewModel.decorationStartNumber(for: .bates)))
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsTextSecondary)
                     }
@@ -902,7 +902,7 @@ private struct InspectorDecorateView: View {
                                        range: ClosedRange<Double>,
                                        step: Double) -> some View {
         Stepper(value: decorationFontSizeBinding(for: kind), in: range, step: step) {
-            Text("Size \(Int(viewModel.decorationFontSize(for: kind))) pt")
+            Text(L10n.format("inspector.decorate.fontSize", Int(viewModel.decorationFontSize(for: kind))))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
         }
@@ -1031,8 +1031,9 @@ private struct InspectorOCRView: View {
             return "inspector.ocr.detail.finishBeforeRunningOCR"
         }
         if viewModel.hasScannedPages {
-            let pageLabel = viewModel.scannedPageCount == 1 ? "page" : "pages"
-            return "\(viewModel.scannedPageCount) scanned \(pageLabel) can be processed with local OCR."
+            return LocalizedStringKey(viewModel.scannedPageCount == 1
+                ? L10n.format("inspector.ocr.scannedPages.one", viewModel.scannedPageCount)
+                : L10n.format("inspector.ocr.scannedPages.other", viewModel.scannedPageCount))
         }
         if viewModel.ocrCandidatePageCount > 0 {
             return "inspector.ocr.detail.textFoundNoAutoRun"
@@ -1268,7 +1269,7 @@ private struct InspectorTextEditRow: View {
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsTextPrimary)
                             .lineLimit(3)
-                        Text("Page \(item.pageNumber)\(item.memberName.isEmpty ? "" : " · \(item.memberName)")")
+                        Text(L10n.format("inspector.versionHistory.pageLabel", item.pageNumber) + (item.memberName.isEmpty ? "" : " · \(item.memberName)"))
                             .font(.system(size: 11))
                             .foregroundStyle(Color.dsTextTertiary)
                     }

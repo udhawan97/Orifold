@@ -2666,17 +2666,6 @@
         }
       }
     },
-    "View \\(count) comments": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View \\(count) comments"
-          }
-        }
-      }
-    },
     "emptyState.option.assemble.title": {
       "extractionState": "manual",
       "localizations": {
@@ -3866,17 +3855,6 @@
         }
       }
     },
-    "Remove \\(member.displayName)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remove \\(member.displayName)"
-          }
-        }
-      }
-    },
     "sidebar.removeDocument.contextMenu": {
       "extractionState": "manual",
       "localizations": {
@@ -3918,72 +3896,6 @@
         }
       }
     },
-    "\\(member.pageRefs.count) page\\(member.pageRefs.count == 1 ? \"\" : \"s\")": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(member.pageRefs.count) page\\(member.pageRefs.count == 1 ? \"\" : \"s\")"
-          }
-        }
-      }
-    },
-    "\\(commentCount) comments on page": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(commentCount) comments on page"
-          }
-        }
-      }
-    },
-    "Rotate \\(selectionLabel) 90° CW": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rotate \\(selectionLabel) 90° CW"
-          }
-        }
-      }
-    },
-    "Rotate \\(selectionLabel) 90° CCW": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rotate \\(selectionLabel) 90° CCW"
-          }
-        }
-      }
-    },
-    "Duplicate \\(selectionLabel)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Duplicate \\(selectionLabel)"
-          }
-        }
-      }
-    },
-    "Export \\(selectionLabel)…": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export \\(selectionLabel)…"
-          }
-        }
-      }
-    },
     "sidebar.thumbnail.insertFilesAfter.contextMenu": {
       "extractionState": "manual",
       "localizations": {
@@ -4021,28 +3933,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "この書類の後にファイルを挿入…"
-          }
-        }
-      }
-    },
-    "Delete \\(selectionLabel)…": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete \\(selectionLabel)…"
-          }
-        }
-      }
-    },
-    "p. \\(pageNumber)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "p. \\(pageNumber)"
           }
         }
       }
@@ -4207,17 +4097,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "このページと、それに紐づく署名、スタンプ、アンカーもすべて削除されます。"
-          }
-        }
-      }
-    },
-    "This removes \\(count) pages and their page-bound signatures, stamps, and anchors.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This removes \\(count) pages and their page-bound signatures, stamps, and anchors."
           }
         }
       }
@@ -5739,17 +5618,6 @@
         }
       }
     },
-    "\"\\(fileName)\" is password-protected": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\"\\(fileName)\" is password-protected"
-          }
-        }
-      }
-    },
     "appCommands.addFilesToWorkspace.button": {
       "extractionState": "manual",
       "localizations": {
@@ -6119,17 +5987,6 @@
         }
       }
     },
-    "Page \\(entry.displayPageNumber)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Page \\(entry.displayPageNumber)"
-          }
-        }
-      }
-    },
     "search.placeholder": {
       "extractionState": "manual",
       "localizations": {
@@ -6208,17 +6065,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "見つかりませんでした"
-          }
-        }
-      }
-    },
-    "Page \\(pageLabel)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Page \\(pageLabel)"
           }
         }
       }
@@ -6342,17 +6188,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "配置"
-          }
-        }
-      }
-    },
-    "Place \\(preset.title.lowercased()) stamp": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Place \\(preset.title.lowercased()) stamp"
           }
         }
       }
@@ -7009,17 +6844,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "デジタル署名を配置する前に、署名用のIDを選択またはインポートしてください。"
-          }
-        }
-      }
-    },
-    "Orifold could not prepare that signing identity: \\(error.localizedDescription)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not prepare that signing identity: \\(error.localizedDescription)"
           }
         }
       }
@@ -8664,17 +8488,6 @@
         }
       }
     },
-    "Page \\(note.pageNumber)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Page \\(note.pageNumber)"
-          }
-        }
-      }
-    },
     "inspector.decorate.watermark.title": {
       "extractionState": "manual",
       "localizations": {
@@ -8798,17 +8611,6 @@
         }
       }
     },
-    "Page 1 of \\(max(viewModel.pageCount, 1))": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Page 1 of \\(max(viewModel.pageCount, 1))"
-          }
-        }
-      }
-    },
     "inspector.decorate.batesStamp.title": {
       "extractionState": "manual",
       "localizations": {
@@ -8887,39 +8689,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "接頭辞"
-          }
-        }
-      }
-    },
-    "Start number \\(viewModel.decorationStartNumber(for: .bates))": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start number \\(viewModel.decorationStartNumber(for: .bates))"
-          }
-        }
-      }
-    },
-    "Size \\(Int(viewModel.decorationFontSize(for: kind))) pt": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Size \\(Int(viewModel.decorationFontSize(for: kind))) pt"
-          }
-        }
-      }
-    },
-    "\\(Int(viewModel.decorationOpacity(for: kind) * 100))%": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(Int(viewModel.decorationOpacity(for: kind) * 100))%"
           }
         }
       }
@@ -9289,17 +9058,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "OCRを実行する前に、進行中の書類の操作を完了してください。"
-          }
-        }
-      }
-    },
-    "\\(viewModel.scannedPageCount) scanned \\(pageLabel) can be processed with local OCR.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(viewModel.scannedPageCount) scanned \\(pageLabel) can be processed with local OCR."
           }
         }
       }
@@ -10452,17 +10210,6 @@
         }
       }
     },
-    "\\(viewModel.formSummary.fieldCount) fields": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(viewModel.formSummary.fieldCount) fields"
-          }
-        }
-      }
-    },
     "readingCanvas.formBar.dynamicFeaturesWarning": {
       "extractionState": "manual",
       "localizations": {
@@ -10869,17 +10616,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "ページ"
-          }
-        }
-      }
-    },
-    "/ \\(viewModel.pageCount)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "/ \\(viewModel.pageCount)"
           }
         }
       }
@@ -11331,17 +11067,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "文字揃え"
-          }
-        }
-      }
-    },
-    "\\(name) text": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(name) text"
           }
         }
       }
@@ -13355,50 +13080,6 @@
         }
       }
     },
-    "Orifold could not read \"\\(memberName)\" to make it searchable. Reopen the document and try again.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not read \"\\(memberName)\" to make it searchable. Reopen the document and try again."
-          }
-        }
-      }
-    },
-    "Orifold could not read page \\(pageNumber) to make it searchable. Try exporting that page to PDF, then import it again.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not read page \\(pageNumber) to make it searchable. Try exporting that page to PDF, then import it again."
-          }
-        }
-      }
-    },
-    "Orifold could not make page \\(pageNumber) searchable. Try a clearer scan or skip this page.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not make page \\(pageNumber) searchable. Try a clearer scan or skip this page."
-          }
-        }
-      }
-    },
-    "Orifold could not update \"\\(memberName)\" with searchable text. The original document is unchanged.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not update \"\\(memberName)\" with searchable text. The original document is unchanged."
-          }
-        }
-      }
-    },
     "error.ocr.cancelled": {
       "extractionState": "manual",
       "localizations": {
@@ -13477,17 +13158,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "この書類にはすでに検索可能なテキストがあります。"
-          }
-        }
-      }
-    },
-    "Orifold could not prepare \"\\(name)\" for export. Reopen the document and try exporting again.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not prepare \"\\(name)\" for export. Reopen the document and try exporting again."
           }
         }
       }
@@ -13939,17 +13609,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "読み込みは既に進行中です。"
-          }
-        }
-      }
-    },
-    "Import canceled after adding \\(finalImportedCount) file\\(finalImportedCount == 1 ? \"\" : \"s\").": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import canceled after adding \\(finalImportedCount) file\\(finalImportedCount == 1 ? \"\" : \"s\")."
           }
         }
       }
@@ -14934,28 +14593,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "デジタル署名を書き出す前に、署名用のIDを選択またはインポートしてください。"
-          }
-        }
-      }
-    },
-    "Orifold could not sign the PDF: \\(error.localizedDescription)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not sign the PDF: \\(error.localizedDescription)"
-          }
-        }
-      }
-    },
-    "\\(original) → \\(compressed), \\(percent)% smaller": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
           }
         }
       }
@@ -26026,6 +25663,580 @@
           "stringUnit": {
             "state": "translated",
             "value": "タイムスタンプ局が利用できないため、信頼できるタイムスタンプなしのPAdES B-Bとして書き出しました。"
+          }
+        }
+      }
+    },
+    "\\(original) → \\(compressed), \\(percent)% smaller": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
+          }
+        }
+      }
+    },
+    "error.export.writeFileNotFound": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not confirm the export was written to disk. The destination folder may have rejected the write -- check permissions and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo confirmar que la exportación se escribió en el disco. Es posible que la carpeta de destino haya rechazado la escritura; verifica los permisos e inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n'a pas pu confirmer que l'exportation a été écrite sur le disque. Le dossier de destination a peut-être refusé l'écriture ; vérifiez les autorisations et réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold यह पुष्टि नहीं कर सका कि निर्यात डिस्क पर लिखा गया। हो सकता है गंतव्य फ़ोल्डर ने लेखन को अस्वीकार कर दिया हो; अनुमतियाँ जाँचें और फिर से प्रयास करें।"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法确认导出内容已写入磁盘。目标文件夹可能拒绝了写入操作，请检查权限后重试。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは書き出しがディスクに書き込まれたことを確認できませんでした。保存先フォルダが書き込みを拒否した可能性があります。権限を確認して再試行してください。"
+          }
+        }
+      }
+    },
+    "error.export.writeEmptyFile": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold wrote an empty file, so the export was discarded. Check that the destination has free space and permission to write, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold escribió un archivo vacío, por lo que se descartó la exportación. Verifica que el destino tenga espacio libre y permiso de escritura, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold a écrit un fichier vide ; l'exportation a donc été annulée. Vérifiez que la destination dispose d'espace libre et de l'autorisation d'écriture, puis réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold ने एक खाली फ़ाइल लिखी, इसलिए निर्यात को छोड़ दिया गया। जाँचें कि गंतव्य में खाली स्थान और लिखने की अनुमति है, फिर फिर से प्रयास करें।"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 写入了一个空文件，因此该导出已被丢弃。请确认目标位置有可用空间和写入权限，然后重试。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは空のファイルを書き込んだため、書き出しは破棄されました。保存先に空き容量と書き込み権限があることを確認して、再試行してください。"
+          }
+        }
+      }
+    },
+    "contentView.viewComments.one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View 1 Comment"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver 1 comentario"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir 1 commentaire"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 टिप्पणी देखें"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看 1 条评论"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントを1件表示"
+          }
+        }
+      }
+    },
+    "contentView.viewComments.other": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View %lld Comments"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver %lld comentarios"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir %lld commentaires"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld टिप्पणियाँ देखें"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看 %lld 条评论"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントを%lld件表示"
+          }
+        }
+      }
+    },
+    "sidebar.removePages.confirmation.plural": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This removes %lld pages and their page-bound signatures, stamps, and anchors."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto elimina %lld páginas y sus firmas, sellos y anclas asociados a la página."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cela supprime %lld pages ainsi que leurs signatures, tampons et ancrages associés."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इससे %lld पृष्ठ और उनसे जुड़े हस्ताक्षर, स्टैम्प और एंकर हट जाएंगे।"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这将删除 %lld 个页面及其页面绑定的签名、印章和锚点。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ページと、それらに紐づく署名、スタンプ、アンカーが削除されます。"
+          }
+        }
+      }
+    },
+    "sidebar.commentsOnPage.accessibilityLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld comments on page"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld comentarios en la página"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld commentaires sur la page"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पृष्ठ पर %lld टिप्पणियाँ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该页面上有 %lld 条评论"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このページに%lld件のコメント"
+          }
+        }
+      }
+    },
+    "sidebar.pageCount.one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld page"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld página"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld page"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld पृष्ठ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 页"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ページ"
+          }
+        }
+      }
+    },
+    "sidebar.pageCount.other": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld pages"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld páginas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld pages"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld पृष्ठ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 页"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ページ"
+          }
+        }
+      }
+    },
+    "inspector.ocr.scannedPages.one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld scanned page can be processed with local OCR."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld página escaneada se puede procesar con OCR local."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld page numérisée peut être traitée avec l'OCR local."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld स्कैन किए गए पृष्ठ को स्थानीय OCR से प्रोसेस किया जा सकता है।"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 个扫描页面可通过本地 OCR 处理。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld件のスキャン済みページをローカルOCRで処理できます。"
+          }
+        }
+      }
+    },
+    "inspector.ocr.scannedPages.other": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld scanned pages can be processed with local OCR."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld páginas escaneadas se pueden procesar con OCR local."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld pages numérisées peuvent être traitées avec l'OCR local."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld स्कैन किए गए पृष्ठों को स्थानीय OCR से प्रोसेस किया जा सकता है।"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 个扫描页面可通过本地 OCR 处理。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld件のスキャン済みページをローカルOCRで処理できます。"
+          }
+        }
+      }
+    },
+    "inspector.decorate.startNumber": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start number %lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Número inicial %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numéro de départ %lld"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रारंभ संख्या %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "起始编号 %lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始番号 %lld"
+          }
+        }
+      }
+    },
+    "inspector.decorate.fontSize": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Size %lld pt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamaño %lld pt"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taille %lld pt"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आकार %lld pt"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大小 %lld pt"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイズ %lld pt"
+          }
+        }
+      }
+    },
+    "inspector.versionHistory.pageLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page %lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Página %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page %lld"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पृष्ठ %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %lld 页"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ページ"
           }
         }
       }

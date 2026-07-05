@@ -1516,8 +1516,8 @@ private struct DocumentCommentsIndicator: View {
                 }
             }
             .buttonStyle(.plain)
-            .help(count == 1 ? "contentView.commentsIndicator.viewOneComment.help" : "View \(count) comments")
-            .accessibilityLabel(count == 1 ? "contentView.commentsIndicator.viewOneComment.help" : "View \(count) comments")
+            .help(count == 1 ? L10n.string("contentView.viewComments.one") : L10n.format("contentView.viewComments.other", count))
+            .accessibilityLabel(count == 1 ? L10n.string("contentView.viewComments.one") : L10n.format("contentView.viewComments.other", count))
             .transition(.opacity.combined(with: .scale(scale: 0.96)))
         }
     }
