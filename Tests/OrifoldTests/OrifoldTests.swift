@@ -3645,16 +3645,21 @@ final class InlineTextEditPlacementTests: XCTestCase {
     /// `InlineTextEditorOverlay.measuredButtonWidth(title:font:minimum:)`, which grows
     /// past the English-sized minimum whenever the actual title needs more room.
     func testMeasuredButtonWidthAccommodatesLongerLocalizedTitles() throws {
-        // Read the compiled fr.lproj strings table directly rather than going through
-        // `L10n.string`'s locale override (which doesn't reliably apply inside the
-        // XCTest host, a separate, unrelated Foundation/xcstrings quirk). `L10n`'s own
-        // bundle anchor resolves to Orifold.app's bundle regardless of which process
-        // loaded this code, so the same lookup works here.
-        let bundle = Bundle(for: WorkspaceViewModel.self)
-        let frBundleURL = try XCTUnwrap(bundle.url(forResource: "fr", withExtension: "lproj"))
-        let frBundle = try XCTUnwrap(Bundle(url: frBundleURL))
-        let frTitle = frBundle.localizedString(forKey: "readingCanvas.formatting.resetFormat.button", value: nil, table: "Localizable")
-        XCTAssertEqual(frTitle, "Réinitialiser", "Sanity-check: fr.lproj actually contains the expected translation")
+        // Read the French translation straight out of the source Localizable.xcstrings
+        // JSON rather than through a compiled fr.lproj strings table: `swift build`/
+        // `swift test` copy the .xcstrings file verbatim instead of compiling it into
+        // per-locale .lproj bundles the way Xcode's build system does, so no fr.lproj
+        // exists under the SPM CLI test runner at all.
+        let catalogURL = try XCTUnwrap(Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings"))
+        let catalogData = try Data(contentsOf: catalogURL)
+        let catalog = try XCTUnwrap(try JSONSerialization.jsonObject(with: catalogData) as? [String: Any])
+        let strings = try XCTUnwrap(catalog["strings"] as? [String: Any])
+        let entry = try XCTUnwrap(strings["readingCanvas.formatting.resetFormat.button"] as? [String: Any])
+        let localizations = try XCTUnwrap(entry["localizations"] as? [String: Any])
+        let frLocalization = try XCTUnwrap(localizations["fr"] as? [String: Any])
+        let frStringUnit = try XCTUnwrap(frLocalization["stringUnit"] as? [String: Any])
+        let frTitle = try XCTUnwrap(frStringUnit["value"] as? String)
+        XCTAssertEqual(frTitle, "Réinitialiser", "Sanity-check: the catalog actually contains the expected translation")
 
         let font = NSFont.systemFont(ofSize: 11)
         let textWidth = (frTitle as NSString).size(withAttributes: [.font: font]).width
