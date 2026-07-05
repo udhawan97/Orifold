@@ -32,6 +32,9 @@ import AppKit
 /// logo is shown immediately, so the screen is complete and polished with no motion.
 struct OrifoldFoldMark: View {
     var size: CGFloat = 80
+    /// When embedded inside a caller's own tap target (e.g. the dashboard pet's
+    /// button), disable the mark's own replay button so tap gestures don't nest.
+    var interactive: Bool = true
 
     /// Delay before the fold plays on first appearance, so the screen settles first.
     private let autoplayDelay: TimeInterval = 1.0
@@ -61,76 +64,19 @@ struct OrifoldFoldMark: View {
     }
 
     private var animated: some View {
-        Button {
-            replay()
-        } label: {
-            KeyframeAnimator(initialValue: FoldState.start, trigger: playCount) { state in
-                ZStack {
-                    Canvas(opaque: false, rendersAsynchronously: true) { context, canvasSize in
-                        FoldMarkRenderer.draw(in: &context, size: canvasSize, state: state)
-                    }
-
-                    AppIconMark(size: size)
-                        .opacity(state.iconIn)
+        Group {
+            if interactive {
+                Button {
+                    replay()
+                } label: {
+                    keyframeContent
                 }
-                .scaleEffect(breathe ? 1.012 : 1.0)
-            } keyframes: { _ in
-                // Sheet fades and scales into place.
-                KeyframeTrack(\.sheet) {
-                    CubicKeyframe(1.0, duration: 0.30)
-                }
-                // Fold 1: diagonal valley fold — the top-left half lifts and lays
-                // over the bottom-right, leaving a two-layer triangle.
-                KeyframeTrack(\.fold1) {
-                    LinearKeyframe(0.0, duration: 0.30)
-                    CubicKeyframe(1.0, duration: 0.55)
-                }
-                // Fold 2: the triangle folds in half, left point to right.
-                KeyframeTrack(\.fold2) {
-                    LinearKeyframe(0.0, duration: 0.85)
-                    CubicKeyframe(1.0, duration: 0.45)
-                }
-                // Fold 3: a petal fold narrows the packet into a slender triangle.
-                KeyframeTrack(\.fold3) {
-                    LinearKeyframe(0.0, duration: 1.30)
-                    CubicKeyframe(1.0, duration: 0.45)
-                }
-                // Blossom: the packet opens into the crane, part by part.
-                KeyframeTrack(\.bloomBody) {
-                    LinearKeyframe(0.0, duration: 1.75)
-                    CubicKeyframe(1.0, duration: 0.50)
-                }
-                // Wings sweep up — the biggest, most dramatic reveal.
-                KeyframeTrack(\.bloomWing) {
-                    LinearKeyframe(0.0, duration: 1.90)
-                    CubicKeyframe(1.0, duration: 0.62)
-                }
-                KeyframeTrack(\.bloomTail) {
-                    LinearKeyframe(0.0, duration: 2.08)
-                    CubicKeyframe(1.0, duration: 0.48)
-                }
-                KeyframeTrack(\.bloomNeck) {
-                    LinearKeyframe(0.0, duration: 2.20)
-                    CubicKeyframe(1.0, duration: 0.55)
-                }
-                KeyframeTrack(\.bloomHead) {
-                    LinearKeyframe(0.0, duration: 2.52)
-                    CubicKeyframe(1.0, duration: 0.50)
-                }
-                // Hold the finished crane for a beat, then dissolve it away…
-                KeyframeTrack(\.paperOut) {
-                    LinearKeyframe(0.0, duration: 3.20)
-                    CubicKeyframe(1.0, duration: 0.40)
-                }
-                // …and only then materialize the finished logo on the same tile.
-                KeyframeTrack(\.iconIn) {
-                    LinearKeyframe(0.0, duration: 3.65)
-                    CubicKeyframe(1.0, duration: 0.45)
-                }
+                .buttonStyle(.plain)
+                .help("orifoldFoldMark.replay.help")
+            } else {
+                keyframeContent
             }
         }
-        .buttonStyle(.plain)
-        .help("orifoldFoldMark.replay.help")
         .onAppear {
             guard playCount == 0 else { return }
             // Let the surrounding screen settle, then play the fold.
@@ -142,6 +88,73 @@ struct OrifoldFoldMark: View {
         }
         .accessibilityLabel("Orifold")
         .accessibilityHint("orifoldFoldMark.replay.accessibilityHint")
+    }
+
+    private var keyframeContent: some View {
+        KeyframeAnimator(initialValue: FoldState.start, trigger: playCount) { state in
+            ZStack {
+                Canvas(opaque: false, rendersAsynchronously: true) { context, canvasSize in
+                    FoldMarkRenderer.draw(in: &context, size: canvasSize, state: state)
+                }
+
+                AppIconMark(size: size)
+                    .opacity(state.iconIn)
+            }
+            .scaleEffect(breathe ? 1.012 : 1.0)
+        } keyframes: { _ in
+            // Sheet fades and scales into place.
+            KeyframeTrack(\.sheet) {
+                CubicKeyframe(1.0, duration: 0.30)
+            }
+            // Fold 1: diagonal valley fold — the top-left half lifts and lays
+            // over the bottom-right, leaving a two-layer triangle.
+            KeyframeTrack(\.fold1) {
+                LinearKeyframe(0.0, duration: 0.30)
+                CubicKeyframe(1.0, duration: 0.55)
+            }
+            // Fold 2: the triangle folds in half, left point to right.
+            KeyframeTrack(\.fold2) {
+                LinearKeyframe(0.0, duration: 0.85)
+                CubicKeyframe(1.0, duration: 0.45)
+            }
+            // Fold 3: a petal fold narrows the packet into a slender triangle.
+            KeyframeTrack(\.fold3) {
+                LinearKeyframe(0.0, duration: 1.30)
+                CubicKeyframe(1.0, duration: 0.45)
+            }
+            // Blossom: the packet opens into the crane, part by part.
+            KeyframeTrack(\.bloomBody) {
+                LinearKeyframe(0.0, duration: 1.75)
+                CubicKeyframe(1.0, duration: 0.50)
+            }
+            // Wings sweep up — the biggest, most dramatic reveal.
+            KeyframeTrack(\.bloomWing) {
+                LinearKeyframe(0.0, duration: 1.90)
+                CubicKeyframe(1.0, duration: 0.62)
+            }
+            KeyframeTrack(\.bloomTail) {
+                LinearKeyframe(0.0, duration: 2.08)
+                CubicKeyframe(1.0, duration: 0.48)
+            }
+            KeyframeTrack(\.bloomNeck) {
+                LinearKeyframe(0.0, duration: 2.20)
+                CubicKeyframe(1.0, duration: 0.55)
+            }
+            KeyframeTrack(\.bloomHead) {
+                LinearKeyframe(0.0, duration: 2.52)
+                CubicKeyframe(1.0, duration: 0.50)
+            }
+            // Hold the finished crane for a beat, then dissolve it away…
+            KeyframeTrack(\.paperOut) {
+                LinearKeyframe(0.0, duration: 3.20)
+                CubicKeyframe(1.0, duration: 0.40)
+            }
+            // …and only then materialize the finished logo on the same tile.
+            KeyframeTrack(\.iconIn) {
+                LinearKeyframe(0.0, duration: 3.65)
+                CubicKeyframe(1.0, duration: 0.45)
+            }
+        }
     }
 
     private func replay() {
