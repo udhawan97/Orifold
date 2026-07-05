@@ -137,12 +137,9 @@ extension FocusedValues {
 }
 
 private struct AboutCommandButton: View {
-    @State private var isPresented = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("About Orifold") { isPresented = true }
-            .popover(isPresented: $isPresented) {
-                AppAboutPopover(isPresented: $isPresented)
-            }
+        Button("About Orifold") { openWindow(id: "about-orifold") }
     }
 }

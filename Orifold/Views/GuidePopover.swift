@@ -25,7 +25,7 @@ struct AppIconButton: View {
         .buttonStyle(.plain)
         .help("About Orifold")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
-            AppAboutPopover(isPresented: $isPresented)
+            AppAboutPopover()
         }
     }
 }
@@ -42,6 +42,7 @@ struct AppBrandLockup: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Orifold")
                     .font(.system(size: titleSize, weight: .semibold, design: .serif))
+                    .tracking(.dsWordmarkTracking)
                     .foregroundStyle(Color.dsTextPrimary)
                 if let subtitle {
                     Text(subtitle)
@@ -60,6 +61,7 @@ struct AppBrandLockup: View {
             AppIconMark(size: iconSize)
             Text("Orifold")
                 .font(.system(size: titleSize, weight: .semibold, design: .serif))
+                .tracking(.dsWordmarkTracking)
                 .foregroundStyle(Color.dsTextPrimary)
         }
         .accessibilityElement(children: .combine)
@@ -67,39 +69,81 @@ struct AppBrandLockup: View {
 }
 
 struct AppAboutPopover: View {
-    @Binding var isPresented: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    private var versionString: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.0"
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: .dsLG) {
-            VStack(alignment: .leading, spacing: .dsXS) {
-                AppBrandLockup(iconSize: 40, titleSize: 15, subtitle: "A calmer way to assemble PDFs.")
-                Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.0")")
-                    .font(.dsCaption())
-                    .foregroundStyle(Color.dsTextTertiary)
-                    .padding(.leading, 40 + .dsSM)
+        VStack(alignment: .leading, spacing: .dsXL) {
+            VStack(alignment: .leading, spacing: .dsMD) {
+                ZStack(alignment: .topLeading) {
+                    EnsoRing()
+                        .stroke(Color.dsAccent.opacity(0.28), style: StrokeStyle(lineWidth: 1.25, lineCap: .round))
+                        .frame(width: 56, height: 56)
+                        .offset(x: -8, y: -8)
+                    AppIconMark(size: 40)
+                }
+                .frame(width: 40, height: 40, alignment: .topLeading)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Orifold")
+                        .font(.system(size: 17, weight: .semibold, design: .serif))
+                        .tracking(.dsWordmarkTracking)
+                        .foregroundStyle(Color.dsTextPrimary)
+                    Text("A calmer way to assemble PDFs.")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.dsTextSecondary)
+                }
+
+                SealVersionBadge(version: versionString)
             }
 
-            Text("Built for the small-but-real PDF chores: combine the pieces, mark what matters, and send out something tidy.")
-                .font(.dsBody())
-                .foregroundStyle(Color.dsTextSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 240)
+            LinearGradient(colors: [.clear, Color.dsSeparator, .clear], startPoint: .leading, endPoint: .trailing)
+                .frame(height: 1)
 
-            Text("No ceremony. No mystery panels. Just a focused workspace for getting documents into shape.")
-                .font(.dsCaption())
-                .foregroundStyle(Color.dsTextTertiary)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 240)
+            VStack(alignment: .leading, spacing: .dsSM) {
+                Text("Built for the small-but-real PDF chores: combine the pieces, mark what matters, and send out something tidy.")
+                    .font(.dsBody())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("No ceremony. No mystery panels — just a focused workspace, and a little quiet in the margins.")
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: 248)
 
             HStack {
                 Spacer()
-                Button("Close") { isPresented = false }
+                Button("Close") { dismiss() }
                     .keyboardShortcut(.cancelAction)
             }
         }
         .padding(.dsLG)
-        .frame(width: 272)
-        .background(Color.dsSurface)
+        .frame(width: 280)
+        .background(PopoverAuroraBackground())
+    }
+}
+
+/// A small hanko-style stamp for the version number — a quiet nod to the
+/// vermillion seal used on signed documents.
+private struct SealVersionBadge: View {
+    var version: String
+
+    var body: some View {
+        Text("v\(version)")
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .tracking(.dsLabelTracking)
+            .foregroundStyle(Color.dsSignatureAccent)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .overlay {
+                RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                    .strokeBorder(Color.dsSignatureAccent.opacity(0.45), lineWidth: 1)
+            }
     }
 }
 
@@ -147,6 +191,9 @@ private struct GuidePopover: View {
                     .padding(.leading, 40 + .dsSM)
             }
 
+            LinearGradient(colors: [.clear, Color.dsSeparator, .clear], startPoint: .leading, endPoint: .trailing)
+                .frame(height: 1)
+
             ScrollView {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: .dsMD), GridItem(.flexible(), spacing: .dsMD)], spacing: .dsMD) {
                     ForEach(GuideFeature.all) { feature in
@@ -154,6 +201,7 @@ private struct GuidePopover: View {
                     }
                 }
                 .padding(.vertical, 1)
+                .padding(.horizontal, 1)
             }
             .scrollIndicators(.hidden)
             .frame(maxHeight: 420)
@@ -164,11 +212,34 @@ private struct GuidePopover: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Color.dsAccent)
                     .keyboardShortcut(.defaultAction)
+                    .shadow(color: Color.dsAccent.opacity(0.30), radius: 8, x: 0, y: 3)
             }
         }
         .padding(.dsLG)
         .frame(width: 430)
-        .background(Color.dsSurface)
+        .background(PopoverAuroraBackground())
+    }
+}
+
+/// A quiet, static wash behind panels — two soft color glows over the base
+/// surface, standing in for a texture without drawing attention to itself.
+private struct PopoverAuroraBackground: View {
+    var body: some View {
+        ZStack {
+            Color.dsSurface
+            RadialGradient(
+                colors: [Color.dsAccent.opacity(0.12), .clear],
+                center: .topLeading, startRadius: 0, endRadius: 260
+            )
+            RadialGradient(
+                colors: [Color.dsSignatureAccent.opacity(0.07), .clear],
+                center: .bottomTrailing, startRadius: 0, endRadius: 240
+            )
+            LinearGradient(
+                colors: [.white.opacity(0.05), .clear],
+                startPoint: .top, endPoint: .init(x: 0.5, y: 0.35)
+            )
+        }
     }
 }
 
@@ -177,45 +248,85 @@ private struct GuideFeature: Identifiable {
     var icon: String
     var title: String
     var detail: String
+    var tint: Color
+    var iconIsDark: Bool = false
 
     static let all = [
         GuideFeature(icon: "doc.badge.plus",
                      title: "Import",
-                     detail: "Drop in up to 50 PDFs, Word, HTML, Markdown, text, data files, or images at once."),
+                     detail: "Drop in up to 50 PDFs, Word, HTML, Markdown, text, data files, or images at once.",
+                     tint: .dsAccent),
         GuideFeature(icon: "square.stack.3d.down.right",
                      title: "Assemble",
-                     detail: "Combine files, reorder pages, rotate, delete, and reshape the packet."),
+                     detail: "Combine files, reorder pages, rotate, delete, and reshape the packet.",
+                     tint: .dsAccentBright),
         GuideFeature(icon: "text.cursor",
                      title: "Edit text",
-                     detail: "Adjust detected PDF text or add new text boxes directly on the page."),
+                     detail: "Adjust detected PDF text or add new text boxes directly on the page.",
+                     tint: .dsAnnotationSky),
         GuideFeature(icon: "highlighter",
                      title: "Mark up",
-                     detail: "Highlight, underline, strike out, draw ink, erase marks, and add notes."),
+                     detail: "Highlight, underline, strike out, draw ink, erase marks, and add notes.",
+                     tint: .dsHighlightYellow, iconIsDark: true),
         GuideFeature(icon: "bubble.left.and.text.bubble.right",
                      title: "Review",
-                     detail: "Track workspace comments, anchored notes, tags, metadata, and search results."),
+                     detail: "Track workspace comments, anchored notes, tags, metadata, and search results.",
+                     tint: .dsAnnotationLavender),
         GuideFeature(icon: "signature",
                      title: "Sign",
-                     detail: "Place visual signatures or create cryptographically signed PDF output."),
+                     detail: "Place visual signatures or create cryptographically signed PDF output.",
+                     tint: .dsSignatureAccent),
         GuideFeature(icon: "seal",
                      title: "Decorate",
-                     detail: "Add stamps, watermarks, page numbers, and Bates-style numbering."),
+                     detail: "Add stamps, watermarks, page numbers, and Bates-style numbering.",
+                     tint: .dsAnnotationCoral),
         GuideFeature(icon: "checklist",
                      title: "Forms",
-                     detail: "Fill forms and optionally lock answers into the final PDF."),
+                     detail: "Fill forms and optionally lock answers into the final PDF.",
+                     tint: .dsAnnotationSage),
         GuideFeature(icon: "doc.text.viewfinder",
                      title: "OCR",
-                     detail: "Make scanned pages searchable before sharing or archiving."),
+                     detail: "Make scanned pages searchable before sharing or archiving.",
+                     tint: .dsAccent),
         GuideFeature(icon: "arrow.down.circle",
                      title: "Compress",
-                     detail: "Reduce PDF size with export-time validation."),
+                     detail: "Reduce PDF size with export-time validation.",
+                     tint: .dsAccentBright),
         GuideFeature(icon: "lock.shield",
                      title: "Protect",
-                     detail: "Password-protect compatible exports and control copy or print permissions."),
+                     detail: "Password-protect compatible exports and control copy or print permissions.",
+                     tint: .dsGraphite),
         GuideFeature(icon: "square.and.arrow.up",
                      title: "Export",
-                     detail: "Save PDF workspaces or export PDF, DOCX, Markdown, text, HTML, PNG, and JPEG.")
+                     detail: "Save PDF workspaces or export PDF, DOCX, Markdown, text, HTML, PNG, and JPEG.",
+                     tint: .dsAnnotationSky)
     ]
+}
+
+/// A glossy, gradient-filled icon tile — the small colored badges macOS
+/// System Settings uses per row, instead of a flat monochrome glyph.
+private struct FeatureIconTile: View {
+    var systemName: String
+    var tint: Color
+    var iconIsDark: Bool = false
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(LinearGradient(colors: [tint.opacity(0.88), tint], startPoint: .top, endPoint: .bottom))
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [.white.opacity(0.4), .white.opacity(0)], startPoint: .top, endPoint: .bottom),
+                    lineWidth: 0.75
+                )
+            Image(systemName: systemName)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(iconIsDark ? Color.black.opacity(0.65) : .white)
+                .shadow(color: .black.opacity(iconIsDark ? 0 : 0.18), radius: 1, x: 0, y: 0.5)
+        }
+        .frame(width: 26, height: 26)
+        .shadow(color: tint.opacity(0.4), radius: 4, x: 0, y: 2)
+    }
 }
 
 private struct GuideFeatureTile: View {
@@ -223,10 +334,7 @@ private struct GuideFeatureTile: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: .dsSM) {
-            Image(systemName: feature.icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.dsAccent)
-                .frame(width: 20, height: 20)
+            FeatureIconTile(systemName: feature.icon, tint: feature.tint, iconIsDark: feature.iconIsDark)
             VStack(alignment: .leading, spacing: 2) {
                 Text(feature.title)
                     .font(.system(size: 13, weight: .semibold))
@@ -238,6 +346,15 @@ private struct GuideFeatureTile: View {
             }
             Spacer(minLength: 0)
         }
+        .padding(.dsSM)
         .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                .fill(Color.dsCard.opacity(0.55))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        )
     }
 }

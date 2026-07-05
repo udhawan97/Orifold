@@ -16,23 +16,25 @@ extension Color {
 
 // MARK: - SwiftUI semantic color tokens
 //
-// "Glacier ink" palette: indigo-ink neutrals with a deep glacier-blue accent.
+// "Ai-zome ink" palette: indigo-dye (ai-zome) neutrals warmed with a whisper of
+// washi paper, a glacier-blue accent, and a shu-iro (seal vermillion) accent
+// reserved for signing. Quiet, uncluttered, generous with negative space (ma).
 // All tokens are static values — no materials or runtime blending.
 
 extension Color {
-    /// Cool neutral ground behind PDF pages
+    /// Cool neutral ground behind PDF pages, warmed a touch like washi paper
     static let dsCanvas = Color(
-        light: NSColor(srgbRed: 0.925, green: 0.941, blue: 0.961, alpha: 1),   // #ECF0F5
+        light: NSColor(srgbRed: 0.933, green: 0.941, blue: 0.949, alpha: 1),   // #EEF0F2
         dark:  NSColor(srgbRed: 0.039, green: 0.063, blue: 0.110, alpha: 1))   // #0A101C
 
     /// Panels: sidebar, inspector, popovers
     static let dsSurface = Color(
-        light: NSColor(srgbRed: 0.965, green: 0.976, blue: 0.988, alpha: 1),   // #F6F9FC
+        light: NSColor(srgbRed: 0.973, green: 0.973, blue: 0.973, alpha: 1),   // #F8F8F8
         dark:  NSColor(srgbRed: 0.067, green: 0.102, blue: 0.161, alpha: 1))   // #111A29
 
     /// Raised cards, thumbnails
     static let dsCard = Color(
-        light: NSColor(srgbRed: 1.000, green: 1.000, blue: 1.000, alpha: 1),   // #FFFFFF
+        light: NSColor(srgbRed: 1.000, green: 0.996, blue: 0.988, alpha: 1),   // #FFFEFC
         dark:  NSColor(srgbRed: 0.094, green: 0.141, blue: 0.204, alpha: 1))   // #182434
 
     /// Primary glacier-blue accent from the app icon, used sparingly
@@ -63,17 +65,18 @@ extension Color {
         light: NSColor(srgbRed: 0.047, green: 0.404, blue: 0.651, alpha: 0.17),
         dark:  NSColor(srgbRed: 0.310, green: 0.765, blue: 0.910, alpha: 0.24))
 
+    /// Shu-iro — the vermillion of a hanko seal stamp. Reserved for signing/stamping.
     static let dsSignatureAccent = Color(
-        light: NSColor(srgbRed: 0.761, green: 0.294, blue: 0.431, alpha: 1),   // #C24B6E
-        dark:  NSColor(srgbRed: 0.984, green: 0.494, blue: 0.604, alpha: 1))   // #FB7E9A
+        light: NSColor(srgbRed: 0.749, green: 0.267, blue: 0.173, alpha: 1),   // #BF442C
+        dark:  NSColor(srgbRed: 0.976, green: 0.549, blue: 0.408, alpha: 1))   // #F98C68
 
     static let dsSignatureSoft = Color(
-        light: NSColor(srgbRed: 0.761, green: 0.294, blue: 0.431, alpha: 0.12),
-        dark:  NSColor(srgbRed: 0.984, green: 0.494, blue: 0.604, alpha: 0.17))
+        light: NSColor(srgbRed: 0.749, green: 0.267, blue: 0.173, alpha: 0.12),
+        dark:  NSColor(srgbRed: 0.976, green: 0.549, blue: 0.408, alpha: 0.17))
 
     static let dsSignatureHover = Color(
-        light: NSColor(srgbRed: 0.761, green: 0.294, blue: 0.431, alpha: 0.17),
-        dark:  NSColor(srgbRed: 0.984, green: 0.494, blue: 0.604, alpha: 0.23))
+        light: NSColor(srgbRed: 0.749, green: 0.267, blue: 0.173, alpha: 0.17),
+        dark:  NSColor(srgbRed: 0.976, green: 0.549, blue: 0.408, alpha: 0.23))
 
     static let dsTextPrimary = Color(
         light: NSColor(srgbRed: 0.075, green: 0.122, blue: 0.200, alpha: 1),   // #131F33
@@ -98,6 +101,9 @@ extension Color {
     static let dsAnnotationSage     = Color(red: 0.553, green: 0.761, blue: 0.671)  // #8DC2AB
     static let dsAnnotationSky      = Color(red: 0.455, green: 0.690, blue: 0.867)  // #74B0DD
     static let dsAnnotationLavender = Color(red: 0.690, green: 0.651, blue: 0.867)  // #B0A6DD
+
+    /// Neutral graphite — for icon tiles that shouldn't read as a "color", e.g. Protect.
+    static let dsGraphite = Color(red: 0.325, green: 0.365, blue: 0.420)
 
     static let annotationSwatches: [(Color, NSColor)] = [
         (.dsHighlightYellow,    .dsAnnotationYellow),
@@ -210,4 +216,39 @@ extension Font {
     static func dsHeadline() -> Font { .system(size: 15, weight: .semibold) }
     static func dsBody()     -> Font { .system(size: 14, weight: .regular) }
     static func dsCaption()  -> Font { .system(size: 12, weight: .regular) }
+}
+
+// MARK: - Calm-typography tracking
+//
+// A little extra letter-spacing on the wordmark and small caps-like labels,
+// in place of heavier weights — quieter emphasis.
+
+extension CGFloat {
+    static let dsWordmarkTracking: CGFloat = 0.6
+    static let dsLabelTracking: CGFloat = 0.4
+}
+
+// MARK: - Ensō motif
+//
+// A single, quiet brush-circle stroke — never closed, never symmetric —
+// used sparingly as a decorative flourish (About popover, empty states).
+
+struct EnsoRing: Shape {
+    /// Fraction of the circle left open, like a real brushstroke's gap.
+    var gap: Double = 0.16
+    /// Rotates where the gap sits.
+    var rotation: Angle = .degrees(-100)
+
+    func path(in rect: CGRect) -> Path {
+        let start = rotation.degrees
+        let end = start + (360 * (1 - gap))
+        var path = Path()
+        path.addArc(
+            center: CGPoint(x: rect.midX, y: rect.midY),
+            radius: min(rect.width, rect.height) / 2,
+            startAngle: .degrees(start),
+            endAngle: .degrees(end),
+            clockwise: false)
+        return path
+    }
 }

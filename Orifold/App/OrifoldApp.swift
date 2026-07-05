@@ -12,6 +12,12 @@ struct OrifoldApp: App {
         .commands {
             AppCommands()
         }
+
+        Window("About Orifold", id: "about-orifold") {
+            AppAboutPopover()
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 }
 
