@@ -340,7 +340,11 @@ struct PetView: View {
 
     private var petIcon: some View {
         Group {
-            if let icon = NSApp.applicationIconImage {
+            if presentation == .workspace {
+                // Dashboard pet reuses the landing screen's origami-fold intro mark
+                // as its avatar, so the same brand moment plays here too.
+                OrifoldFoldMark(size: iconSize, interactive: false)
+            } else if let icon = NSApp.applicationIconImage {
                 Image(nsImage: icon)
                     .resizable()
                     .scaledToFit()
