@@ -400,6 +400,8 @@ struct PetView: View {
     @State private var isPopoverPresented = false
     @State private var replayToken = 0
     @State private var isHovered = false
+    @State private var isPulsing = false
+    @State private var pulseResetWorkItem: DispatchWorkItem?
     @State private var hoverTipMessage: String?
     @State private var hoverShowWorkItem: DispatchWorkItem?
     @State private var hoverHideWorkItem: DispatchWorkItem?
@@ -447,7 +449,7 @@ struct PetView: View {
             }
         }
         .opacity(presentation == .workspace && !isHovered ? 0.88 : 1)
-        .scaleEffect(isHovered && supportsHoverExpansion ? hoverScale : 1, anchor: .bottomTrailing)
+        .scaleEffect(currentScale, anchor: .bottomTrailing)
         .shadow(color: shadowColor, radius: shadowRadius, x: 0, y: shadowYOffset)
         // A larger invisible margin around the visible chip so users don't need
         // pixel-perfect hovering — the hit area extends past the paper card.
@@ -470,13 +472,20 @@ struct PetView: View {
                     .transition(hoverTipTransition)
             }
         }
-        .onHover(perform: handleHover)
-        // Re-fold the companion each time a feature fires a fresh message, and hide
-        // any hover tip so the two bubbles never stack.
+        // A raw AppKit hover sensor, not SwiftUI's `.onHover` — `.onHover` can be
+        // silently swallowed when layered above a Button that also hosts a popover
+        // and overlay content, as this one does. NSTrackingArea is the lower-level
+        // mechanism `.onHover` itself wraps, and it never intercepts clicks (see
+        // `HoverSensor.hitTest`), so every tap still lands on the Button beneath it.
+        .overlay(HoverSensor(onChange: handleHover))
+        // Re-fold the companion each time a feature fires a fresh message, pulse for
+        // a moment of visible feedback even without hovering, and hide any hover tip
+        // so the two bubbles never stack.
         .onChange(of: buddy.currentMessage) { _, newValue in
             if newValue != nil {
                 replayToken += 1
                 hideHoverTipImmediately()
+                pulse()
             }
         }
         // A popover taking focus should not leave a stray hover tip behind it.
@@ -486,7 +495,34 @@ struct PetView: View {
         .onDisappear {
             hoverShowWorkItem?.cancel()
             hoverHideWorkItem?.cancel()
+            pulseResetWorkItem?.cancel()
         }
+    }
+
+    /// The chip's combined scale: hover growth and the brief event pulse compose
+    /// multiplicatively, so either can be mid-animation without fighting the other.
+    private var currentScale: CGFloat {
+        let hover = isHovered && supportsHoverExpansion ? hoverScale : 1
+        let pulse = isPulsing ? 1.09 : 1
+        return hover * pulse
+    }
+
+    /// A quick, springy "acknowledged!" pop — independent of hover — so the pet
+    /// visibly reacts to every feature event even if the user's mouse is elsewhere.
+    /// This is the default liveliness layered on top of the fold replay + idle wag.
+    private func pulse() {
+        guard !shouldReduceMotion else { return }
+        pulseResetWorkItem?.cancel()
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.45)) {
+            isPulsing = true
+        }
+        let item = DispatchWorkItem {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.62)) {
+                isPulsing = false
+            }
+        }
+        pulseResetWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16, execute: item)
     }
 
     private var petIcon: some View {
@@ -647,6 +683,49 @@ struct PetView: View {
         case .welcome: return 8
         case .workspace: return isHovered ? 6 : 4
         }
+    }
+}
+
+/// A minimal AppKit hover sensor used in place of SwiftUI's `.onHover`, which proved
+/// unreliable layered above a Button that also hosts a popover and dynamic overlay
+/// content. `NSTrackingArea` is the actual lower-level mechanism `.onHover` wraps, so
+/// this is the same signal with none of the layering ambiguity — and `hitTest` always
+/// returns `nil`, so this view is fully transparent to clicks; the SwiftUI Button
+/// beneath it keeps receiving every tap untouched.
+private struct HoverSensor: NSViewRepresentable {
+    var onChange: (Bool) -> Void
+
+    func makeNSView(context: Context) -> SensorView {
+        let view = SensorView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateNSView(_ nsView: SensorView, context: Context) {
+        nsView.onChange = onChange
+    }
+
+    final class SensorView: NSView {
+        var onChange: ((Bool) -> Void)?
+        private var trackingArea: NSTrackingArea?
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            if let trackingArea { removeTrackingArea(trackingArea) }
+            let area = NSTrackingArea(
+                rect: bounds,
+                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self,
+                userInfo: nil
+            )
+            addTrackingArea(area)
+            trackingArea = area
+        }
+
+        override func mouseEntered(with event: NSEvent) { onChange?(true) }
+        override func mouseExited(with event: NSEvent) { onChange?(false) }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
 }
 

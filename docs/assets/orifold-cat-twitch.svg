@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" width="220" height="220" role="img" aria-label="Origami Cat: a seated paper cat with continuously twitching ears">
+  <title>Orifold — Origami Cat companion, ears twitching</title>
+  <defs>
+    <linearGradient id="catTileG" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2b4566"/><stop offset="1" stop-color="#75bfd4"/></linearGradient>
+    <radialGradient id="catMoonG" cx="0.71" cy="0.30" r="0.20"><stop offset="0" stop-color="rgba(219,242,247,0.26)"/><stop offset="1" stop-color="rgba(179,230,242,0)"/></radialGradient>
+    <radialGradient id="catTileGlow" cx="0.82" cy="0.2" r="0.75"><stop offset="0" stop-color="rgba(128,209,219,0.22)"/><stop offset="1" stop-color="rgba(128,209,219,0)"/></radialGradient>
+    <radialGradient id="catContactG"><stop offset="0" stop-color="rgba(0,0,0,0.20)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient>
+    <filter id="catSoft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="1" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.22"/></filter>
+
+    <!-- Cool slate paper tones, matching the in-app cat palette. -->
+    <linearGradient id="catHeadLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2f5fb"/><stop offset="1" stop-color="#c3cadb"/></linearGradient>
+    <linearGradient id="catHeadShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#aab3c9"/><stop offset="1" stop-color="#7c85a0"/></linearGradient>
+    <linearGradient id="catEarLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dde3ef"/><stop offset="1" stop-color="#b2bbd1"/></linearGradient>
+    <linearGradient id="catEarShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa3bb"/><stop offset="1" stop-color="#727ba0"/></linearGradient>
+    <linearGradient id="catInnerEar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd6de"/><stop offset="1" stop-color="#e79cae"/></linearGradient>
+    <linearGradient id="catBodyLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e7ebf4"/><stop offset="1" stop-color="#b7bfd6"/></linearGradient>
+    <linearGradient id="catBodyShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9aa3bb"/><stop offset="1" stop-color="#6f7996"/></linearGradient>
+    <linearGradient id="catTailLit" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e7ebf4"/><stop offset="1" stop-color="#b7bfd6"/></linearGradient>
+    <linearGradient id="catTailShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa3bb"/><stop offset="1" stop-color="#6f7996"/></linearGradient>
+  </defs>
+
+  <clipPath id="catTileClip"><rect width="340" height="340" rx="75"/></clipPath>
+  <g clip-path="url(#catTileClip)">
+    <rect width="340" height="340" fill="url(#catTileG)"/>
+    <rect width="340" height="340" fill="url(#catMoonG)"/>
+    <rect width="340" height="340" fill="url(#catTileGlow)"/>
+    <rect x="19" y="19" width="303" height="303" rx="56" fill="none" stroke="rgba(255,255,255,0.06)"/>
+    <rect x="37" y="37" width="265" height="265" rx="37" fill="none" stroke="rgba(255,255,255,0.06)"/>
+
+    <ellipse cx="150" cy="280" rx="66" ry="12" fill="url(#catContactG)"/>
+
+    <g filter="url(#catSoft)">
+      <!-- Tail — long curl at rest along the front paws -->
+      <polygon points="130,262 210,272 148,232" fill="url(#catTailLit)"/>
+      <polygon points="148,232 210,272 188,238" fill="url(#catTailShade)"/>
+      <polygon points="196,268 216,272 202,250" fill="#5c6785" opacity="0.55"/>
+
+      <!-- Body -->
+      <polygon points="164,178 164,262 118,232" fill="url(#catBodyShade)"/>
+      <polygon points="164,178 194,258 164,262" fill="url(#catBodyLit)"/>
+      <polygon points="170,190 184,236 162,258" fill="url(#catTailLit)" opacity="0.9"/>
+      <polygon points="164,264 195,262 190,272 164,272" fill="url(#catBodyLit)"/>
+
+      <!-- Ears — twitching group, pivoting at the crown. -->
+      <g transform="rotate(0 170 130)">
+        <animateTransform attributeName="transform" type="rotate" values="0 170 130;0 170 130;-9 170 130;7 170 130;0 170 130;0 170 130" keyTimes="0;0.55;0.68;0.80;0.92;1" dur="3.6s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"/>
+        <polygon points="188,128 200,63 172,122" fill="url(#catEarShade)"/>
+        <polygon points="196,120 200,80 179,120" fill="url(#catInnerEar)" opacity="0.9"/>
+        <polygon points="152,128 140,63 168,122" fill="url(#catEarLit)"/>
+        <polygon points="145,120 141,80 162,120" fill="url(#catInnerEar)"/>
+      </g>
+
+      <!-- Head -->
+      <polygon points="170,122 170,197 138,160" fill="url(#catHeadShade)"/>
+      <polygon points="170,122 202,160 170,197" fill="url(#catHeadLit)"/>
+      <!-- Eye -->
+      <polygon points="179,153 193,158 180,166" fill="#2b2f3f"/>
+      <polygon points="182,155 187,157 183,161" fill="#ffffff" opacity="0.85"/>
+      <!-- Muzzle -->
+      <polygon points="184,163 214,177 184,187" fill="url(#catHeadLit)"/>
+      <polygon points="184,187 214,177 196,190" fill="url(#catHeadShade)"/>
+      <!-- Nose -->
+      <polygon points="206,171 220,176 209,185" fill="url(#catInnerEar)"/>
+    </g>
+  </g>
+</svg>

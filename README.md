@@ -50,6 +50,7 @@
 
 <a href="#-install-in-30-seconds"><kbd> &nbsp;⚡ Install&nbsp; </kbd></a>&ensp;
 <a href="#-what-it-does"><kbd> &nbsp;✨ Features&nbsp; </kbd></a>&ensp;
+<a href="#-meet-your-paper-companion"><kbd> &nbsp;🐾 Companion&nbsp; </kbd></a>&ensp;
 <a href="#-privacy"><kbd> &nbsp;🔒 Privacy&nbsp; </kbd></a>&ensp;
 <a href="#%EF%B8%8F-under-the-hood"><kbd> &nbsp;⚙️ Under the Hood&nbsp; </kbd></a>&ensp;
 <a href="#-troubleshooting"><kbd> &nbsp;🆘 Help&nbsp; </kbd></a>
@@ -69,6 +70,20 @@ It is not perfect yet, but it is being built in public with care, curiosity, and
 <p align="center">
   <img src="docs/assets/orifold-v3-workspace-diagram.svg" alt="Orifold product flow: import mixed files, edit and finish them in one local workspace, then export one clean file — everything runs on your Mac">
 </p>
+
+## 🐾 Meet Your Paper Companion
+
+The same fold that opens Orifold's logo blossoms into a small companion that lives in your workspace — pick **Origami Dog** or **Origami Cat** on first launch, or switch anytime. It keeps a quiet eye on your document, offers the occasional tip in character, and reacts — visibly — whenever you highlight, sign, export, or fix something.
+
+<p align="center">
+  <img src="docs/assets/orifold-crane-fold.svg" alt="Animated: a sheet of paper folds into an origami crane, then becomes the app icon" width="220">
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/assets/orifold-dog-wag.svg" alt="Animated: Origami Dog, tail wagging" width="220">
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Origami Cat, ears twitching" width="220">
+</p>
+
+<p align="center"><sub>The brand mark folds into a crane · <strong>Origami Dog</strong> — loyal, tidy, endlessly encouraging, tail always wagging · <strong>Origami Cat</strong> — clever, composed, quietly in charge, ears twitching on watch</sub></p>
 
 ## ⚡ Install in 30 Seconds
 
