@@ -2339,6 +2339,10 @@ final class NoteEditorViewController: NSViewController {
     private let textView = InlineEditableTextView()
     private let moveHandle = InlineMoveHandle()
     private let resizeHandle = InlineResizeHandle()
+    /// Hit area is much larger than the visible pill so the user isn't forced into
+    /// pixel-perfect aim to grab it (see InlineMoveHandle's minimum 28-36px hit target).
+    private let moveHandleAreaSize = CGSize(width: 64, height: 32)
+    private let moveHandleGap: CGFloat = 2
     private let familyPopup = NSPopUpButton()
     private let sizeStepper = NSStepper()
     private let sizeField = NSTextField(string: "")
@@ -2586,6 +2590,9 @@ final class NoteEditorViewController: NSViewController {
         }
         moveHandle.onDrag = { [weak self] delta in
             self?.moveEditor(by: delta)
+        }
+        moveHandle.onDragStateChanged = { [weak self] isDragging in
+            self?.setSelectionBorderActive(isDragging)
         }
         addSubview(moveHandle)
 
@@ -3003,7 +3010,7 @@ final class NoteEditorViewController: NSViewController {
         let rowCount = layoutFormatControls(availableWidth: width)
         let size = CGSize(width: width, height: toolbarHeight(forRowCount: rowCount))
         let x = min(max(editorRect.midX - size.width / 2, 8), max(8, bounds.width - size.width - 8))
-        let aboveY = editorRect.maxY + 8
+        let aboveY = editorRect.maxY + moveHandleGap + moveHandleAreaSize.height + 8
         let y = aboveY + size.height < bounds.height ? aboveY : max(8, editorRect.minY - size.height - 8)
         return CGRect(origin: CGPoint(x: x, y: y), size: size)
     }
@@ -3028,11 +3035,12 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func positionEditorChrome(for editorRect: CGRect) {
+        let handleWidth = min(moveHandleAreaSize.width, max(40, editorRect.width))
         moveHandle.frame = CGRect(
-            x: editorRect.minX,
-            y: editorRect.maxY + 1,
-            width: editorRect.width,
-            height: 6
+            x: editorRect.midX - handleWidth / 2,
+            y: editorRect.maxY + moveHandleGap,
+            width: handleWidth,
+            height: moveHandleAreaSize.height
         )
         resizeHandle.frame = CGRect(
             x: editorRect.maxX - 8,
@@ -3114,6 +3122,13 @@ final class NoteEditorViewController: NSViewController {
             bounds.origin.x = matchedColumn.minX
         }
         return bounds
+    }
+
+    /// Brightens/thickens the selection border while the move handle is being dragged,
+    /// purely a visual cue — it never touches font, layout, or the text frame itself.
+    private func setSelectionBorderActive(_ active: Bool) {
+        textView.layer?.borderWidth = active ? 2 : 1
+        textView.layer?.borderColor = NSColor.dsAccentNS.withAlphaComponent(active ? 0.95 : 0.75).cgColor
     }
 
     private func moveEditor(by delta: CGPoint) {
@@ -3960,28 +3975,88 @@ final class InlineEditableTextView: NSTextView {
     }
 }
 
+/// A grab handle for moving the selected text block: a small centered pill/grip is drawn
+/// for visual affordance, but the view's own bounds — much larger than the pill — is the
+/// actual draggable hit area, so the user doesn't need pixel-perfect aim to grab it.
 final class InlineMoveHandle: NSView {
     var onDrag: ((CGPoint) -> Void)?
+    var onDragStateChanged: ((Bool) -> Void)?
     private var lastPoint: CGPoint?
+    private var isHovering = false
+    private var isDragging = false
+    private var trackingArea: NSTrackingArea?
+
+    static let pillSize = CGSize(width: 40, height: 6)
+
+    private let pillLayer = CALayer()
+    private let dotLayers = (0..<3).map { _ in CALayer() }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.backgroundColor = NSColor.dsAccentNS.withAlphaComponent(0.18).cgColor
-        layer?.borderColor = NSColor.dsAccentNS.withAlphaComponent(0.8).cgColor
-        layer?.borderWidth = 1
-        layer?.cornerRadius = 3
+        toolTip = "Drag to move text block"
+
+        pillLayer.cornerRadius = Self.pillSize.height / 2
+        layer?.addSublayer(pillLayer)
+        for dot in dotLayers {
+            dot.cornerRadius = 1
+            pillLayer.addSublayer(dot)
+        }
+        updateAppearance()
     }
 
     required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        let size = Self.pillSize
+        pillLayer.frame = CGRect(
+            x: (bounds.width - size.width) / 2,
+            y: bounds.height - size.height - 4,
+            width: size.width,
+            height: size.height
+        )
+        let dotSize: CGFloat = 2
+        let spacing: CGFloat = 7
+        for (index, dot) in dotLayers.enumerated() {
+            let x = size.width / 2 + (CGFloat(index) - 1) * spacing - dotSize / 2
+            dot.frame = CGRect(x: x, y: (size.height - dotSize) / 2, width: dotSize, height: dotSize)
+        }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea { removeTrackingArea(trackingArea) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
 
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .openHand)
     }
 
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        updateAppearance()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        updateAppearance()
+    }
+
     override func mouseDown(with event: NSEvent) {
         lastPoint = superview?.convert(event.locationInWindow, from: nil)
+        isDragging = true
         NSCursor.closedHand.set()
+        updateAppearance()
+        onDragStateChanged?(true)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -3995,7 +4070,24 @@ final class InlineMoveHandle: NSView {
 
     override func mouseUp(with event: NSEvent) {
         lastPoint = nil
+        isDragging = false
         NSCursor.arrow.set()
+        updateAppearance()
+        onDragStateChanged?(false)
+    }
+
+    private func updateAppearance() {
+        let base = NSColor.dsAccentNS
+        let alpha: CGFloat = isDragging ? 0.95 : (isHovering ? 0.85 : 0.55)
+        let scale: CGFloat = isDragging ? 1.15 : (isHovering ? 1.05 : 1)
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.12)
+        pillLayer.backgroundColor = base.withAlphaComponent(alpha).cgColor
+        pillLayer.transform = CATransform3DMakeScale(scale, scale, 1)
+        for dot in dotLayers {
+            dot.backgroundColor = NSColor.white.withAlphaComponent(isHovering || isDragging ? 0.95 : 0.85).cgColor
+        }
+        CATransaction.commit()
     }
 }
 
