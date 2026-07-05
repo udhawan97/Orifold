@@ -1,16 +1,21 @@
 import SwiftUI
 import AppKit
 
-/// Landing-screen brand moment: a clean sheet of paper folds through a few
-/// deliberate creases and resolves into the finished Orifold logo.
+/// Landing-screen brand moment: a clean sheet of paper folds — beak, tail, then a
+/// sweeping wing — into a small origami crane silhouette, then gently dissolves away
+/// so the real app icon (`AppIconMark`) can materialize on the same tile.
 ///
-/// The fold is drawn as vector paper panels in a `Canvas` — layered flaps with
-/// soft cast shadows and a gentle scale-in — choreographed with `KeyframeAnimator`.
-/// The paper folds, then gently dissolves away and the real app icon (`AppIconMark`)
-/// materializes on the same tile — a sequenced hand-off (paper out, then icon in)
-/// rather than a crossfade, so two different shapes never overlap. The tile is drawn
-/// to match the icon's background, keeping the ground steady through the hand-off.
-/// It settles into a barely perceptible idle breath rather than looping.
+/// The crane is drawn as a single morphing silhouette in a `Canvas`: each of its seven
+/// outline points starts exactly on the flat square's perimeter (so frame one reads as
+/// a plain sheet of paper) and travels to its final position on its own staggered
+/// schedule, choreographed with `KeyframeAnimator`. Crease lines fade in per phase to
+/// keep the "folded paper" read even though, under the hood, it's a vertex morph
+/// rather than a physical fold simulation.
+///
+/// The hand-off to the finished logo is sequenced, not crossfaded: the crane fully
+/// dissolves first, then the icon materializes on a tile drawn to match the icon's
+/// real background, so two different shapes never overlap mid-transition. It settles
+/// into a barely perceptible idle breath rather than looping.
 ///
 /// A short beat after the view appears the fold plays automatically; tapping the mark
 /// replays it. With Reduce Motion the animation is skipped entirely and the finished
@@ -20,6 +25,8 @@ struct OrifoldFoldMark: View {
 
     /// Delay before the fold plays on first appearance, so the screen settles first.
     private let autoplayDelay: TimeInterval = 1.0
+    /// Total keyframe runtime, used to time the post-resolve idle breath.
+    private let animationRuntime: TimeInterval = 2.95
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var playCount = 0
@@ -62,28 +69,35 @@ struct OrifoldFoldMark: View {
                 KeyframeTrack(\.sheet) {
                     CubicKeyframe(1.0, duration: 0.34)
                 }
-                // Three deliberate corner folds, gently staggered.
-                KeyframeTrack(\.fold1) {
-                    LinearKeyframe(0.0, duration: 0.30)
-                    CubicKeyframe(1.0, duration: 0.60)
+                // Beak & head tuck in first.
+                KeyframeTrack(\.foldBeak) {
+                    LinearKeyframe(0.0, duration: 0.18)
+                    CubicKeyframe(1.0, duration: 0.55)
                 }
-                KeyframeTrack(\.fold2) {
-                    LinearKeyframe(0.0, duration: 0.62)
-                    CubicKeyframe(1.0, duration: 0.58)
+                // Then the tail point.
+                KeyframeTrack(\.foldTail) {
+                    LinearKeyframe(0.0, duration: 0.45)
+                    CubicKeyframe(1.0, duration: 0.55)
                 }
-                KeyframeTrack(\.fold3) {
-                    LinearKeyframe(0.0, duration: 1.00)
-                    CubicKeyframe(1.0, duration: 0.48)
+                // The wing sweeps up last — the biggest, most dramatic fold.
+                KeyframeTrack(\.foldWing) {
+                    LinearKeyframe(0.0, duration: 0.75)
+                    CubicKeyframe(1.0, duration: 0.68)
                 }
-                // Hold the folded paper for a beat, then dissolve it away…
+                // The back ridge settles, crisping the silhouette.
+                KeyframeTrack(\.foldRidge) {
+                    LinearKeyframe(0.0, duration: 1.15)
+                    CubicKeyframe(1.0, duration: 0.55)
+                }
+                // Hold the finished crane for a beat, then dissolve it away…
                 KeyframeTrack(\.paperOut) {
-                    LinearKeyframe(0.0, duration: 1.60)
-                    CubicKeyframe(1.0, duration: 0.35)
+                    LinearKeyframe(0.0, duration: 2.05)
+                    CubicKeyframe(1.0, duration: 0.38)
                 }
                 // …and only then materialize the finished logo on the same tile.
                 KeyframeTrack(\.iconIn) {
-                    LinearKeyframe(0.0, duration: 1.98)
-                    CubicKeyframe(1.0, duration: 0.40)
+                    LinearKeyframe(0.0, duration: 2.45)
+                    CubicKeyframe(1.0, duration: 0.42)
                 }
             }
         }
@@ -117,7 +131,7 @@ struct OrifoldFoldMark: View {
     private func scheduleIdleBreath() {
         let generation = replayGeneration
         // Settle into a slow, near-invisible idle breath once the fold resolves.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + animationRuntime) {
             guard generation == replayGeneration, !didResolve else { return }
             didResolve = true
             withAnimation(.easeInOut(duration: 3.4).repeatForever(autoreverses: true)) {
@@ -131,15 +145,32 @@ struct OrifoldFoldMark: View {
 
 private struct FoldState: Equatable {
     var sheet: Double
-    var fold1: Double
-    var fold2: Double
-    var fold3: Double
-    /// Paper dissolves away (the tile stays put).
+    /// TR corner tucks into the beak + head.
+    var foldBeak: Double
+    /// BL corner draws out into the tail.
+    var foldTail: Double
+    /// TL corner sweeps up into the wing.
+    var foldWing: Double
+    /// Back ridge / neck notch settle into their final crease.
+    var foldRidge: Double
+    /// Crane dissolves away (the tile stays put).
     var paperOut: Double
     /// Finished logo materializes on top.
     var iconIn: Double
 
-    static let start = FoldState(sheet: 0, fold1: 0, fold2: 0, fold3: 0, paperOut: 0, iconIn: 0)
+    static let start = FoldState(sheet: 0, foldBeak: 0, foldTail: 0, foldWing: 0, foldRidge: 0, paperOut: 0, iconIn: 0)
+}
+
+/// The crane's outline, as a single closed 7-point silhouette:
+/// beak → head base → back ridge → wing tip → wing notch → tail tip → breast → (close).
+private struct CranePoints {
+    var beak: CGPoint
+    var headBase: CGPoint
+    var backRidge: CGPoint
+    var wingTip: CGPoint
+    var wingNotch: CGPoint
+    var tailTip: CGPoint
+    var breast: CGPoint
 }
 
 // MARK: - Renderer
@@ -163,67 +194,105 @@ private enum FoldMarkRenderer {
 
         drawTile(in: &context, path: tilePath, rect: tileRect)
 
-        // Keep folded paper contained within the rounded tile.
+        // Keep the folded paper contained within the rounded tile.
         context.clip(to: tilePath)
 
         // The paper fades out on its own while the tile stays put, so the incoming
         // logo hands off on a steady ground rather than crossfading two shapes.
         context.opacity = state.sheet * (1 - state.paperOut)
 
-        // Paper region, inset within the tile.
-        let inset = side * 0.17
+        drawCrane(in: &context, tileRect: tileRect, side: side, state: state)
+    }
+
+    private static func drawCrane(in context: inout GraphicsContext, tileRect: CGRect, side: CGFloat, state: FoldState) {
+        let inset = side * 0.19
         let paper = tileRect.insetBy(dx: inset, dy: inset)
-        let s = paper.width
 
         let tl = CGPoint(x: paper.minX, y: paper.minY)
         let tr = CGPoint(x: paper.maxX, y: paper.minY)
         let br = CGPoint(x: paper.maxX, y: paper.maxY)
         let bl = CGPoint(x: paper.minX, y: paper.maxY)
 
-        // Crease depths for each folded corner (BR is left sharp → arrow feel).
-        let dTR = s * 0.66
-        let dBL = s * 0.60
-        let dTL = s * 0.30
+        // Start points trace the flat square's perimeter exactly, so at progress 0
+        // the silhouette is indistinguishable from a plain unfolded sheet.
+        let start = CranePoints(
+            beak: tr,
+            headBase: CGPoint(x: tr.x - paper.width * 0.12, y: tr.y),
+            backRidge: CGPoint(x: tr.x - paper.width * 0.55, y: tr.y),
+            wingTip: tl,
+            wingNotch: CGPoint(x: tl.x, y: tl.y + paper.height * 0.30),
+            tailTip: bl,
+            breast: br
+        )
 
-        // Crease chord endpoints on the two edges meeting at each folded corner.
-        let trTop = CGPoint(x: tr.x - dTR, y: tr.y)
-        let trRight = CGPoint(x: tr.x, y: tr.y + dTR)
-        let blBottom = CGPoint(x: bl.x + dBL, y: bl.y)
-        let blLeft = CGPoint(x: bl.x, y: bl.y - dBL)
-        let tlTop = CGPoint(x: tl.x + dTL, y: tl.y)
-        let tlLeft = CGPoint(x: tl.x, y: tl.y + dTL)
+        func point(_ fx: Double, _ fy: Double) -> CGPoint {
+            CGPoint(x: tileRect.minX + tileRect.width * fx, y: tileRect.minY + tileRect.height * fy)
+        }
 
-        // Base sheet = square with the three folded corners chamfered away.
-        var base = Path()
-        base.move(to: tlTop)
-        base.addLine(to: trTop)
-        base.addLine(to: trRight)
-        base.addLine(to: br)
-        base.addLine(to: blBottom)
-        base.addLine(to: blLeft)
-        base.addLine(to: tlLeft)
-        base.closeSubpath()
+        // Finished crane silhouette, as fractions of the tile.
+        let end = CranePoints(
+            beak: point(0.93, 0.26),
+            headBase: point(0.64, 0.36),
+            backRidge: point(0.50, 0.20),
+            wingTip: point(0.13, 0.06),
+            wingNotch: point(0.44, 0.48),
+            tailTip: point(0.07, 0.68),
+            breast: point(0.64, 0.87)
+        )
 
-        let paperTop = Color(white: 1.0)
-        let paperBottom = Color(white: 0.95)
+        let pBeak = state.foldBeak
+        let pTail = state.foldTail
+        let pWing = state.foldWing
+        let pRidge = state.foldRidge
 
-        // Base sheet with a soft drop shadow and faint top-to-bottom shading.
+        let current = CranePoints(
+            beak: lerp(start.beak, end.beak, pBeak),
+            headBase: lerp(start.headBase, end.headBase, pBeak),
+            backRidge: lerp(start.backRidge, end.backRidge, pRidge),
+            wingTip: lerp(start.wingTip, end.wingTip, pWing),
+            wingNotch: lerp(start.wingNotch, end.wingNotch, pWing),
+            tailTip: lerp(start.tailTip, end.tailTip, pTail),
+            breast: lerp(start.breast, end.breast, max(pBeak, pTail) * 0.4 + pRidge * 0.6)
+        )
+
+        var body = Path()
+        body.move(to: current.beak)
+        body.addLine(to: current.headBase)
+        body.addLine(to: current.backRidge)
+        body.addLine(to: current.wingTip)
+        body.addLine(to: current.wingNotch)
+        body.addLine(to: current.tailTip)
+        body.addLine(to: current.breast)
+        body.closeSubpath()
+
+        let foldAmount = max(pBeak, pTail, pWing, pRidge)
+
         context.drawLayer { layer in
-            layer.addFilter(.shadow(color: .black.opacity(0.18), radius: side * 0.05, x: 0, y: side * 0.028))
+            layer.addFilter(.shadow(color: .black.opacity(0.20), radius: side * 0.05, x: side * 0.01, y: side * 0.03))
             layer.fill(
-                base,
+                body,
                 with: .linearGradient(
-                    Gradient(colors: [paperTop, paperBottom]),
+                    Gradient(colors: [Color(white: 1.0), Color(white: 1.0 - 0.08 * foldAmount)]),
                     startPoint: CGPoint(x: paper.midX, y: paper.minY),
                     endPoint: CGPoint(x: paper.midX, y: paper.maxY)
                 )
             )
         }
 
-        // Folded flaps, drawn in fold order so later folds layer over earlier ones.
-        drawFlap(in: &context, corner: tr, e1: trTop, e2: trRight, q: state.fold1, side: side)
-        drawFlap(in: &context, corner: bl, e1: blBottom, e2: blLeft, q: state.fold2, side: side)
-        drawFlap(in: &context, corner: tl, e1: tlTop, e2: tlLeft, q: state.fold3, side: side)
+        // Crease lines fade in per phase, selling the "folded paper" read.
+        drawCrease(in: &context, current.beak, current.headBase, pBeak)
+        drawCrease(in: &context, current.headBase, current.backRidge, pRidge)
+        drawCrease(in: &context, current.backRidge, current.wingTip, pWing)
+        drawCrease(in: &context, current.wingNotch, current.tailTip, pTail)
+        drawCrease(in: &context, current.backRidge, current.wingNotch, pRidge)
+    }
+
+    private static func drawCrease(in context: inout GraphicsContext, _ a: CGPoint, _ b: CGPoint, _ q: Double) {
+        guard q > 0.03 else { return }
+        var path = Path()
+        path.move(to: a)
+        path.addLine(to: b)
+        context.stroke(path, with: .color(.black.opacity(0.12 * min(1, q * 1.6))), lineWidth: 0.7)
     }
 
     private static func drawTile(in context: inout GraphicsContext, path: Path, rect: CGRect) {
@@ -270,68 +339,7 @@ private enum FoldMarkRenderer {
         }
     }
 
-    /// Draws one folded corner. At `q == 0` the flap fills its chamfer exactly (clean
-    /// square); as `q → 1` it lifts and reflects across the crease onto the sheet.
-    private static func drawFlap(
-        in context: inout GraphicsContext,
-        corner: CGPoint,
-        e1: CGPoint,
-        e2: CGPoint,
-        q: Double,
-        side: CGFloat
-    ) {
-        let moving = lerp(corner, reflect(corner, across: e1, e2), t: q)
-
-        var flap = Path()
-        flap.move(to: e1)
-        flap.addLine(to: moving)
-        flap.addLine(to: e2)
-        flap.closeSubpath()
-
-        // Paper darkens slightly as it folds over onto itself (the shadowed underside).
-        let creaseMid = CGPoint(x: (e1.x + e2.x) / 2, y: (e1.y + e2.y) / 2)
-        let shade = Gradient(colors: [
-            Color(white: 1.0 - 0.05 * q),
-            Color(white: 1.0 - 0.16 * q)
-        ])
-
-        let lift = sin(q * .pi) // paper rides highest mid-fold
-
-        context.drawLayer { layer in
-            if lift > 0.02 {
-                layer.addFilter(.shadow(
-                    color: .black.opacity(0.15 * lift),
-                    radius: side * 0.038 * lift,
-                    x: side * 0.012 * lift,
-                    y: side * 0.024 * lift
-                ))
-            }
-            layer.fill(
-                flap,
-                with: .linearGradient(shade, startPoint: creaseMid, endPoint: moving)
-            )
-        }
-
-        // Faint crease seam along the hinge once the fold is underway.
-        if q > 0.02 {
-            var crease = Path()
-            crease.move(to: e1)
-            crease.addLine(to: e2)
-            context.stroke(crease, with: .color(.black.opacity(0.10 * min(1, q * 2))), lineWidth: 0.75)
-        }
-    }
-
-    private static func reflect(_ p: CGPoint, across a: CGPoint, _ b: CGPoint) -> CGPoint {
-        let dx = b.x - a.x
-        let dy = b.y - a.y
-        let denom = dx * dx + dy * dy
-        guard denom > 0 else { return p }
-        let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / denom
-        let proj = CGPoint(x: a.x + t * dx, y: a.y + t * dy)
-        return CGPoint(x: 2 * proj.x - p.x, y: 2 * proj.y - p.y)
-    }
-
-    private static func lerp(_ a: CGPoint, _ b: CGPoint, t: Double) -> CGPoint {
+    private static func lerp(_ a: CGPoint, _ b: CGPoint, _ t: Double) -> CGPoint {
         CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
     }
 }
