@@ -46,6 +46,7 @@
 		8EE7D4B56AAF05AAAE5427F5 /* MemberDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C225D168B9A2D445CCCF62B /* MemberDocument.swift */; };
 		8F2FCBEA73598F664C9A97FC /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8061257878401A1313CB952 /* EmptyStateView.swift */; };
 		9146EA42E43B2E17A6DEF609 /* OrifoldApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 144E694787595BA401D105FB /* OrifoldApp.swift */; };
+		9174DB3E60D4AF80870613B8 /* OrifoldFoldMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0CBE7680829B8425C141AE /* OrifoldFoldMark.swift */; };
 		976BF031FB603C521643B987 /* CMSSignatureBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDDD646A0A8A5E95AD82CDBE /* CMSSignatureBuilderTests.swift */; };
 		97CF5F7D621F7DB3F3C9BFAA /* SigningContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20EF68BE6710AF6FD4A95CF /* SigningContracts.swift */; };
 		9A5A1851AB3768D9443EA3A2 /* CQPDF in Frameworks */ = {isa = PBXBuildFile; productRef = 8A215D0E279B5B42BE971B23 /* CQPDF */; };
@@ -142,6 +143,7 @@
 		A34D99502EC3CFC93DC21510 /* CERTIFICATE_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CERTIFICATE_GUIDE.md; sourceTree = "<group>"; };
 		A3F50610C13BB183FB3804EE /* QPDFBinary */ = {isa = PBXFileReference; lastKnownFileType = folder; name = QPDFBinary; path = Packages/QPDFBinary; sourceTree = SOURCE_ROOT; };
 		A8061257878401A1313CB952 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		AA0CBE7680829B8425C141AE /* OrifoldFoldMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrifoldFoldMark.swift; sourceTree = "<group>"; };
 		AC8C606AC354B55ABC3D30CD /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		B57AE5F8EDF07F4D4E1F5468 /* PDFiumProcessingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFiumProcessingEngine.swift; sourceTree = "<group>"; };
 		B6A1DF7ADC1F0D073C74CFA4 /* PDFOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFOCRService.swift; sourceTree = "<group>"; };
@@ -294,6 +296,7 @@
 				A8061257878401A1313CB952 /* EmptyStateView.swift */,
 				91B6A51AF9512EF792F6179E /* GuidePopover.swift */,
 				72C6C67061753E76F1A91BCC /* InspectorView.swift */,
+				AA0CBE7680829B8425C141AE /* OrifoldFoldMark.swift */,
 				12772EF49E3A2300AD720F50 /* PasswordPromptView.swift */,
 				C846DAA7BCB4A5EB1BB0FC40 /* ReadingCanvas.swift */,
 				CE19646B7355EF84BB6495A8 /* SearchView.swift */,
@@ -552,6 +555,7 @@
 				388D456EF42C30B58635A54A /* KeychainSigningIdentityProvider.swift in Sources */,
 				8EE7D4B56AAF05AAAE5427F5 /* MemberDocument.swift in Sources */,
 				9146EA42E43B2E17A6DEF609 /* OrifoldApp.swift in Sources */,
+				9174DB3E60D4AF80870613B8 /* OrifoldFoldMark.swift in Sources */,
 				E98ADF6159DD07FBA48CE8F9 /* PDFCompressionService.swift in Sources */,
 				1FFC571FC718FEE12806F078 /* PDFDecorationExportBaker.swift in Sources */,
 				36F504D0762305CE8AA88F83 /* PDFEditedPageRenderer.swift in Sources */,

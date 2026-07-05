@@ -32,7 +32,7 @@ struct EmptyStateView: View {
                 VStack(spacing: .dsXL) {
                     // Wordmark block
                     VStack(spacing: .dsLG) {
-                        AppIconMark(size: 80)
+                        OrifoldFoldMark(size: 80)
 
                         VStack(spacing: 6) {
                             Text("Orifold")
