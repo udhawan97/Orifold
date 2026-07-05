@@ -18,6 +18,7 @@ struct AppCommands: Commands {
 
         CommandGroup(after: .toolbar) {
             PetBuddyCommandToggle()
+            PetSpeciesCommandPicker()
         }
 
         // Replace the default "About" item with the witty popover version
@@ -113,6 +114,23 @@ private struct PetBuddyCommandToggle: View {
                 buddy.disable()
             }
         }
+    }
+}
+
+private struct PetSpeciesCommandPicker: View {
+    @AppStorage("petEnabled") private var petEnabled = true
+    @State private var buddy = PetBuddy.shared
+
+    var body: some View {
+        Picker(L10n.string("appCommands.companion.title"), selection: Binding(
+            get: { buddy.species },
+            set: { buddy.selectSpecies($0) }
+        )) {
+            ForEach(PetSpecies.allCases, id: \.self) { species in
+                Text(verbatim: species.displayName).tag(species)
+            }
+        }
+        .disabled(!petEnabled)
     }
 }
 

@@ -352,41 +352,162 @@ private struct EmptyStatePetIntro: View {
 
     var body: some View {
         if buddy.isEnabled {
-            HStack(alignment: .bottom, spacing: .dsSM) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("emptyState.petIntro.greeting")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.dsTextPrimary)
-                    Text("emptyState.petIntro.message")
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            Group {
+                if buddy.hasChosenSpecies {
+                    chosenIntro
+                } else {
+                    // First run: let the user meet and pick a companion.
+                    PetPicker { buddy.selectSpecies($0) }
                 }
-                .padding(.horizontal, .dsMD)
-                .padding(.vertical, .dsSM)
-                .frame(width: 220, alignment: .leading)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
-                        .strokeBorder(Color.dsAccent.opacity(0.24), lineWidth: 1)
-                }
-                .shadow(color: Color.dsAccent.opacity(0.16), radius: 16, x: 0, y: 7)
-                .offset(x: hasAppeared || shouldReduceMotion ? 0 : 10)
-                .opacity(hasAppeared || shouldReduceMotion ? 1 : 0)
-
-                PetView(presentation: .welcome)
             }
             .transition(shouldReduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.94, anchor: .bottomTrailing)))
-            .onAppear {
-                guard !shouldReduceMotion else {
-                    hasAppeared = true
-                    return
-                }
-                withAnimation(.spring(response: 0.48, dampingFraction: 0.76).delay(0.22)) {
-                    hasAppeared = true
+            .animation(shouldReduceMotion ? nil : .spring(response: 0.46, dampingFraction: 0.82), value: buddy.hasChosenSpecies)
+        }
+    }
+
+    private var chosenIntro: some View {
+        HStack(alignment: .bottom, spacing: .dsSM) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(verbatim: buddy.species.introGreeting)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text(verbatim: buddy.species.introMessage)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, .dsMD)
+            .padding(.vertical, .dsSM)
+            .frame(width: 220, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                    .strokeBorder(Color.dsAccent.opacity(0.24), lineWidth: 1)
+            }
+            .shadow(color: Color.dsAccent.opacity(0.16), radius: 16, x: 0, y: 7)
+            .offset(x: hasAppeared || shouldReduceMotion ? 0 : 10)
+            .opacity(hasAppeared || shouldReduceMotion ? 1 : 0)
+
+            PetView(presentation: .welcome)
+        }
+        .onAppear {
+            guard !shouldReduceMotion else {
+                hasAppeared = true
+                return
+            }
+            withAnimation(.spring(response: 0.48, dampingFraction: 0.76).delay(0.22)) {
+                hasAppeared = true
+            }
+        }
+    }
+}
+
+/// First-run companion picker shown on the empty state. Presents both origami pets
+/// with live folding previews (tap to replay) and a Choose action. Selecting persists
+/// the choice and collapses this into the normal chosen-pet intro.
+private struct PetPicker: View {
+    var onChoose: (PetSpecies) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var hasAppeared = false
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsMD) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("petPicker.title")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text("petPicker.subtitle")
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: .dsSM) {
+                ForEach(PetSpecies.allCases, id: \.self) { species in
+                    PetPickerCard(species: species) { onChoose(species) }
                 }
             }
         }
+        .padding(.dsLG)
+        .frame(width: 340)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous)
+                .fill(Color.dsSurface.opacity(colorScheme == .dark ? 0.82 : 0.7))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous)
+                .strokeBorder(Color.dsAccent.opacity(0.24), lineWidth: 1)
+        }
+        .shadow(color: Color.dsAccent.opacity(0.18), radius: 20, x: 0, y: 9)
+        .offset(y: hasAppeared || shouldReduceMotion ? 0 : 12)
+        .opacity(hasAppeared || shouldReduceMotion ? 1 : 0)
+        .onAppear {
+            guard !shouldReduceMotion else {
+                hasAppeared = true
+                return
+            }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.3)) {
+                hasAppeared = true
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct PetPickerCard: View {
+    var species: PetSpecies
+    var onChoose: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovered = false
+
+    var body: some View {
+        VStack(spacing: .dsSM) {
+            // Interactive: tapping the mark replays the fold as a preview.
+            OrifoldFoldMark(size: 76, interactive: true, figure: .forSpecies(species))
+
+            VStack(spacing: 2) {
+                Text(verbatim: species.displayName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text(verbatim: species.tagline)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity)
+
+            Button(action: onChoose) {
+                Text("petPicker.choose")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.dsAccent)
+            .controlSize(.small)
+        }
+        .padding(.dsMD)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                .fill(Color.dsCard.opacity(colorScheme == .dark ? 0.9 : 0.95))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                .strokeBorder(Color.dsSeparator.opacity(isHovered ? 0.9 : 0.6), lineWidth: 1)
+        }
+        .onHover { isHovered = $0 }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(species.accessibilityLabel)
     }
 }
 

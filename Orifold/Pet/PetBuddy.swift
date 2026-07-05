@@ -7,73 +7,123 @@ enum PetEvent: CaseIterable {
 }
 
 enum PetLines {
-    static var byEvent: [PetEvent: [String]] {
-        [
-            .highlight: [
+    /// The curated "hero" events that get a distinct dog/cat voice. Every other
+    /// event reuses the shared, species-neutral copy so the localization burden
+    /// stays bounded while personality lands where it's most visible.
+    private static let heroEvents: Set<PetEvent> = [.greeting, .export, .save]
+
+    /// Resolve the lines for an event, giving the chosen companion its own voice on
+    /// the hero events and falling back to shared copy everywhere else.
+    static func lines(for species: PetSpecies, event: PetEvent) -> [String] {
+        if heroEvents.contains(event), let hero = speciesHero(species, event) {
+            return hero
+        }
+        return shared(for: event)
+    }
+
+    // Keys must be string literals: `L10n.string` takes a `LocalizationValue`, so any
+    // interpolated variable would be captured as a format argument (looking up
+    // "pet.%@.greeting.1") rather than the concrete key. Hence the explicit switch.
+    private static func speciesHero(_ species: PetSpecies, _ event: PetEvent) -> [String]? {
+        switch (species, event) {
+        case (.dog, .greeting):
+            return [L10n.string("pet.dog.greeting.1"), L10n.string("pet.dog.greeting.2")]
+        case (.dog, .export):
+            return [L10n.string("pet.dog.export.1"), L10n.string("pet.dog.export.2")]
+        case (.dog, .save):
+            return [L10n.string("pet.dog.save.1"), L10n.string("pet.dog.save.2")]
+        case (.cat, .greeting):
+            return [L10n.string("pet.cat.greeting.1"), L10n.string("pet.cat.greeting.2")]
+        case (.cat, .export):
+            return [L10n.string("pet.cat.export.1"), L10n.string("pet.cat.export.2")]
+        case (.cat, .save):
+            return [L10n.string("pet.cat.save.1"), L10n.string("pet.cat.save.2")]
+        default:
+            return nil
+        }
+    }
+
+    private static func shared(for event: PetEvent) -> [String] {
+        switch event {
+        case .highlight:
+            return [
                 L10n.string("pet.event.highlight.1"),
                 L10n.string("pet.event.highlight.2"),
                 L10n.string("pet.event.highlight.3"),
                 L10n.string("pet.event.highlight.4")
-            ],
-            .comment: [
+            ]
+        case .comment:
+            return [
                 L10n.string("pet.event.comment.1"),
                 L10n.string("pet.event.comment.2"),
                 L10n.string("pet.event.comment.3"),
                 L10n.string("pet.event.comment.4")
-            ],
-            .tag: [
+            ]
+        case .tag:
+            return [
                 L10n.string("pet.event.tag.1"),
                 L10n.string("pet.event.tag.2"),
                 L10n.string("pet.event.tag.3")
-            ],
-            .sign: [
+            ]
+        case .sign:
+            return [
                 L10n.string("pet.event.sign.1"),
                 L10n.string("pet.event.sign.2"),
                 L10n.string("pet.event.sign.3"),
                 L10n.string("pet.event.sign.4")
-            ],
-            .note: [
+            ]
+        case .note:
+            return [
                 L10n.string("pet.event.note.1"),
                 L10n.string("pet.event.note.2")
-            ],
-            .edit: [
+            ]
+        case .edit:
+            return [
                 L10n.string("pet.event.edit.1"),
                 L10n.string("pet.event.edit.2"),
                 L10n.string("pet.event.edit.3")
-            ],
-            .ink: [
+            ]
+        case .ink:
+            return [
                 L10n.string("pet.event.ink.1"),
                 L10n.string("pet.event.ink.2")
-            ],
-            .rotate: [
+            ]
+        case .rotate:
+            return [
                 L10n.string("pet.event.rotate.1"),
                 L10n.string("pet.event.rotate.2")
-            ],
-            .delete: [
+            ]
+        case .delete:
+            return [
                 L10n.string("pet.event.delete.1"),
                 L10n.string("pet.event.delete.2")
-            ],
-            .export: [
+            ]
+        case .export:
+            return [
                 L10n.string("pet.event.export.1"),
                 L10n.string("pet.event.export.2")
-            ],
-            .save: [
+            ]
+        case .save:
+            return [
                 L10n.string("pet.event.save.1"),
                 L10n.string("pet.event.save.2")
-            ],
-            .addFile: [
+            ]
+        case .addFile:
+            return [
                 L10n.string("pet.event.addFile.1"),
                 L10n.string("pet.event.addFile.2")
-            ],
-            .search: [
+            ]
+        case .search:
+            return [
                 L10n.string("pet.event.search.1"),
                 L10n.string("pet.event.search.2")
-            ],
-            .greeting: [
+            ]
+        case .greeting:
+            return [
                 L10n.string("pet.event.greeting.1"),
                 L10n.string("pet.event.greeting.2")
             ]
-        ]
+        }
     }
 
     static var feedback: [String] {
@@ -121,9 +171,22 @@ enum PetBuddyHook {
 
     @ObservationIgnored @AppStorage("petEnabled") var isEnabledStorage = true
     @ObservationIgnored @AppStorage("petTriggerCount") private var triggerCountStorage = 0
+    @ObservationIgnored @AppStorage("petSpecies") private var speciesStorage = PetSpecies.fallback.rawValue
+    @ObservationIgnored @AppStorage("petSpeciesChosen") private var speciesChosenStorage = false
 
     var isEnabled = true {
         didSet { isEnabledStorage = isEnabled }
+    }
+    /// The chosen companion — *identity*, persisted and stable across launches,
+    /// navigation, and document opens. Deliberately separate from the transient
+    /// message/bounce/bubble state below, so switching pages never resets it.
+    var species: PetSpecies = .fallback {
+        didSet { speciesStorage = species.rawValue }
+    }
+    /// Whether the user has ever explicitly picked a companion (vs. defaulting to
+    /// dog). Drives the first-run picker on the empty state.
+    var hasChosenSpecies = false {
+        didSet { speciesChosenStorage = hasChosenSpecies }
     }
     var currentMessage: String?
     var isBubbleVisible = false
@@ -143,6 +206,8 @@ enum PetBuddyHook {
     private init() {
         isEnabled = isEnabledStorage
         triggerCount = triggerCountStorage
+        species = PetSpecies.resolved(from: speciesStorage)
+        hasChosenSpecies = speciesChosenStorage
     }
 
     func trigger(_ event: PetEvent) {
@@ -167,7 +232,7 @@ enum PetBuddyHook {
             sourceLines = PetLines.inspiration
             lastInspirationAt = now
         } else {
-            sourceLines = PetLines.byEvent[event] ?? []
+            sourceLines = PetLines.lines(for: species, event: event)
         }
 
         var line = sourceLines.randomElement()
@@ -176,10 +241,35 @@ enum PetBuddyHook {
         }
         guard let selectedLine = line, !selectedLine.isEmpty else { return }
 
-        currentMessage = selectedLine
+        show(selectedLine, at: now)
+    }
+
+    /// Switch the chosen companion (from the picker, avatar popover, or menu). Updates
+    /// identity only; the transient message state is untouched except for an immediate
+    /// confirmation greeting in the new pet's voice. Persists automatically via the
+    /// `species`/`hasChosenSpecies` `didSet`s.
+    func selectSpecies(_ newSpecies: PetSpecies) {
+        let isNewChoice = newSpecies != species || !hasChosenSpecies
+        species = newSpecies
+        hasChosenSpecies = true
+        guard isEnabled, isNewChoice else { return }
+        // Bypass the inter-message throttle so the choice confirms right away.
+        var line = PetLines.lines(for: newSpecies, event: .greeting).randomElement()
+        if line == lastLine {
+            line = PetLines.lines(for: newSpecies, event: .greeting).randomElement()
+        }
+        if let line, !line.isEmpty {
+            show(line, at: Date())
+        }
+    }
+
+    /// Present a line in the bubble and schedule its dismissal. Shared by event
+    /// triggers and explicit species-selection confirmations.
+    private func show(_ line: String, at now: Date) {
+        currentMessage = line
         isBubbleVisible = true
         lastShownAt = now
-        lastLine = selectedLine
+        lastLine = line
 
         dismissWorkItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
@@ -339,18 +429,10 @@ struct PetView: View {
     }
 
     private var petIcon: some View {
-        Group {
-            if let icon = NSApp.applicationIconImage {
-                Image(nsImage: icon)
-                    .resizable()
-                    .scaledToFit()
-            } else {
-                Image(systemName: "doc.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(Color.dsAccent)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+        // The avatar folds into the user's chosen companion (dog or cat), in both the
+        // quieter workspace presentation and the more expressive welcome one.
+        OrifoldFoldMark(size: iconSize, interactive: false, figure: .forSpecies(buddy.species))
+            .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
     }
 
     private var feedbackURL: URL? {
@@ -435,6 +517,15 @@ private struct PetControlPopover: View {
                 welcomeHeader
             }
 
+            VStack(alignment: .leading, spacing: 5) {
+                Text("petBuddy.menu.companion.title")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.dsTextSecondary)
+                PetSpeciesSwitcher(selected: buddy.species) { buddy.selectSpecies($0) }
+            }
+
+            Divider().opacity(0.6)
+
             Button {
                 buddy.hush()
                 isPresented = false
@@ -501,5 +592,59 @@ private struct PetControlPopover: View {
             }
         }
         .padding(.bottom, .dsXS)
+    }
+}
+
+/// Compact two-up segmented control for switching the companion between dog and cat.
+/// Used in the pet popover; changing identity here persists immediately via
+/// `PetBuddy.selectSpecies`.
+struct PetSpeciesSwitcher: View {
+    var selected: PetSpecies
+    var onSelect: (PetSpecies) -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(PetSpecies.allCases, id: \.self) { species in
+                let isSelected = species == selected
+                Button {
+                    onSelect(species)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: species.symbolName)
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(species.displayName)
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+                    .contentShape(Rectangle())
+                    .foregroundStyle(isSelected ? Color.dsAccent : Color.dsTextSecondary)
+                    .background {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(Color.dsAccentSoft)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .strokeBorder(Color.dsAccent.opacity(0.3), lineWidth: 1)
+                                }
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(species.accessibilityLabel)
+                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+            }
+        }
+        .padding(3)
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.dsSurface.opacity(colorScheme == .dark ? 0.55 : 0.5))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(Color.dsSeparator.opacity(0.6), lineWidth: 1)
+        }
     }
 }
