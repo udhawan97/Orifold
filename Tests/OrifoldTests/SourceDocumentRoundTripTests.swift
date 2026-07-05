@@ -448,6 +448,21 @@ final class SourceDocumentRoundTripTests: XCTestCase {
             let updatedPDF = try XCTUnwrap(PDFDocument(data: updatedData), sample.format.rawValue)
 
             XCTAssertTrue(updatedPDF.string?.contains(replacement) == true, sample.format.rawValue)
+            let exportedData = try viewModel.document.exportedPDFDataThrowing(from: try viewModel.document.snapshot(contentType: .pdf))
+            let exportedPDF = try XCTUnwrap(PDFDocument(data: exportedData), sample.format.rawValue)
+            let exportedPage = try XCTUnwrap(exportedPDF.page(at: 0), sample.format.rawValue)
+            let exportedString = try XCTUnwrap(exportedPage.string, sample.format.rawValue)
+            let replacementRange = (exportedString as NSString).range(of: replacement)
+            XCTAssertNotEqual(replacementRange.location, NSNotFound, sample.format.rawValue)
+            let headingRange = (exportedString as NSString).range(of: "Heading")
+            XCTAssertNotEqual(headingRange.location, NSNotFound, sample.format.rawValue)
+            let headingSelection = try XCTUnwrap(exportedPage.selection(for: headingRange), sample.format.rawValue)
+            let exportedBitmap = try renderedSourceBitmap(for: exportedPage)
+            XCTAssertGreaterThan(
+                darkSourcePixelCount(in: headingSelection.bounds(for: exportedPage), bitmap: exportedBitmap),
+                20,
+                sample.format.rawValue
+            )
             XCTAssertEqual(operation.fontName, sourceBlock.fontName, sample.format.rawValue)
             XCTAssertEqual(operation.fontSize, sourceBlock.fontSize, accuracy: 0.01, sample.format.rawValue)
             XCTAssertGreaterThanOrEqual(operation.editedBounds.width + 0.01, sourceBlock.bounds.width, sample.format.rawValue)
@@ -861,4 +876,32 @@ final class SourceDocumentRoundTripTests: XCTestCase {
             document.sourcePayloads[member.id] = payload
         }
     }
+}
+
+private func renderedSourceBitmap(for page: PDFPage) throws -> NSBitmapImageRep {
+    let thumbnail = page.thumbnail(of: CGSize(width: 612, height: 792), for: .mediaBox)
+    let tiff = try XCTUnwrap(thumbnail.tiffRepresentation)
+    return try XCTUnwrap(NSBitmapImageRep(data: tiff))
+}
+
+private func darkSourcePixelCount(in pdfRect: CGRect, bitmap: NSBitmapImageRep) -> Int {
+    let rect = pdfRect.standardized
+    guard rect.width > 0, rect.height > 0 else { return 0 }
+
+    let minX = max(0, Int(floor(rect.minX)))
+    let maxX = min(bitmap.pixelsWide - 1, Int(ceil(rect.maxX)))
+    let minY = max(0, Int(floor(CGFloat(bitmap.pixelsHigh) - rect.maxY)))
+    let maxY = min(bitmap.pixelsHigh - 1, Int(ceil(CGFloat(bitmap.pixelsHigh) - rect.minY)))
+    guard minX <= maxX, minY <= maxY else { return 0 }
+
+    var count = 0
+    for y in minY...maxY {
+        for x in minX...maxX {
+            guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { continue }
+            if color.brightnessComponent < 0.45 {
+                count += 1
+            }
+        }
+    }
+    return count
 }

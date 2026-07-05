@@ -530,6 +530,16 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             "editing searchable text must not replace an image-backed PDF page with a blank white page"
         )
         XCTAssertTrue(editedPage.string?.contains("Edited searchable text") ?? false)
+
+        let exportedData = try viewModel.document.exportedPDFDataThrowing(from: try viewModel.document.snapshot(contentType: .pdf))
+        let exportedPage = try XCTUnwrap(PDFDocument(data: exportedData)?.page(at: 0))
+        let exportedBitmap = try renderedBitmap(for: exportedPage)
+        XCTAssertGreaterThan(
+            darkPixelCount(in: CGRect(x: 240, y: 300, width: 160, height: 160), bitmap: exportedBitmap),
+            100,
+            "exporting an edited image-backed PDF must not flatten the page to white"
+        )
+        XCTAssertTrue(exportedPage.string?.contains("Edited searchable text") ?? false)
     }
 
     func testPDFTextAnalysisUsesVisibleFontSizeForScaledContentStreams() throws {
@@ -1265,12 +1275,21 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         let exportedData = try viewModel.document.exportedPDFDataThrowing(from: try viewModel.document.snapshot(contentType: .pdf))
         let exportedPage = try XCTUnwrap(PDFDocument(data: exportedData)?.page(at: 0))
         let bitmap = try renderedBitmap(for: exportedPage)
+        let exportedString = try XCTUnwrap(exportedPage.string)
+        let untouchedRange = (exportedString as NSString).range(of: "Stale lower line")
+        XCTAssertNotEqual(untouchedRange.location, NSNotFound)
+        let insertedRange = (exportedString as NSString).range(of: "New")
+        XCTAssertNotEqual(insertedRange.location, NSNotFound)
+        let insertedSelection = try XCTUnwrap(exportedPage.selection(for: insertedRange))
+        let insertedInk = darkPixelCount(in: insertedSelection.bounds(for: exportedPage), bitmap: bitmap)
+        let pageInk = darkPixelCount(in: exportedPage.bounds(for: .mediaBox), bitmap: bitmap)
         XCTAssertGreaterThan(
-            darkPixelCount(in: exportedPage.bounds(for: .mediaBox), bitmap: bitmap),
-            100,
-            "exported rotated pages must keep visible original content after inline edits"
+            pageInk,
+            insertedInk + 50,
+            "exported rotated pages must keep visible original content, not just the inserted replacement"
         )
-        XCTAssertTrue(exportedPage.string?.contains("New") ?? false)
+        XCTAssertTrue(exportedString.contains("Stale lower line"))
+        XCTAssertTrue(exportedString.contains("New"))
     }
 
     func testInlineTextEditDoesNotEraseAutoGrownBoundsBeyondOriginalText() throws {
