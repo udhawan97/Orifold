@@ -35,12 +35,12 @@ enum PDFEditedPageRenderer {
         context.beginPDFPage([:] as CFDictionary)
         context.saveGState()
         context.translateBy(x: -mediaBox.minX, y: -mediaBox.minY)
-        unrotatedPage.draw(with: .mediaBox, to: context)
+        drawPageBackground(from: page, unrotatedPage: unrotatedPage, mediaBox: mediaBox, in: context)
 
         for operation in operations {
             let eraseBounds = eraseBounds(for: operation)
             for sourceBounds in eraseBounds {
-                drawErasePatch(for: sourceBounds, on: unrotatedPage, in: context)
+                drawErasePatch(for: sourceBounds, on: page, in: context)
             }
         }
         for operation in operations {
@@ -59,6 +59,27 @@ enum PDFEditedPageRenderer {
         }
         newPage.rotation = page.rotation
         return newPage
+    }
+
+    private static func drawPageBackground(from page: PDFPage, unrotatedPage: PDFPage, mediaBox: CGRect, in context: CGContext) {
+        let rotation = ((page.rotation % 360) + 360) % 360
+        if let pageRef = page.pageRef {
+            context.saveGState()
+            if rotation != 0 {
+                context.concatenate(
+                    pageRef.getDrawingTransform(
+                        .mediaBox,
+                        rect: mediaBox,
+                        rotate: Int32(-rotation),
+                        preserveAspectRatio: true
+                    )
+                )
+            }
+            context.drawPDFPage(pageRef)
+            context.restoreGState()
+        } else {
+            unrotatedPage.draw(with: .mediaBox, to: context)
+        }
     }
 
     static func eraseBounds(for operation: PDFTextEditOperation) -> [CGRect] {
@@ -211,7 +232,7 @@ enum PDFEditedPageRenderer {
         bitmapContext.fill(CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
         bitmapContext.scaleBy(x: scaleX, y: scaleY)
         bitmapContext.translateBy(x: -sampleRect.minX, y: -sampleRect.minY)
-        page.draw(with: .mediaBox, to: bitmapContext)
+        drawPageForSampling(page, mediaBox: pageBounds, in: bitmapContext)
         bitmapContext.restoreGState()
 
         var buckets: [Int: ColorBucket] = [:]
@@ -232,6 +253,27 @@ enum PDFEditedPageRenderer {
         }
 
         return buckets.values.max { lhs, rhs in lhs.count < rhs.count }?.color.cgColor
+    }
+
+    private static func drawPageForSampling(_ page: PDFPage, mediaBox: CGRect, in context: CGContext) {
+        if let pageRef = page.pageRef {
+            let rotation = ((page.rotation % 360) + 360) % 360
+            context.saveGState()
+            if rotation != 0 {
+                context.concatenate(
+                    pageRef.getDrawingTransform(
+                        .mediaBox,
+                        rect: mediaBox,
+                        rotate: Int32(-rotation),
+                        preserveAspectRatio: true
+                    )
+                )
+            }
+            context.drawPDFPage(pageRef)
+            context.restoreGState()
+        } else {
+            page.draw(with: .mediaBox, to: context)
+        }
     }
 }
 

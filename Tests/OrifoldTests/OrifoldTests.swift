@@ -438,10 +438,98 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             alignment: row1.alignment?.nsTextAlignment ?? .left
         ))
 
-        let editedText = viewModel.loadedPDFs.first?.1.page(at: 0)?.string ?? ""
-        XCTAssertTrue(editedText.contains("row-0"), "editing row-1 must preserve the untouched row-0 paragraph")
+        let editedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let editedBitmap = try renderedBitmap(for: editedPage)
+        let row0 = try XCTUnwrap(analysis.blocks.first { $0.text.contains("row-0") })
+        XCTAssertGreaterThan(
+            darkPixelCount(in: row0.bounds, bitmap: editedBitmap),
+            50,
+            "editing row-1 must visibly preserve the untouched row-0 paragraph"
+        )
+
+        let editedText = editedPage.string ?? ""
         XCTAssertTrue(editedText.contains("row-1"), "the edited paragraph should remain on the page")
         XCTAssertTrue(editedText.contains("edited"), "the committed replacement should be rendered into the page")
+    }
+
+    func testUndoRedoStackedParagraphEditNeverBlanksUntouchedParagraph() throws {
+        let pdf = makeStackedParagraphsPDF()
+        let fixture = try makeMemberFixture(name: "Stacked", pdf: pdf)
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+        let originalPage = try XCTUnwrap(PDFDocument(data: fixture.pdfData)?.page(at: 0))
+        let analysis = PDFTextAnalysisEngine().analyze(
+            data: fixture.pdfData,
+            pageIndex: 0,
+            pageRefID: fixture.refs[0].id,
+            fallbackPage: originalPage
+        )
+        let row0 = try XCTUnwrap(analysis.blocks.first { $0.text.contains("row-0") })
+        let row1 = try XCTUnwrap(analysis.blocks.first { $0.text.contains("row-1") })
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: row1,
+            replacementText: row1.text + " edited",
+            editedBounds: row1.bounds,
+            fontName: row1.fontName,
+            fontSize: row1.fontSize,
+            textColor: row1.textColor.nsColor,
+            alignment: row1.alignment?.nsTextAlignment ?? .left
+        ))
+        try assertVisibleTextPixels(in: row0.bounds, viewModel: viewModel, message: "row-0 should survive the initial edit")
+
+        undoManager.undo()
+        try assertVisibleTextPixels(in: row0.bounds, viewModel: viewModel, message: "row-0 should survive undo")
+        XCTAssertFalse(viewModel.loadedPDFs.first?.1.page(at: 0)?.string?.contains("edited") ?? true)
+
+        undoManager.redo()
+        try assertVisibleTextPixels(in: row0.bounds, viewModel: viewModel, message: "row-0 should survive redo")
+        XCTAssertTrue(viewModel.loadedPDFs.first?.1.page(at: 0)?.string?.contains("edited") ?? false)
+    }
+
+    func testInlineTextEditPreservesImageBackedPDFBackground() throws {
+        let pdfData = try makePhotoPDFData(text: "Original searchable text")
+        let pdf = try XCTUnwrap(PDFDocument(data: pdfData))
+        let fixture = try makeMemberFixture(name: "Photo", pdf: pdf)
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let originalPage = try XCTUnwrap(PDFDocument(data: fixture.pdfData)?.page(at: 0))
+        let analysis = PDFTextAnalysisEngine().analyze(
+            data: fixture.pdfData,
+            pageIndex: 0,
+            pageRefID: fixture.refs[0].id,
+            fallbackPage: originalPage
+        )
+        let sourceBlock = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Original searchable text") })
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "Edited searchable text",
+            editedBounds: sourceBlock.bounds,
+            fontName: sourceBlock.fontName,
+            fontSize: sourceBlock.fontSize,
+            textColor: sourceBlock.textColor.nsColor,
+            alignment: sourceBlock.alignment?.nsTextAlignment ?? .left
+        ))
+
+        let editedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let bitmap = try renderedBitmap(for: editedPage)
+        XCTAssertGreaterThan(
+            darkPixelCount(in: CGRect(x: 240, y: 300, width: 160, height: 160), bitmap: bitmap),
+            100,
+            "editing searchable text must not replace an image-backed PDF page with a blank white page"
+        )
+        XCTAssertTrue(editedPage.string?.contains("Edited searchable text") ?? false)
     }
 
     func testPDFTextAnalysisUsesVisibleFontSizeForScaledContentStreams() throws {
@@ -1138,6 +1226,51 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             regenerated.string?.contains("Stale lower line") ?? false,
             "the original page's untouched background text must survive regenerating a 90°-rotated non-square page — it must not go blank"
         )
+    }
+
+    func testRotatedInlineTextEditPreservesRenderedExportedPageContent() throws {
+        let pdf = makeTwoLinePDF()
+        let page = try XCTUnwrap(pdf.page(at: 0))
+        page.rotation = 90
+        let fixture = try makeMemberFixture(name: "Rotated", pdf: pdf)
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let sourceBlock = EditableTextBlock(
+            pageRefID: fixture.refs[0].id,
+            text: "",
+            bounds: CGRect(x: 400, y: 100, width: 1, height: 1),
+            lines: [],
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 100,
+            confidence: .high
+        )
+
+        XCTAssertTrue(viewModel.applyInlineTextEdit(
+            pageRef: fixture.refs[0],
+            sourceBlock: sourceBlock,
+            replacementText: "New",
+            editedBounds: CGRect(x: 400, y: 100, width: 60, height: 16),
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .black,
+            alignment: .left
+        ))
+
+        let exportedData = try viewModel.document.exportedPDFDataThrowing(from: try viewModel.document.snapshot(contentType: .pdf))
+        let exportedPage = try XCTUnwrap(PDFDocument(data: exportedData)?.page(at: 0))
+        let bitmap = try renderedBitmap(for: exportedPage)
+        XCTAssertGreaterThan(
+            darkPixelCount(in: exportedPage.bounds(for: .mediaBox), bitmap: bitmap),
+            100,
+            "exported rotated pages must keep visible original content after inline edits"
+        )
+        XCTAssertTrue(exportedPage.string?.contains("New") ?? false)
     }
 
     func testInlineTextEditDoesNotEraseAutoGrownBoundsBeyondOriginalText() throws {
@@ -5901,6 +6034,18 @@ private func darkPixelCount(in pdfRect: CGRect, bitmap: NSBitmapImageRep) -> Int
         }
     }
     return count
+}
+
+private func assertVisibleTextPixels(
+    in bounds: CGRect,
+    viewModel: WorkspaceViewModel,
+    message: String,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws {
+    let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0), file: file, line: line)
+    let bitmap = try renderedBitmap(for: page)
+    XCTAssertGreaterThan(darkPixelCount(in: bounds, bitmap: bitmap), 50, message, file: file, line: line)
 }
 
 private struct InlineEditorFixture {
