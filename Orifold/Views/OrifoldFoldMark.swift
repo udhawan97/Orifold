@@ -2,37 +2,35 @@ import SwiftUI
 import AppKit
 
 /// Brand/companion fold animation: a sheet of paper folds through three deliberate
-/// creases — a diagonal valley fold, a half fold, a petal fold — then blossoms into
-/// a detailed origami figure. The **figure** is pluggable (`PaperFigure`): the app's
-/// brand mark blooms into a crane (tsuru) and hands off to the real app icon, while
-/// the dashboard companion blooms into the user's chosen **dog** or **cat** and
-/// settles there.
+/// creases — a diagonal valley fold, a half fold, a petal fold — then blossoms into a
+/// detailed origami figure that stays **alive**. The **figure** is pluggable
+/// (`PaperFigure`): the app's brand mark blooms into a crane (tsuru) and hands off to
+/// the real app icon, while the dashboard companion blooms into the user's chosen
+/// **dog** or **cat**, settles, and then keeps breathing and moving — the dog wags its
+/// tail, the cat twitches its ears.
 ///
-/// The opening folds, tile, paper shading, grain, contact shadow, and crease bevel
-/// are all shared across every figure — only the final figure's facet/crease geometry
-/// differs. Everything is vector-drawn in a single `Canvas` choreographed by
-/// `KeyframeAnimator`. The three opening folds are physically simulated (each flap
-/// reflects across its crease and rides a sine "lift" shadow). The figure then emerges
-/// as a staggered per-part reveal — each facet unfolding from its nearest point on the
-/// folded packet's actual outline rather than an arbitrary point, so the paper visibly
-/// continues into the figure. The finished figure is richly rendered like real folded
-/// washi: warm-ivory facets shaded against a cool light, soft ambient occlusion pooling
-/// in the fold valleys, crisp ridge highlights, a deterministic paper-fiber grain
-/// clipped to the silhouette, a contact shadow, and a faint moon disc behind it (a quiet
-/// Japanese note). The grain is hashed from vertex indices, not randomized per frame, so
-/// it never shimmers. Once the run finishes the animator stops ticking, so the settled
-/// mark costs nothing.
+/// The whole run is driven by a single continuous clock (`TimelineView`), so the fold
+/// can be **replayed on demand** (a tap, or every time a feature fires) and the settled
+/// figure can animate forever without re-instantiating anything. The opening folds,
+/// tile, paper shading, grain, contact shadow, and crease bevel are shared across every
+/// figure; each figure supplies its own facet/crease geometry, a paper **palette**
+/// (warm kraft for the dog, cool slate for the cat, warm ivory for the crane), and an
+/// optional **idle wag** (which body group sways, around which pivot, how far, how fast).
 ///
-/// For the brand crane the hand-off to the finished logo is sequenced, not crossfaded:
-/// the crane fully dissolves first, then the icon materializes on a tile drawn to match
-/// the icon's real background, so two different shapes never overlap mid-transition. The
-/// dog/cat companions skip that hand-off entirely and settle on the finished animal.
-/// Everything settles into a barely perceptible idle breath rather than looping.
+/// Everything is vector-drawn in a `Canvas`. The three opening folds are physically
+/// simulated (each flap reflects across its crease and rides a sine "lift" shadow). The
+/// figure then emerges as a staggered per-part reveal — each facet unfolding from its
+/// nearest point on the folded packet's actual outline — and is richly rendered like
+/// real folded washi: two-tone facets shaded against a cool light, ambient occlusion
+/// pooling in the fold valleys, crisp ridge highlights, tiny dark eye/nose facets, a
+/// deterministic paper-fiber grain clipped to the silhouette, a contact shadow, and a
+/// faint moon disc behind it (a quiet Japanese note).
 ///
-/// A short beat after the view appears the fold plays automatically; tapping the mark
-/// replays it. With Reduce Motion the animation is skipped entirely and the finished
-/// figure (crane → app icon; dog/cat → the settled animal) is shown immediately, so the
-/// screen is complete and polished with no motion.
+/// For the brand crane the hand-off to the finished logo is sequenced, not crossfaded;
+/// the dog/cat companions skip the hand-off and settle on the finished animal, then idle.
+/// The crane stops ticking once it resolves (it has no idle wag), so the wordmark costs
+/// nothing at rest; the companions keep a lightweight ~30fps idle. With Reduce Motion the
+/// animation is skipped entirely and the finished figure is shown immediately.
 struct OrifoldFoldMark: View {
     var size: CGFloat = 80
     /// When embedded inside a caller's own tap target (e.g. the dashboard pet's
@@ -41,166 +39,122 @@ struct OrifoldFoldMark: View {
     /// Which paper figure the fold blossoms into. Defaults to the brand crane so the
     /// wordmark and every existing call site are unchanged.
     var figure: PaperFigure = .crane
+    /// Bumping this replays the fold from the start — used to re-fold the companion
+    /// each time a feature fires.
+    var replayTrigger: Int = 0
 
     /// Delay before the fold plays on first appearance, so the screen settles first.
     private let autoplayDelay: TimeInterval = 1.0
-    /// Total keyframe runtime, used to time the post-resolve idle breath.
-    private let animationRuntime: TimeInterval = 4.2
+    /// Total fold runtime (through the icon hand-off), used to time idle hand-off.
+    private let animationRuntime: TimeInterval = 4.3
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var playCount = 0
-    @State private var breathe = false
-    @State private var didResolve = false
-    @State private var replayGeneration = 0
+    @State private var foldStart: Date?
+    @State private var isFoldRunning = false
+    @State private var hasScheduledFirstPlay = false
+    @State private var playGeneration = 0
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    /// Pause the clock when there's nothing to animate: the crane has no idle wag, so
+    /// once its fold resolves it stops ticking. Companions always have an idle wag, so
+    /// they keep breathing/wagging.
+    private var isPaused: Bool {
+        figure.idle == nil && !isFoldRunning
     }
 
     var body: some View {
         Group {
             if shouldReduceMotion {
                 reducedMotionMark
+            } else if interactive {
+                Button {
+                    replay()
+                } label: {
+                    animatedMark
+                }
+                .buttonStyle(.plain)
+                .help("orifoldFoldMark.replay.help")
             } else {
-                animated
+                animatedMark
             }
         }
         .frame(width: size, height: size)
+        .accessibilityLabel(figure.accessibilityLabel)
+        .accessibilityHint(interactive && !shouldReduceMotion ? "orifoldFoldMark.replay.accessibilityHint" : "")
+        .onAppear(perform: scheduleFirstPlay)
+        .onChange(of: replayTrigger) { _, _ in replay() }
+    }
+
+    private var animatedMark: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: isPaused)) { timeline in
+            let elapsed = foldStart.map { max(0, timeline.date.timeIntervalSince($0)) }
+            let state = elapsed.map {
+                FoldState.state(atElapsed: $0, resolvesToAppIcon: figure.resolvesToAppIcon)
+            } ?? .start
+            let intensity = elapsed.map(idleIntensity(atElapsed:)) ?? 1
+            let idle = IdlePhase(phase: timeline.date.timeIntervalSinceReferenceDate, intensity: intensity)
+
+            ZStack {
+                Canvas(opaque: false, rendersAsynchronously: true) { context, canvasSize in
+                    FoldMarkRenderer.draw(in: &context, size: canvasSize, state: state, figure: figure, idle: idle)
+                }
+                // Only the brand crane hands off to the real app icon.
+                if figure.resolvesToAppIcon {
+                    AppIconMark(size: size)
+                        .opacity(state.iconIn)
+                }
+            }
+        }
     }
 
     /// With Reduce Motion the brand crane shows the finished app icon; companion
-    /// figures show their settled animal drawn statically (no ticking animator).
+    /// figures show their settled animal drawn statically (no wag, no ticking).
     @ViewBuilder private var reducedMotionMark: some View {
         if figure.resolvesToAppIcon {
             AppIconMark(size: size)
                 .accessibilityLabel("Orifold")
         } else {
             Canvas(opaque: false) { context, canvasSize in
-                FoldMarkRenderer.draw(in: &context, size: canvasSize, state: .resolved, figure: figure)
+                FoldMarkRenderer.draw(in: &context, size: canvasSize, state: .resolved,
+                                      figure: figure, idle: IdlePhase(phase: 0, intensity: 0))
             }
-            .accessibilityLabel(figure.accessibilityLabel)
         }
     }
 
-    private var animated: some View {
-        Group {
-            if interactive {
-                Button {
-                    replay()
-                } label: {
-                    keyframeContent
-                }
-                .buttonStyle(.plain)
-                .help("orifoldFoldMark.replay.help")
-            } else {
-                keyframeContent
-            }
-        }
-        .onAppear {
-            guard playCount == 0 else { return }
-            // Let the surrounding screen settle, then play the fold.
-            let generation = replayGeneration
-            DispatchQueue.main.asyncAfter(deadline: .now() + autoplayDelay) {
-                guard generation == replayGeneration, playCount == 0 else { return }
-                play()
-            }
-        }
-        .accessibilityLabel(figure.accessibilityLabel)
-        .accessibilityHint("orifoldFoldMark.replay.accessibilityHint")
+    /// The idle wag/breath ramps in only once the figure has finished blossoming, and
+    /// is suppressed while a (re)fold is underway.
+    private func idleIntensity(atElapsed t: TimeInterval) -> Double {
+        FoldMarkRenderer.smoothstep((t - 3.0) / 0.8)
     }
 
-    private var keyframeContent: some View {
-        KeyframeAnimator(initialValue: FoldState.start, trigger: playCount) { state in
-            ZStack {
-                Canvas(opaque: false, rendersAsynchronously: true) { context, canvasSize in
-                    FoldMarkRenderer.draw(in: &context, size: canvasSize, state: state, figure: figure)
-                }
-
-                // Only the brand crane hands off to the real app icon; companion
-                // figures settle on the finished animal.
-                if figure.resolvesToAppIcon {
-                    AppIconMark(size: size)
-                        .opacity(state.iconIn)
-                }
-            }
-            .scaleEffect(breathe ? 1.012 : 1.0)
-        } keyframes: { _ in
-            // Sheet fades and scales into place.
-            KeyframeTrack(\.sheet) {
-                CubicKeyframe(1.0, duration: 0.30)
-            }
-            // Fold 1: diagonal valley fold — the top-left half lifts and lays
-            // over the bottom-right, leaving a two-layer triangle.
-            KeyframeTrack(\.fold1) {
-                LinearKeyframe(0.0, duration: 0.30)
-                CubicKeyframe(1.0, duration: 0.55)
-            }
-            // Fold 2: the triangle folds in half, left point to right.
-            KeyframeTrack(\.fold2) {
-                LinearKeyframe(0.0, duration: 0.85)
-                CubicKeyframe(1.0, duration: 0.45)
-            }
-            // Fold 3: a petal fold narrows the packet into a slender triangle.
-            KeyframeTrack(\.fold3) {
-                LinearKeyframe(0.0, duration: 1.30)
-                CubicKeyframe(1.0, duration: 0.45)
-            }
-            // Blossom: the packet opens into the figure, part by part.
-            KeyframeTrack(\.bloomBody) {
-                LinearKeyframe(0.0, duration: 1.75)
-                CubicKeyframe(1.0, duration: 0.50)
-            }
-            // The biggest, most dramatic reveal (crane wings / animal ears).
-            KeyframeTrack(\.bloomWing) {
-                LinearKeyframe(0.0, duration: 1.90)
-                CubicKeyframe(1.0, duration: 0.62)
-            }
-            KeyframeTrack(\.bloomTail) {
-                LinearKeyframe(0.0, duration: 2.08)
-                CubicKeyframe(1.0, duration: 0.48)
-            }
-            KeyframeTrack(\.bloomNeck) {
-                LinearKeyframe(0.0, duration: 2.20)
-                CubicKeyframe(1.0, duration: 0.55)
-            }
-            KeyframeTrack(\.bloomHead) {
-                LinearKeyframe(0.0, duration: 2.52)
-                CubicKeyframe(1.0, duration: 0.50)
-            }
-            // Hold the finished figure for a beat, then dissolve it away…
-            KeyframeTrack(\.paperOut) {
-                LinearKeyframe(0.0, duration: 3.20)
-                CubicKeyframe(1.0, duration: 0.40)
-            }
-            // …and only then materialize the finished logo on the same tile.
-            KeyframeTrack(\.iconIn) {
-                LinearKeyframe(0.0, duration: 3.65)
-                CubicKeyframe(1.0, duration: 0.45)
-            }
+    private func scheduleFirstPlay() {
+        guard !hasScheduledFirstPlay, !shouldReduceMotion else { return }
+        hasScheduledFirstPlay = true
+        let generation = playGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + autoplayDelay) {
+            guard generation == playGeneration, foldStart == nil else { return }
+            play()
         }
     }
 
     private func replay() {
+        guard !shouldReduceMotion else { return }
         play()
     }
 
     private func play() {
-        replayGeneration += 1
-        didResolve = false
-        breathe = false
-        playCount += 1
-        scheduleIdleBreath()
-    }
-
-    private func scheduleIdleBreath() {
-        let generation = replayGeneration
-        // Settle into a slow, near-invisible idle breath once the fold resolves.
+        playGeneration += 1
+        foldStart = Date()
+        isFoldRunning = true
+        let generation = playGeneration
+        // Let the clock idle-tick only while the crane is folding; once the fold
+        // resolves, `isPaused` can stop it (companions keep ticking via their wag).
         DispatchQueue.main.asyncAfter(deadline: .now() + animationRuntime) {
-            guard generation == replayGeneration, !didResolve else { return }
-            didResolve = true
-            withAnimation(.easeInOut(duration: 3.4).repeatForever(autoreverses: true)) {
-                breathe = true
-            }
+            guard generation == playGeneration else { return }
+            isFoldRunning = false
         }
     }
 }
@@ -240,6 +194,34 @@ private struct FoldState: Equatable {
         bloomBody: 1, bloomWing: 1, bloomTail: 1, bloomNeck: 1, bloomHead: 1,
         paperOut: 0, iconIn: 0
     )
+
+    /// Reproduce the staged fold as a function of elapsed seconds, so the whole
+    /// animation can be driven by a continuous clock (enabling replay + idle).
+    static func state(atElapsed t: TimeInterval, resolvesToAppIcon: Bool) -> FoldState {
+        func track(_ start: Double, _ duration: Double) -> Double {
+            FoldMarkRenderer.smoothstep((t - start) / duration)
+        }
+        return FoldState(
+            sheet: track(0.0, 0.30),
+            fold1: track(0.30, 0.55),
+            fold2: track(0.85, 0.45),
+            fold3: track(1.30, 0.45),
+            bloomBody: track(1.75, 0.50),
+            bloomWing: track(1.90, 0.62),
+            bloomTail: track(2.08, 0.48),
+            bloomNeck: track(2.20, 0.55),
+            bloomHead: track(2.52, 0.50),
+            paperOut: resolvesToAppIcon ? track(3.20, 0.40) : 0,
+            iconIn: resolvesToAppIcon ? track(3.65, 0.45) : 0
+        )
+    }
+}
+
+/// The continuous idle clock: `phase` (seconds, absolute) drives the wag/breath;
+/// `intensity` (0…1) ramps the motion in once the figure has settled.
+private struct IdlePhase {
+    var phase: Double
+    var intensity: Double
 }
 
 // MARK: - Figure geometry
@@ -266,8 +248,38 @@ private enum BloomGroup {
     }
 }
 
-/// One paper facet. `hi`/`lo` are paper-tone values (0…1, see `paperTone`) for the two
-/// ends of the facet's shading gradient, oriented from `gradFrom` to `gradTo`.
+/// Warm/cool endpoints of a figure's paper. Highlights lean toward `warm`, shadows
+/// toward `cool`, as real paper does under a cool sky light. Distinct per species so
+/// the companions read differently at a glance (kraft dog vs slate cat).
+private struct PaperPalette {
+    let warm: (r: Double, g: Double, b: Double)
+    let cool: (r: Double, g: Double, b: Double)
+
+    /// `v` in 0…1: 1 = brightest lit paper, 0 = deepest fold shadow.
+    func tone(_ v: Double) -> Color {
+        let t = max(0, min(1, v))
+        return Color(.sRGB,
+                     red: cool.r + (warm.r - cool.r) * t,
+                     green: cool.g + (warm.g - cool.g) * t,
+                     blue: cool.b + (warm.b - cool.b) * t,
+                     opacity: 1)
+    }
+
+    static let ivory = PaperPalette(warm: (1.00, 0.985, 0.96), cool: (0.72, 0.76, 0.82))
+    static let kraft = PaperPalette(warm: (1.00, 0.90, 0.73), cool: (0.66, 0.50, 0.36))
+    static let slate = PaperPalette(warm: (0.95, 0.96, 1.00), cool: (0.56, 0.60, 0.74))
+
+    // Detail materials used via a facet's `overridePalette` — noses, inner ears, and
+    // eye catchlights, so a few small facets can read as their own material.
+    static let noseDog = PaperPalette(warm: (0.36, 0.27, 0.24), cool: (0.13, 0.10, 0.10))
+    static let noseCat = PaperPalette(warm: (0.98, 0.68, 0.72), cool: (0.60, 0.32, 0.40))
+    static let innerEarDog = PaperPalette(warm: (0.80, 0.58, 0.42), cool: (0.44, 0.30, 0.22))
+    static let innerEarCat = PaperPalette(warm: (0.99, 0.82, 0.84), cool: (0.72, 0.48, 0.55))
+    static let catchlight = PaperPalette(warm: (1.00, 1.00, 1.00), cool: (0.88, 0.92, 0.98))
+}
+
+/// One paper facet. `hi`/`lo` are paper-tone values (0…1) for the two ends of the
+/// facet's shading gradient, oriented from `gradFrom` to `gradTo`.
 private struct PaperFacet {
     let group: BloomGroup
     let pts: [CGPoint]
@@ -275,6 +287,10 @@ private struct PaperFacet {
     let lo: Double
     let gradFrom: CGPoint
     let gradTo: CGPoint
+    /// When set, this facet paints in its own material (nose, inner ear, catchlight)
+    /// instead of the figure's paper palette. Declared last so existing call sites
+    /// (which don't pass it) keep compiling via the synthesized default.
+    var overridePalette: PaperPalette? = nil
 }
 
 /// A fold line. `valley` folds pool soft shadow; ridges catch a thin highlight.
@@ -300,8 +316,17 @@ private struct PaperSpecular {
     let group: BloomGroup
 }
 
+/// A living-idle wag: the named `group` rotates around `pivot` by ±`amplitude`
+/// (radians) at `speed` (radians/second). Dogs wag the tail; cats twitch the ears.
+private struct PaperWag {
+    let group: BloomGroup
+    let pivot: CGPoint
+    let amplitude: Double
+    let speed: Double
+}
+
 /// A complete blossomed figure. The brand crane (`.crane`) hands off to the app icon;
-/// the companion animals (`.dog`, `.cat`) settle on the finished figure.
+/// the companion animals (`.dog`, `.cat`) settle on the finished figure and idle.
 struct PaperFigure {
     /// `nil` for the brand crane; the companion species otherwise.
     fileprivate let species: PetSpecies?
@@ -311,6 +336,9 @@ struct PaperFigure {
     fileprivate let packetTriangle: [CGPoint]
     fileprivate let groundCenter: CGPoint
     fileprivate let specular: PaperSpecular?
+    fileprivate let palette: PaperPalette
+    /// The idle wag, or `nil` for a figure that rests completely still (the crane).
+    fileprivate let idle: PaperWag?
 
     /// Only the brand crane dissolves and hands off to the real app icon.
     fileprivate var resolvesToAppIcon: Bool { species == nil }
@@ -415,78 +443,109 @@ extension PaperFigure {
             occlusion: occlusion,
             packetTriangle: PaperFigure.packet,
             groundCenter: CGPoint(x: 0.48, y: 0.79),
-            specular: PaperSpecular(from: CGPoint(x: 0.560, y: 0.520), to: CGPoint(x: 0.30, y: 0.235), group: .wing)
+            specular: PaperSpecular(from: CGPoint(x: 0.560, y: 0.520), to: CGPoint(x: 0.30, y: 0.235), group: .wing),
+            palette: .ivory,
+            idle: nil
         )
     }()
 }
 
 // MARK: Dog geometry
 //
-// A friendly seated shiba-style origami dog, facing right (echoing the icon's arrow
-// direction): a broad two-tone head with two upright pricked ears, a short muzzle
-// pointing right, a seated haunch below, and a curled tail sweeping up the back.
-// Group mapping: head→head, ears→wing, muzzle→neck, torso→body, tail→tail.
+// A friendly seated shiba-ish origami dog in warm kraft paper, facing right: a rounded
+// two-tone head, a long snout with a dark nose, two soft down-folded ears, a seated
+// haunch, a dark eye, and a big plume tail that WAGS. Group mapping: head→head,
+// ears→wing, snout+nose→neck, torso→body, tail→tail.
 
 extension PaperFigure {
     static let dog: PaperFigure = {
-        let headTop = CGPoint(x: 0.500, y: 0.300)
-        let headR = CGPoint(x: 0.635, y: 0.440)
-        let headBot = CGPoint(x: 0.500, y: 0.575)
-        let headL = CGPoint(x: 0.375, y: 0.440)
+        let headTop = CGPoint(x: 0.455, y: 0.240)
+        let headR = CGPoint(x: 0.585, y: 0.380)
+        let headBot = CGPoint(x: 0.460, y: 0.520)
+        let headL = CGPoint(x: 0.335, y: 0.375)
 
         let facets: [PaperFacet] = [
-            // Far ear — behind, up-right, darker (depth).
+            // Far ear — down-folded behind the head on the right, darker.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.560, y: 0.320), CGPoint(x: 0.680, y: 0.150), CGPoint(x: 0.610, y: 0.400)],
-                       hi: 0.54, lo: 0.34, gradFrom: CGPoint(x: 0.680, y: 0.150), gradTo: CGPoint(x: 0.60, y: 0.400)),
-            // Tail — a small curl behind the haunch, kept low and left so it reads
-            // separately from the ears above rather than crowding them.
+                       pts: [CGPoint(x: 0.520, y: 0.270), CGPoint(x: 0.600, y: 0.300), CGPoint(x: 0.545, y: 0.470)],
+                       hi: 0.50, lo: 0.30, gradFrom: CGPoint(x: 0.600, y: 0.300), gradTo: CGPoint(x: 0.545, y: 0.470)),
+            // Tail — a big plume sweeping up the back-left (the wag element), three facets.
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.345, y: 0.665), CGPoint(x: 0.225, y: 0.600), CGPoint(x: 0.375, y: 0.615)],
-                       hi: 0.72, lo: 0.52, gradFrom: CGPoint(x: 0.375, y: 0.615), gradTo: CGPoint(x: 0.225, y: 0.600)),
+                       pts: [CGPoint(x: 0.340, y: 0.700), CGPoint(x: 0.185, y: 0.470), CGPoint(x: 0.375, y: 0.620)],
+                       hi: 0.80, lo: 0.55, gradFrom: CGPoint(x: 0.375, y: 0.620), gradTo: CGPoint(x: 0.185, y: 0.470)),
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.345, y: 0.665), CGPoint(x: 0.375, y: 0.615), CGPoint(x: 0.410, y: 0.675)],
-                       hi: 0.60, lo: 0.42, gradFrom: CGPoint(x: 0.410, y: 0.675), gradTo: CGPoint(x: 0.345, y: 0.665)),
+                       pts: [CGPoint(x: 0.340, y: 0.700), CGPoint(x: 0.375, y: 0.620), CGPoint(x: 0.420, y: 0.700)],
+                       hi: 0.62, lo: 0.44, gradFrom: CGPoint(x: 0.420, y: 0.700), gradTo: CGPoint(x: 0.340, y: 0.700)),
+            // Plush dark tip on the tail.
+            PaperFacet(group: .tail,
+                       pts: [CGPoint(x: 0.185, y: 0.470), CGPoint(x: 0.250, y: 0.500), CGPoint(x: 0.232, y: 0.566)],
+                       hi: 0.44, lo: 0.26, gradFrom: CGPoint(x: 0.250, y: 0.500), gradTo: CGPoint(x: 0.185, y: 0.470)),
             // Torso / seated haunch — shadowed back + lit front.
             PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.455, y: 0.545), CGPoint(x: 0.455, y: 0.810), CGPoint(x: 0.300, y: 0.740)],
-                       hi: 0.62, lo: 0.42, gradFrom: CGPoint(x: 0.455, y: 0.545), gradTo: CGPoint(x: 0.300, y: 0.740)),
+                       pts: [CGPoint(x: 0.445, y: 0.500), CGPoint(x: 0.445, y: 0.840), CGPoint(x: 0.280, y: 0.740)],
+                       hi: 0.60, lo: 0.40, gradFrom: CGPoint(x: 0.445, y: 0.500), gradTo: CGPoint(x: 0.280, y: 0.740)),
             PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.455, y: 0.545), CGPoint(x: 0.585, y: 0.795), CGPoint(x: 0.455, y: 0.810)],
-                       hi: 0.84, lo: 0.62, gradFrom: CGPoint(x: 0.455, y: 0.545), gradTo: CGPoint(x: 0.585, y: 0.795)),
-            // Head — shadowed left + lit right, split on the muzzle keel.
+                       pts: [CGPoint(x: 0.445, y: 0.500), CGPoint(x: 0.560, y: 0.820), CGPoint(x: 0.445, y: 0.840)],
+                       hi: 0.86, lo: 0.62, gradFrom: CGPoint(x: 0.445, y: 0.500), gradTo: CGPoint(x: 0.560, y: 0.820)),
+            // Chest tuft — a soft bright wedge down the front.
+            PaperFacet(group: .body,
+                       pts: [CGPoint(x: 0.470, y: 0.520), CGPoint(x: 0.522, y: 0.700), CGPoint(x: 0.456, y: 0.762)],
+                       hi: 0.99, lo: 0.74, gradFrom: CGPoint(x: 0.470, y: 0.520), gradTo: CGPoint(x: 0.456, y: 0.762)),
+            // Front paw — a small lit tab at the base.
+            PaperFacet(group: .body,
+                       pts: [CGPoint(x: 0.470, y: 0.800), CGPoint(x: 0.575, y: 0.812), CGPoint(x: 0.560, y: 0.848), CGPoint(x: 0.470, y: 0.848)],
+                       hi: 0.94, lo: 0.72, gradFrom: CGPoint(x: 0.470, y: 0.800), gradTo: CGPoint(x: 0.470, y: 0.848)),
+            // Head — shadowed back-left + lit front-right, split on the keel.
             PaperFacet(group: .head,
                        pts: [headTop, headBot, headL],
-                       hi: 0.72, lo: 0.52, gradFrom: headTop, gradTo: headL),
+                       hi: 0.66, lo: 0.46, gradFrom: headTop, gradTo: headL),
             PaperFacet(group: .head,
                        pts: [headTop, headR, headBot],
                        hi: 1.00, lo: 0.80, gradFrom: headTop, gradTo: headBot),
-            // Muzzle — short wedge pointing right, two-tone.
+            // Eye — dark facet on the lit cheek, lifted by a tiny catchlight.
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.518, y: 0.356), CGPoint(x: 0.556, y: 0.370), CGPoint(x: 0.520, y: 0.396)],
+                       hi: 0.22, lo: 0.10, gradFrom: CGPoint(x: 0.518, y: 0.356), gradTo: CGPoint(x: 0.520, y: 0.396)),
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.524, y: 0.362), CGPoint(x: 0.537, y: 0.366), CGPoint(x: 0.527, y: 0.376)],
+                       hi: 1.0, lo: 0.9, gradFrom: CGPoint(x: 0.524, y: 0.362), gradTo: CGPoint(x: 0.527, y: 0.376),
+                       overridePalette: .catchlight),
+            // Snout — long wedge pointing right, lit top + shadowed underside.
             PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.585, y: 0.410), CGPoint(x: 0.745, y: 0.500), CGPoint(x: 0.590, y: 0.520)],
-                       hi: 0.96, lo: 0.78, gradFrom: CGPoint(x: 0.745, y: 0.500), gradTo: CGPoint(x: 0.59, y: 0.520)),
+                       pts: [CGPoint(x: 0.545, y: 0.350), CGPoint(x: 0.720, y: 0.470), CGPoint(x: 0.548, y: 0.450)],
+                       hi: 0.98, lo: 0.80, gradFrom: CGPoint(x: 0.720, y: 0.470), gradTo: CGPoint(x: 0.55, y: 0.450)),
             PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.590, y: 0.520), CGPoint(x: 0.745, y: 0.500), CGPoint(x: 0.620, y: 0.555)],
-                       hi: 0.78, lo: 0.60, gradFrom: CGPoint(x: 0.745, y: 0.500), gradTo: CGPoint(x: 0.62, y: 0.555)),
-            // Near ear — bright, pricked up (slightly out-left), in front of the head.
+                       pts: [CGPoint(x: 0.548, y: 0.450), CGPoint(x: 0.720, y: 0.470), CGPoint(x: 0.560, y: 0.520)],
+                       hi: 0.74, lo: 0.56, gradFrom: CGPoint(x: 0.720, y: 0.470), gradTo: CGPoint(x: 0.56, y: 0.520)),
+            // Nose — a rounded dark button with a moist top highlight.
+            PaperFacet(group: .neck,
+                       pts: [CGPoint(x: 0.702, y: 0.452), CGPoint(x: 0.741, y: 0.462), CGPoint(x: 0.751, y: 0.482), CGPoint(x: 0.710, y: 0.500)],
+                       hi: 0.82, lo: 0.30, gradFrom: CGPoint(x: 0.720, y: 0.454), gradTo: CGPoint(x: 0.714, y: 0.498),
+                       overridePalette: .noseDog),
+            // Near ear — bright, soft down-fold in front on the left.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.475, y: 0.310), CGPoint(x: 0.395, y: 0.135), CGPoint(x: 0.455, y: 0.420)],
-                       hi: 0.86, lo: 0.62, gradFrom: CGPoint(x: 0.395, y: 0.135), gradTo: CGPoint(x: 0.47, y: 0.420)),
+                       pts: [CGPoint(x: 0.400, y: 0.250), CGPoint(x: 0.300, y: 0.470), CGPoint(x: 0.440, y: 0.400)],
+                       hi: 0.82, lo: 0.56, gradFrom: CGPoint(x: 0.400, y: 0.250), gradTo: CGPoint(x: 0.300, y: 0.470)),
+            // Inner near-ear — a warmer, darker fold nested inside for depth.
+            PaperFacet(group: .wing,
+                       pts: [CGPoint(x: 0.399, y: 0.294), CGPoint(x: 0.338, y: 0.444), CGPoint(x: 0.430, y: 0.398)],
+                       hi: 0.72, lo: 0.42, gradFrom: CGPoint(x: 0.399, y: 0.294), gradTo: CGPoint(x: 0.338, y: 0.444),
+                       overridePalette: .innerEarDog),
         ]
 
         let creases: [PaperCrease] = [
             PaperCrease(group: .head, a: headTop, b: headBot, valley: true, strength: 1.0),                                          // head keel
-            PaperCrease(group: .neck, a: CGPoint(x: 0.585, y: 0.410), b: CGPoint(x: 0.745, y: 0.500), valley: false, strength: 0.6), // muzzle ridge
-            PaperCrease(group: .wing, a: CGPoint(x: 0.475, y: 0.310), b: CGPoint(x: 0.395, y: 0.135), valley: true, strength: 0.7),  // near-ear fold
-            PaperCrease(group: .wing, a: CGPoint(x: 0.560, y: 0.320), b: CGPoint(x: 0.680, y: 0.150), valley: true, strength: 0.4),  // far-ear fold
-            PaperCrease(group: .body, a: CGPoint(x: 0.455, y: 0.545), b: CGPoint(x: 0.455, y: 0.810), valley: true, strength: 0.5),  // chest keel
-            PaperCrease(group: .tail, a: CGPoint(x: 0.375, y: 0.615), b: CGPoint(x: 0.225, y: 0.600), valley: false, strength: 0.4), // tail median
+            PaperCrease(group: .neck, a: CGPoint(x: 0.545, y: 0.350), b: CGPoint(x: 0.720, y: 0.470), valley: false, strength: 0.7), // snout ridge
+            PaperCrease(group: .wing, a: CGPoint(x: 0.400, y: 0.250), b: CGPoint(x: 0.300, y: 0.470), valley: true, strength: 0.6),  // near-ear fold
+            PaperCrease(group: .wing, a: CGPoint(x: 0.520, y: 0.270), b: CGPoint(x: 0.545, y: 0.470), valley: true, strength: 0.35), // far-ear fold
+            PaperCrease(group: .body, a: CGPoint(x: 0.445, y: 0.500), b: CGPoint(x: 0.445, y: 0.840), valley: true, strength: 0.5),  // chest keel
+            PaperCrease(group: .tail, a: CGPoint(x: 0.340, y: 0.700), b: CGPoint(x: 0.185, y: 0.470), valley: false, strength: 0.5), // tail median
         ]
 
         let occlusion: [PaperOcclusion] = [
-            PaperOcclusion(center: CGPoint(x: 0.50, y: 0.44), radius: 0.13, group: .head),
-            PaperOcclusion(center: CGPoint(x: 0.45, y: 0.60), radius: 0.10, group: .body),
-            PaperOcclusion(center: CGPoint(x: 0.50, y: 0.33), radius: 0.08, group: .wing),
+            PaperOcclusion(center: CGPoint(x: 0.47, y: 0.42), radius: 0.12, group: .head),
+            PaperOcclusion(center: CGPoint(x: 0.44, y: 0.60), radius: 0.11, group: .body),
+            PaperOcclusion(center: CGPoint(x: 0.37, y: 0.66), radius: 0.08, group: .tail),
         ]
 
         return PaperFigure(
@@ -495,78 +554,116 @@ extension PaperFigure {
             creases: creases,
             occlusion: occlusion,
             packetTriangle: PaperFigure.packet,
-            groundCenter: CGPoint(x: 0.45, y: 0.83),
-            specular: PaperSpecular(from: CGPoint(x: 0.500, y: 0.300), to: CGPoint(x: 0.430, y: 0.430), group: .head)
+            groundCenter: CGPoint(x: 0.44, y: 0.87),
+            specular: PaperSpecular(from: CGPoint(x: 0.470, y: 0.260), to: CGPoint(x: 0.560, y: 0.360), group: .head),
+            palette: .kraft,
+            // Big, lively tail wag around the tail base.
+            idle: PaperWag(group: .tail, pivot: CGPoint(x: 0.360, y: 0.720), amplitude: 0.24, speed: 7.6)
         )
     }()
 }
 
 // MARK: Cat geometry
 //
-// A composed seated origami cat, facing right: a narrow two-tone head crowned by two
-// tall pointed ears, a small flat muzzle, a slim upright torso, and a long tail curling
-// along the front paws. Group mapping matches the dog (head→head, ears→wing,
-// muzzle→neck, torso→body, tail→tail).
+// A composed seated origami cat in cool slate paper, facing right: a narrow two-tone
+// head crowned by two tall pointed ears that TWITCH, a small muzzle with a dark nose, a
+// slim upright torso, a dark almond eye, and a long tail curling along the front paws.
+// Group mapping matches the dog (head→head, ears→wing, muzzle→neck, torso→body, tail→tail).
 
 extension PaperFigure {
     static let cat: PaperFigure = {
-        let headTop = CGPoint(x: 0.500, y: 0.320)
-        let headR = CGPoint(x: 0.605, y: 0.450)
-        let headBot = CGPoint(x: 0.500, y: 0.560)
-        let headL = CGPoint(x: 0.400, y: 0.450)
+        let headTop = CGPoint(x: 0.500, y: 0.360)
+        let headR = CGPoint(x: 0.595, y: 0.470)
+        let headBot = CGPoint(x: 0.500, y: 0.580)
+        let headL = CGPoint(x: 0.405, y: 0.470)
 
         let facets: [PaperFacet] = [
-            // Far ear — tall pointed triangle behind, darker.
+            // Far ear — broad feline triangle, set wide on the right of the crown.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.560, y: 0.320), CGPoint(x: 0.650, y: 0.130), CGPoint(x: 0.505, y: 0.315)],
-                       hi: 0.52, lo: 0.32, gradFrom: CGPoint(x: 0.650, y: 0.130), gradTo: CGPoint(x: 0.55, y: 0.320)),
+                       pts: [CGPoint(x: 0.585, y: 0.400), CGPoint(x: 0.600, y: 0.185), CGPoint(x: 0.500, y: 0.360)],
+                       hi: 0.50, lo: 0.30, gradFrom: CGPoint(x: 0.600, y: 0.185), gradTo: CGPoint(x: 0.54, y: 0.375)),
+            // Inner far-ear — a soft pink nested triangle.
+            PaperFacet(group: .wing,
+                       pts: [CGPoint(x: 0.578, y: 0.388), CGPoint(x: 0.590, y: 0.238), CGPoint(x: 0.512, y: 0.360)],
+                       hi: 0.60, lo: 0.34, gradFrom: CGPoint(x: 0.590, y: 0.238), gradTo: CGPoint(x: 0.55, y: 0.360),
+                       overridePalette: .innerEarCat),
             // Tail — long curl sweeping along the front, two facets.
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.455, y: 0.775), CGPoint(x: 0.680, y: 0.790), CGPoint(x: 0.500, y: 0.700)],
-                       hi: 0.72, lo: 0.52, gradFrom: CGPoint(x: 0.500, y: 0.700), gradTo: CGPoint(x: 0.680, y: 0.790)),
+                       pts: [CGPoint(x: 0.470, y: 0.830), CGPoint(x: 0.720, y: 0.800), CGPoint(x: 0.510, y: 0.740)],
+                       hi: 0.72, lo: 0.50, gradFrom: CGPoint(x: 0.510, y: 0.740), gradTo: CGPoint(x: 0.720, y: 0.800)),
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.500, y: 0.700), CGPoint(x: 0.680, y: 0.790), CGPoint(x: 0.615, y: 0.685)],
-                       hi: 0.60, lo: 0.42, gradFrom: CGPoint(x: 0.615, y: 0.685), gradTo: CGPoint(x: 0.680, y: 0.790)),
+                       pts: [CGPoint(x: 0.510, y: 0.740), CGPoint(x: 0.720, y: 0.800), CGPoint(x: 0.645, y: 0.700)],
+                       hi: 0.58, lo: 0.40, gradFrom: CGPoint(x: 0.645, y: 0.700), gradTo: CGPoint(x: 0.720, y: 0.800)),
+            // Dark tail tip curling up at the end.
+            PaperFacet(group: .tail,
+                       pts: [CGPoint(x: 0.690, y: 0.792), CGPoint(x: 0.734, y: 0.802), CGPoint(x: 0.706, y: 0.752)],
+                       hi: 0.42, lo: 0.24, gradFrom: CGPoint(x: 0.734, y: 0.802), gradTo: CGPoint(x: 0.706, y: 0.752)),
             // Torso — slim seated body, shadowed back + lit front.
             PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.470, y: 0.540), CGPoint(x: 0.470, y: 0.795), CGPoint(x: 0.360, y: 0.720)],
-                       hi: 0.62, lo: 0.42, gradFrom: CGPoint(x: 0.470, y: 0.540), gradTo: CGPoint(x: 0.360, y: 0.720)),
+                       pts: [CGPoint(x: 0.480, y: 0.560), CGPoint(x: 0.480, y: 0.840), CGPoint(x: 0.375, y: 0.740)],
+                       hi: 0.60, lo: 0.40, gradFrom: CGPoint(x: 0.480, y: 0.560), gradTo: CGPoint(x: 0.375, y: 0.740)),
             PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.470, y: 0.540), CGPoint(x: 0.560, y: 0.790), CGPoint(x: 0.470, y: 0.795)],
-                       hi: 0.84, lo: 0.62, gradFrom: CGPoint(x: 0.470, y: 0.540), gradTo: CGPoint(x: 0.560, y: 0.790)),
+                       pts: [CGPoint(x: 0.480, y: 0.560), CGPoint(x: 0.560, y: 0.830), CGPoint(x: 0.480, y: 0.840)],
+                       hi: 0.84, lo: 0.60, gradFrom: CGPoint(x: 0.480, y: 0.560), gradTo: CGPoint(x: 0.560, y: 0.830)),
+            // Chest tuft — a soft bright wedge down the front.
+            PaperFacet(group: .body,
+                       pts: [CGPoint(x: 0.492, y: 0.575), CGPoint(x: 0.532, y: 0.720), CGPoint(x: 0.480, y: 0.782)],
+                       hi: 0.97, lo: 0.72, gradFrom: CGPoint(x: 0.492, y: 0.575), gradTo: CGPoint(x: 0.480, y: 0.782)),
+            // Front paws — a small lit tab at the base.
+            PaperFacet(group: .body,
+                       pts: [CGPoint(x: 0.482, y: 0.806), CGPoint(x: 0.572, y: 0.804), CGPoint(x: 0.560, y: 0.844), CGPoint(x: 0.482, y: 0.846)],
+                       hi: 0.92, lo: 0.70, gradFrom: CGPoint(x: 0.482, y: 0.806), gradTo: CGPoint(x: 0.482, y: 0.846)),
             // Head — shadowed left + lit right, split on the keel.
             PaperFacet(group: .head,
                        pts: [headTop, headBot, headL],
-                       hi: 0.72, lo: 0.52, gradFrom: headTop, gradTo: headL),
+                       hi: 0.66, lo: 0.46, gradFrom: headTop, gradTo: headL),
             PaperFacet(group: .head,
                        pts: [headTop, headR, headBot],
                        hi: 1.00, lo: 0.80, gradFrom: headTop, gradTo: headBot),
+            // Eye — dark almond on the lit cheek, lifted by a tiny catchlight.
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.526, y: 0.448), CGPoint(x: 0.568, y: 0.460), CGPoint(x: 0.532, y: 0.480)],
+                       hi: 0.20, lo: 0.08, gradFrom: CGPoint(x: 0.568, y: 0.460), gradTo: CGPoint(x: 0.532, y: 0.480)),
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.535, y: 0.454), CGPoint(x: 0.547, y: 0.458), CGPoint(x: 0.538, y: 0.467)],
+                       hi: 1.0, lo: 0.9, gradFrom: CGPoint(x: 0.535, y: 0.454), gradTo: CGPoint(x: 0.538, y: 0.467),
+                       overridePalette: .catchlight),
             // Muzzle — small flat wedge, two-tone.
             PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.550, y: 0.455), CGPoint(x: 0.650, y: 0.510), CGPoint(x: 0.545, y: 0.540)],
-                       hi: 0.96, lo: 0.78, gradFrom: CGPoint(x: 0.650, y: 0.510), gradTo: CGPoint(x: 0.545, y: 0.540)),
+                       pts: [CGPoint(x: 0.548, y: 0.478), CGPoint(x: 0.640, y: 0.520), CGPoint(x: 0.548, y: 0.548)],
+                       hi: 0.96, lo: 0.78, gradFrom: CGPoint(x: 0.640, y: 0.520), gradTo: CGPoint(x: 0.548, y: 0.548)),
             PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.545, y: 0.540), CGPoint(x: 0.650, y: 0.510), CGPoint(x: 0.580, y: 0.545)],
-                       hi: 0.78, lo: 0.60, gradFrom: CGPoint(x: 0.650, y: 0.510), gradTo: CGPoint(x: 0.58, y: 0.545)),
-            // Near ear — bright tall pointed triangle in front.
+                       pts: [CGPoint(x: 0.548, y: 0.548), CGPoint(x: 0.640, y: 0.520), CGPoint(x: 0.582, y: 0.556)],
+                       hi: 0.76, lo: 0.58, gradFrom: CGPoint(x: 0.640, y: 0.520), gradTo: CGPoint(x: 0.582, y: 0.556)),
+            // Nose — a little pink downward triangle.
+            PaperFacet(group: .neck,
+                       pts: [CGPoint(x: 0.606, y: 0.502), CGPoint(x: 0.648, y: 0.514), CGPoint(x: 0.620, y: 0.540)],
+                       hi: 0.92, lo: 0.46, gradFrom: CGPoint(x: 0.606, y: 0.502), gradTo: CGPoint(x: 0.620, y: 0.540),
+                       overridePalette: .noseCat),
+            // Near ear — bright broad feline triangle, set wide on the left of the crown.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.455, y: 0.320), CGPoint(x: 0.360, y: 0.120), CGPoint(x: 0.500, y: 0.320)],
-                       hi: 0.88, lo: 0.64, gradFrom: CGPoint(x: 0.360, y: 0.120), gradTo: CGPoint(x: 0.48, y: 0.320)),
+                       pts: [CGPoint(x: 0.415, y: 0.400), CGPoint(x: 0.400, y: 0.185), CGPoint(x: 0.500, y: 0.360)],
+                       hi: 0.86, lo: 0.60, gradFrom: CGPoint(x: 0.400, y: 0.185), gradTo: CGPoint(x: 0.48, y: 0.360)),
+            // Inner near-ear — bright pink nested triangle.
+            PaperFacet(group: .wing,
+                       pts: [CGPoint(x: 0.424, y: 0.388), CGPoint(x: 0.412, y: 0.238), CGPoint(x: 0.492, y: 0.360)],
+                       hi: 0.92, lo: 0.60, gradFrom: CGPoint(x: 0.412, y: 0.238), gradTo: CGPoint(x: 0.47, y: 0.360),
+                       overridePalette: .innerEarCat),
         ]
 
         let creases: [PaperCrease] = [
             PaperCrease(group: .head, a: headTop, b: headBot, valley: true, strength: 1.0),                                          // head keel
-            PaperCrease(group: .neck, a: CGPoint(x: 0.550, y: 0.455), b: CGPoint(x: 0.650, y: 0.510), valley: false, strength: 0.5), // muzzle ridge
-            PaperCrease(group: .wing, a: CGPoint(x: 0.455, y: 0.320), b: CGPoint(x: 0.360, y: 0.120), valley: true, strength: 0.7),  // near-ear fold
-            PaperCrease(group: .wing, a: CGPoint(x: 0.560, y: 0.320), b: CGPoint(x: 0.650, y: 0.130), valley: true, strength: 0.4),  // far-ear fold
-            PaperCrease(group: .body, a: CGPoint(x: 0.470, y: 0.540), b: CGPoint(x: 0.470, y: 0.795), valley: true, strength: 0.5),  // chest keel
-            PaperCrease(group: .tail, a: CGPoint(x: 0.500, y: 0.700), b: CGPoint(x: 0.680, y: 0.790), valley: false, strength: 0.4), // tail median
+            PaperCrease(group: .neck, a: CGPoint(x: 0.548, y: 0.478), b: CGPoint(x: 0.640, y: 0.520), valley: false, strength: 0.5), // muzzle ridge
+            PaperCrease(group: .wing, a: CGPoint(x: 0.415, y: 0.400), b: CGPoint(x: 0.400, y: 0.185), valley: true, strength: 0.7),  // near-ear fold
+            PaperCrease(group: .wing, a: CGPoint(x: 0.585, y: 0.400), b: CGPoint(x: 0.600, y: 0.185), valley: true, strength: 0.4),  // far-ear fold
+            PaperCrease(group: .body, a: CGPoint(x: 0.480, y: 0.560), b: CGPoint(x: 0.480, y: 0.840), valley: true, strength: 0.5),  // chest keel
+            PaperCrease(group: .tail, a: CGPoint(x: 0.510, y: 0.740), b: CGPoint(x: 0.720, y: 0.800), valley: false, strength: 0.4), // tail median
         ]
 
         let occlusion: [PaperOcclusion] = [
-            PaperOcclusion(center: CGPoint(x: 0.50, y: 0.46), radius: 0.11, group: .head),
-            PaperOcclusion(center: CGPoint(x: 0.46, y: 0.60), radius: 0.09, group: .body),
-            PaperOcclusion(center: CGPoint(x: 0.50, y: 0.33), radius: 0.07, group: .wing),
+            PaperOcclusion(center: CGPoint(x: 0.50, y: 0.48), radius: 0.11, group: .head),
+            PaperOcclusion(center: CGPoint(x: 0.47, y: 0.62), radius: 0.09, group: .body),
+            PaperOcclusion(center: CGPoint(x: 0.50, y: 0.37), radius: 0.07, group: .wing),
         ]
 
         return PaperFigure(
@@ -575,8 +672,11 @@ extension PaperFigure {
             creases: creases,
             occlusion: occlusion,
             packetTriangle: PaperFigure.packet,
-            groundCenter: CGPoint(x: 0.47, y: 0.83),
-            specular: PaperSpecular(from: CGPoint(x: 0.500, y: 0.320), to: CGPoint(x: 0.440, y: 0.440), group: .head)
+            groundCenter: CGPoint(x: 0.48, y: 0.87),
+            specular: PaperSpecular(from: CGPoint(x: 0.500, y: 0.360), to: CGPoint(x: 0.440, y: 0.470), group: .head),
+            palette: .slate,
+            // Gentle twin-ear twitch around the crown.
+            idle: PaperWag(group: .wing, pivot: CGPoint(x: 0.500, y: 0.380), amplitude: 0.11, speed: 4.8)
         )
     }()
 }
@@ -584,13 +684,14 @@ extension PaperFigure {
 // MARK: - Renderer
 
 private enum FoldMarkRenderer {
-    static func draw(in context: inout GraphicsContext, size: CGSize, state: FoldState, figure: PaperFigure) {
+    static func draw(in context: inout GraphicsContext, size: CGSize, state: FoldState, figure: PaperFigure, idle: IdlePhase) {
         let side = min(size.width, size.height)
         guard side > 0 else { return }
 
-        // Fade + subtle scale-in of the whole mark.
+        // Fade + subtle scale-in of the whole mark, plus a gentle idle breath once settled.
         context.opacity = state.sheet
-        let scale = 0.92 + 0.08 * state.sheet
+        let breath = 1 + 0.012 * sin(idle.phase * 3.2) * idle.intensity
+        let scale = (0.92 + 0.08 * state.sheet) * breath
         let mid = CGPoint(x: size.width / 2, y: size.height / 2)
         context.translateBy(x: mid.x, y: mid.y)
         context.scaleBy(x: scale, y: scale)
@@ -618,7 +719,7 @@ private enum FoldMarkRenderer {
         }
 
         drawFoldStages(in: &context, side: side, state: state, at: at)
-        drawFigure(in: &context, tileRect: tileRect, side: side, state: state, figure: figure, at: at)
+        drawFigure(in: &context, tileRect: tileRect, side: side, state: state, figure: figure, idle: idle, at: at)
     }
 
     // MARK: Opening folds (square → triangle → wide packet → slender triangle)
@@ -752,14 +853,21 @@ private enum FoldMarkRenderer {
         side: CGFloat,
         state: FoldState,
         figure: PaperFigure,
+        idle: IdlePhase,
         at: (CGPoint) -> CGPoint
     ) {
         let overall = max(state.bloomBody, state.bloomWing, state.bloomTail, state.bloomNeck, state.bloomHead)
         guard overall > 0.001 else { return }
 
-        // Contact shadow beneath the settling figure — a single soft ellipse, darkest
-        // at its core and falling off smoothly, so it reads as grounded without
-        // looking like a separate dark puddle.
+        // The live idle wag: how far the wagging group is currently rotated. A tile-unit
+        // transform applied only to that group's points (identity for every other group).
+        let wagAngle = figure.idle.map { sin(idle.phase * $0.speed) * $0.amplitude * idle.intensity } ?? 0
+        func wag(_ group: BloomGroup) -> (CGPoint) -> CGPoint {
+            guard let wag = figure.idle, wag.group == group, wagAngle != 0 else { return { $0 } }
+            return { rotate($0, around: wag.pivot, angle: wagAngle) }
+        }
+
+        // Contact shadow beneath the settling figure — a single soft ellipse.
         let groundOpacity = 0.15 * state.bloomBody
         if groundOpacity > 0.005 {
             let center = at(figure.groundCenter)
@@ -777,14 +885,15 @@ private enum FoldMarkRenderer {
             )
         }
 
-        // Resolve each visible facet's current (unfolding) path.
+        // Resolve each visible facet's current (unfolding, wagging) path.
         var silhouette = Path()
         var visible: [(facet: PaperFacet, path: Path, opacity: Double)] = []
         for facet in figure.facets {
             let p = facet.group.progress(state)
             guard p > 0.001 else { continue }
             let eased = ease(p)
-            let path = unfoldPath(facet.pts, progress: eased, packet: figure.packetTriangle, at: at)
+            let path = unfoldPath(facet.pts, progress: eased, packet: figure.packetTriangle,
+                                  transform: wag(facet.group), at: at)
             silhouette.addPath(path)
             visible.append((facet, path, min(1, eased * 1.6)))
         }
@@ -796,40 +905,37 @@ private enum FoldMarkRenderer {
             layer.fill(silhouette, with: .color(.white))
         }
 
-        // A soft rim glow behind the silhouette lifts the paper off the tile — half
-        // of this blurred stroke sits under the facets about to be painted, half
-        // bleeds just past the outer edge as a faint halo.
+        // A soft rim glow behind the silhouette lifts the paper off the tile.
         context.drawLayer { layer in
             layer.opacity = 0.35 * overall
             layer.addFilter(.blur(radius: side * 0.006))
             layer.stroke(silhouette, with: .color(.white.opacity(0.85)), lineWidth: side * 0.010)
         }
 
-        // Facets — warm-ivory paper shaded against cool light, with a crisp hairline
-        // at each facet's own edge so adjoining panels read as distinct planes.
-        // Opacity is baked into the fill/stroke colors rather than a `drawLayer`
-        // wrapper: with up to ten-odd facets animating in the same frame, that
-        // many offscreen layer allocations every frame was a real cost sitting
-        // right in the busiest part of the animation. A plain fill/stroke with
-        // pre-multiplied alpha produces identical pixels without it.
+        // Facets — two-tone paper shaded against cool light, in the figure's own palette,
+        // with a crisp hairline at each facet's edge so adjoining panels read as distinct
+        // planes. Opacity is baked into the fill/stroke colors rather than a `drawLayer`
+        // wrapper to avoid an offscreen-layer allocation per facet per frame.
         for entry in visible {
+            let palette = entry.facet.overridePalette ?? figure.palette
             context.fill(entry.path, with: .linearGradient(
-                Gradient(colors: [paperTone(entry.facet.hi).opacity(entry.opacity), paperTone(entry.facet.lo).opacity(entry.opacity)]),
+                Gradient(colors: [palette.tone(entry.facet.hi).opacity(entry.opacity),
+                                  palette.tone(entry.facet.lo).opacity(entry.opacity)]),
                 startPoint: at(entry.facet.gradFrom), endPoint: at(entry.facet.gradTo)
             ))
             context.stroke(entry.path, with: .color(.black.opacity(0.05 * entry.opacity)), lineWidth: max(0.5, side * 0.0022))
         }
 
         // One quiet specular streak where the light catches the paper most directly,
-        // along a lit ridge — clipped tight to the silhouette so it reads as a
-        // highlight on the paper, not a glow floating past its edge.
+        // clipped tight to the silhouette.
         if let specular = figure.specular {
             let specularP = specular.group.progress(state)
             if specularP > 0.05 {
+                let t = wag(specular.group)
                 context.drawLayer { layer in
                     layer.clip(to: silhouette)
                     var streak = Path()
-                    streak.move(to: at(specular.from)); streak.addLine(to: at(specular.to))
+                    streak.move(to: at(t(specular.from))); streak.addLine(to: at(t(specular.to)))
                     layer.addFilter(.blur(radius: side * 0.014))
                     layer.stroke(streak, with: .color(.white.opacity(0.32 * ease(specularP))),
                                 style: StrokeStyle(lineWidth: side * 0.05, lineCap: .round))
@@ -843,27 +949,28 @@ private enum FoldMarkRenderer {
             for occ in figure.occlusion {
                 let p = occ.group.progress(state)
                 guard p > 0.05 else { continue }
-                let c = at(occ.center)
+                let c = at(wag(occ.group)(occ.center))
                 let r = side * occ.radius
                 layer.fill(
                     Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)),
                     with: .radialGradient(
-                        Gradient(colors: [Color(.sRGB, red: 0.24, green: 0.30, blue: 0.42, opacity: 0.16 * ease(p)), .clear]),
+                        Gradient(colors: [Color(.sRGB, red: 0.22, green: 0.27, blue: 0.40, opacity: 0.20 * ease(p)), .clear]),
                         center: c, startRadius: 0, endRadius: r
                     )
                 )
             }
         }
 
-        // Fold creases as a paired bevel — a dark shadow hairline immediately beside
-        // a bright ridge hairline, offset to either side of the fold — reads as an
-        // embossed, engraved seam rather than a single flat stroke.
+        // Fold creases as a paired bevel — a dark shadow hairline immediately beside a
+        // bright ridge hairline — reads as an embossed, engraved seam.
         for crease in figure.creases {
             let p = crease.group.progress(state)
             guard p > 0.06 else { continue }
-            let a = at(crease.a), b = at(crease.b)
+            let t = wag(crease.group)
+            let ca = t(crease.a), cb = t(crease.b)
+            let a = at(ca), b = at(cb)
             let fade = min(1, ease(p) * 1.5)
-            let n = perpendicular(crease.a, crease.b)
+            let n = perpendicular(ca, cb)
             let offset = max(0.5, side * 0.0028)
             let shadowOffset = CGPoint(x: n.x * offset, y: n.y * offset)
             let liftOffset = CGPoint(x: -n.x * offset, y: -n.y * offset)
@@ -881,20 +988,18 @@ private enum FoldMarkRenderer {
                            style: StrokeStyle(lineWidth: max(0.5, side * 0.0028), lineCap: .round))
         }
 
-        // Washi paper grain + top-light sheen, clipped to the figure. The grain's
-        // fiber positions are hashed from their index and never change once
-        // computed, so `grainFibers` builds the two fiber paths (in unit tile
-        // space) exactly once and this just maps them into canvas space with a
-        // single affine transform per color — not 100+ hash/trig calls and Path
-        // allocations every single animation frame.
+        // Washi paper grain + top-light sheen, clipped to the figure. The grain's fiber
+        // positions are hashed from their index and never change, so `grainFibers` builds
+        // the two fiber paths (in unit tile space) exactly once and this just maps them
+        // into canvas space with a single affine transform per color.
         context.drawLayer { layer in
             layer.clip(to: silhouette)
             layer.opacity = overall
 
             let transform = CGAffineTransform(a: side, b: 0, c: 0, d: side, tx: tileRect.minX, ty: tileRect.minY)
             let lineWidth = max(0.5, side * 0.0016)
-            layer.stroke(grainFibers.dark.applying(transform), with: .color(.black.opacity(0.05)), lineWidth: lineWidth)
-            layer.stroke(grainFibers.light.applying(transform), with: .color(.white.opacity(0.07)), lineWidth: lineWidth)
+            layer.stroke(grainFibers.dark.applying(transform), with: .color(.black.opacity(0.07)), lineWidth: lineWidth)
+            layer.stroke(grainFibers.light.applying(transform), with: .color(.white.opacity(0.10)), lineWidth: lineWidth)
 
             layer.fill(
                 Path(CGRect(x: at(.zero).x, y: at(.zero).y, width: side, height: side)),
@@ -907,11 +1012,9 @@ private enum FoldMarkRenderer {
         }
     }
 
-    /// Grain fiber segments in unit tile space (0...1), split into two combined
-    /// paths by tint. Built once on first use and reused for the process's
-    /// lifetime — the hash-based positions are deterministic, so recomputing
-    /// them (with multiple hash calls and trig per fiber) every frame was pure
-    /// waste in the single most frequently redrawn layer of the animation.
+    /// Grain fiber segments in unit tile space (0...1), split into two combined paths by
+    /// tint. Built once on first use and reused — the hash-based positions are
+    /// deterministic, so recomputing them every frame would be pure waste.
     private static let grainFibers: (dark: Path, light: Path) = {
         let fiberCount = 128
         var dark = Path()
@@ -933,27 +1036,20 @@ private enum FoldMarkRenderer {
         return (dark, light)
     }()
 
-    /// Warm-ivory paper tone. `v` in 0…1: 1 = brightest lit paper, 0 = deepest fold
-    /// shadow. Highlights lean warm, shadows lean cool, as real paper does under a
-    /// cool sky light.
-    private static func paperTone(_ v: Double) -> Color {
-        let t = max(0, min(1, v))
-        let warm = (r: 1.00, g: 0.985, b: 0.96)
-        let cool = (r: 0.72, g: 0.76, b: 0.82)
-        return Color(.sRGB,
-                     red: cool.r + (warm.r - cool.r) * t,
-                     green: cool.g + (warm.g - cool.g) * t,
-                     blue: cool.b + (warm.b - cool.b) * t,
-                     opacity: 1)
-    }
-
-    /// Unfolds a facet's points from their nearest anchor on the folded packet's
-    /// outline out to their final tile-unit positions, then converts to canvas space.
-    private static func unfoldPath(_ pts: [CGPoint], progress: Double, packet: [CGPoint], at: (CGPoint) -> CGPoint) -> Path {
+    /// Unfolds a facet's points from their nearest anchor on the folded packet's outline
+    /// out to their final tile-unit positions, applies the live wag transform, then
+    /// converts to canvas space.
+    private static func unfoldPath(
+        _ pts: [CGPoint],
+        progress: Double,
+        packet: [CGPoint],
+        transform: (CGPoint) -> CGPoint,
+        at: (CGPoint) -> CGPoint
+    ) -> Path {
         var path = Path()
         let resolved = pts.map { pt -> CGPoint in
             let anchor = nearestPointOnPolygon(pt, polygon: packet)
-            return at(lerp(anchor, pt, t: progress))
+            return at(transform(lerp(anchor, pt, t: progress)))
         }
         path.move(to: resolved[0])
         for pt in resolved.dropFirst() { path.addLine(to: pt) }
@@ -1020,6 +1116,19 @@ private enum FoldMarkRenderer {
     }
 
     // MARK: Geometry helpers
+
+    /// Smooth 0→1 ramp with eased ends, clamped. The animation clock's workhorse.
+    static func smoothstep(_ x: Double) -> Double {
+        let t = max(0, min(1, x))
+        return t * t * (3 - 2 * t)
+    }
+
+    /// Rotate a tile-unit point around a pivot by `angle` radians (used for the wag).
+    private static func rotate(_ p: CGPoint, around pivot: CGPoint, angle: Double) -> CGPoint {
+        let s = sin(angle), c = cos(angle)
+        let dx = p.x - pivot.x, dy = p.y - pivot.y
+        return CGPoint(x: pivot.x + dx * c - dy * s, y: pivot.y + dx * s + dy * c)
+    }
 
     /// Deterministic hash in roughly [-1, 1] — a fract(sin(x)*k) style pseudo-random.
     private static func hash(_ x: Double) -> Double {

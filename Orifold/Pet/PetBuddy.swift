@@ -375,15 +375,9 @@ struct PetView: View {
     var presentation: PetPresentation = .workspace
 
     @State private var buddy = PetBuddy.shared
-    @State private var isBreathing = false
-    @State private var isBouncing = false
     @State private var isPopoverPresented = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var replayToken = 0
     @Environment(\.colorScheme) private var colorScheme
-
-    private var shouldReduceMotion: Bool {
-        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-    }
 
     var body: some View {
         Button {
@@ -406,7 +400,6 @@ struct PetView: View {
                 }
                 .opacity(presentation == .workspace ? 0.88 : 1)
                 .shadow(color: shadowColor, radius: presentation == .welcome ? 18 : 10, x: 0, y: presentation == .welcome ? 8 : 4)
-                .scaleEffect(scale)
         }
         .buttonStyle(.plain)
         .help("petBuddy.avatar.help")
@@ -417,21 +410,18 @@ struct PetView: View {
                 buddy: buddy
             )
         }
-        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 3).repeatForever(autoreverses: true), value: isBreathing)
-        .animation(shouldReduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.42), value: isBouncing)
-        .onAppear {
-            guard !shouldReduceMotion else { return }
-            isBreathing = true
-        }
-        .onChange(of: buddy.currentMessage) { _, _ in
-            bounce()
+        // Re-fold the companion each time a feature fires a fresh message.
+        .onChange(of: buddy.currentMessage) { _, newValue in
+            if newValue != nil { replayToken += 1 }
         }
     }
 
     private var petIcon: some View {
-        // The avatar folds into the user's chosen companion (dog or cat), in both the
-        // quieter workspace presentation and the more expressive welcome one.
-        OrifoldFoldMark(size: iconSize, interactive: false, figure: .forSpecies(buddy.species))
+        // The avatar folds into the user's chosen companion (dog or cat) and stays alive
+        // — breathing, and wagging its tail (dog) or ears (cat). It re-folds on each
+        // feature event via `replayToken`. Motion/idle are handled inside the mark.
+        OrifoldFoldMark(size: iconSize, interactive: false,
+                        figure: .forSpecies(buddy.species), replayTrigger: replayToken)
             .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
     }
 
@@ -478,20 +468,6 @@ struct PetView: View {
         }
     }
 
-    private var scale: CGFloat {
-        if isBouncing { return 1.12 }
-        let breathingScale: CGFloat = presentation == .welcome ? 1.06 : 1.025
-        return isBreathing && !shouldReduceMotion ? breathingScale : 1.0
-    }
-
-    private func bounce() {
-        guard !shouldReduceMotion else { return }
-        isBouncing = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [isBreathing] in
-            guard self.isBreathing == isBreathing else { return }
-            self.isBouncing = false
-        }
-    }
 }
 
 private struct PetControlPopover: View {
