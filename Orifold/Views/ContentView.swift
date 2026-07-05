@@ -3,6 +3,25 @@ import PDFKit
 import UniformTypeIdentifiers
 import AppKit
 
+private struct ExportSuccessAlert: ViewModifier {
+    @Bindable var viewModel: WorkspaceViewModel
+
+    func body(content: Content) -> some View {
+        content.alert("Export Complete", isPresented: Binding(
+            get: { viewModel.exportSuccess != nil },
+            set: { if !$0 { viewModel.exportSuccess = nil } }
+        ), presenting: viewModel.exportSuccess) { success in
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([success.url])
+                viewModel.exportSuccess = nil
+            }
+            Button("OK") { viewModel.exportSuccess = nil }
+        } message: { success in
+            Text(success.message)
+        }
+    }
+}
+
 struct ContentView: View {
     var document: WorkspaceDocument
     @State private var viewModel: WorkspaceViewModel
@@ -162,6 +181,7 @@ struct ContentView: View {
         } message: { err in
             Text(err.message)
         }
+        .modifier(ExportSuccessAlert(viewModel: viewModel))
         .sheet(isPresented: $viewModel.isShowingPasswordPrompt) {
             if let url = viewModel.pendingPasswordURL,
                let pdf = viewModel.pendingPasswordPDF {

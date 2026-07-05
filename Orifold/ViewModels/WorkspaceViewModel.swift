@@ -233,6 +233,7 @@ final class WorkspaceViewModel {
     // MARK: - UI state
     var importError: ImportError? = nil
     var exportError: ExportError? = nil
+    var exportSuccess: ExportSuccess? = nil
     var isImporting = false
     var pendingPasswordURL: URL? = nil
     var pendingPasswordPDF: PDFDocument? = nil
@@ -383,6 +384,21 @@ final class WorkspaceViewModel {
     struct ExportError: Identifiable {
         let id = UUID()
         var message: String
+    }
+
+    struct ExportSuccess: Identifiable {
+        let id = UUID()
+        var url: URL
+        var detail: String? = nil
+
+        var message: String {
+            let folderName = url.deletingLastPathComponent().lastPathComponent
+            var text = "\"\(url.lastPathComponent)\" was saved to \"\(folderName)\"."
+            if let detail, !detail.isEmpty {
+                text += " \(detail)"
+            }
+            return text
+        }
     }
 
     struct EditingStatus: Identifiable, Equatable {
@@ -3281,12 +3297,13 @@ final class WorkspaceViewModel {
                 return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity, timestamp: nil)
             }
             try signedData.write(to: targetURL, options: .atomic)
+            try verifyExportedFile(at: targetURL)
             if let index = document.workspace.signatures.firstIndex(where: { $0.id == placement.id }) {
                 document.workspace.signatures[index].timestampApplied = timestampWasApplied
             }
-            if let timestampFallbackMessage {
-                editingStatus = .warning(timestampFallbackMessage)
-            }
+            finalizeSuccessfulExport(url: targetURL, format: .pdf, note: timestampFallbackMessage)
+        } catch let writeError as ExportWriteError {
+            exportError = ExportError(message: writeError.userMessage)
         } catch SigningError.notImplemented {
             exportError = ExportError(message: "Digital signing is not available in this build yet.")
         } catch SigningError.missingIdentity {
@@ -3554,35 +3571,31 @@ final class WorkspaceViewModel {
     // MARK: - Export
 
     @discardableResult
+    /// Each branch finalizes its own success (see `finalizeSuccessfulExport`) once the
+    /// file is actually verified on disk -- the compressed-PDF branch writes
+    /// asynchronously, so `true` here only means "started", not "written".
     func exportWorkspace(as format: WorkspaceExportFormat, options: WorkspaceExportOptions = WorkspaceExportOptions()) -> Bool {
         guard canPerformMutatingAction() else { return false }
-        let didExport = switch format {
+        switch format {
         case .pdf:
-            exportPlainPDF(options: options)
+            return exportPlainPDF(options: options)
         case .word:
-            exportRichDocument(as: .word)
+            return exportRichDocument(as: .word)
         case .legacyWord:
-            exportRichDocument(as: .legacyWord)
+            return exportRichDocument(as: .legacyWord)
         case .odt:
-            exportRichDocument(as: .odt)
+            return exportRichDocument(as: .odt)
         case .rtf:
-            exportRichDocument(as: .rtf)
+            return exportRichDocument(as: .rtf)
         case .text:
-            exportPlainText()
+            return exportPlainText()
         case .markdown:
-            exportMarkdown()
+            return exportMarkdown()
         case .html:
-            exportHTML()
+            return exportHTML()
         case .png, .jpeg:
-            exportPageImages(as: format)
+            return exportPageImages(as: format)
         }
-        if didExport {
-            if let message = commentExportStatusMessage(for: format) {
-                editingStatus = .warning(message)
-            }
-            PetBuddyHook.trigger(.export)
-        }
-        return didExport
     }
 
     @discardableResult
@@ -3630,12 +3643,15 @@ final class WorkspaceViewModel {
 
         do {
             try writePDFExportData(pdfData, to: targetURL, validationOptions: options.encryption)
+            finalizeSuccessfulExport(url: targetURL, format: .pdf)
             if triggerPet {
                 PetBuddyHook.trigger(.save)
             }
             return true
         } catch {
-            if let encryptionError = error as? PDFEncryptionError {
+            if let writeError = error as? ExportWriteError {
+                exportError = ExportError(message: writeError.userMessage)
+            } else if let encryptionError = error as? PDFEncryptionError {
                 exportError = ExportError(message: encryptionError.userMessage)
             } else if let assemblyError = error as? PDFKitEngine.ExportAssemblyError {
                 exportError = ExportError(message: assemblyError.localizedDescription)
@@ -3734,13 +3750,14 @@ final class WorkspaceViewModel {
                     throw PDFExportValidationError.structurallyUnsound
                 }
                 try result.data.write(to: targetURL, options: .atomic)
+                try self.verifyExportedFile(at: targetURL)
                 await MainActor.run {
                     guard self.activeCompressionID == operationID else { return }
                     self.operationProgress.finish()
                     self.activeCompressionTask = nil
                     self.activeCompressionCancellation = nil
                     self.activeCompressionID = nil
-                    self.editingStatus = .warning(self.compressionSummary(result))
+                    self.finalizeSuccessfulExport(url: targetURL, format: .pdf, note: self.compressionSummary(result))
                 }
             } catch {
                 await MainActor.run {
@@ -3828,13 +3845,14 @@ final class WorkspaceViewModel {
                     throw PDFExportValidationError.structurallyUnsound
                 }
                 try output.data.write(to: targetURL, options: .atomic)
+                try self.verifyExportedFile(at: targetURL)
                 await MainActor.run {
                     guard self.activeCompressionID == operationID else { return }
                     self.operationProgress.finish()
                     self.activeCompressionTask = nil
                     self.activeCompressionCancellation = nil
                     self.activeCompressionID = nil
-                    self.editingStatus = .warning(self.compressionSummary(output.compressionResult))
+                    self.finalizeSuccessfulExport(url: targetURL, format: .pdf, note: self.compressionSummary(output.compressionResult))
                 }
             } catch {
                 await MainActor.run {
@@ -3918,6 +3936,45 @@ final class WorkspaceViewModel {
         }
     }
 
+    enum ExportWriteError: Error {
+        case fileNotFound
+        case emptyFile
+
+        var userMessage: String {
+            switch self {
+            case .fileNotFound:
+                return "Orifold could not confirm the export was written to disk. The destination folder may have rejected the write -- check permissions and try again."
+            case .emptyFile:
+                return "Orifold wrote an empty file, so the export was discarded. Check that the destination has free space and permission to write, then try again."
+            }
+        }
+    }
+
+    /// The only source of truth for "did the export actually land on disk" --
+    /// callers must not report success from a Task/panel return value alone.
+    private func verifyExportedFile(at url: URL) throws {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+            throw ExportWriteError.fileNotFound
+        }
+        if isDirectory.boolValue {
+            let contents = try FileManager.default.contentsOfDirectory(atPath: url.path)
+            guard !contents.isEmpty else { throw ExportWriteError.emptyFile }
+        } else {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let size = (attributes[.size] as? NSNumber)?.intValue ?? 0
+            guard size > 0 else { throw ExportWriteError.emptyFile }
+        }
+    }
+
+    private func finalizeSuccessfulExport(url: URL, format: WorkspaceExportFormat, note: String? = nil) {
+        let detail = [commentExportStatusMessage(for: format), note]
+            .compactMap { $0 }
+            .joined(separator: " ")
+        exportSuccess = ExportSuccess(url: url, detail: detail.isEmpty ? nil : detail)
+        PetBuddyHook.trigger(.export)
+    }
+
     private func writePDFExportData(_ data: Data, to targetURL: URL, validationOptions: PDFEncryptionOptions?) throws {
         // Defense in depth: qpdf's structural checker runs on every export,
         // encrypted or not, catching malformed output PDFKit's own leniency
@@ -3928,32 +3985,52 @@ final class WorkspaceViewModel {
             throw PDFExportValidationError.structurallyUnsound
         }
 
+        let fileManager = FileManager.default
         let directory = targetURL.deletingLastPathComponent()
         let tempURL = directory
             .appendingPathComponent(".Orifold-export-\(UUID().uuidString).pdf")
-        defer { try? FileManager.default.removeItem(at: tempURL) }
 
-        try data.write(to: tempURL, options: .atomic)
-        let writtenData = try Data(contentsOf: tempURL)
-
-        if let validationOptions {
-            try PDFEncryptionService.validateEncryptedData(writtenData, options: validationOptions)
+        // Some sandboxed destinations only grant write access to the exact
+        // file the user picked in NSSavePanel, not sibling temp files in the
+        // same folder -- if the temp-file dance can't even get started there,
+        // fall back to writing targetURL directly rather than failing.
+        let wroteTemp: Bool
+        do {
+            try data.write(to: tempURL, options: .atomic)
+            wroteTemp = true
+        } catch {
+            wroteTemp = false
         }
 
-        let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: targetURL.path) {
-            let replacedURL = try fileManager.replaceItemAt(
-                targetURL,
-                withItemAt: tempURL,
-                backupItemName: nil,
-                options: [.usingNewMetadataOnly]
-            )
-            guard replacedURL != nil else {
-                throw PDFEncryptionError.writeFailed
+        if wroteTemp {
+            defer { try? fileManager.removeItem(at: tempURL) }
+            let writtenData = try Data(contentsOf: tempURL)
+
+            if let validationOptions {
+                try PDFEncryptionService.validateEncryptedData(writtenData, options: validationOptions)
+            }
+
+            if fileManager.fileExists(atPath: targetURL.path) {
+                let replacedURL = try fileManager.replaceItemAt(
+                    targetURL,
+                    withItemAt: tempURL,
+                    backupItemName: nil,
+                    options: [.usingNewMetadataOnly]
+                )
+                guard replacedURL != nil else {
+                    throw PDFEncryptionError.writeFailed
+                }
+            } else {
+                try fileManager.moveItem(at: tempURL, to: targetURL)
             }
         } else {
-            try fileManager.moveItem(at: tempURL, to: targetURL)
+            if let validationOptions {
+                try PDFEncryptionService.validateEncryptedData(data, options: validationOptions)
+            }
+            try data.write(to: targetURL, options: .atomic)
         }
+
+        try verifyExportedFile(at: targetURL)
     }
 
     private func exportRichDocument(as format: WorkspaceExportFormat) -> Bool {
@@ -4022,36 +4099,66 @@ final class WorkspaceViewModel {
         panel.prompt = "Export"
         guard panel.runModal() == .OK, let folderURL = panel.url else { return false }
 
-        let fileManager = FileManager.default
-        let parentURL = folderURL.deletingLastPathComponent()
-        let tempFolderURL = parentURL.appendingPathComponent(".Orifold-image-export-\(UUID().uuidString)", isDirectory: true)
-        do {
-            try fileManager.createDirectory(at: tempFolderURL, withIntermediateDirectories: true)
+        func writePages(into folder: URL) throws {
             for pageIndex in 0..<exportDoc.pageCount {
                 guard let page = exportDoc.page(at: pageIndex),
                       let data = imageData(for: page, format: format) else {
                     throw ExportFailure("Could not render page \(pageIndex + 1).")
                 }
                 let filename = "page-\(String(format: "%03d", pageIndex + 1)).\(format.fileExtension)"
-                try data.write(to: tempFolderURL.appendingPathComponent(filename), options: .atomic)
+                try data.write(to: folder.appendingPathComponent(filename), options: .atomic)
             }
-            if fileManager.fileExists(atPath: folderURL.path) {
-                let replacement = try fileManager.replaceItemAt(
-                    folderURL,
-                    withItemAt: tempFolderURL,
-                    backupItemName: nil,
-                    options: [.usingNewMetadataOnly]
-                )
-                guard replacement != nil else {
-                    throw ExportFailure("Could not replace the selected folder.")
+        }
+
+        let fileManager = FileManager.default
+        let parentURL = folderURL.deletingLastPathComponent()
+        let tempFolderURL = parentURL.appendingPathComponent(".Orifold-image-export-\(UUID().uuidString)", isDirectory: true)
+        do {
+            // Some sandboxed destinations only grant write access to the exact
+            // path the user picked in NSSavePanel, not sibling paths in the
+            // same folder -- if the temp-folder dance can't even get started,
+            // fall back to writing folderURL directly.
+            var wroteTemp = true
+            do {
+                try fileManager.createDirectory(at: tempFolderURL, withIntermediateDirectories: true)
+                try writePages(into: tempFolderURL)
+            } catch let renderError as ExportFailure {
+                try? fileManager.removeItem(at: tempFolderURL)
+                throw renderError
+            } catch {
+                try? fileManager.removeItem(at: tempFolderURL)
+                wroteTemp = false
+            }
+
+            if wroteTemp {
+                if fileManager.fileExists(atPath: folderURL.path) {
+                    let replacement = try fileManager.replaceItemAt(
+                        folderURL,
+                        withItemAt: tempFolderURL,
+                        backupItemName: nil,
+                        options: [.usingNewMetadataOnly]
+                    )
+                    guard replacement != nil else {
+                        throw ExportFailure("Could not replace the selected folder.")
+                    }
+                } else {
+                    try fileManager.moveItem(at: tempFolderURL, to: folderURL)
                 }
             } else {
-                try fileManager.moveItem(at: tempFolderURL, to: folderURL)
+                try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
+                try writePages(into: folderURL)
             }
+
+            try verifyExportedFile(at: folderURL)
+            finalizeSuccessfulExport(url: folderURL, format: format)
             return true
         } catch {
             try? fileManager.removeItem(at: tempFolderURL)
-            exportError = ExportError(message: "Orifold could not export page images: \(error.localizedDescription)")
+            if let writeError = error as? ExportWriteError {
+                exportError = ExportError(message: writeError.userMessage)
+            } else {
+                exportError = ExportError(message: "Orifold could not export page images: \(error.localizedDescription)")
+            }
             return false
         }
     }
@@ -4066,9 +4173,15 @@ final class WorkspaceViewModel {
 
         do {
             try data.write(to: url, options: .atomic)
+            try verifyExportedFile(at: url)
+            finalizeSuccessfulExport(url: url, format: format)
             return true
         } catch {
-            exportError = ExportError(message: "Orifold could not write the \(format.menuTitle) export: \(error.localizedDescription)")
+            if let writeError = error as? ExportWriteError {
+                exportError = ExportError(message: writeError.userMessage)
+            } else {
+                exportError = ExportError(message: "Orifold could not write the \(format.menuTitle) export: \(error.localizedDescription)")
+            }
             return false
         }
     }
@@ -4592,6 +4705,9 @@ final class WorkspaceViewModel {
     }
 
     private func userMessage(for error: Error, exporting format: WorkspaceExportFormat) -> String {
+        if let writeError = error as? ExportWriteError {
+            return writeError.userMessage
+        }
         if let encryptionError = error as? PDFEncryptionError {
             return encryptionError.userMessage
         }
@@ -5350,8 +5466,14 @@ final class WorkspaceViewModel {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try data.write(to: url, options: .atomic)
+            try verifyExportedFile(at: url)
+            finalizeSuccessfulExport(url: url, format: .pdf)
         } catch {
-            exportError = ExportError(message: "Orifold could not export the selected pages: \(error.localizedDescription)")
+            if let writeError = error as? ExportWriteError {
+                exportError = ExportError(message: writeError.userMessage)
+            } else {
+                exportError = ExportError(message: "Orifold could not export the selected pages: \(error.localizedDescription)")
+            }
         }
     }
 
