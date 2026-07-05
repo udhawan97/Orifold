@@ -6,17 +6,20 @@ import AppKit
 ///
 /// The fold is drawn as vector paper panels in a `Canvas` — layered flaps with
 /// soft cast shadows and a gentle scale-in — choreographed with `KeyframeAnimator`.
-/// It plays once, then cross-dissolves into the real app icon (`AppIconMark`) so the
-/// final state is pixel-crisp and brand-accurate, and settles into a barely
-/// perceptible idle breath rather than looping.
+/// The paper folds, then gently dissolves away and the real app icon (`AppIconMark`)
+/// materializes on the same tile — a sequenced hand-off (paper out, then icon in)
+/// rather than a crossfade, so two different shapes never overlap. The tile is drawn
+/// to match the icon's background, keeping the ground steady through the hand-off.
+/// It settles into a barely perceptible idle breath rather than looping.
 ///
-/// With Reduce Motion the animation is skipped entirely and the finished logo is
-/// shown immediately, so the screen is complete and polished with no motion at all.
-///
-/// Tapping the mark replays the fold from the start — a small discoverable delight,
-/// not required for any workflow.
+/// A short beat after the view appears the fold plays automatically; tapping the mark
+/// replays it. With Reduce Motion the animation is skipped entirely and the finished
+/// logo is shown immediately, so the screen is complete and polished with no motion.
 struct OrifoldFoldMark: View {
     var size: CGFloat = 80
+
+    /// Delay before the fold plays on first appearance, so the screen settles first.
+    private let autoplayDelay: TimeInterval = 1.0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var playCount = 0
@@ -49,10 +52,9 @@ struct OrifoldFoldMark: View {
                     Canvas(opaque: false, rendersAsynchronously: true) { context, canvasSize in
                         FoldMarkRenderer.draw(in: &context, size: canvasSize, state: state)
                     }
-                    .opacity(1 - state.resolve)
 
                     AppIconMark(size: size)
-                        .opacity(state.resolve)
+                        .opacity(state.iconIn)
                 }
                 .scaleEffect(breathe ? 1.012 : 1.0)
             } keyframes: { _ in
@@ -73,10 +75,15 @@ struct OrifoldFoldMark: View {
                     LinearKeyframe(0.0, duration: 1.00)
                     CubicKeyframe(1.0, duration: 0.48)
                 }
-                // Cross-dissolve the folded paper into the finished logo.
-                KeyframeTrack(\.resolve) {
-                    LinearKeyframe(0.0, duration: 1.52)
-                    CubicKeyframe(1.0, duration: 0.46)
+                // Hold the folded paper for a beat, then dissolve it away…
+                KeyframeTrack(\.paperOut) {
+                    LinearKeyframe(0.0, duration: 1.60)
+                    CubicKeyframe(1.0, duration: 0.35)
+                }
+                // …and only then materialize the finished logo on the same tile.
+                KeyframeTrack(\.iconIn) {
+                    LinearKeyframe(0.0, duration: 1.98)
+                    CubicKeyframe(1.0, duration: 0.40)
                 }
             }
         }
@@ -84,13 +91,22 @@ struct OrifoldFoldMark: View {
         .help("Replay the fold")
         .onAppear {
             guard playCount == 0 else { return }
-            scheduleIdleBreath()
+            // Let the surrounding screen settle, then play the fold.
+            let generation = replayGeneration
+            DispatchQueue.main.asyncAfter(deadline: .now() + autoplayDelay) {
+                guard generation == replayGeneration, playCount == 0 else { return }
+                play()
+            }
         }
         .accessibilityLabel("Orifold")
         .accessibilityHint("Replays the fold animation.")
     }
 
     private func replay() {
+        play()
+    }
+
+    private func play() {
         replayGeneration += 1
         didResolve = false
         breathe = false
@@ -101,7 +117,7 @@ struct OrifoldFoldMark: View {
     private func scheduleIdleBreath() {
         let generation = replayGeneration
         // Settle into a slow, near-invisible idle breath once the fold resolves.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.05) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
             guard generation == replayGeneration, !didResolve else { return }
             didResolve = true
             withAnimation(.easeInOut(duration: 3.4).repeatForever(autoreverses: true)) {
@@ -118,9 +134,12 @@ private struct FoldState: Equatable {
     var fold1: Double
     var fold2: Double
     var fold3: Double
-    var resolve: Double
+    /// Paper dissolves away (the tile stays put).
+    var paperOut: Double
+    /// Finished logo materializes on top.
+    var iconIn: Double
 
-    static let start = FoldState(sheet: 0, fold1: 0, fold2: 0, fold3: 0, resolve: 0)
+    static let start = FoldState(sheet: 0, fold1: 0, fold2: 0, fold3: 0, paperOut: 0, iconIn: 0)
 }
 
 // MARK: - Renderer
@@ -146,6 +165,10 @@ private enum FoldMarkRenderer {
 
         // Keep folded paper contained within the rounded tile.
         context.clip(to: tilePath)
+
+        // The paper fades out on its own while the tile stays put, so the incoming
+        // logo hands off on a steady ground rather than crossfading two shapes.
+        context.opacity = state.sheet * (1 - state.paperOut)
 
         // Paper region, inset within the tile.
         let inset = side * 0.17
@@ -204,41 +227,47 @@ private enum FoldMarkRenderer {
     }
 
     private static func drawTile(in context: inout GraphicsContext, path: Path, rect: CGRect) {
-        // Glacier-blue tile echoing the app icon background.
+        // Glacier-blue tile matched to the app icon: dark navy on the left/bottom
+        // ramping to bright teal on the right/top (sampled from AppIcon-512).
         let gradient = Gradient(colors: [
-            Color(.sRGB, red: 0.34, green: 0.61, blue: 0.74, opacity: 1),
-            Color(.sRGB, red: 0.09, green: 0.24, blue: 0.36, opacity: 1)
+            Color(.sRGB, red: 0.17, green: 0.27, blue: 0.40, opacity: 1),
+            Color(.sRGB, red: 0.46, green: 0.75, blue: 0.83, opacity: 1)
         ])
         context.fill(
             path,
             with: .linearGradient(
                 gradient,
-                startPoint: CGPoint(x: rect.minX, y: rect.minY),
-                endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
+                startPoint: CGPoint(x: rect.minX, y: rect.maxY),   // bottom-left, dark
+                endPoint: CGPoint(x: rect.maxX, y: rect.minY)       // top-right, bright
             )
         )
 
-        // Soft top-left sheen for depth.
-        let sheenRadius = rect.width * 0.7
-        let sheenCenter = CGPoint(x: rect.minX + rect.width * 0.32, y: rect.minY + rect.height * 0.28)
+        // Soft teal glow toward the top-right, as in the icon.
+        let glowRadius = rect.width * 0.75
+        let glowCenter = CGPoint(x: rect.minX + rect.width * 0.82, y: rect.minY + rect.height * 0.20)
         context.fill(
             path,
             with: .radialGradient(
-                Gradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0)]),
-                center: sheenCenter,
+                Gradient(colors: [
+                    Color(.sRGB, red: 0.50, green: 0.82, blue: 0.86, opacity: 0.35),
+                    Color.clear
+                ]),
+                center: glowCenter,
                 startRadius: 0,
-                endRadius: sheenRadius
+                endRadius: glowRadius
             )
         )
 
-        // Inner rim highlight.
-        let rimInset = max(rect.width * 0.02, 0.5)
-        let rim = Path(
-            roundedRect: rect.insetBy(dx: rimInset, dy: rimInset),
-            cornerRadius: rect.width * 0.22 - rimInset,
-            style: .continuous
-        )
-        context.stroke(rim, with: .color(.white.opacity(0.14)), lineWidth: 1)
+        // Faint nested rim lines, echoing the icon's inset borders.
+        for fraction in [0.055, 0.11] {
+            let borderInset = rect.width * fraction
+            let ring = Path(
+                roundedRect: rect.insetBy(dx: borderInset, dy: borderInset),
+                cornerRadius: rect.width * 0.22 - borderInset,
+                style: .continuous
+            )
+            context.stroke(ring, with: .color(.white.opacity(0.06)), lineWidth: 1)
+        }
     }
 
     /// Draws one folded corner. At `q == 0` the flap fills its chamfer exactly (clean
