@@ -31,7 +31,7 @@ private struct AddFilesCommandButton: View {
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     var body: some View {
-        Button("Add Files to Workspace…") {
+        Button(L10n.string("appCommands.addFilesToWorkspace.button")) {
             let panel = NSOpenPanel()
             configureImportOpenPanel(panel)
             if panel.runModal() == .OK {
@@ -49,7 +49,7 @@ private struct MakeSearchableCommandButton: View {
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     var body: some View {
-        Button("Make searchable…") {
+        Button(L10n.string("appCommands.makeSearchable.button")) {
             let shouldRepairExistingText = viewModel?.hasScannedPages != true
             viewModel?.makeSearchable(includePagesWithText: shouldRepairExistingText)
         }
@@ -61,7 +61,7 @@ private struct ReduceFileSizeCommandButton: View {
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     var body: some View {
-        Button("Reduce File Size…") {
+        Button(L10n.string("appCommands.reduceFileSize.button")) {
             viewModel?.reduceFileSize()
         }
         .disabled(viewModel == nil)
@@ -76,13 +76,13 @@ private struct UndoRedoCommandButtons: View {
     private var importInProgress: Bool { isImporting == true }
 
     var body: some View {
-        Button("Undo") {
+        Button(L10n.string("appCommands.undo.button")) {
             viewModel?.performUndoCommand()
         }
         .keyboardShortcut("z", modifiers: .command)
         .disabled(importInProgress || viewModel == nil)
 
-        Button("Redo") {
+        Button(L10n.string("appCommands.redo.button")) {
             viewModel?.performRedoCommand()
         }
         .keyboardShortcut("z", modifiers: [.command, .shift])
@@ -95,7 +95,7 @@ private struct PetBuddyCommandToggle: View {
     @State private var buddy = PetBuddy.shared
 
     var body: some View {
-        Toggle("Show Orifold Buddy", isOn: Binding(
+        Toggle(L10n.string("appCommands.showBuddy.toggle"), isOn: Binding(
             get: { petEnabled },
             set: { isShowing in
                 petEnabled = isShowing
@@ -140,6 +140,6 @@ private struct AboutCommandButton: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("About Orifold") { openWindow(id: "about-orifold") }
+        Button(L10n.string("appCommands.aboutOrifold.button")) { openWindow(id: "about-orifold") }
     }
 }

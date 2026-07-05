@@ -22,23 +22,23 @@ struct PasswordPromptView: View {
                 .foregroundStyle(Color.dsTextPrimary)
 
             if failed {
-                Text("Incorrect password. Try again.")
+                Text("passwordPrompt.incorrectPassword.message")
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsAnnotationCoral)
             }
 
-            SecureField("Password", text: $password)
+            SecureField("passwordPrompt.password.field", text: $password)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 280)
                 .onSubmit { attemptUnlock() }
 
             HStack {
-                Button("Cancel") {
+                Button("passwordPrompt.cancel.button") {
                     viewModel.cancelPendingPasswordImport()
                     dismiss()
                 }
                     .keyboardShortcut(.cancelAction)
-                Button("Unlock") { attemptUnlock() }
+                Button("passwordPrompt.unlock.button") { attemptUnlock() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(password.isEmpty)
             }

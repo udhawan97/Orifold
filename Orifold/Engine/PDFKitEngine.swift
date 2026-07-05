@@ -13,9 +13,9 @@ final class PDFKitEngine: PDFEngine {
         var errorDescription: String? {
             switch self {
             case .unreadableMember(let name):
-                return "Orifold could not prepare \"\(name)\" for export. Reopen the document and try exporting again."
+                return String(localized: "Orifold could not prepare \"\(name)\" for export. Reopen the document and try exporting again.", locale: L10n.currentLocale)
             case .emptyDocument:
-                return "Orifold could not prepare this PDF for export because it has no pages."
+                return L10n.string("error.export.emptyDocument")
             }
         }
     }
@@ -140,33 +140,33 @@ enum DocumentImportConverter {
     static func userMessage(for error: Error) -> String {
         switch error {
         case ConversionError.unsupportedType:
-            return "This file type is not supported yet."
+            return L10n.string("error.import.unsupportedFileType")
         case ConversionError.passwordProtected:
-            return "This PDF is password-protected. Add it to an open workspace with Add Files or drag-and-drop so Orifold can prompt for the password."
+            return L10n.string("error.import.passwordProtected")
         case ConversionError.unreadableDocument:
-            return "The file could not be read. It may be corrupt, encrypted, or incomplete."
+            return L10n.string("error.import.unreadableDocument")
         case ConversionError.emptyDocument:
-            return "The file is empty."
+            return L10n.string("error.import.emptyDocument")
         case ConversionError.binaryDataMislabelledAsText:
-            return "This looks like binary data, not a supported text document. Check the file type and try again."
+            return L10n.string("error.import.binaryDataMislabelledAsText")
         case ConversionError.renderingFailed:
-            return "The file opened, but Orifold could not render it into a PDF."
+            return L10n.string("error.import.renderingFailed")
         case ConversionError.renderTimedOut:
-            return "The file took too long to render. Try exporting it to PDF from its original app, then import the PDF."
+            return L10n.string("error.import.renderTimedOut")
         case ConversionError.fileTooLarge(let byteCount):
             let actual = byteCountFormatter.string(fromByteCount: byteCount)
             let limit = byteCountFormatter.string(fromByteCount: maxImportBytes)
-            return "The file is \(actual), which is larger than the \(limit) import safety limit."
+            return String(localized: "The file is \(actual), which is larger than the \(limit) import safety limit.", locale: L10n.currentLocale)
         case ConversionError.fileTypeTooLarge(let typeDescription, let actualBytes, let limitBytes):
             let actual = byteCountFormatter.string(fromByteCount: actualBytes)
             let limit = byteCountFormatter.string(fromByteCount: limitBytes)
-            return "This \(typeDescription) file is \(actual), which is larger than Orifold can safely convert directly (\(limit)). Try exporting it to PDF first, then import the PDF."
+            return String(localized: "This \(typeDescription) file is \(actual), which is larger than Orifold can safely convert directly (\(limit)). Try exporting it to PDF first, then import the PDF.", locale: L10n.currentLocale)
         case ConversionError.htmlRenderedTooLarge(let pageEstimate, let maxPages):
-            return "This HTML file would render to about \(pageEstimate) pages, which is over Orifold's \(maxPages)-page HTML conversion limit. Try printing or exporting it to PDF from a browser, then import the PDF."
+            return String(localized: "This HTML file would render to about \(pageEstimate) pages, which is over Orifold's \(maxPages)-page HTML conversion limit. Try printing or exporting it to PDF from a browser, then import the PDF.", locale: L10n.currentLocale)
         case ConversionError.documentRenderedTooLarge(let maxPages):
-            return "This file would render to more than \(maxPages) pages, so Orifold stopped the import before creating a partial PDF. Try exporting it to PDF first, then import the PDF."
+            return String(localized: "This file would render to more than \(maxPages) pages, so Orifold stopped the import before creating a partial PDF. Try exporting it to PDF first, then import the PDF.", locale: L10n.currentLocale)
         default:
-            return "The file could not be opened: \(error.localizedDescription)"
+            return String(localized: "The file could not be opened: \(error.localizedDescription)", locale: L10n.currentLocale)
         }
     }
 

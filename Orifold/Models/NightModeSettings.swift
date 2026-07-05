@@ -10,9 +10,9 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .system: return "System"
-        case .light: return "White"
-        case .dark: return "Black"
+        case .system: return L10n.string("appAppearanceMode.system.title")
+        case .light: return L10n.string("appAppearanceMode.light.title")
+        case .dark: return L10n.string("appAppearanceMode.dark.title")
         }
     }
 
@@ -99,9 +99,9 @@ enum NightModePreset: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .gentle: return "Gentle"
-        case .paper: return "Paper"
-        case .amber: return "Amber"
+        case .gentle: return L10n.string("nightModePreset.gentle.title")
+        case .paper: return L10n.string("nightModePreset.paper.title")
+        case .amber: return L10n.string("nightModePreset.amber.title")
         }
     }
 

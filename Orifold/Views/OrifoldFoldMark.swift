@@ -130,7 +130,7 @@ struct OrifoldFoldMark: View {
             }
         }
         .buttonStyle(.plain)
-        .help("Replay the fold")
+        .help("orifoldFoldMark.replay.help")
         .onAppear {
             guard playCount == 0 else { return }
             // Let the surrounding screen settle, then play the fold.
@@ -141,7 +141,7 @@ struct OrifoldFoldMark: View {
             }
         }
         .accessibilityLabel("Orifold")
-        .accessibilityHint("Replays the fold animation.")
+        .accessibilityHint("orifoldFoldMark.replay.accessibilityHint")
     }
 
     private func replay() {

@@ -34,7 +34,7 @@ enum PDFSanitizationError: Error, Equatable {
     var userMessage: String {
         switch self {
         case .sanitizationFailed:
-            return "Orifold could not sanitize this PDF. Export without \"Sanitize for sharing,\" or try again."
+            return L10n.string("error.sanitization.failed")
         }
     }
 }
@@ -47,8 +47,8 @@ enum PDFCompressionPreset: String, CaseIterable, Identifiable, Equatable {
 
     var label: String {
         switch self {
-        case .balanced: return "Balanced"
-        case .small: return "Small"
+        case .balanced: return L10n.string("pdfCompressionPreset.balanced.label")
+        case .small: return L10n.string("pdfCompressionPreset.small.label")
         }
     }
 
@@ -91,19 +91,19 @@ enum PDFCompressionError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidPDF:
-            return "Orifold could not read this PDF for file-size reduction. Reopen the document and try again."
+            return L10n.string("error.compression.invalidPDF")
         case .writeFailed:
-            return "Orifold could not create the reduced PDF. Check the destination and try again."
+            return L10n.string("error.compression.writeFailed")
         case .validationFailed:
-            return "Orifold could not verify the reduced PDF. Try exporting without reducing file size."
+            return L10n.string("error.compression.validationFailed")
         case .textChanged:
-            return "Orifold could not verify the reduced PDF text. Try exporting without reducing file size."
+            return L10n.string("error.compression.textChanged")
         case .grewLarger:
-            return "This PDF is already optimized. The reduced copy would not be smaller."
+            return L10n.string("error.compression.grewLarger")
         case .cancelled:
-            return "File-size reduction was cancelled. No file was written."
+            return L10n.string("error.compression.cancelled")
         case .pdfiumRewriteFailed:
-            return "Orifold could not safely rewrite the images in this PDF. Try exporting without reducing file size."
+            return L10n.string("error.compression.pdfiumRewriteFailed")
         }
     }
 }
@@ -141,27 +141,27 @@ enum PDFEncryptionError: Error, Equatable {
     var userMessage: String {
         switch self {
         case .emptyUserPassword:
-            return "Password is missing. Enter a password before exporting the protected PDF."
+            return L10n.string("error.encryption.emptyUserPassword")
         case .emptyOwnerPassword:
-            return "Orifold could not prepare password protection. Try exporting again."
+            return L10n.string("error.encryption.emptyOwnerPassword")
         case .matchingOwnerAndUserPasswords:
-            return "Orifold could not apply PDF permissions because the owner and user passwords matched. Try exporting again."
+            return L10n.string("error.encryption.matchingOwnerAndUserPasswords")
         case .digitalSignatureConflict:
-            return "Password protection is unavailable because this PDF has a digital signature. Remove the signature, or export without password protection."
+            return L10n.string("error.encryption.digitalSignatureConflict")
         case .cannotOpenSourcePDF:
-            return "Orifold could not open the final PDF for password protection. Export without password protection, or try again."
+            return L10n.string("error.encryption.cannotOpenSourcePDF")
         case .writeFailed:
-            return "Orifold could not write the protected PDF. Check the destination and try again."
+            return L10n.string("error.encryption.writeFailed")
         case .unprotectedOutput:
-            return "Orifold could not verify password protection. Try exporting again."
+            return L10n.string("error.encryption.unprotectedOutput")
         case .unreadableEncryptedOutput:
-            return "Orifold could not verify the protected PDF. Try exporting again."
+            return L10n.string("error.encryption.unreadableEncryptedOutput")
         case .unlockFailed:
-            return "Orifold could not unlock the protected PDF during verification. Try exporting again."
+            return L10n.string("error.encryption.unlockFailed")
         case .permissionsMismatch:
-            return "Orifold could not verify the protected PDF permissions. Try exporting again."
+            return L10n.string("error.encryption.permissionsMismatch")
         case .textChanged:
-            return "Orifold could not verify the protected PDF text. Try exporting again."
+            return L10n.string("error.encryption.textChanged")
         }
     }
 }

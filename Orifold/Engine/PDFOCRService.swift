@@ -26,17 +26,17 @@ enum PDFOCRError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidPDF(let memberName):
-            return "Orifold could not read \"\(memberName)\" to make it searchable. Reopen the document and try again."
+            return String(localized: "Orifold could not read \"\(memberName)\" to make it searchable. Reopen the document and try again.", locale: L10n.currentLocale)
         case .pageRenderFailed(let pageNumber):
-            return "Orifold could not read page \(pageNumber) to make it searchable. Try exporting that page to PDF, then import it again."
+            return String(localized: "Orifold could not read page \(pageNumber) to make it searchable. Try exporting that page to PDF, then import it again.", locale: L10n.currentLocale)
         case .recognitionFailed(let pageNumber):
-            return "Orifold could not make page \(pageNumber) searchable. Try a clearer scan or skip this page."
+            return String(localized: "Orifold could not make page \(pageNumber) searchable. Try a clearer scan or skip this page.", locale: L10n.currentLocale)
         case .outputFailed(let memberName):
-            return "Orifold could not update \"\(memberName)\" with searchable text. The original document is unchanged."
+            return String(localized: "Orifold could not update \"\(memberName)\" with searchable text. The original document is unchanged.", locale: L10n.currentLocale)
         case .cancelled:
-            return "Making this document searchable was cancelled. The original document is unchanged."
+            return L10n.string("error.ocr.cancelled")
         case .noScannedPages:
-            return "This document already has searchable text."
+            return L10n.string("error.ocr.noScannedPages")
         }
     }
 }

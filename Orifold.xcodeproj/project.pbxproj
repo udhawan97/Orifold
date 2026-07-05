@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0055EC1C209B2139C0E1AB84 /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E2230CE280817EFAC54C5F0 /* LanguageManager.swift */; };
 		030AF3A4C6C48A926CF12453 /* SignaturePlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5B1F4B0BEA4FE05A099BDD /* SignaturePlacement.swift */; };
 		0334D9327A2C41A09E10BEDB /* WorkspaceDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FC2225FCFCA3E73214C891 /* WorkspaceDocument.swift */; };
 		07562B6F11E7942BAE8061BD /* SigningIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DAA7AC26579ED342CEFD0B6 /* SigningIdentity.swift */; };
@@ -36,6 +37,8 @@
 		5DA5FB5B29F040FB2CA27BE8 /* PDFTextAnalysisEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DEEB6D244D33464EBD47AE /* PDFTextAnalysisEngine.swift */; };
 		63A494D722D8D19B605A593F /* SelfSignedSigningIdentityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9328919DD0053E421B744545 /* SelfSignedSigningIdentityProvider.swift */; };
 		66892296DC2C39A69B88B6FD /* TimestampASN1.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAE0F284E870DE21F26A717 /* TimestampASN1.swift */; };
+		6A61AF44CC3973FA2D204CD6 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 19CDDDF856BFA65B068B9DCE /* Localizable.xcstrings */; };
+		6C28269FE7106D1C254E4429 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08490E35660F4C1C5936E8F0 /* L10n.swift */; };
 		6DA620E8F5AE374C664FCE79 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72C6C67061753E76F1A91BCC /* InspectorView.swift */; };
 		6F5541B26B2DB975C39AB31B /* PDFTextEditingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25C80ECC46A5DFBE04BEC503 /* PDFTextEditingModels.swift */; };
 		7D15A5DADAC698BED688D415 /* PDFSerializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF484D9AFAB5E2501794A81D /* PDFSerializer.swift */; };
@@ -63,6 +66,7 @@
 		B30D6DFF94944267B50B2BDB /* GuidePopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91B6A51AF9512EF792F6179E /* GuidePopover.swift */; };
 		B3710DFA3B711F2842004853 /* PDFEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFF9AAAE2A5022128DC9A027 /* PDFEngine.swift */; };
 		BB444AF8FAC84CE1106D0268 /* SourceDocumentRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91002084FF9EDA56ABC62E9B /* SourceDocumentRoundTripTests.swift */; };
+		BB8E1BD3E39B76B2ABD3267D /* LanguageSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2705D74EEC4B5D5ACC78B688 /* LanguageSwitcher.swift */; };
 		BD040E1459C6B05D563A5F5A /* PDFOCRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C86A44C1039DEDF1D7951D7 /* PDFOCRTests.swift */; };
 		C6B0F652B0F0D8DB6000A042 /* AppToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68C381D941051A14348D28FB /* AppToolbar.swift */; };
 		CD623ED774CA006C6916E83B /* QPDFServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B051321CC974DE14719728 /* QPDFServiceTests.swift */; };
@@ -72,6 +76,7 @@
 		D1ADAA83B2FA98D2D57BD8F9 /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECF495EC7AEB6DFEEDA1A /* AppCommands.swift */; };
 		D2BC345DD41B4DE903270C89 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 432BBABC67F08031A55D597E /* Assets.xcassets */; };
 		D778AD4350F9CA0B984065C0 /* X509 in Frameworks */ = {isa = PBXBuildFile; productRef = 8B8980E6D4BEF170355C3518 /* X509 */; };
+		D87E3C7026F9E2BDE3DBA3E7 /* LocalizationCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B44F4FC778B68881DBAA6EB /* LocalizationCoverageTests.swift */; };
 		D943F1505CCD76116EAC87DB /* PDFProcessingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE5EF0F836F8569C6C4BCB0 /* PDFProcessingEngine.swift */; };
 		DFD8026EF708E2CB2302405A /* PKCS12SigningIdentityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D1CEC6303AD21D084418BF /* PKCS12SigningIdentityProvider.swift */; };
 		E3B2BAEA4759DC872DB0D612 /* StampPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E0996DA7F00D70B60BEEC5 /* StampPalette.swift */; };
@@ -95,25 +100,30 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		08490E35660F4C1C5936E8F0 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		0DAA7AC26579ED342CEFD0B6 /* SigningIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningIdentity.swift; sourceTree = "<group>"; };
 		12772EF49E3A2300AD720F50 /* PasswordPromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordPromptView.swift; sourceTree = "<group>"; };
 		144E694787595BA401D105FB /* OrifoldApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrifoldApp.swift; sourceTree = "<group>"; };
+		19CDDDF856BFA65B068B9DCE /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		1F8068580359DBDD38EB7801 /* OrifoldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrifoldTests.swift; sourceTree = "<group>"; };
 		2069D39A0187FAD569685A2E /* AnnotationIndexEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationIndexEntry.swift; sourceTree = "<group>"; };
 		24A2CF78FE0A6BD083689499 /* PDFCompressionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFCompressionService.swift; sourceTree = "<group>"; };
 		24E14624F443999D5C6611DB /* SignaturePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignaturePalette.swift; sourceTree = "<group>"; };
 		25C80ECC46A5DFBE04BEC503 /* PDFTextEditingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextEditingModels.swift; sourceTree = "<group>"; };
+		2705D74EEC4B5D5ACC78B688 /* LanguageSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageSwitcher.swift; sourceTree = "<group>"; };
 		27E5E2F3AEAD36290772F4E7 /* ImportStressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportStressTests.swift; sourceTree = "<group>"; };
 		28E0996DA7F00D70B60BEEC5 /* StampPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StampPalette.swift; sourceTree = "<group>"; };
 		2A250219087DB4A3B3AD3069 /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
 		2DAE0F284E870DE21F26A717 /* TimestampASN1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimestampASN1.swift; sourceTree = "<group>"; };
 		2DE5EF0F836F8569C6C4BCB0 /* PDFProcessingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFProcessingEngine.swift; sourceTree = "<group>"; };
 		3527E38E24164D05414652D8 /* PDFDecorationExportBaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDecorationExportBaker.swift; sourceTree = "<group>"; };
+		3E2230CE280817EFAC54C5F0 /* LanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
 		406CCE16310F6168CFC39DA5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		432BBABC67F08031A55D597E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		43D1CEC6303AD21D084418BF /* PKCS12SigningIdentityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PKCS12SigningIdentityProvider.swift; sourceTree = "<group>"; };
 		486735D298C40BAC0194DD53 /* KeychainSigningIdentityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSigningIdentityProvider.swift; sourceTree = "<group>"; };
 		48BED5F2F3215DF6CED7F113 /* CMSSignatureBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CMSSignatureBuilder.swift; sourceTree = "<group>"; };
+		4B44F4FC778B68881DBAA6EB /* LocalizationCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationCoverageTests.swift; sourceTree = "<group>"; };
 		4C225D168B9A2D445CCCF62B /* MemberDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemberDocument.swift; sourceTree = "<group>"; };
 		4CFDBB592890D67639441932 /* Orifold.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Orifold.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		51BF8549C9BAE0A40062B2D8 /* WorkspaceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceViewModel.swift; sourceTree = "<group>"; };
@@ -300,6 +310,7 @@
 				A8061257878401A1313CB952 /* EmptyStateView.swift */,
 				91B6A51AF9512EF792F6179E /* GuidePopover.swift */,
 				72C6C67061753E76F1A91BCC /* InspectorView.swift */,
+				2705D74EEC4B5D5ACC78B688 /* LanguageSwitcher.swift */,
 				AA0CBE7680829B8425C141AE /* OrifoldFoldMark.swift */,
 				12772EF49E3A2300AD720F50 /* PasswordPromptView.swift */,
 				C846DAA7BCB4A5EB1BB0FC40 /* ReadingCanvas.swift */,
@@ -317,6 +328,7 @@
 			children = (
 				432BBABC67F08031A55D597E /* Assets.xcassets */,
 				A34D99502EC3CFC93DC21510 /* CERTIFICATE_GUIDE.md */,
+				19CDDDF856BFA65B068B9DCE /* Localizable.xcstrings */,
 				BD11EF37876D3A5278720AF5 /* Orifold.entitlements */,
 				C3F6DDC78A580569D6958669 /* THIRD-PARTY-NOTICES.md */,
 			);
@@ -370,6 +382,8 @@
 			isa = PBXGroup;
 			children = (
 				803ECF495EC7AEB6DFEEDA1A /* AppCommands.swift */,
+				08490E35660F4C1C5936E8F0 /* L10n.swift */,
+				3E2230CE280817EFAC54C5F0 /* LanguageManager.swift */,
 				144E694787595BA401D105FB /* OrifoldApp.swift */,
 			);
 			path = App;
@@ -380,6 +394,7 @@
 			children = (
 				EDDD646A0A8A5E95AD82CDBE /* CMSSignatureBuilderTests.swift */,
 				27E5E2F3AEAD36290772F4E7 /* ImportStressTests.swift */,
+				4B44F4FC778B68881DBAA6EB /* LocalizationCoverageTests.swift */,
 				90D475782FC98B6DC8DD49F5 /* NightModeSettingsTests.swift */,
 				1F8068580359DBDD38EB7801 /* OrifoldTests.swift */,
 				6C86A44C1039DEDF1D7951D7 /* PDFOCRTests.swift */,
@@ -492,6 +507,11 @@
 			knownRegions = (
 				Base,
 				en,
+				es,
+				fr,
+				hi,
+				ja,
+				"zh-Hans",
 			);
 			mainGroup = 690BF9DF572E4906B336055B;
 			minimizedProjectReferenceProxies = 1;
@@ -520,6 +540,7 @@
 			files = (
 				D2BC345DD41B4DE903270C89 /* Assets.xcassets in Resources */,
 				09FA6965427CF4477DEEBA10 /* CERTIFICATE_GUIDE.md in Resources */,
+				6A61AF44CC3973FA2D204CD6 /* Localizable.xcstrings in Resources */,
 				A77F183EBAB8FB1CF707D5C6 /* THIRD-PARTY-NOTICES.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -533,6 +554,7 @@
 			files = (
 				976BF031FB603C521643B987 /* CMSSignatureBuilderTests.swift in Sources */,
 				3649F47473DBE15AF94B6806 /* ImportStressTests.swift in Sources */,
+				D87E3C7026F9E2BDE3DBA3E7 /* LocalizationCoverageTests.swift in Sources */,
 				E511C5FD05874DF3DB827CA3 /* NightModeSettingsTests.swift in Sources */,
 				CD6562D8CFC253CBDC3B2EF1 /* OrifoldTests.swift in Sources */,
 				BD040E1459C6B05D563A5F5A /* PDFOCRTests.swift in Sources */,
@@ -560,6 +582,9 @@
 				B30D6DFF94944267B50B2BDB /* GuidePopover.swift in Sources */,
 				6DA620E8F5AE374C664FCE79 /* InspectorView.swift in Sources */,
 				388D456EF42C30B58635A54A /* KeychainSigningIdentityProvider.swift in Sources */,
+				6C28269FE7106D1C254E4429 /* L10n.swift in Sources */,
+				0055EC1C209B2139C0E1AB84 /* LanguageManager.swift in Sources */,
+				BB8E1BD3E39B76B2ABD3267D /* LanguageSwitcher.swift in Sources */,
 				8EE7D4B56AAF05AAAE5427F5 /* MemberDocument.swift in Sources */,
 				886C7AE969EEE91A7AA51EE5 /* NightModeSettings.swift in Sources */,
 				9146EA42E43B2E17A6DEF609 /* OrifoldApp.swift in Sources */,

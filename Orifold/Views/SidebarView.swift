@@ -67,9 +67,9 @@ struct SidebarView: View {
                             Image(systemName: "tray.and.arrow.down.fill")
                                 .font(.system(size: 26, weight: .light))
                                 .symbolRenderingMode(.hierarchical)
-                            Text("Drop to add documents")
+                            Text("contentView.dropOverlay.title")
                                 .font(.dsHeadline())
-                            Text("Up to 50 files at a time")
+                            Text("contentView.dropOverlay.subtitle")
                                 .font(.dsCaption())
                         }
                         .foregroundStyle(Color.dsAccent)
@@ -98,22 +98,22 @@ private struct SidebarBrandMasthead: View {
                 iconSize: 38,
                 titleSize: 13,
                 subtitleSize: 10.5,
-                subtitle: "Fold messy documents into one clean PDF."
+                subtitle: L10n.string("sidebar.brandMasthead.subtitle")
             )
 
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: .dsSM) {
-                    SidebarMetric(value: "\(documentCount)", label: documentCount == 1 ? "file" : "files")
-                    SidebarMetric(value: "\(pageCount)", label: pageCount == 1 ? "page" : "pages")
-                    SidebarMetric(value: "\(commentCount)", label: commentCount == 1 ? "comment" : "comments")
+                    SidebarMetric(value: "\(documentCount)", label: documentCount == 1 ? "sidebar.metric.file" : "sidebar.metric.files")
+                    SidebarMetric(value: "\(pageCount)", label: pageCount == 1 ? "sidebar.metric.page" : "sidebar.metric.pages")
+                    SidebarMetric(value: "\(commentCount)", label: commentCount == 1 ? "sidebar.metric.comment" : "sidebar.metric.comments")
                 }
 
                 VStack(alignment: .leading, spacing: .dsSM) {
                     HStack(spacing: .dsSM) {
-                        SidebarMetric(value: "\(documentCount)", label: documentCount == 1 ? "file" : "files")
-                        SidebarMetric(value: "\(pageCount)", label: pageCount == 1 ? "page" : "pages")
+                        SidebarMetric(value: "\(documentCount)", label: documentCount == 1 ? "sidebar.metric.file" : "sidebar.metric.files")
+                        SidebarMetric(value: "\(pageCount)", label: pageCount == 1 ? "sidebar.metric.page" : "sidebar.metric.pages")
                     }
-                    SidebarMetric(value: "\(commentCount)", label: commentCount == 1 ? "comment" : "comments")
+                    SidebarMetric(value: "\(commentCount)", label: commentCount == 1 ? "sidebar.metric.comment" : "sidebar.metric.comments")
                 }
             }
         }
@@ -131,7 +131,7 @@ private struct SidebarBrandMasthead: View {
 
 private struct SidebarMetric: View {
     var value: String
-    var label: String
+    var label: LocalizedStringKey
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 3) {
@@ -208,7 +208,7 @@ struct MemberDocRow: View {
                 .opacity(isHovered ? 1 : 0)
                 .allowsHitTesting(isHovered)
                 .disabled(!viewModel.canRemoveDocuments)
-                .help("Remove document")
+                .help("sidebar.removeDocument.help")
                 .accessibilityLabel("Remove \(member.displayName)")
             }
             .padding(.vertical, 2)
@@ -231,7 +231,7 @@ struct MemberDocRow: View {
             Button(role: .destructive) {
                 viewModel.removeDocument(member)
             } label: {
-                Label("Remove Document", systemImage: "trash")
+                Label("sidebar.removeDocument.contextMenu", systemImage: "trash")
             }
             .disabled(!viewModel.canRemoveDocuments)
         }
@@ -415,7 +415,7 @@ struct ThumbnailCell: View {
                     viewModel.exportPages(selection)
                 }
                 Divider()
-                Button("Insert Files After This Document…") {
+                Button("sidebar.thumbnail.insertFilesAfter.contextMenu") {
                     openFiles(insertingAfter: pageRef)
                 }
                 Divider()
@@ -472,18 +472,18 @@ struct ThumbnailCell: View {
             thumbnail = page.thumbnail(of: Self.thumbSize, for: .mediaBox)
         }
         .confirmationDialog(
-            "Delete selected pages?",
+            "sidebar.deletePages.confirmation.title",
             isPresented: $isConfirmingDelete,
             titleVisibility: .visible
         ) {
-            Button("Delete", role: .destructive) {
+            Button("sidebar.deletePages.confirmation.delete", role: .destructive) {
                 viewModel.deletePages(viewModel.pageRefsForCurrentSelection(including: pageRef))
                 thumbnail = nil
             }
-            Button("Cancel", role: .cancel) {}
+            Button("sidebar.deletePages.confirmation.cancel", role: .cancel) {}
         } message: {
             let count = viewModel.pageRefsForCurrentSelection(including: pageRef).count
-            Text(count == 1 ? "This removes the page and any page-bound signatures, stamps, and anchors." : "This removes \(count) pages and their page-bound signatures, stamps, and anchors.")
+            Text(count == 1 ? "sidebar.deletePages.confirmation.messageSingular" : "This removes \(count) pages and their page-bound signatures, stamps, and anchors.")
         }
     }
 

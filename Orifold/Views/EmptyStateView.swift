@@ -15,18 +15,22 @@ struct EmptyStateView: View {
     }
 
     private let featureOptions: [EmptyStateOption] = [
-        EmptyStateOption(icon: "square.stack.3d.down.right", title: "Assemble", accent: .dsAccent, guidance: "Choose files below to start assembling a packet."),
-        EmptyStateOption(icon: "highlighter", title: "Mark up", accent: .dsAnnotationSky, guidance: "Choose files below, then mark up the pages that matter."),
-        EmptyStateOption(icon: "checklist", title: "Fill forms", accent: .dsAnnotationSage, guidance: "Choose files below to open a form and finish it here."),
-        EmptyStateOption(icon: "text.viewfinder", title: "Search scans", accent: .dsAccentBright, guidance: "Choose files below to import scans, then make them searchable."),
-        EmptyStateOption(icon: "seal", title: "Stamp", accent: .dsSignatureAccent, guidance: "Choose files below, then add stamps, watermarks, or page numbers."),
-        EmptyStateOption(icon: "lock.shield", title: "Protect", accent: .dsAnnotationLavender, guidance: "Choose files below, then export a protected copy when it is ready.")
+        EmptyStateOption(icon: "square.stack.3d.down.right", title: L10n.string("emptyState.option.assemble.title"), accent: .dsAccent, guidance: L10n.string("emptyState.option.assemble.guidance")),
+        EmptyStateOption(icon: "highlighter", title: L10n.string("emptyState.option.markUp.title"), accent: .dsAnnotationSky, guidance: L10n.string("emptyState.option.markUp.guidance")),
+        EmptyStateOption(icon: "checklist", title: L10n.string("emptyState.option.fillForms.title"), accent: .dsAnnotationSage, guidance: L10n.string("emptyState.option.fillForms.guidance")),
+        EmptyStateOption(icon: "text.viewfinder", title: L10n.string("emptyState.option.searchScans.title"), accent: .dsAccentBright, guidance: L10n.string("emptyState.option.searchScans.guidance")),
+        EmptyStateOption(icon: "seal", title: L10n.string("emptyState.option.stamp.title"), accent: .dsSignatureAccent, guidance: L10n.string("emptyState.option.stamp.guidance")),
+        EmptyStateOption(icon: "lock.shield", title: L10n.string("emptyState.option.protect.title"), accent: .dsAnnotationLavender, guidance: L10n.string("emptyState.option.protect.guidance"))
     ]
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Color.dsCanvas.ignoresSafeArea()
             EmptyStateAmbientBackground()
+
+            LanguageSwitcher()
+                .padding(.dsMD)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             ScrollView {
                 VStack(spacing: .dsXL) {
@@ -35,13 +39,13 @@ struct EmptyStateView: View {
                         OrifoldFoldMark(size: 80)
 
                         VStack(spacing: 6) {
-                            Text("Orifold")
+                            Text(verbatim: "Orifold")
                                 .font(.dsDisplay(size: 36))
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("Fold scattered pages into one polished PDF.")
+                            Text("emptyState.headline")
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("Combine, arrange, annotate, and export documents in one calm workspace. Start with up to 50 files at once.")
+                            Text("emptyState.subheadline")
                                 .font(.dsBody())
                                 .foregroundStyle(Color.dsTextSecondary)
                                 .multilineTextAlignment(.center)
@@ -67,10 +71,10 @@ struct EmptyStateView: View {
                         dropZoneIcon
 
                         VStack(spacing: 5) {
-                            Text(isDropTargeted ? "Release to import" : "Drop files to begin")
+                            Text(isDropTargeted ? "emptyState.dropZone.releaseToImport" : "emptyState.dropZone.dropFilesToBegin")
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("PDF, Word, HTML, text, images. Up to 50 files.")
+                            Text("emptyState.dropZone.supportedTypes")
                                 .font(.dsCaption())
                                 .foregroundStyle(Color.dsTextTertiary)
                         }
@@ -78,7 +82,7 @@ struct EmptyStateView: View {
                         Button {
                             openFiles()
                         } label: {
-                            Label("Choose Files", systemImage: "folder.badge.plus")
+                            Label("emptyState.chooseFiles.label", systemImage: "folder.badge.plus")
                                 .frame(minWidth: 140)
                         }
                         .controlSize(.large)
@@ -131,7 +135,7 @@ struct EmptyStateView: View {
                 guard !urls.isEmpty else {
                     viewModel.importError = WorkspaceViewModel.ImportError(
                         fileName: "Dropped Files",
-                        message: "Orifold could not find a supported document in that drop."
+                        message: L10n.string("contentView.dropImportError.noSupportedDocument")
                     )
                     return
                 }
@@ -333,7 +337,7 @@ private struct EmptyStatePill: View {
         }
         .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.82).delay(entranceDelay), value: isIntroduced)
         .accessibilityLabel(option.title)
-        .accessibilityHint("Use Choose Files to continue.")
+        .accessibilityHint("emptyState.pill.accessibilityHint")
     }
 }
 
@@ -350,10 +354,10 @@ private struct EmptyStatePetIntro: View {
         if buddy.isEnabled {
             HStack(alignment: .bottom, spacing: .dsSM) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Hi, I am Foldy.")
+                    Text("emptyState.petIntro.greeting")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.dsTextPrimary)
-                    Text("Choose files and I will help keep the PDF chores moving.")
+                    Text("emptyState.petIntro.message")
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextSecondary)
                         .fixedSize(horizontal: false, vertical: true)

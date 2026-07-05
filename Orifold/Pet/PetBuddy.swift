@@ -7,41 +7,97 @@ enum PetEvent: CaseIterable {
 }
 
 enum PetLines {
-    static let byEvent: [PetEvent: [String]] = [
-        .highlight: ["Highlighted. Future-you will pretend they read the rest.", "That sentence never stood a chance.", "Tip: drag over text, then pick a color — highlights stack, so go easy.", "Yellow again? A classic never fails."],
-        .comment: ["A comment — bold of you to leave a paper trail.", "Noted. Literally.", "Tip: tag a comment now and you'll find it in seconds later.", "Sharp feedback. Speaking of which… the dev would love yours 👀"],
-        .tag: ["Tagged. Organized people are just tidy worriers with labels.", "Tip: reuse tags and your filters will thank you.", "One tag to rule them all."],
-        .sign: ["Signed, sealed — hopefully not regretted.", "That's a legally-adjacent flourish right there.", "Tip: drag to resize the signature before you commit.", "Very official. Your future self approves."],
-        .note: ["A sticky note. The Post-it lives on, digitally.", "Tip: notes stay put even after you rearrange pages."],
-        .edit: ["Editing a PDF? Bold. They said it couldn't be done.", "Tip: click any text to tweak it in place.", "Rewriting history, one line at a time."],
-        .ink: ["Freehand! Bob Ross would be proud.", "Tip: hold steady — undo is one ⌘Z away."],
-        .rotate: ["Whoa, the page turned sideways. Better now?", "Tip: rotation applies only to the page you picked."],
-        .delete: ["Gone. We don't talk about that page anymore.", "Tip: ⌘Z brings it back if you panic."],
-        .export: ["Exported. Go attach it to something important.", "Tip: flatten before sharing so annotations stick."],
-        .save: ["Saved. Responsible of you.", "Locked in. Nicely done."],
-        .addFile: ["Two PDFs enter, one workspace leaves.", "Tip: drag pages between files to reshuffle."],
-        .search: ["Looking for something? Aren't we all.", "Tip: results jump you straight to the page."],
-        .greeting: ["Back again? I never left.", "Ready when you are."]
-    ]
+    static var byEvent: [PetEvent: [String]] {
+        [
+            .highlight: [
+                L10n.string("pet.event.highlight.1"),
+                L10n.string("pet.event.highlight.2"),
+                L10n.string("pet.event.highlight.3"),
+                L10n.string("pet.event.highlight.4")
+            ],
+            .comment: [
+                L10n.string("pet.event.comment.1"),
+                L10n.string("pet.event.comment.2"),
+                L10n.string("pet.event.comment.3"),
+                L10n.string("pet.event.comment.4")
+            ],
+            .tag: [
+                L10n.string("pet.event.tag.1"),
+                L10n.string("pet.event.tag.2"),
+                L10n.string("pet.event.tag.3")
+            ],
+            .sign: [
+                L10n.string("pet.event.sign.1"),
+                L10n.string("pet.event.sign.2"),
+                L10n.string("pet.event.sign.3"),
+                L10n.string("pet.event.sign.4")
+            ],
+            .note: [
+                L10n.string("pet.event.note.1"),
+                L10n.string("pet.event.note.2")
+            ],
+            .edit: [
+                L10n.string("pet.event.edit.1"),
+                L10n.string("pet.event.edit.2"),
+                L10n.string("pet.event.edit.3")
+            ],
+            .ink: [
+                L10n.string("pet.event.ink.1"),
+                L10n.string("pet.event.ink.2")
+            ],
+            .rotate: [
+                L10n.string("pet.event.rotate.1"),
+                L10n.string("pet.event.rotate.2")
+            ],
+            .delete: [
+                L10n.string("pet.event.delete.1"),
+                L10n.string("pet.event.delete.2")
+            ],
+            .export: [
+                L10n.string("pet.event.export.1"),
+                L10n.string("pet.event.export.2")
+            ],
+            .save: [
+                L10n.string("pet.event.save.1"),
+                L10n.string("pet.event.save.2")
+            ],
+            .addFile: [
+                L10n.string("pet.event.addFile.1"),
+                L10n.string("pet.event.addFile.2")
+            ],
+            .search: [
+                L10n.string("pet.event.search.1"),
+                L10n.string("pet.event.search.2")
+            ],
+            .greeting: [
+                L10n.string("pet.event.greeting.1"),
+                L10n.string("pet.event.greeting.2")
+            ]
+        ]
+    }
 
-    static let feedback: [String] = [
-        "Psst — Orifold is brand new. The developer would genuinely love your thoughts: umangdhawan97@gmail.com",
-        "Enjoying this? Tell the human who made it: umangdhawan97@gmail.com — they read every message.",
-        "You've done real work today. Worth a quick note? umangdhawan97@gmail.com"
-    ]
+    static var feedback: [String] {
+        [
+            L10n.string("pet.feedback.1"),
+            L10n.string("pet.feedback.2"),
+            L10n.string("pet.feedback.3")
+        ]
+    }
 
-    static let inspiration: [String] = [
-        "Progress counts, even when it arrives wearing a loading spinner.",
-        "Make the next page better. The whole document will get the hint.",
-        "Clarity is a power move. So is saving before experimenting.",
-        "One clean edit beats twelve heroic explanations.",
-        "Your future self called. They appreciate the filenames.",
-        "Small tidy choices compound. Annoyingly practical, deeply effective.",
-        "Done is not the enemy of great. It is great's project manager.",
-        "Read twice, mark once. Very professional. Suspiciously wise.",
-        "Momentum loves a modest checklist and a good export.",
-        "Today's masterpiece may be tomorrow's attachment. Keep going."
-    ]
+    static var inspiration: [String] {
+        [
+            L10n.string("pet.inspiration.1"),
+            L10n.string("pet.inspiration.2"),
+            L10n.string("pet.inspiration.3"),
+            L10n.string("pet.inspiration.4"),
+            L10n.string("pet.inspiration.5"),
+            L10n.string("pet.inspiration.6"),
+            L10n.string("pet.inspiration.7"),
+            L10n.string("pet.inspiration.8"),
+            L10n.string("pet.inspiration.9"),
+            L10n.string("pet.inspiration.10")
+        ]
+    }
 }
 
 enum PetBuddyHook {
@@ -263,7 +319,7 @@ struct PetView: View {
                 .scaleEffect(scale)
         }
         .buttonStyle(.plain)
-        .help("Foldy — your Orifold buddy")
+        .help("petBuddy.avatar.help")
         .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
             PetControlPopover(
                 presentation: presentation,
@@ -383,19 +439,19 @@ private struct PetControlPopover: View {
                 buddy.hush()
                 isPresented = false
             } label: {
-                Label("Shush for now", systemImage: "speaker.slash")
+                Label("petBuddy.menu.shush.title", systemImage: "speaker.slash")
             }
 
             Button {
                 buddy.disable()
                 isPresented = false
             } label: {
-                Label("Hide Foldy", systemImage: "eye.slash")
+                Label("petBuddy.menu.hide.title", systemImage: "eye.slash")
             }
 
             if let feedbackURL {
                 Link(destination: feedbackURL) {
-                    Label("Send Feedback", systemImage: "paperplane")
+                    Label("petBuddy.menu.sendFeedback.title", systemImage: "paperplane")
                 }
             }
         }
@@ -435,10 +491,10 @@ private struct PetControlPopover: View {
                 .foregroundStyle(LinearGradient.dsAccent)
                 .rotationEffect(didAnimateIn && !shouldReduceMotion ? .degrees(8) : .zero)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Foldy is here to help")
+                Text("petBuddy.welcome.title")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
-                Text("Start with Choose Files or drop up to 50 files. Once a document is open, I will keep tips brief and stay out of the way.")
+                Text("petBuddy.welcome.subtitle")
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)

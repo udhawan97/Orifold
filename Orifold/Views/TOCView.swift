@@ -17,7 +17,7 @@ struct TOCView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Contents")
+            Text("toc.title")
                 .font(.system(size: 15, weight: .semibold, design: .serif))
                 .foregroundStyle(Color.dsTextPrimary)
                 .padding(.horizontal, .dsLG)
@@ -27,7 +27,7 @@ struct TOCView: View {
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
             if entries.isEmpty {
-                Text("No documents in workspace.")
+                Text("toc.empty")
                     .font(.dsBody())
                     .foregroundStyle(Color.dsTextSecondary)
                     .padding(.dsLG)

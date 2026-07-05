@@ -33,9 +33,9 @@ enum PDFFormSupport {
         var errorDescription: String? {
             switch self {
             case .invalidPDF:
-                return "Orifold could not lock the form answers in this PDF. Reopen the document and try exporting again."
+                return L10n.string("error.form.invalidPDF")
             case .pageOrderMismatch:
-                return "Orifold could not match form fields to the current page order. Reopen the document and try exporting again."
+                return L10n.string("error.form.pageOrderMismatch")
             }
         }
     }

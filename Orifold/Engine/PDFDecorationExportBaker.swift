@@ -13,15 +13,15 @@ enum PDFDecorationExportBaker {
         var errorDescription: String? {
             switch self {
             case .invalidPDF:
-                return "Orifold could not apply decorations to this PDF. Reopen the document and try exporting again."
+                return L10n.string("error.decoration.invalidPDF")
             case .pageOrderMismatch:
-                return "Orifold could not match decorations to the current page order. Reopen the document and try exporting again."
+                return L10n.string("error.decoration.pageOrderMismatch")
             case .invalidDecoration:
-                return "Orifold could not apply a decoration to this PDF. Add text or turn the decoration off."
+                return L10n.string("error.decoration.invalidDecoration")
             case .invalidStampDecoration:
-                return "Orifold could not apply a stamp to this PDF. Remove the stamp and place it again."
+                return L10n.string("error.decoration.invalidStampDecoration")
             case .documentTooLargeForDecorationExport:
-                return "Orifold could not decorate this PDF because it is too large to process safely. Export without decorations, or split the PDF into smaller files."
+                return L10n.string("error.decoration.documentTooLarge")
             }
         }
     }
@@ -128,7 +128,7 @@ enum PDFDecorationExportBaker {
         case .watermark, .stamp:
             return decoration.text
         case .pageNumber:
-            return "Page \(pageIndex + 1) of \(pageCount)"
+            return String(localized: "Page \(pageIndex + 1) of \(pageCount)", locale: L10n.currentLocale)
         case .bates:
             return "\(decoration.prefix)-\(String(format: "%06d", decoration.startNumber + pageIndex))"
         }

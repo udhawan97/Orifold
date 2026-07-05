@@ -14,21 +14,21 @@ enum PDFTextEditWarning: Equatable {
     var message: String {
         switch self {
         case .emptySelection:
-            return "Orifold could not find editable text at that location."
+            return L10n.string("error.editing.emptySelection")
         case .invalidSelectionBounds:
-            return "That PDF text selection has invalid bounds, so Orifold added a normal text box instead."
+            return L10n.string("error.editing.invalidSelectionBounds")
         case .invalidAnnotationBounds:
-            return "That annotation has invalid geometry and could not be edited safely."
+            return L10n.string("error.editing.invalidAnnotationBounds")
         case .annotationCreationFailed:
-            return "Orifold could not create an annotation on that page."
+            return L10n.string("error.editing.annotationCreationFailed")
         case .unsupportedReplacement:
-            return "Orifold could not safely replace that PDF text. A normal text box was added instead."
+            return L10n.string("error.editing.unsupportedReplacement")
         case .serializationFailed:
-            return "Orifold could not serialize the edited PDF. Your workspace remains open."
+            return L10n.string("error.editing.serializationFailed")
         case .colorConversionFailed:
-            return "Orifold could not preserve the original text color, so it used the default document text color."
+            return L10n.string("error.editing.colorConversionFailed")
         case .fontConversionFailed:
-            return "Orifold could not preserve the original font, so it used a system font."
+            return L10n.string("error.editing.fontConversionFailed")
         }
     }
 }

@@ -146,19 +146,19 @@ struct ContentView: View {
                 showTOC = false
             }
         }
-        .alert("Import Error", isPresented: Binding(
+        .alert("contentView.importError.title", isPresented: Binding(
             get: { viewModel.importError != nil },
             set: { if !$0 { viewModel.importError = nil } }
         ), presenting: viewModel.importError) { _ in
-            Button("OK") { viewModel.importError = nil }
+            Button("contentView.ok.button") { viewModel.importError = nil }
         } message: { err in
             Text(err.message)
         }
-        .alert("Export Error", isPresented: Binding(
+        .alert("contentView.exportError.title", isPresented: Binding(
             get: { viewModel.exportError != nil },
             set: { if !$0 { viewModel.exportError = nil } }
         ), presenting: viewModel.exportError) { _ in
-            Button("OK") { viewModel.exportError = nil }
+            Button("contentView.ok.button") { viewModel.exportError = nil }
         } message: { err in
             Text(err.message)
         }
@@ -183,24 +183,24 @@ struct ContentView: View {
         // Leading: add source files
         ToolbarItem(placement: .navigation) {
             Button { openFiles() } label: {
-                Label("Add Files", systemImage: "plus.circle")
+                Label("toolbar.addFiles.label", systemImage: "plus.circle")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("Add files to this workspace (⌘⇧O)")
+            .help("toolbar.addFiles.help")
             .keyboardShortcut("o", modifiers: [.command, .shift])
         }
 
         // Header navigation: keep document structure near the title.
         ToolbarItem(placement: .navigation) {
             Button { showTOC.toggle() } label: {
-                Label("Contents", systemImage: "list.bullet.rectangle.portrait")
+                Label("toolbar.contents.label", systemImage: "list.bullet.rectangle.portrait")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("Table of contents")
+            .help("toolbar.contents.help")
         }
 
         // Center: annotation tools + color swatch
@@ -220,66 +220,66 @@ struct ContentView: View {
                     showInspector = true
                 }
             } label: {
-                Label("Reader Mode", systemImage: viewModel.isReaderMode ? "book.fill" : "book")
+                Label("toolbar.readerMode.label", systemImage: viewModel.isReaderMode ? "book.fill" : "book")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help(viewModel.isReaderMode ? "Exit Reader Mode" : "Enter Reader Mode")
+            .help(viewModel.isReaderMode ? "toolbar.readerMode.exit.help" : "toolbar.readerMode.enter.help")
 
             Button { viewModel.isShowingSearch.toggle() } label: {
-                Label("Search", systemImage: "magnifyingglass")
+                Label("toolbar.search.label", systemImage: "magnifyingglass")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("Search (⌘F)")
+            .help("toolbar.search.help")
             .keyboardShortcut("f", modifiers: .command)
 
             Menu {
-                Button("Export…") {
+                Button("toolbar.export.menuItem.export") {
                     isShowingExportSheet = true
                 }
                 Divider()
-                Button("Print…") {
+                Button("toolbar.export.menuItem.print") {
                     NotificationCenter.default.post(name: .orifoldPrint, object: nil)
                 }
             } label: {
-                Label("Export", systemImage: "square.and.arrow.up")
+                Label("toolbar.export.label", systemImage: "square.and.arrow.up")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("Export / Print (⌘⇧E)")
+            .help("toolbar.export.help")
             .keyboardShortcut("e", modifiers: [.command, .shift])
 
             Button { showInspector.toggle() } label: {
-                Label("Inspector", systemImage: "sidebar.right")
+                Label("toolbar.inspector.label", systemImage: "sidebar.right")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("Toggle inspector")
+            .help("toolbar.inspector.help")
 
             Button {
                 viewModel.isNightModeEnabled.toggle()
             } label: {
-                Label("Night Mode", systemImage: viewModel.isNightModeEnabled ? "moon.stars.fill" : "moon.stars")
+                Label("toolbar.nightMode.label", systemImage: viewModel.isNightModeEnabled ? "moon.stars.fill" : "moon.stars")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help(viewModel.isNightModeEnabled ? "Turn off night document tone" : "Dim and warm document pages for night reading")
+            .help(viewModel.isNightModeEnabled ? "toolbar.nightMode.turnOff.help" : "toolbar.nightMode.turnOn.help")
 
             Button {
                 isShowingNightModeControls.toggle()
             } label: {
-                Label("Night Tone", systemImage: "slider.horizontal.3")
+                Label("toolbar.nightTone.label", systemImage: "slider.horizontal.3")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("Adjust app appearance and night reading tone")
+            .help("toolbar.nightTone.help")
             .popover(isPresented: $isShowingNightModeControls, arrowEdge: .top) {
                 NightModeControls(viewModel: viewModel)
                     .frame(width: 320)
@@ -355,10 +355,10 @@ struct ContentView: View {
                                 .font(.system(size: 34, weight: .light))
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(LinearGradient.dsAccent)
-                            Text("Drop to add documents")
+                            Text("contentView.dropOverlay.title")
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsAccent)
-                            Text("Up to 50 files at a time")
+                            Text("contentView.dropOverlay.subtitle")
                                 .font(.dsCaption())
                                 .foregroundStyle(Color.dsAccent.opacity(0.82))
                         }
@@ -378,7 +378,7 @@ struct ContentView: View {
             guard !urls.isEmpty else {
                 viewModel.importError = WorkspaceViewModel.ImportError(
                     fileName: "Dropped Files",
-                    message: "Orifold could not find a supported document in that drop."
+                    message: L10n.string("contentView.dropImportError.noSupportedDocument")
                 )
                 return
             }
@@ -415,7 +415,7 @@ private struct ReaderModePill: View {
 
     var body: some View {
         HStack(spacing: .dsSM) {
-            Label("Reader", systemImage: "book.fill")
+            Label("contentView.readerModePill.reader.label", systemImage: "book.fill")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.dsTextPrimary)
 
@@ -427,7 +427,7 @@ private struct ReaderModePill: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(viewModel.isNightModeEnabled ? Color.dsAccent : Color.dsTextTertiary)
-            .help("Adjust appearance and reading tone")
+            .help("contentView.readerModePill.toneControls.help")
             .popover(isPresented: $isShowingToneControls, arrowEdge: .top) {
                 NightModeControls(viewModel: viewModel)
                     .frame(width: 320)
@@ -439,7 +439,7 @@ private struct ReaderModePill: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsAccent)
-            .help("Open notes and comments")
+            .help("contentView.readerModePill.openNotes.help")
 
             Button(action: onExit) {
                 Image(systemName: "xmark")
@@ -448,7 +448,7 @@ private struct ReaderModePill: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextTertiary)
-            .help("Exit Reader Mode")
+            .help("toolbar.readerMode.exit.help")
         }
         .padding(.leading, .dsMD)
         .padding(.trailing, .dsSM)
@@ -468,9 +468,9 @@ private struct NightModeControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
             VStack(alignment: .leading, spacing: .dsSM) {
-                Label("Application", systemImage: "macwindow")
+                Label("contentView.nightModeControls.application.label", systemImage: "macwindow")
                     .font(.dsHeadline())
-                Picker("Application appearance", selection: appAppearanceModeBinding) {
+                Picker("contentView.nightModeControls.applicationAppearance.picker", selection: appAppearanceModeBinding) {
                     ForEach(AppAppearanceMode.allCases) { mode in
                         Label(mode.title, systemImage: mode.systemImage)
                             .tag(mode)
@@ -483,7 +483,7 @@ private struct NightModeControls: View {
             Divider()
 
             Toggle(isOn: $viewModel.isNightModeEnabled) {
-                Label("Night Mode", systemImage: viewModel.isNightModeEnabled ? "moon.stars.fill" : "moon.stars")
+                Label("toolbar.nightMode.label", systemImage: viewModel.isNightModeEnabled ? "moon.stars.fill" : "moon.stars")
                     .font(.dsHeadline())
             }
 
@@ -503,7 +503,7 @@ private struct NightModeControls: View {
 
             VStack(alignment: .leading, spacing: .dsSM) {
                 nightModeSlider(
-                    title: "Warmth",
+                    title: "contentView.nightModeControls.warmth.title",
                     systemImage: "thermometer.sun",
                     value: Binding(
                         get: { viewModel.nightModeSettings.warmth },
@@ -511,7 +511,7 @@ private struct NightModeControls: View {
                     )
                 )
                 nightModeSlider(
-                    title: "Tone",
+                    title: "contentView.nightModeControls.tone.title",
                     systemImage: "circle.lefthalf.filled",
                     value: Binding(
                         get: { viewModel.nightModeSettings.intensity },
@@ -519,7 +519,7 @@ private struct NightModeControls: View {
                     )
                 )
                 nightModeSlider(
-                    title: "Dimming",
+                    title: "contentView.nightModeControls.dimming.title",
                     systemImage: "sun.min",
                     value: Binding(
                         get: { viewModel.nightModeSettings.dimming },
@@ -530,7 +530,7 @@ private struct NightModeControls: View {
 
             HStack {
                 Spacer()
-                Button("Reset") {
+                Button("contentView.nightModeControls.reset.button") {
                     viewModel.nightModeSettings = .default
                 }
             }
@@ -556,7 +556,7 @@ private struct NightModeControls: View {
         }
     }
 
-    private func nightModeSlider(title: String, systemImage: String, value: Binding<Double>) -> some View {
+    private func nightModeSlider(title: LocalizedStringKey, systemImage: String, value: Binding<Double>) -> some View {
         HStack(spacing: .dsSM) {
             Image(systemName: systemImage)
                 .frame(width: 18)
@@ -564,7 +564,9 @@ private struct NightModeControls: View {
             Text(title)
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
-                .frame(width: 54, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(width: 78, alignment: .leading)
             Slider(value: value, in: 0...1, step: 0.01)
             Text("\(Int(value.wrappedValue * 100))%")
                 .font(.dsCaption())
@@ -616,13 +618,13 @@ private struct ExportSheet: View {
             return nil
         }
         if password.isEmpty {
-            return "Password is missing. Enter a password."
+            return L10n.string("contentView.exportSheet.passwordMissing.message")
         }
         if passwordConfirmation.isEmpty {
-            return "Confirmation is missing. Re-enter the password."
+            return L10n.string("contentView.exportSheet.confirmationMissing.message")
         }
         if passwordMismatch {
-            return "Passwords do not match. Re-enter the confirmation."
+            return L10n.string("contentView.exportSheet.passwordMismatch.message")
         }
         return nil
     }
@@ -634,11 +636,11 @@ private struct ExportSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsLG) {
-            Text("Export")
+            Text("contentView.exportSheet.title")
                 .font(.dsTitle())
                 .foregroundStyle(Color.dsTextPrimary)
 
-            Picker("Format", selection: $selectedFormat) {
+            Picker("contentView.exportSheet.format.picker", selection: $selectedFormat) {
                 ForEach(WorkspaceExportFormat.allCases) { format in
                     Text(format.menuTitle).tag(format)
                 }
@@ -648,16 +650,16 @@ private struct ExportSheet: View {
             VStack(alignment: .leading, spacing: .dsSM) {
                 DisclosureGroup(isExpanded: $isProtectionExpanded) {
                     VStack(alignment: .leading, spacing: .dsSM) {
-                        SecureField("Password", text: $password)
+                        SecureField("contentView.exportSheet.password.field", text: $password)
                             .textFieldStyle(.roundedBorder)
                             .disabled(!protectWithPassword || !canProtectSelectedFormat)
-                        SecureField("Confirm password", text: $passwordConfirmation)
+                        SecureField("contentView.exportSheet.confirmPassword.field", text: $passwordConfirmation)
                             .textFieldStyle(.roundedBorder)
                             .disabled(!protectWithPassword || !canProtectSelectedFormat)
 
-                        Toggle("Allow printing", isOn: $allowsPrinting)
+                        Toggle("contentView.exportSheet.allowPrinting.toggle", isOn: $allowsPrinting)
                             .disabled(!protectWithPassword || !canProtectSelectedFormat)
-                        Toggle("Allow copying", isOn: $allowsCopying)
+                        Toggle("contentView.exportSheet.allowCopying.toggle", isOn: $allowsCopying)
                             .disabled(!protectWithPassword || !canProtectSelectedFormat)
 
                         if let passwordValidationMessage {
@@ -668,7 +670,7 @@ private struct ExportSheet: View {
                     }
                     .padding(.top, .dsSM)
                 } label: {
-                    Toggle("Protect with password", isOn: Binding(
+                    Toggle("contentView.exportSheet.protectWithPassword.toggle", isOn: Binding(
                         get: { protectWithPassword },
                         set: { newValue in
                             protectWithPassword = newValue && canProtectSelectedFormat
@@ -681,11 +683,11 @@ private struct ExportSheet: View {
                 }
 
                 if selectedFormat != .pdf {
-                    Text("Password protection is available for PDF exports.")
+                    Text("contentView.exportSheet.passwordProtectionPdfOnly.message")
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 } else if viewModel.hasCryptographicSignaturePlacement {
-                    Text("Password protection is unavailable because this PDF has a digital signature.")
+                    Text("contentView.exportSheet.passwordProtectionUnavailableSigned.message")
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
@@ -710,7 +712,7 @@ private struct ExportSheet: View {
             }
 
             DisclosureGroup(isExpanded: $isCompressionExpanded) {
-                Picker("Preset", selection: $compressionPreset) {
+                Picker("contentView.exportSheet.compressionPreset.picker", selection: $compressionPreset) {
                     ForEach(PDFCompressionPreset.allCases) { preset in
                         Text(preset.label).tag(preset)
                     }
@@ -720,12 +722,12 @@ private struct ExportSheet: View {
                 .padding(.top, .dsSM)
 
                 if selectedFormat != .pdf {
-                    Text("File-size reduction is available for PDF exports.")
+                    Text("contentView.exportSheet.fileSizeReductionPdfOnly.message")
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
             } label: {
-                Toggle("Reduce file size", isOn: Binding(
+                Toggle("contentView.exportSheet.reduceFileSize.toggle", isOn: Binding(
                     get: { reduceFileSize },
                     set: { newValue in
                         reduceFileSize = newValue && selectedFormat == .pdf
@@ -742,15 +744,15 @@ private struct ExportSheet: View {
             if selectedFormat == .pdf {
                 DisclosureGroup(isExpanded: $isSanitizeExpanded) {
                     VStack(alignment: .leading, spacing: .dsSM) {
-                        Toggle("Remove document metadata (author, producer, dates)", isOn: $removesMetadata)
+                        Toggle("contentView.exportSheet.removeMetadata.toggle", isOn: $removesMetadata)
                             .disabled(!sanitizeForSharing)
-                        Text("Strips auto-run actions, embedded JavaScript, and embedded files.")
+                        Text("contentView.exportSheet.sanitizeStripsDetail.message")
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsTextTertiary)
                     }
                     .padding(.top, .dsSM)
                 } label: {
-                    Toggle("Sanitize for sharing", isOn: Binding(
+                    Toggle("contentView.exportSheet.sanitizeForSharing.toggle", isOn: Binding(
                         get: { sanitizeForSharing },
                         set: { newValue in
                             sanitizeForSharing = newValue && !viewModel.hasCryptographicSignaturePlacement
@@ -765,7 +767,7 @@ private struct ExportSheet: View {
                 .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: sanitizeForSharing)
 
                 if viewModel.hasCryptographicSignaturePlacement {
-                    Text("Sanitizing is unavailable because this PDF has a digital signature.")
+                    Text("contentView.exportSheet.sanitizeUnavailableSigned.message")
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
@@ -773,10 +775,10 @@ private struct ExportSheet: View {
 
             if viewModel.hasFillableFormFields && selectedFormat == .pdf {
                 DisclosureGroup(isExpanded: $isFormLockExpanded) {
-                    Toggle("Lock form answers in place", isOn: $lockFormAnswers)
+                    Toggle("contentView.exportSheet.lockFormAnswers.toggle", isOn: $lockFormAnswers)
                         .padding(.top, .dsSM)
                 } label: {
-                    Text("Lock form answers in place")
+                    Text("contentView.exportSheet.lockFormAnswers.toggle")
                         .font(.dsBody())
                         .foregroundStyle(Color.dsTextPrimary)
                 }
@@ -788,10 +790,10 @@ private struct ExportSheet: View {
 
             HStack {
                 Spacer()
-                Button("Cancel") {
+                Button("contentView.exportSheet.cancel.button") {
                     isPresented = false
                 }
-                Button("Export") {
+                Button("contentView.exportSheet.export.button") {
                     export()
                 }
                 .buttonStyle(.borderedProminent)
@@ -872,7 +874,7 @@ private struct WorkspaceOperationProgressView: View {
                     .frame(width: 190)
             }
             if progress.isCancellable {
-                Button("Cancel", action: cancel)
+                Button("contentView.operationProgress.cancel.button", action: cancel)
                     .font(.dsCaption())
             }
         }
@@ -1187,7 +1189,7 @@ private struct AnnotationColorButton: View {
         }
         .buttonStyle(ToolButtonStyle(isHovered: isHovered || showPalette))
         .onHover { isHovered = $0 }
-        .help("Annotation color")
+        .help("contentView.annotationColorButton.help")
         .popover(isPresented: $showPalette, arrowEdge: .bottom) {
             AnnotationPalettePopover(viewModel: viewModel)
         }
@@ -1238,9 +1240,9 @@ private struct AnnotationPalettePopover: View {
 
 let maximumImportBatchSize = 50
 let importDropContentTypes = WorkspaceDocument.importableContentTypes + [.fileURL, .url]
-let importBatchPanelMessage = "Select up to 50 files. Larger batches can be added after this import finishes."
-let importBatchLimitMessage = "Only 50 files can be added at a time. The first 50 from this selection will be added. To add more, run Add Files again after this import finishes."
-let importDropProviderLimitMessage = "Orifold prepared 50 files from this drop. If you expected more, run another import after this one finishes."
+var importBatchPanelMessage: String { L10n.string("contentView.importBatchPanel.message") }
+var importBatchLimitMessage: String { L10n.string("contentView.importBatchLimit.message") }
+var importDropProviderLimitMessage: String { L10n.string("contentView.importDropProviderLimit.message") }
 
 func configureImportOpenPanel(_ panel: NSOpenPanel) {
     panel.allowsMultipleSelection = true
@@ -1494,8 +1496,8 @@ private struct DocumentCommentsIndicator: View {
                 }
             }
             .buttonStyle(.plain)
-            .help(count == 1 ? "View 1 comment" : "View \(count) comments")
-            .accessibilityLabel(count == 1 ? "View 1 comment" : "View \(count) comments")
+            .help(count == 1 ? "contentView.commentsIndicator.viewOneComment.help" : "View \(count) comments")
+            .accessibilityLabel(count == 1 ? "contentView.commentsIndicator.viewOneComment.help" : "View \(count) comments")
             .transition(.opacity.combined(with: .scale(scale: 0.96)))
         }
     }

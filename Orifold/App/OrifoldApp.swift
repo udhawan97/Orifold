@@ -4,10 +4,13 @@ import AppKit
 @main
 struct OrifoldApp: App {
     @NSApplicationDelegateAdaptor(OrifoldAppDelegate.self) private var appDelegate
+    @StateObject private var languageManager = LanguageManager()
 
     var body: some Scene {
         DocumentGroup(newDocument: { WorkspaceDocument() }) { config in
             ContentView(document: config.document)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
         }
         .commands {
             AppCommands()
@@ -15,6 +18,8 @@ struct OrifoldApp: App {
 
         Window("About Orifold", id: "about-orifold") {
             AppAboutPopover()
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)

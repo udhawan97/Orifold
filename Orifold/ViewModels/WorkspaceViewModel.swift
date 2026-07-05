@@ -20,16 +20,16 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
 
     var menuTitle: String {
         switch self {
-        case .pdf: return "PDF (.pdf)"
-        case .word: return "Word (.docx)"
-        case .legacyWord: return "Word 97-2004 (.doc)"
-        case .odt: return "OpenDocument Text (.odt)"
-        case .rtf: return "Rich Text (.rtf)"
-        case .text: return "Text (.txt)"
-        case .markdown: return "Markdown (.md)"
-        case .html: return "HTML (.html)"
-        case .png: return "PNG images (.png)"
-        case .jpeg: return "JPEG images (.jpg)"
+        case .pdf: return L10n.string("exportFormat.pdf.menuTitle")
+        case .word: return L10n.string("exportFormat.word.menuTitle")
+        case .legacyWord: return L10n.string("exportFormat.legacyWord.menuTitle")
+        case .odt: return L10n.string("exportFormat.odt.menuTitle")
+        case .rtf: return L10n.string("exportFormat.rtf.menuTitle")
+        case .text: return L10n.string("exportFormat.text.menuTitle")
+        case .markdown: return L10n.string("exportFormat.markdown.menuTitle")
+        case .html: return L10n.string("exportFormat.html.menuTitle")
+        case .png: return L10n.string("exportFormat.png.menuTitle")
+        case .jpeg: return L10n.string("exportFormat.jpeg.menuTitle")
         }
     }
 
@@ -88,18 +88,18 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .none:      return "Select"
-        case .highlight: return "Highlight"
-        case .note:      return "Note"
-        case .comment:   return "Comment"
-        case .commentRegion: return "Region Comment"
-        case .editText:  return "Edit Text"
-        case .ink:       return "Ink"
-        case .eraser:    return "Eraser"
-        case .underline: return "Underline"
-        case .strikeout: return "Strikeout"
-        case .signature: return "Signature"
-        case .stamp:     return "Stamp"
+        case .none:      return L10n.string("annotationTool.none.label")
+        case .highlight: return L10n.string("annotationTool.highlight.label")
+        case .note:      return L10n.string("annotationTool.note.label")
+        case .comment:   return L10n.string("annotationTool.comment.label")
+        case .commentRegion: return L10n.string("annotationTool.commentRegion.label")
+        case .editText:  return L10n.string("annotationTool.editText.label")
+        case .ink:       return L10n.string("annotationTool.ink.label")
+        case .eraser:    return L10n.string("annotationTool.eraser.label")
+        case .underline: return L10n.string("annotationTool.underline.label")
+        case .strikeout: return L10n.string("annotationTool.strikeout.label")
+        case .signature: return L10n.string("annotationTool.signature.label")
+        case .stamp:     return L10n.string("annotationTool.stamp.label")
         }
     }
 
@@ -122,18 +122,18 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
 
     var helpText: String {
         switch self {
-        case .none:      return "Select annotations on the page. Press Delete to remove the selected annotation."
-        case .highlight: return "Select PDF text to mark it with color."
-        case .note:      return "Click the page to add a sticky note, or click an existing note to edit it."
-        case .comment:   return "Select PDF text, then create an anchored comment."
-        case .commentRegion: return "Drag a rectangle over a figure or region to create an anchored comment."
-        case .editText:  return "Click existing text to replace it, or click blank space to add text."
-        case .ink:       return "Draw freehand marks on the page."
-        case .eraser:    return "Click a highlight, underline, or strikeout to remove it."
-        case .underline: return "Select PDF text to underline it."
-        case .strikeout: return "Select PDF text to strike it out."
-        case .signature: return "Place a saved signature on the page."
-        case .stamp:     return "Place a stamp on the page."
+        case .none:      return L10n.string("annotationTool.none.helpText")
+        case .highlight: return L10n.string("annotationTool.highlight.helpText")
+        case .note:      return L10n.string("annotationTool.note.helpText")
+        case .comment:   return L10n.string("annotationTool.comment.helpText")
+        case .commentRegion: return L10n.string("annotationTool.commentRegion.helpText")
+        case .editText:  return L10n.string("annotationTool.editText.helpText")
+        case .ink:       return L10n.string("annotationTool.ink.helpText")
+        case .eraser:    return L10n.string("annotationTool.eraser.helpText")
+        case .underline: return L10n.string("annotationTool.underline.helpText")
+        case .strikeout: return L10n.string("annotationTool.strikeout.helpText")
+        case .signature: return L10n.string("annotationTool.signature.helpText")
+        case .stamp:     return L10n.string("annotationTool.stamp.helpText")
         }
     }
 
@@ -263,9 +263,9 @@ final class WorkspaceViewModel {
                 }
                 isShowingSignaturePalette = false
                 clearPendingSignaturePlacement()
-                showEditMessage("Reader Mode is on. Text editing and signing are hidden; study tools stay available.", isError: false)
+                showEditMessage(L10n.string("status.readerMode.on"), isError: false)
             } else {
-                showEditMessage("Reader Mode is off. Editing and signing tools are available again.", isError: false)
+                showEditMessage(L10n.string("status.readerMode.off"), isError: false)
             }
         }
     }
@@ -617,7 +617,7 @@ final class WorkspaceViewModel {
 
     private func beginImportIfPossible() -> Bool {
         guard !isImporting else {
-            editingStatus = .warning("An import is already in progress.")
+            editingStatus = .warning(L10n.string("status.import.alreadyInProgress"))
             return false
         }
         isImporting = true
@@ -671,7 +671,7 @@ final class WorkspaceViewModel {
             self.activeImportCancellation = nil
             self.operationProgress.finish()
             if cancellation.isCancelled || Task.isCancelled {
-                self.editingStatus = .warning(finalImportedCount > 0 ? "Import canceled after adding \(finalImportedCount) file\(finalImportedCount == 1 ? "" : "s")." : "Import canceled.")
+                self.editingStatus = .warning(finalImportedCount > 0 ? String(localized: "Import canceled after adding \(finalImportedCount) file\(finalImportedCount == 1 ? "" : "s").", locale: L10n.currentLocale) : L10n.string("status.import.canceled"))
             } else if !finalFailures.isEmpty {
                 self.importError = self.importError(for: finalFailures, importedCount: finalImportedCount, totalCount: urls.count)
             }
@@ -1566,15 +1566,15 @@ final class WorkspaceViewModel {
 
     private func canPerformMutatingAction() -> Bool {
         guard !isImporting else {
-            editingStatus = .warning("Finish importing before making more changes.")
+            editingStatus = .warning(L10n.string("status.mutating.finishImporting"))
             return false
         }
         guard activeCompressionTask == nil else {
-            editingStatus = .warning("Finish reducing file size before making more changes.")
+            editingStatus = .warning(L10n.string("status.mutating.finishCompression"))
             return false
         }
         guard activeOCRTask == nil else {
-            editingStatus = .warning("Finish making this document searchable before making more changes.")
+            editingStatus = .warning(L10n.string("status.mutating.finishOCR"))
             return false
         }
         return true
@@ -1591,11 +1591,11 @@ final class WorkspaceViewModel {
     private func showReaderModeBlockedMessage(for tool: AnnotationTool) {
         switch tool {
         case .editText:
-            showEditMessage("Reader Mode keeps the document text locked. Turn it off to edit PDF text.", isError: false)
+            showEditMessage(L10n.string("status.readerMode.blockedEditText"), isError: false)
         case .signature:
-            showEditMessage("Reader Mode keeps signing locked. Turn it off to place or export signatures.", isError: false)
+            showEditMessage(L10n.string("status.readerMode.blockedSignature"), isError: false)
         default:
-            showEditMessage("Reader Mode keeps authoring tools locked.", isError: false)
+            showEditMessage(L10n.string("status.readerMode.blockedGeneric"), isError: false)
         }
     }
 
@@ -1606,18 +1606,18 @@ final class WorkspaceViewModel {
     func performUndoCommand() {
         guard canPerformMutatingAction() else { return }
         guard let undoManager else {
-            showEditMessage("Nothing to undo.", isError: false)
+            showEditMessage(L10n.string("status.undo.nothingToUndo"), isError: false)
             return
         }
         guard undoManager.canUndo else {
-            showEditMessage("Nothing left to undo.", isError: false)
+            showEditMessage(L10n.string("status.undo.nothingLeftToUndo"), isError: false)
             return
         }
 
         undoManager.undo()
 
         if !undoManager.canUndo {
-            showEditMessage("You are back at the beginning. Nothing left to undo.", isError: false)
+            showEditMessage(L10n.string("status.undo.backAtBeginning"), isError: false)
         }
     }
 
@@ -1801,7 +1801,7 @@ final class WorkspaceViewModel {
                         vm.restore(snapshot)
                     }
                     self.undoManager?.setActionName("Make searchable")
-                    self.editingStatus = .warning("You can now search and select text in this document.")
+                    self.editingStatus = .warning(L10n.string("status.ocr.searchableNow"))
                 }
             } catch {
                 await MainActor.run {
@@ -1811,9 +1811,9 @@ final class WorkspaceViewModel {
                     self.activeOCRCancellation = nil
                     self.activeOCRID = nil
                     if let ocrError = error as? PDFOCRError, ocrError == .cancelled {
-                        self.editingStatus = .warning(PDFOCRError.cancelled.errorDescription ?? "Making this document searchable was cancelled.")
+                        self.editingStatus = .warning(PDFOCRError.cancelled.errorDescription ?? L10n.string("error.ocr.cancelled"))
                     } else if error is CancellationError {
-                        self.editingStatus = .warning(PDFOCRError.cancelled.errorDescription ?? "Making this document searchable was cancelled.")
+                        self.editingStatus = .warning(PDFOCRError.cancelled.errorDescription ?? L10n.string("error.ocr.cancelled"))
                     } else {
                         self.exportError = ExportError(message: self.userMessage(for: error, exporting: .pdf))
                     }
@@ -2014,9 +2014,9 @@ final class WorkspaceViewModel {
 
     private func warnIfEditingWouldInvalidateSignatures() {
         if hasCryptographicSignaturePlacement {
-            editingStatus = .warning("Editing after a digital signature invalidates existing signatures.")
+            editingStatus = .warning(L10n.string("status.signature.editInvalidates"))
         } else if hasThirdPartyCryptographicSignature {
-            editingStatus = .warning("This document already contains a digital signature from another source. Editing it will invalidate that signature.")
+            editingStatus = .warning(L10n.string("status.signature.thirdPartyEditInvalidates"))
         }
     }
 
@@ -2293,7 +2293,7 @@ final class WorkspaceViewModel {
     ) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let basePage = originalBasePage(for: pageRef) else {
-            showEditMessage("Orifold could not access the original page for editing.", isError: true)
+            showEditMessage(L10n.string("error.pageEdit.cannotAccessOriginal"), isError: true)
             return false
         }
 
@@ -2369,7 +2369,7 @@ final class WorkspaceViewModel {
         let operations = document.workspace.pageEditStates.first(where: { $0.pageRefID == pageRef.id })?.operations ?? []
         guard regenerateEditedPage(pageRef: pageRef, operations: operations) else {
             document.workspace.pageEditStates = previousSnapshot.editStates
-            showEditMessage("Orifold could not regenerate that edited page. The original page is unchanged.", isError: true)
+            showEditMessage(L10n.string("error.pageEdit.regenerateFailed"), isError: true)
             return false
         }
 
@@ -2503,7 +2503,7 @@ final class WorkspaceViewModel {
         }
         guard regenerateEditedPage(pageRef: pageRef, operations: remaining) else {
             document.workspace.pageEditStates = previousSnapshot.editStates
-            showEditMessage("Orifold could not restore that page. The edit was left in place.", isError: true)
+            showEditMessage(L10n.string("error.pageEdit.restoreFailed"), isError: true)
             return false
         }
         rebuild()
@@ -2545,7 +2545,7 @@ final class WorkspaceViewModel {
             // Keep the edits we could not visually revert so the document and the edit
             // list stay consistent.
             document.workspace.pageEditStates = states.filter { failedPageRefIDs.contains($0.pageRefID) }
-            showEditMessage("Orifold could not restore some pages; their edits were left in place.", isError: true)
+            showEditMessage(L10n.string("error.pageEdit.restoreSomeFailed"), isError: true)
         }
         rebuild()
         markWorkspaceModified()
@@ -2784,7 +2784,7 @@ final class WorkspaceViewModel {
     func eraseMarkupAnnotation(at pagePoint: CGPoint, on page: PDFPage) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let ann = erasableMarkupAnnotation(at: pagePoint, on: page) else {
-            showEditMessage("Click a highlight, underline, or strikeout to erase it.", isError: true)
+            showEditMessage(L10n.string("error.markup.eraseTargetMissing"), isError: true)
             return false
         }
         page.removeAnnotation(ann)
@@ -2903,7 +2903,7 @@ final class WorkspaceViewModel {
         currentTool = .signature
         isShowingSignaturePalette = false
         isShowingStampPalette = false
-        editingStatus = .warning("Click a page to place the signature.")
+        editingStatus = .warning(L10n.string("status.signature.clickToPlace"))
     }
 
     func beginCryptographicSignaturePlacement(imageData: Data,
@@ -2930,7 +2930,7 @@ final class WorkspaceViewModel {
         currentTool = .signature
         isShowingSignaturePalette = false
         isShowingStampPalette = false
-        editingStatus = .warning("Click a page to place the digital signature.")
+        editingStatus = .warning(L10n.string("status.signature.clickToPlaceDigital"))
     }
 
     func cancelSignaturePlacement() {
@@ -3195,7 +3195,7 @@ final class WorkspaceViewModel {
     func signAndExportCryptographicPDF(timestampRequested: Bool) {
         guard canPerformSigningAction() else { return }
         guard let placement = document.workspace.signatures.last(where: { $0.isCryptographic }) else {
-            showEditMessage("Place a certificate signature before signing.", isError: true)
+            showEditMessage(L10n.string("error.signature.placeCertificateFirst"), isError: true)
             return
         }
         let identity: any SigningIdentity
@@ -3205,14 +3205,14 @@ final class WorkspaceViewModel {
             }
             identity = resolvedIdentity
         } catch SigningError.missingIdentity {
-            exportError = ExportError(message: "Choose or import a signing identity before exporting a digital signature.")
+            exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
             return
         } catch {
-            exportError = ExportError(message: "Orifold could not prepare the signing identity: \(error.localizedDescription)")
+            exportError = ExportError(message: String(localized: "Orifold could not prepare the signing identity: \(error.localizedDescription)", locale: L10n.currentLocale))
             return
         }
         guard let pageIndex = pageIndex(forSignaturePlacement: placement) else {
-            exportError = ExportError(message: "Orifold could not locate the page for that signature.")
+            exportError = ExportError(message: L10n.string("error.export.locatePageForSignature"))
             return
         }
 
@@ -3253,7 +3253,7 @@ final class WorkspaceViewModel {
                 bounds: placement.rect
             )
         } catch {
-            exportError = ExportError(message: "Orifold could not prepare the visible signature appearance: \(error.localizedDescription)")
+            exportError = ExportError(message: String(localized: "Orifold could not prepare the visible signature appearance: \(error.localizedDescription)", locale: L10n.currentLocale))
             return
         }
 
@@ -3268,7 +3268,7 @@ final class WorkspaceViewModel {
                             timestampWasApplied = true
                             return token
                         } catch {
-                            timestampFallbackMessage = "Timestamp authority unavailable; exported as PAdES B-B without trusted timestamp."
+                            timestampFallbackMessage = L10n.string("status.signature.timestampUnavailable")
                             return nil
                         }
                     }
@@ -3283,11 +3283,11 @@ final class WorkspaceViewModel {
                 editingStatus = .warning(timestampFallbackMessage)
             }
         } catch SigningError.notImplemented {
-            exportError = ExportError(message: "Digital signing is not available in this build yet.")
+            exportError = ExportError(message: L10n.string("error.signature.notImplemented"))
         } catch SigningError.missingIdentity {
-            exportError = ExportError(message: "Choose or import a signing identity before exporting a digital signature.")
+            exportError = ExportError(message: L10n.string("error.signature.missingIdentity"))
         } catch {
-            exportError = ExportError(message: "Orifold could not sign the PDF: \(error.localizedDescription)")
+            exportError = ExportError(message: String(localized: "Orifold could not sign the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
         }
     }
 
@@ -3637,7 +3637,7 @@ final class WorkspaceViewModel {
             } else if let validationError = error as? PDFExportValidationError {
                 exportError = ExportError(message: validationError.userMessage)
             } else {
-                exportError = ExportError(message: "Orifold could not save the PDF: \(error.localizedDescription)")
+                exportError = ExportError(message: String(localized: "Orifold could not save the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
             }
             return false
         }
@@ -3745,9 +3745,9 @@ final class WorkspaceViewModel {
                     self.activeCompressionCancellation = nil
                     self.activeCompressionID = nil
                     if let compressionError = error as? PDFCompressionError, compressionError == .cancelled {
-                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? L10n.string("error.compression.cancelled"))
                     } else if error is CancellationError {
-                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? L10n.string("error.compression.cancelled"))
                     } else {
                         self.exportError = ExportError(message: self.userMessage(for: error, exporting: .pdf))
                     }
@@ -3839,9 +3839,9 @@ final class WorkspaceViewModel {
                     self.activeCompressionCancellation = nil
                     self.activeCompressionID = nil
                     if let compressionError = error as? PDFCompressionError, compressionError == .cancelled {
-                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? L10n.string("error.compression.cancelled"))
                     } else if error is CancellationError {
-                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? L10n.string("error.compression.cancelled"))
                     } else {
                         self.exportError = ExportError(message: self.userMessage(for: error, exporting: .pdf))
                     }
@@ -3908,7 +3908,7 @@ final class WorkspaceViewModel {
         var userMessage: String {
             switch self {
             case .structurallyUnsound:
-                return "Orifold wrote the PDF but a structural check found it invalid, so the export was discarded. Try exporting again."
+                return L10n.string("error.export.structurallyUnsound")
             }
         }
     }
@@ -4002,11 +4002,11 @@ final class WorkspaceViewModel {
             return false
         }
         guard let exportDoc = PDFDocument(data: exportData) else {
-            exportError = ExportError(message: "Orifold could not prepare pages for image export.")
+            exportError = ExportError(message: L10n.string("error.export.preparePagesForImageExport"))
             return false
         }
         guard exportDoc.pageCount > 0 else {
-            exportError = ExportError(message: "There are no pages to export.")
+            exportError = ExportError(message: L10n.string("error.export.noPagesToExport"))
             return false
         }
 
@@ -4046,7 +4046,7 @@ final class WorkspaceViewModel {
             return true
         } catch {
             try? fileManager.removeItem(at: tempFolderURL)
-            exportError = ExportError(message: "Orifold could not export page images: \(error.localizedDescription)")
+            exportError = ExportError(message: String(localized: "Orifold could not export page images: \(error.localizedDescription)", locale: L10n.currentLocale))
             return false
         }
     }
@@ -4063,7 +4063,7 @@ final class WorkspaceViewModel {
             try data.write(to: url, options: .atomic)
             return true
         } catch {
-            exportError = ExportError(message: "Orifold could not write the \(format.menuTitle) export: \(error.localizedDescription)")
+            exportError = ExportError(message: String(localized: "Orifold could not write the \(format.menuTitle) export: \(error.localizedDescription)", locale: L10n.currentLocale))
             return false
         }
     }
@@ -4600,50 +4600,53 @@ final class WorkspaceViewModel {
         case ExportBuildError.cannotMapEdit(let memberName, let sourceText):
             let preview = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
             let detail = preview.isEmpty ? "." : ": \"\(preview)\"."
-            return "Orifold could not map an edit in \"\(memberName)\" back to the original \(format.menuTitle) source\(detail) Export as PDF to preserve the visual edit, or edit text that exists in the original document."
+            return String(localized: "Orifold could not map an edit in \"\(memberName)\" back to the original \(format.menuTitle) source\(detail) Export as PDF to preserve the visual edit, or edit text that exists in the original document.", locale: L10n.currentLocale)
         case ExportBuildError.ambiguousSourceText(let memberName, let sourceText):
             let preview = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
             let detail = preview.isEmpty ? "." : ": \"\(preview)\"."
-            return "Orifold found more than one matching source text in \"\(memberName)\"\(detail) Export as PDF to preserve the visual edit."
+            return String(localized: "Orifold found more than one matching source text in \"\(memberName)\"\(detail) Export as PDF to preserve the visual edit.", locale: L10n.currentLocale)
         case ExportBuildError.pdfOnlyEditsCannotMap(let memberName):
-            return "Orifold found PDF-only annotations, signatures, or page changes in \"\(memberName)\". Export as PDF to preserve those visual edits."
+            return String(localized: "Orifold found PDF-only annotations, signatures, or page changes in \"\(memberName)\". Export as PDF to preserve those visual edits.", locale: L10n.currentLocale)
         case ExportBuildError.editedPackageFormatRequiresPDF(let formatName):
-            return "Orifold can preserve the original \(formatName) bytes when unchanged, but edited package exports are not faithful enough yet. Export as PDF to preserve the edit."
+            return String(localized: "Orifold can preserve the original \(formatName) bytes when unchanged, but edited package exports are not faithful enough yet. Export as PDF to preserve the edit.", locale: L10n.currentLocale)
         case ExportBuildError.cannotEncode(let formatName):
-            return "Orifold could not encode the \(formatName) export."
+            return String(localized: "Orifold could not encode the \(formatName) export.", locale: L10n.currentLocale)
         case ExportBuildError.originFormatHasNoSourcePayload(let memberName, let originFormatDescription):
-            return "\"\(memberName)\" was imported from a \(originFormatDescription) file, which Orifold flattens to plain text and cannot reconstruct into \(format.menuTitle). Export as PDF to keep the current content, or re-export from the original \(originFormatDescription) file if you need it in another format."
+            return String(localized: "\"\(memberName)\" was imported from a \(originFormatDescription) file, which Orifold flattens to plain text and cannot reconstruct into \(format.menuTitle). Export as PDF to keep the current content, or re-export from the original \(originFormatDescription) file if you need it in another format.", locale: L10n.currentLocale)
         case ExportBuildError.unsupportedRichTextFormat:
-            return "Orifold does not have a rich-text writer for \(format.menuTitle)."
+            return String(localized: "Orifold does not have a rich-text writer for \(format.menuTitle).", locale: L10n.currentLocale)
         case PDFDecorationExportBaker.BakeError.invalidPDF:
-            return "Orifold could not apply decorations to this PDF. Reopen the document and try exporting again."
+            return L10n.string("error.export.decorationInvalidPDF")
         case PDFDecorationExportBaker.BakeError.pageOrderMismatch:
-            return "Orifold could not match decorations to the current page order. Reopen the document and try exporting again."
+            return L10n.string("error.export.decorationPageOrderMismatch")
         case PDFDecorationExportBaker.BakeError.invalidDecoration:
-            return "Orifold could not apply a decoration to this PDF. Add text or turn the decoration off."
+            return L10n.string("error.export.invalidDecoration")
         case PDFDecorationExportBaker.BakeError.invalidStampDecoration:
-            return "Orifold could not apply a stamp to this PDF. Remove the stamp and place it again."
+            return L10n.string("error.export.invalidStampDecoration")
         case PDFDecorationExportBaker.BakeError.documentTooLargeForDecorationExport:
-            return "Orifold could not decorate this PDF because it is too large to process safely. Export without decorations, or split the PDF into smaller files."
+            return L10n.string("error.export.documentTooLargeForDecoration")
         case PDFFormSupport.FormError.invalidPDF:
-            return "Orifold could not lock the form answers in this PDF. Reopen the document and try exporting again."
+            return L10n.string("error.export.formInvalidPDF")
         case PDFFormSupport.FormError.pageOrderMismatch:
-            return "Orifold could not match form fields to the current page order. Reopen the document and try exporting again."
+            return L10n.string("error.export.formPageOrderMismatch")
         case let compressionError as PDFCompressionError:
-            return compressionError.errorDescription ?? "Orifold could not reduce the file size. Try exporting without reducing file size."
+            return compressionError.errorDescription ?? L10n.string("error.export.reduceFileSizeFailed")
         case let ocrError as PDFOCRError:
-            return ocrError.errorDescription ?? "Orifold could not make this document searchable. Try a clearer scan or export without searchable text."
+            return ocrError.errorDescription ?? L10n.string("error.export.ocrFailed")
         case _ as PDFProcessingError:
-            return "Orifold could not verify the reduced PDF. Try exporting without reducing file size."
+            return L10n.string("error.export.verifyReducedPDFFailed")
         case let error as PDFKitEngine.ExportAssemblyError:
             return error.localizedDescription
         default:
-            return "Orifold could not create the \(format.menuTitle) export: \(error.localizedDescription)"
+            return String(localized: "Orifold could not create the \(format.menuTitle) export: \(error.localizedDescription)", locale: L10n.currentLocale)
         }
     }
 
     private func compressionSummary(_ result: PDFCompressionResult) -> String {
-        "\(formattedByteCount(result.originalByteCount)) → \(formattedByteCount(result.compressedByteCount)), \(result.percentSmaller)% smaller"
+        let original = formattedByteCount(result.originalByteCount)
+        let compressed = formattedByteCount(result.compressedByteCount)
+        let percent = result.percentSmaller
+        return String(localized: "\(original) → \(compressed), \(percent)% smaller", locale: L10n.currentLocale)
     }
 
     private func formattedByteCount(_ count: Int) -> String {
@@ -5334,7 +5337,7 @@ final class WorkspaceViewModel {
         }
         guard output.pageCount > 0,
               let data = PDFSerializer.data(from: output) else {
-            exportError = ExportError(message: "Orifold could not prepare the selected pages for export.")
+            exportError = ExportError(message: L10n.string("error.export.preparePagesForExport"))
             return
         }
         let panel = NSSavePanel()
@@ -5346,7 +5349,7 @@ final class WorkspaceViewModel {
         do {
             try data.write(to: url, options: .atomic)
         } catch {
-            exportError = ExportError(message: "Orifold could not export the selected pages: \(error.localizedDescription)")
+            exportError = ExportError(message: String(localized: "Orifold could not export the selected pages: \(error.localizedDescription)", locale: L10n.currentLocale))
         }
     }
 
@@ -5510,7 +5513,7 @@ final class WorkspaceViewModel {
         do {
             let data = try dataForPDFExport()
             guard let document = PDFDocument(data: data) else {
-                exportError = ExportError(message: "Orifold could not prepare this workspace for printing.")
+                exportError = ExportError(message: L10n.string("error.export.preparePrinting"))
                 return
             }
             printableDocument = document

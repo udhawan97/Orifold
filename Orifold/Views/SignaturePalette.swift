@@ -29,7 +29,7 @@ struct SignaturePalette: View {
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
             VStack(alignment: .leading, spacing: .dsLG) {
-                Picker("Signature mode", selection: $selectedMode) {
+                Picker("signaturePalette.mode.picker", selection: $selectedMode) {
                     ForEach(SignaturePaletteMode.allCases) { mode in
                         Text(mode.title).tag(mode)
                     }
@@ -56,7 +56,7 @@ struct SignaturePalette: View {
     }
 
     private var header: some View {
-        Text("Signatures")
+        Text("signaturePalette.title")
             .font(.system(size: 15, weight: .semibold, design: .serif))
             .foregroundStyle(Color.dsTextPrimary)
             .padding(.horizontal, .dsLG)
@@ -66,14 +66,14 @@ struct SignaturePalette: View {
 
     private var typedSignaturePanel: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            TextField("Name", text: $typedName)
+            TextField("signaturePalette.typed.name.placeholder", text: $typedName)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(addTypedSignature)
 
             SignaturePreview(data: typedSignatureData)
 
             Button(action: addTypedSignature) {
-                Label("Add", systemImage: "plus")
+                Label("signaturePalette.add.button", systemImage: "plus")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -84,14 +84,14 @@ struct SignaturePalette: View {
 
     private var initialsPanel: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            TextField("Initials", text: $initials)
+            TextField("signaturePalette.initials.placeholder", text: $initials)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(addInitialsSignature)
 
             SignaturePreview(data: initialsSignatureData)
 
             Button(action: addInitialsSignature) {
-                Label("Add", systemImage: "plus")
+                Label("signaturePalette.add.button", systemImage: "plus")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -103,7 +103,7 @@ struct SignaturePalette: View {
     private var digitalSignaturePanel: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
             HStack(spacing: .dsSM) {
-                Picker("Digital ID", selection: $selectedIdentity) {
+                Picker("signaturePalette.digitalId.picker", selection: $selectedIdentity) {
                     ForEach(DigitalIdentityOption.allCases) { option in
                         Text(option.title).tag(option)
                     }
@@ -119,7 +119,7 @@ struct SignaturePalette: View {
                     }
                     .buttonStyle(.borderless)
                     .foregroundStyle(Color.dsAccent)
-                    .help("Certificate trust and cost")
+                    .help("signaturePalette.certificateTrustInfo.help")
                     .popover(isPresented: $isShowingTrustInfo, arrowEdge: .trailing) {
                         CertificateTrustPopover(isShowingGuide: $isShowingGuide)
                     }
@@ -127,23 +127,23 @@ struct SignaturePalette: View {
             }
 
             if selectedIdentity == .selfSigned {
-                Text("Free — but recipients see 'identity not verified' until they trust it once.")
+                Text("signaturePalette.selfSigned.notice")
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            TextField("Signer name", text: $digitalSignerName)
+            TextField("signaturePalette.digital.signerName.placeholder", text: $digitalSignerName)
                 .textFieldStyle(.roundedBorder)
-            TextField("Reason", text: $reason)
+            TextField("signaturePalette.digital.reason.placeholder", text: $reason)
                 .textFieldStyle(.roundedBorder)
-            TextField("Location", text: $location)
+            TextField("signaturePalette.digital.location.placeholder", text: $location)
                 .textFieldStyle(.roundedBorder)
-            TextField("Contact", text: $contactInfo)
+            TextField("signaturePalette.digital.contact.placeholder", text: $contactInfo)
                 .textFieldStyle(.roundedBorder)
 
             Toggle(isOn: $useTimestamp) {
-                Label("Timestamp", systemImage: "clock.badge.checkmark")
+                Label("signaturePalette.digital.timestamp.toggle", systemImage: "clock.badge.checkmark")
             }
             .toggleStyle(.checkbox)
 
@@ -151,7 +151,7 @@ struct SignaturePalette: View {
 
             HStack(spacing: .dsSM) {
                 Button(action: placeDigitalSignature) {
-                    Label("Place", systemImage: "checkmark.seal")
+                    Label("signaturePalette.digital.place.button", systemImage: "checkmark.seal")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -159,7 +159,7 @@ struct SignaturePalette: View {
                 .disabled(trimmed(digitalSignerName).isEmpty || digitalSignatureData == nil)
 
                 Button(action: signAndExport) {
-                    Label("Sign & Export…", systemImage: "square.and.arrow.up")
+                    Label("signaturePalette.digital.signAndExport.button", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -228,11 +228,11 @@ struct SignaturePalette: View {
             )
         } catch SigningError.missingIdentity {
             viewModel.exportError = WorkspaceViewModel.ExportError(
-                message: "Choose or import a signing identity before placing a digital signature."
+                message: L10n.string("signaturePalette.error.missingIdentity")
             )
         } catch {
             viewModel.exportError = WorkspaceViewModel.ExportError(
-                message: "Orifold could not prepare that signing identity: \(error.localizedDescription)"
+                message: L10n.string("Orifold could not prepare that signing identity: \(error.localizedDescription)")
             )
         }
     }
@@ -269,9 +269,9 @@ private enum SignaturePaletteMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .type: return "Type"
-        case .initials: return "Initials"
-        case .digital: return "Digital"
+        case .type: return L10n.string("signatureMethod.type.title")
+        case .initials: return L10n.string("signatureMethod.initials.title")
+        case .digital: return L10n.string("signatureMethod.digital.title")
         }
     }
 }
@@ -285,9 +285,9 @@ private enum DigitalIdentityOption: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .importP12: return "Import .p12 / CA-issued Digital ID"
-        case .keychain: return "Choose Keychain Digital ID"
-        case .selfSigned: return "Generate self-signed ID"
+        case .importP12: return L10n.string("signatureMethod.importP12.title")
+        case .keychain: return L10n.string("signatureMethod.keychain.title")
+        case .selfSigned: return L10n.string("signatureMethod.selfSigned.title")
         }
     }
 
@@ -338,7 +338,7 @@ private struct CertificateTrustPopover: View {
                 .foregroundStyle(Color.dsTextPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            DisclosureGroup("How to get one", isExpanded: $isShowingSteps) {
+            DisclosureGroup("signaturePalette.certificateTrust.howToGetOne", isExpanded: $isShowingSteps) {
                 ScrollView {
                     Text(CertificateGuideResource.acquisitionGuideText())
                         .font(.dsCaption())
@@ -353,7 +353,7 @@ private struct CertificateTrustPopover: View {
             Button {
                 isShowingGuide = true
             } label: {
-                Label("Learn more…", systemImage: "book")
+                Label("signaturePalette.certificateTrust.learnMore", systemImage: "book")
             }
             .buttonStyle(.bordered)
             .tint(Color.dsAccent)
@@ -370,11 +370,11 @@ private struct CertificateGuideSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Getting a Digital ID")
+                Text("signaturePalette.certificateGuide.title")
                     .font(.system(size: 15, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.dsTextPrimary)
                 Spacer()
-                Button("Done") { dismiss() }
+                Button("signaturePalette.certificateGuide.done") { dismiss() }
                     .keyboardShortcut(.defaultAction)
             }
             .padding(.dsLG)

@@ -65,27 +65,27 @@ enum SigningIdentityError: Error, Equatable, CustomStringConvertible {
     var description: String {
         switch self {
         case let .securityStatus(operation, status):
-            return "\(operation) failed with OSStatus \(status)"
+            return String(localized: "\(operation) failed with OSStatus \(status)", locale: L10n.currentLocale)
         case let .securityFrameworkError(operation, message):
-            return "\(operation) failed: \(message)"
+            return String(localized: "\(operation) failed: \(message)", locale: L10n.currentLocale)
         case .missingCertificate:
-            return "The identity did not include a certificate."
+            return L10n.string("error.signingIdentity.missingCertificate")
         case .missingPrivateKey:
-            return "The identity did not include an accessible private key."
+            return L10n.string("error.signingIdentity.missingPrivateKey")
         case .invalidCertificateData:
-            return "The certificate bytes could not be parsed."
+            return L10n.string("error.signingIdentity.invalidCertificateData")
         case .invalidPKCS12:
-            return "The PKCS#12 file could not be decoded."
+            return L10n.string("error.signingIdentity.invalidPKCS12")
         case .noIdentityInPKCS12:
-            return "The PKCS#12 file did not contain a signing identity."
+            return L10n.string("error.signingIdentity.noIdentityInPKCS12")
         case let .unsupportedPrivateKeyAlgorithm(details):
-            return "Unsupported private key algorithm: \(details)"
+            return String(localized: "Unsupported private key algorithm: \(details)", locale: L10n.currentLocale)
         case let .unsupportedSigningAlgorithm(algorithm):
-            return "The private key cannot create \(algorithm.rawValue) signatures."
+            return String(localized: "The private key cannot create \(algorithm.rawValue) signatures.", locale: L10n.currentLocale)
         case let .randomGenerationFailed(status):
-            return "Secure random generation failed with OSStatus \(status)"
+            return String(localized: "Secure random generation failed with OSStatus \(status)", locale: L10n.currentLocale)
         case .selfSignedCertificateCreationFailed:
-            return "The self-signed certificate could not be created."
+            return L10n.string("error.signingIdentity.selfSignedCertificateCreationFailed")
         }
     }
 }

@@ -33,7 +33,7 @@ struct SearchView: View {
                     .foregroundStyle(Color.dsTextTertiary)
                     .font(.system(size: 13))
 
-                TextField("Search workspace…", text: $viewModel.searchQuery)
+                TextField("search.placeholder", text: $viewModel.searchQuery)
                     .textFieldStyle(.plain)
                     .font(.dsBody())
                     .focused($fieldFocused)
@@ -89,7 +89,7 @@ struct SearchView: View {
                     VStack(spacing: .dsSM) {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(Color.dsTextTertiary)
-                        Text("No results")
+                        Text("search.noResults")
                             .font(.dsBody())
                             .foregroundStyle(Color.dsTextSecondary)
                     }

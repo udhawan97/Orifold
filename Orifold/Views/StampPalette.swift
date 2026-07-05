@@ -26,7 +26,7 @@ struct StampPalette: View {
                 }
 
                 VStack(alignment: .leading, spacing: .dsSM) {
-                    TextField("Custom text", text: $customText)
+                    TextField("stampPalette.customText.placeholder", text: $customText)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(placeCustomStamp)
 
@@ -50,7 +50,7 @@ struct StampPalette: View {
                         Spacer()
 
                         Button(action: placeCustomStamp) {
-                            Label("Place", systemImage: "seal")
+                            Label("stampPalette.place.button", systemImage: "seal")
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(Color.dsAccent)
@@ -65,7 +65,7 @@ struct StampPalette: View {
     }
 
     private var header: some View {
-        Text("Stamps")
+        Text("stampPalette.title")
             .font(.system(size: 15, weight: .semibold, design: .serif))
             .foregroundStyle(Color.dsTextPrimary)
             .padding(.horizontal, .dsLG)
@@ -113,15 +113,15 @@ private enum StampPreset: CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .approved:
-            return "Approved"
+            return L10n.string("stampPreset.approved.title")
         case .draft:
-            return "Draft"
+            return L10n.string("stampPreset.draft.title")
         case .confidential:
-            return "Confidential"
+            return L10n.string("stampPreset.confidential.title")
         case .final:
-            return "Final"
+            return L10n.string("stampPreset.final.title")
         case .void:
-            return "Void"
+            return L10n.string("stampPreset.void.title")
         }
     }
 

@@ -65,13 +65,13 @@ private struct SignaturePlacementBanner: View {
         HStack(spacing: .dsSM) {
             Image(systemName: "signature")
                 .foregroundStyle(Color.dsSignatureAccent)
-            Text("Click a page to place the signature.")
+            Text("readingCanvas.signaturePlacement.instruction")
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextPrimary)
-            Button("Cancel", action: cancel)
+            Button("readingCanvas.signaturePlacement.cancel.button", action: cancel)
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("Cancel signature placement")
+                .help("readingCanvas.signaturePlacement.cancel.help")
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
@@ -90,11 +90,11 @@ private struct ScanBar: View {
         HStack(spacing: .dsMD) {
             Image(systemName: "doc.text.viewfinder")
                 .foregroundStyle(Color.dsAccent)
-            Text("This document is a scan")
+            Text("readingCanvas.scanBar.title")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.dsTextPrimary)
             Spacer()
-            Button("Make it searchable") {
+            Button("readingCanvas.scanBar.makeSearchable.button") {
                 viewModel.makeSearchable()
             }
             .font(.dsCaption())
@@ -121,7 +121,7 @@ private struct FormBar: View {
             VStack(alignment: .leading, spacing: 2) {
                 if viewModel.hasFillableFormFields {
                     HStack(spacing: .dsSM) {
-                        Text("This PDF has fillable fields")
+                        Text("readingCanvas.formBar.fillableFields.title")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Color.dsTextPrimary)
                         Text("\(viewModel.formSummary.fieldCount) fields")
@@ -130,14 +130,14 @@ private struct FormBar: View {
                     }
                 }
                 if viewModel.formSummary.hasUnsupportedDynamicFeatures {
-                    Text("Some dynamic form features may not work in Orifold.")
+                    Text("readingCanvas.formBar.dynamicFeaturesWarning")
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
             }
             Spacer()
             if viewModel.hasFillableFormFields {
-                Toggle("Highlight fields", isOn: $viewModel.highlightFormFields)
+                Toggle("readingCanvas.formBar.highlightFields.toggle", isOn: $viewModel.highlightFormFields)
                     .toggleStyle(.checkbox)
                     .font(.dsCaption())
                     .tint(Color.dsAccentSoft)
@@ -148,7 +148,7 @@ private struct FormBar: View {
                         .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.borderless)
-                .help("Previous field")
+                .help("readingCanvas.formBar.previousField.help")
                 Button {
                     viewModel.selectNextFormField()
                 } label: {
@@ -156,8 +156,8 @@ private struct FormBar: View {
                         .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.borderless)
-                .help("Next field")
-                Button("Reset form") {
+                .help("readingCanvas.formBar.nextField.help")
+                Button("readingCanvas.formBar.resetForm.button") {
                     viewModel.resetFormFields()
                 }
                 .font(.dsCaption())
@@ -194,7 +194,7 @@ private struct EditingStatusBanner: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.dsTextTertiary)
-            .help("Dismiss")
+            .help("readingCanvas.editingStatus.dismiss.help")
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
@@ -223,7 +223,7 @@ private struct ZoomPageBar: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextSecondary)
-            .help("Zoom out")
+            .help("readingCanvas.zoomOut.help")
 
             Button { viewModel.zoomFit() } label: {
                 Image(systemName: "arrow.up.left.and.down.right.magnifyingglass")
@@ -231,7 +231,7 @@ private struct ZoomPageBar: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextSecondary)
-            .help("Fit page")
+            .help("readingCanvas.zoomFit.help")
 
             Button { viewModel.zoomIn() } label: {
                 Image(systemName: "plus")
@@ -239,7 +239,7 @@ private struct ZoomPageBar: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextSecondary)
-            .help("Zoom in")
+            .help("readingCanvas.zoomIn.help")
 
             Divider()
                 .frame(height: 16)
@@ -250,7 +250,7 @@ private struct ZoomPageBar: View {
 
             if viewModel.pageCount > 0 {
                 HStack(spacing: 6) {
-                    Text("Page")
+                    Text("readingCanvas.pageBar.pageLabel")
                         .foregroundStyle(Color.dsTextTertiary)
                     TextField("", text: $pageInput)
                         .textFieldStyle(.plain)
@@ -289,7 +289,7 @@ private struct ZoomPageBar: View {
                     if !pageFieldFocused { pageInput = "\(n)" }
                 }
                 .onAppear { pageInput = "\(max(1, viewModel.currentPageNumber))" }
-                .help("Jump to page")
+                .help("readingCanvas.pageBar.jumpToPage.help")
             }
         }
         .padding(.horizontal, .dsLG)
@@ -1169,7 +1169,7 @@ final class OrifoldPDFView: PDFView {
         if !menu.items.isEmpty {
             menu.addItem(.separator())
         }
-        let item = NSMenuItem(title: "Comment", action: #selector(commentFromContextMenu(_:)), keyEquivalent: "")
+        let item = NSMenuItem(title: L10n.string("readingCanvas.contextMenu.comment"), action: #selector(commentFromContextMenu(_:)), keyEquivalent: "")
         item.target = self
         menu.addItem(item)
         return menu
@@ -1268,7 +1268,7 @@ private final class CommentMarkerButton: NSButton {
     init(commentID: UUID) {
         self.commentID = commentID
         super.init(frame: .zero)
-        image = NSImage(systemSymbolName: "text.bubble.fill", accessibilityDescription: "Comment")
+        image = NSImage(systemSymbolName: "text.bubble.fill", accessibilityDescription: L10n.string("readingCanvas.commentMarker.accessibilityDescription"))
         imagePosition = .imageOnly
         isBordered = false
         contentTintColor = .dsAccentNS
@@ -1927,7 +1927,7 @@ final class NoteEditorViewController: NSViewController {
         footer.wantsLayer = true
         footer.layer?.backgroundColor = NSColor.dsSurfaceNS.cgColor
 
-        let done = NSButton(title: "Done", target: self, action: #selector(commit))
+        let done = NSButton(title: L10n.string("readingCanvas.freeTextEditor.done.button"), target: self, action: #selector(commit))
         done.bezelStyle = .rounded
         done.controlSize = .large
         done.keyEquivalent = "\r"
@@ -1935,7 +1935,7 @@ final class NoteEditorViewController: NSViewController {
         done.frame = CGRect(x: editorWidth - 88 - 12, y: 10, width: 88, height: 28)
         footer.addSubview(done)
 
-        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancel))
+        let cancel = NSButton(title: L10n.string("readingCanvas.freeTextEditor.cancel.button"), target: self, action: #selector(cancel))
         cancel.bezelStyle = .rounded
         cancel.controlSize = .large
         cancel.keyEquivalent = "\u{1b}"
@@ -2077,7 +2077,7 @@ final class NoteEditorViewController: NSViewController {
         }
         family.target = self
         family.action = #selector(changeFontFamily(_:))
-        family.toolTip = "Font family"
+        family.toolTip = L10n.string("readingCanvas.formatting.fontFamily.tooltip")
         controls.addSubview(family)
 
         let sizeStepper = NSStepper(frame: CGRect(x: 252, y: 58, width: 18, height: 28))
@@ -2086,7 +2086,7 @@ final class NoteEditorViewController: NSViewController {
         sizeStepper.integerValue = Int(round(editorFontSize))
         sizeStepper.target = self
         sizeStepper.action = #selector(changeFontSize(_:))
-        sizeStepper.toolTip = "Font size"
+        sizeStepper.toolTip = L10n.string("readingCanvas.formatting.fontSize.tooltip")
         controls.addSubview(sizeStepper)
 
         let label = NSTextField(labelWithString: "\(Int(round(editorFontSize)))")
@@ -2100,18 +2100,18 @@ final class NoteEditorViewController: NSViewController {
         let bold = formattingButton(title: "B", x: 4, y: 18, action: #selector(toggleBold), isToggle: true)
         bold.font = .boldSystemFont(ofSize: 13)
         bold.state = editorFontTraits.contains(.boldFontMask) ? .on : .off
-        bold.toolTip = "Bold"
+        bold.toolTip = L10n.string("readingCanvas.formatting.bold.tooltip")
         controls.addSubview(bold)
 
         let italic = formattingButton(title: "I", x: 42, y: 18, action: #selector(toggleItalic), isToggle: true)
         italic.font = NSFontManager.shared.convert(NSFont.systemFont(ofSize: 13), toHaveTrait: .italicFontMask)
         italic.state = editorFontTraits.contains(.italicFontMask) ? .on : .off
-        italic.toolTip = "Italic"
+        italic.toolTip = L10n.string("readingCanvas.formatting.italic.tooltip")
         controls.addSubview(italic)
 
         let align = NSSegmentedControl(labels: ["L", "C", "R"], trackingMode: .selectOne, target: self, action: #selector(changeAlignment(_:)))
         align.frame = CGRect(x: 88, y: 18, width: 96, height: 28)
-        align.toolTip = "Text alignment"
+        align.toolTip = L10n.string("readingCanvas.formatting.textAlignment.tooltip")
         align.selectedSegment = selectedAlignmentSegment()
         controls.addSubview(align)
 
@@ -2129,7 +2129,7 @@ final class NoteEditorViewController: NSViewController {
             button.isBordered = false
             button.image = nil
             button.attributedTitle = NSAttributedString(string: "")
-            button.toolTip = "\(name) text"
+            button.toolTip = L10n.string("\(name) text")
             button.wantsLayer = true
             button.layer?.backgroundColor = color.cgColor
             button.layer?.cornerRadius = 10
@@ -2294,9 +2294,9 @@ final class NoteEditorViewController: NSViewController {
     private let italicButton = NSButton(title: "", target: nil, action: nil)
     private let alignControl = NSSegmentedControl(
         images: [
-            NSImage(systemSymbolName: "text.alignleft", accessibilityDescription: "Align left") ?? NSImage(),
-            NSImage(systemSymbolName: "text.aligncenter", accessibilityDescription: "Align center") ?? NSImage(),
-            NSImage(systemSymbolName: "text.alignright", accessibilityDescription: "Align right") ?? NSImage()
+            NSImage(systemSymbolName: "text.alignleft", accessibilityDescription: L10n.string("readingCanvas.formatting.alignLeft.accessibilityDescription")) ?? NSImage(),
+            NSImage(systemSymbolName: "text.aligncenter", accessibilityDescription: L10n.string("readingCanvas.formatting.alignCenter.accessibilityDescription")) ?? NSImage(),
+            NSImage(systemSymbolName: "text.alignright", accessibilityDescription: L10n.string("readingCanvas.formatting.alignRight.accessibilityDescription")) ?? NSImage()
         ],
         trackingMode: .selectOne,
         target: nil,
@@ -2617,7 +2617,7 @@ final class NoteEditorViewController: NSViewController {
         }
         familyPopup.target = self
         familyPopup.action = #selector(changeFamily(_:))
-        familyPopup.toolTip = "Font family"
+        familyPopup.toolTip = L10n.string("readingCanvas.formatting.fontFamily.tooltip")
         cursor.place(familyPopup, width: 124)
 
         sizeField.alignment = .center
@@ -2629,7 +2629,7 @@ final class NoteEditorViewController: NSViewController {
         sizeField.target = self
         sizeField.action = #selector(commitSizeField(_:))
         sizeField.delegate = self
-        sizeField.toolTip = "Font size"
+        sizeField.toolTip = L10n.string("readingCanvas.formatting.fontSize.tooltip")
         cursor.place(sizeField, width: 34, gapAfter: 2)
 
         sizeStepper.minValue = 4
@@ -2637,7 +2637,7 @@ final class NoteEditorViewController: NSViewController {
         sizeStepper.integerValue = Int(round(documentFontSize))
         sizeStepper.target = self
         sizeStepper.action = #selector(changeSize(_:))
-        sizeStepper.toolTip = "Adjust font size"
+        sizeStepper.toolTip = L10n.string("readingCanvas.formatting.adjustFontSize.tooltip")
         cursor.place(sizeStepper, width: 20)
         cursor.addDivider()
 
@@ -2646,44 +2646,44 @@ final class NoteEditorViewController: NSViewController {
         boldButton.setButtonType(.toggle)
         boldButton.bezelStyle = .rounded
         boldButton.title = "B"
-        boldButton.image = NSImage(systemSymbolName: "bold", accessibilityDescription: "Bold")
+        boldButton.image = NSImage(systemSymbolName: "bold", accessibilityDescription: L10n.string("readingCanvas.formatting.bold.accessibilityDescription"))
         boldButton.imagePosition = .imageOnly
         boldButton.state = editorFontTraits.contains(.boldFontMask) ? .on : .off
-        boldButton.toolTip = "Bold (⌘B)"
+        boldButton.toolTip = L10n.string("readingCanvas.formatting.bold.shortcutTooltip")
         cursor.place(boldButton, width: 28, gapAfter: 2)
 
         italicButton.target = self
         italicButton.action = #selector(toggleItalic)
         italicButton.setButtonType(.toggle)
         italicButton.bezelStyle = .rounded
-        italicButton.image = NSImage(systemSymbolName: "italic", accessibilityDescription: "Italic")
+        italicButton.image = NSImage(systemSymbolName: "italic", accessibilityDescription: L10n.string("readingCanvas.formatting.italic.accessibilityDescription"))
         italicButton.imagePosition = .imageOnly
         italicButton.state = editorFontTraits.contains(.italicFontMask) ? .on : .off
-        italicButton.toolTip = "Italic (⌘I)"
+        italicButton.toolTip = L10n.string("readingCanvas.formatting.italic.shortcutTooltip")
         cursor.place(italicButton, width: 28)
         cursor.addDivider()
 
         alignControl.target = self
         alignControl.action = #selector(changeAlignment(_:))
         alignControl.selectedSegment = selectedAlignmentSegment()
-        alignControl.setToolTip("Align left", forSegment: 0)
-        alignControl.setToolTip("Align center", forSegment: 1)
-        alignControl.setToolTip("Align right", forSegment: 2)
+        alignControl.setToolTip(L10n.string("readingCanvas.formatting.alignLeft.tooltip"), forSegment: 0)
+        alignControl.setToolTip(L10n.string("readingCanvas.formatting.alignCenter.tooltip"), forSegment: 1)
+        alignControl.setToolTip(L10n.string("readingCanvas.formatting.alignRight.tooltip"), forSegment: 2)
         cursor.place(alignControl, width: 78)
         cursor.addDivider()
 
         colorPopup.target = self
         colorPopup.action = #selector(changeTextColor(_:))
-        colorPopup.toolTip = "Text color"
+        colorPopup.toolTip = L10n.string("readingCanvas.formatting.textColor.tooltip")
         populateColorPopup()
         cursor.place(colorPopup, width: 88)
         cursor.addDivider()
 
         let signature = NSButton(title: "", target: self, action: #selector(addSignatureBox))
-        signature.image = NSImage(systemSymbolName: "signature", accessibilityDescription: "Signature")
+        signature.image = NSImage(systemSymbolName: "signature", accessibilityDescription: L10n.string("readingCanvas.formatting.signature.accessibilityDescription"))
         signature.imagePosition = .imageOnly
         signature.bezelStyle = .rounded
-        signature.toolTip = "Insert a signature box here"
+        signature.toolTip = L10n.string("readingCanvas.formatting.insertSignatureBox.tooltip")
         cursor.place(signature, width: 30)
         cursor.addDivider()
 
@@ -2694,41 +2694,41 @@ final class NoteEditorViewController: NSViewController {
         matchFormatButton.target = self
         matchFormatButton.action = #selector(matchNearbyFormat)
         matchFormatButton.identifier = NSUserInterfaceItemIdentifier("inlineEditor.matchNearbyFormat")
-        matchFormatButton.title = "Match"
+        matchFormatButton.title = L10n.string("readingCanvas.formatting.matchFormat.button")
         matchFormatButton.imagePosition = .noImage
         matchFormatButton.bezelStyle = .rounded
         matchFormatButton.font = .systemFont(ofSize: 11)
-        matchFormatButton.toolTip = "Match the nearby PDF text's full style — font, size, color, alignment, margins and wrapping — for this edit."
+        matchFormatButton.toolTip = L10n.string("readingCanvas.formatting.matchFormat.tooltip")
         cursor.place(matchFormatButton, width: 52, gapAfter: 3)
 
         copyFormatButton.target = self
         copyFormatButton.action = #selector(copyNearbyFormat)
         copyFormatButton.identifier = NSUserInterfaceItemIdentifier("inlineEditor.copyNearbyFormat")
-        copyFormatButton.title = "Copy"
+        copyFormatButton.title = L10n.string("readingCanvas.formatting.copyFormat.button")
         copyFormatButton.imagePosition = .noImage
         copyFormatButton.bezelStyle = .rounded
         copyFormatButton.font = .systemFont(ofSize: 11)
-        copyFormatButton.toolTip = "Copy the nearby PDF text's style so you can paste it onto another text edit."
+        copyFormatButton.toolTip = L10n.string("readingCanvas.formatting.copyFormat.tooltip")
         cursor.place(copyFormatButton, width: 48, gapAfter: 3)
 
         applyFormatButton.target = self
         applyFormatButton.action = #selector(applyCopiedFormat)
         applyFormatButton.identifier = NSUserInterfaceItemIdentifier("inlineEditor.applyCopiedFormat")
-        applyFormatButton.title = "Paste"
+        applyFormatButton.title = L10n.string("readingCanvas.formatting.pasteFormat.button")
         applyFormatButton.imagePosition = .noImage
         applyFormatButton.bezelStyle = .rounded
         applyFormatButton.font = .systemFont(ofSize: 11)
-        applyFormatButton.toolTip = "Paste the previously copied style onto this edit."
+        applyFormatButton.toolTip = L10n.string("readingCanvas.formatting.pasteFormat.tooltip")
         cursor.place(applyFormatButton, width: 50, gapAfter: 3)
 
         restoreFormatButton.target = self
         restoreFormatButton.action = #selector(restoreOriginalFormat)
         restoreFormatButton.identifier = NSUserInterfaceItemIdentifier("inlineEditor.restoreOriginalFormat")
-        restoreFormatButton.title = "Reset"
+        restoreFormatButton.title = L10n.string("readingCanvas.formatting.resetFormat.button")
         restoreFormatButton.imagePosition = .noImage
         restoreFormatButton.bezelStyle = .rounded
         restoreFormatButton.font = .systemFont(ofSize: 11)
-        restoreFormatButton.toolTip = "Reset this edit back to the original detected formatting."
+        restoreFormatButton.toolTip = L10n.string("readingCanvas.formatting.resetFormat.tooltip")
         cursor.place(restoreFormatButton, width: 50)
 
         // Build the commit/cancel/delete group but DO NOT place it inline: record it so
@@ -2737,31 +2737,31 @@ final class NoteEditorViewController: NSViewController {
         actionGroupItems = []
         if isExistingEdit {
             let revert = NSButton(title: "", target: self, action: #selector(revertButton))
-            revert.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "Remove this edit")
+            revert.image = NSImage(systemSymbolName: "trash", accessibilityDescription: L10n.string("readingCanvas.formatting.removeEdit.accessibilityDescription"))
             revert.imagePosition = .imageOnly
             revert.bezelStyle = .rounded
             revert.contentTintColor = .systemRed
-            revert.toolTip = "Remove this edit entirely and restore the original PDF text"
+            revert.toolTip = L10n.string("readingCanvas.formatting.removeEdit.tooltip")
             toolbar.addSubview(revert)
             actionGroupItems.append((revert, 30, 0))
         }
 
-        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancelButton))
+        let cancel = NSButton(title: L10n.string("readingCanvas.formatting.cancelEdit.button"), target: self, action: #selector(cancelButton))
         cancel.imagePosition = .noImage
         cancel.bezelStyle = .rounded
         cancel.font = .systemFont(ofSize: 11)
-        cancel.toolTip = "Discard this edit (Esc)"
+        cancel.toolTip = L10n.string("readingCanvas.formatting.discardEdit.tooltip")
         toolbar.addSubview(cancel)
         actionGroupItems.append((cancel, 58, 8))
 
-        let done = NSButton(title: "Done", target: self, action: #selector(commitButton))
-        done.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: "Done")
+        let done = NSButton(title: L10n.string("readingCanvas.formatting.doneEdit.button"), target: self, action: #selector(commitButton))
+        done.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: L10n.string("readingCanvas.formatting.doneEdit.accessibilityDescription"))
         done.imagePosition = .imageLeading
         done.bezelStyle = .rounded
         done.contentTintColor = .dsAccentNS
         done.font = .systemFont(ofSize: 11, weight: .semibold)
         done.keyEquivalent = "\r"
-        done.toolTip = "Save this edit (⏎)"
+        done.toolTip = L10n.string("readingCanvas.formatting.saveEdit.tooltip")
         toolbar.addSubview(done)
         actionGroupItems.append((done, 62, 6))
 

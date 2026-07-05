@@ -23,7 +23,7 @@ struct AppIconButton: View {
             AppIconMark(size: size)
         }
         .buttonStyle(.plain)
-        .help("About Orifold")
+        .help("guide.aboutOrifold.help")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             AppAboutPopover()
         }
@@ -34,13 +34,13 @@ struct AppBrandLockup: View {
     var iconSize: CGFloat = 28
     var titleSize: CGFloat = 14
     var subtitleSize: CGFloat = 11
-    var subtitle: String? = "A calmer way to assemble PDFs."
+    var subtitle: String? = L10n.string("appBrandLockup.subtitle.default")
 
     var body: some View {
         HStack(spacing: .dsSM) {
             AppIconMark(size: iconSize)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Orifold")
+                Text(verbatim: "Orifold")
                     .font(.system(size: titleSize, weight: .semibold, design: .serif))
                     .tracking(.dsWordmarkTracking)
                     .foregroundStyle(Color.dsTextPrimary)
@@ -59,7 +59,7 @@ struct AppBrandLockup: View {
     var compact: some View {
         HStack(spacing: .dsXS) {
             AppIconMark(size: iconSize)
-            Text("Orifold")
+            Text(verbatim: "Orifold")
                 .font(.system(size: titleSize, weight: .semibold, design: .serif))
                 .tracking(.dsWordmarkTracking)
                 .foregroundStyle(Color.dsTextPrimary)
@@ -88,11 +88,11 @@ struct AppAboutPopover: View {
                 .frame(width: 40, height: 40, alignment: .topLeading)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Orifold")
+                    Text(verbatim: "Orifold")
                         .font(.system(size: 17, weight: .semibold, design: .serif))
                         .tracking(.dsWordmarkTracking)
                         .foregroundStyle(Color.dsTextPrimary)
-                    Text("A calmer way to assemble PDFs.")
+                    Text("appBrandLockup.subtitle.default")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.dsTextSecondary)
                 }
@@ -104,12 +104,12 @@ struct AppAboutPopover: View {
                 .frame(height: 1)
 
             VStack(alignment: .leading, spacing: .dsSM) {
-                Text("Built for the small-but-real PDF chores: combine the pieces, mark what matters, and send out something tidy.")
+                Text("appAbout.description.chores")
                     .font(.dsBody())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("No ceremony. No mystery panels — just a focused workspace, and a little quiet in the margins.")
+                Text("appAbout.description.noCeremony")
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextTertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -118,7 +118,7 @@ struct AppAboutPopover: View {
 
             HStack {
                 Spacer()
-                Button("Close") { dismiss() }
+                Button("appAbout.close.button") { dismiss() }
                     .keyboardShortcut(.cancelAction)
             }
         }
@@ -160,7 +160,7 @@ struct GuideButton: View {
         } label: {
             Image(systemName: "questionmark.circle")
         }
-        .help("Show quick guide")
+        .help("guide.showQuickGuide.help")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             GuidePopover(isPresented: $isPresented)
         }
@@ -183,8 +183,8 @@ private struct GuidePopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: .dsLG) {
             VStack(alignment: .leading, spacing: .dsSM) {
-                AppBrandLockup(iconSize: 40, titleSize: 15, subtitle: "A calmer way to finish PDFs.")
-                Text("Bring scattered files together, clean them up, and send out the version people actually need.")
+                AppBrandLockup(iconSize: 40, titleSize: 15, subtitle: L10n.string("guidePopover.subtitle"))
+                Text("guidePopover.description")
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -208,7 +208,7 @@ private struct GuidePopover: View {
 
             HStack {
                 Spacer()
-                Button("Got it") { isPresented = false }
+                Button("guidePopover.gotIt.button") { isPresented = false }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.dsAccent)
                     .keyboardShortcut(.defaultAction)
@@ -253,52 +253,52 @@ private struct GuideFeature: Identifiable {
 
     static let all = [
         GuideFeature(icon: "doc.badge.plus",
-                     title: "Import",
-                     detail: "Drop in up to 50 PDFs, Word, HTML, Markdown, text, data files, or images at once.",
+                     title: L10n.string("guideFeature.import.title"),
+                     detail: L10n.string("guideFeature.import.detail"),
                      tint: .dsAccent),
         GuideFeature(icon: "square.stack.3d.down.right",
-                     title: "Assemble",
-                     detail: "Combine files, reorder pages, rotate, delete, and reshape the packet.",
+                     title: L10n.string("guideFeature.assemble.title"),
+                     detail: L10n.string("guideFeature.assemble.detail"),
                      tint: .dsAccentBright),
         GuideFeature(icon: "text.cursor",
-                     title: "Edit text",
-                     detail: "Adjust detected PDF text or add new text boxes directly on the page.",
+                     title: L10n.string("guideFeature.editText.title"),
+                     detail: L10n.string("guideFeature.editText.detail"),
                      tint: .dsAnnotationSky),
         GuideFeature(icon: "highlighter",
-                     title: "Mark up",
-                     detail: "Highlight, underline, strike out, draw ink, erase marks, and add notes.",
+                     title: L10n.string("guideFeature.markUp.title"),
+                     detail: L10n.string("guideFeature.markUp.detail"),
                      tint: .dsHighlightYellow, iconIsDark: true),
         GuideFeature(icon: "bubble.left.and.text.bubble.right",
-                     title: "Review",
-                     detail: "Track workspace comments, anchored notes, tags, metadata, and search results.",
+                     title: L10n.string("guideFeature.review.title"),
+                     detail: L10n.string("guideFeature.review.detail"),
                      tint: .dsAnnotationLavender),
         GuideFeature(icon: "signature",
-                     title: "Sign",
-                     detail: "Place visual signatures or create cryptographically signed PDF output.",
+                     title: L10n.string("guideFeature.sign.title"),
+                     detail: L10n.string("guideFeature.sign.detail"),
                      tint: .dsSignatureAccent),
         GuideFeature(icon: "seal",
-                     title: "Decorate",
-                     detail: "Add stamps, watermarks, page numbers, and Bates-style numbering.",
+                     title: L10n.string("guideFeature.decorate.title"),
+                     detail: L10n.string("guideFeature.decorate.detail"),
                      tint: .dsAnnotationCoral),
         GuideFeature(icon: "checklist",
-                     title: "Forms",
-                     detail: "Fill forms and optionally lock answers into the final PDF.",
+                     title: L10n.string("guideFeature.forms.title"),
+                     detail: L10n.string("guideFeature.forms.detail"),
                      tint: .dsAnnotationSage),
         GuideFeature(icon: "doc.text.viewfinder",
-                     title: "OCR",
-                     detail: "Make scanned pages searchable before sharing or archiving.",
+                     title: L10n.string("guideFeature.ocr.title"),
+                     detail: L10n.string("guideFeature.ocr.detail"),
                      tint: .dsAccent),
         GuideFeature(icon: "arrow.down.circle",
-                     title: "Compress",
-                     detail: "Reduce PDF size with export-time validation.",
+                     title: L10n.string("guideFeature.compress.title"),
+                     detail: L10n.string("guideFeature.compress.detail"),
                      tint: .dsAccentBright),
         GuideFeature(icon: "lock.shield",
-                     title: "Protect",
-                     detail: "Password-protect compatible exports and control copy or print permissions.",
+                     title: L10n.string("guideFeature.protect.title"),
+                     detail: L10n.string("guideFeature.protect.detail"),
                      tint: .dsGraphite),
         GuideFeature(icon: "square.and.arrow.up",
-                     title: "Export",
-                     detail: "Save PDF workspaces or export PDF, DOCX, Markdown, text, HTML, PNG, and JPEG.",
+                     title: L10n.string("guideFeature.export.title"),
+                     detail: L10n.string("guideFeature.export.detail"),
                      tint: .dsAnnotationSky)
     ]
 }
