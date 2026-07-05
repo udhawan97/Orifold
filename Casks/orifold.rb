@@ -31,15 +31,32 @@ cask "orifold" do
   zap trash: [
     "~/.orifold",
     "~/Library/Application Support/Orifold",
+    "~/Library/Application Scripts/com.ud.Orifold",
     "~/Library/Caches/com.ud.Orifold",
+    "~/Library/Containers/com.ud.Orifold",
+    "~/Library/Cookies/com.ud.Orifold.binarycookies",
+    "~/Library/HTTPStorages/com.ud.Orifold",
     "~/Library/Preferences/com.ud.Orifold.plist",
+    "~/Library/Preferences/ByHost/com.ud.Orifold.*.plist",
     "~/Library/Saved Application State/com.ud.Orifold.savedState",
+    "~/Library/WebKit/com.ud.Orifold",
+    "~/Library/Logs/DiagnosticReports/Orifold*.crash",
+    "~/Library/Logs/DiagnosticReports/Orifold*.ips",
   ] + legacy_app_names.map { |name| "~/Library/Application Support/#{name}" } + [
     "~/.p" + "d" + "fold",
+    "~/Library/Application Scripts/#{legacy_bundle_id}",
     "~/Library/Caches/#{legacy_bundle_id}",
+    "~/Library/Containers/#{legacy_bundle_id}",
+    "~/Library/Cookies/#{legacy_bundle_id}.binarycookies",
+    "~/Library/HTTPStorages/#{legacy_bundle_id}",
     "~/Library/Preferences/#{legacy_bundle_id}.plist",
+    "~/Library/Preferences/ByHost/#{legacy_bundle_id}.*.plist",
     "~/Library/Saved Application State/#{legacy_bundle_id}.savedState",
-  ]
+    "~/Library/WebKit/#{legacy_bundle_id}",
+  ] + legacy_app_names.flat_map { |name| [
+    "~/Library/Logs/DiagnosticReports/#{name}*.crash",
+    "~/Library/Logs/DiagnosticReports/#{name}*.ips",
+  ] }
 
   caveats <<~EOS
     Orifold release builds are ad-hoc signed and not notarized yet.

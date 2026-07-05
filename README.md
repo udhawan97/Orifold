@@ -60,9 +60,11 @@
 
 ## 📄 The Problem
 
-A "simple PDF task" is never simple. It's six PDFs, two screenshots, a Word document, a scanned form, and a file named `final_final_revised_ACTUAL.pdf`.
+A "simple PDF task" is rarely simple. It's six PDFs, two screenshots, a Word document, a scanned form, and one brave file named `final_final_revised_ACTUAL.pdf`.
 
-Preview gives up the moment more than one file is involved. Acrobat does everything — for a subscription, with a cloud attached. **Orifold sits in the gap**: merge, annotate, OCR, forms, stamps, compression, and password protection — native, local, and free.
+I built Orifold because basic file work on a Mac should not require a subscription, an upload, or a small ceremony. Preview is great until the job gets real; the full-featured tools often hide everyday workflows behind paywalls. **Orifold is my work-in-progress answer**: merge, annotate, OCR, forms, stamps, compression, and password protection — native, local, and free.
+
+It is not perfect yet. It is being built in public by me and a friendly AI collaborator, with the goal of giving every Mac user a practical PDF workspace they can use without renting their own files back.
 
 <p align="center">
   <img src="docs/assets/orifold-v3-workspace-diagram.svg" alt="Orifold product flow: import mixed files, edit and finish them in one local workspace, then export one clean file — everything runs on your Mac">

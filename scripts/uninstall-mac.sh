@@ -6,12 +6,17 @@ PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 APP_NAME="Orifold"
 BUNDLE_ID="com.ud.Orifold"
 LEGACY_APP_NAMES=("p""d""Fold" "PDF""old")
+APP_DATA_NAMES=("$APP_NAME" "${LEGACY_APP_NAMES[@]}")
 LEGACY_BUNDLE_ID="com.ud.PDF""old"
+APP_BUNDLE_IDS=("$BUNDLE_ID" "$LEGACY_BUNDLE_ID")
 INSTALL_CACHE="$HOME/.orifold"
 LEGACY_INSTALL_CACHE="$HOME/.p""d""fold"
 INSTALLED_APP="$HOME/Applications/$APP_NAME.app"
+SYSTEM_INSTALLED_APP="/Applications/$APP_NAME.app"
 DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME.command"
 DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $APP_NAME.command"
+DESKTOP_INSTALLER_APP="$HOME/Desktop/Install or Update $APP_NAME.app"
+DESKTOP_INSTALLER_COMMAND="$HOME/Desktop/Install or Update $APP_NAME.command"
 LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
 LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
 
@@ -63,6 +68,16 @@ APPLESCRIPT
             print_note "Could not remove $path"
         fi
     fi
+}
+
+remove_glob_paths() {
+    local pattern="$1"
+    local matches=()
+
+    matches=(${~pattern}(N))
+    for path in "${matches[@]}"; do
+        remove_path "$path"
+    done
 }
 
 stop_running_app() {
@@ -119,13 +134,17 @@ done
 
 print_step "Removing installed app and commands"
 remove_path "$INSTALLED_APP"
+remove_path "$SYSTEM_INSTALLED_APP"
 for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
     remove_path "$HOME/Applications/$legacy_app_name.app"
+    remove_path "/Applications/$legacy_app_name.app"
 done
 remove_path "$DESKTOP_LAUNCHER"
 remove_path "$LEGACY_DESKTOP_LAUNCHER"
 remove_path "$LEGACY_DESKTOP_UPDATER"
 remove_path "$DESKTOP_UNINSTALLER"
+remove_path "$DESKTOP_INSTALLER_APP"
+remove_path "$DESKTOP_INSTALLER_COMMAND"
 for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
     remove_path "$HOME/Desktop/$legacy_app_name.command"
     remove_path "$HOME/Desktop/Uninstall $legacy_app_name.command"
@@ -140,17 +159,24 @@ remove_path "$LEGACY_INSTALL_CACHE"
 if [[ $KEEP_USER_DATA -eq 0 ]]; then
     print_step "Removing Orifold app data"
     remove_path "$HOME/Library/Application Support/$APP_NAME"
-    remove_path "$HOME/Library/Containers/$BUNDLE_ID"
-    remove_path "$HOME/Library/Preferences/$BUNDLE_ID.plist"
-    remove_path "$HOME/Library/Caches/$BUNDLE_ID"
-    remove_path "$HOME/Library/Saved Application State/$BUNDLE_ID.savedState"
     for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
         remove_path "$HOME/Library/Application Support/$legacy_app_name"
     done
-    remove_path "$HOME/Library/Containers/$LEGACY_BUNDLE_ID"
-    remove_path "$HOME/Library/Preferences/$LEGACY_BUNDLE_ID.plist"
-    remove_path "$HOME/Library/Caches/$LEGACY_BUNDLE_ID"
-    remove_path "$HOME/Library/Saved Application State/$LEGACY_BUNDLE_ID.savedState"
+    for bundle_id in "${APP_BUNDLE_IDS[@]}"; do
+        remove_path "$HOME/Library/Application Scripts/$bundle_id"
+        remove_path "$HOME/Library/Caches/$bundle_id"
+        remove_path "$HOME/Library/Containers/$bundle_id"
+        remove_path "$HOME/Library/Cookies/$bundle_id.binarycookies"
+        remove_path "$HOME/Library/HTTPStorages/$bundle_id"
+        remove_path "$HOME/Library/Preferences/$bundle_id.plist"
+        remove_path "$HOME/Library/Saved Application State/$bundle_id.savedState"
+        remove_path "$HOME/Library/WebKit/$bundle_id"
+        remove_glob_paths "$HOME/Library/Preferences/ByHost/$bundle_id.*.plist"
+    done
+    for app_data_name in "${APP_DATA_NAMES[@]}"; do
+        remove_glob_paths "$HOME/Library/Logs/DiagnosticReports/$app_data_name*.ips"
+        remove_glob_paths "$HOME/Library/Logs/DiagnosticReports/$app_data_name*.crash"
+    done
 else
     print_step "Keeping Orifold app data"
 fi
