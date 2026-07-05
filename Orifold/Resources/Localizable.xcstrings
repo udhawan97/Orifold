@@ -22831,6 +22831,252 @@
           }
         }
       }
+    },
+    "pet.dog.hoverTip.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I'm guarding the margins. Suspiciously well-behaved today."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estoy vigilando los márgenes. Sospechosamente bien portados hoy."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je surveille les marges. Étonnamment sages aujourd'hui."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मैं मार्जिन की रखवाली कर रहा हूँ। आज संदिग्ध रूप से अच्छे व्यवहार में हैं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "余白を見張ってるよ。今日は妙におとなしいね。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我在看守页边距。今天乖得有点可疑。"
+          }
+        }
+      }
+    },
+    "pet.dog.hoverTip.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Need help? I sniff out formatting crimes."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Necesitas ayuda? Yo huelo los crímenes de formato."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Besoin d'aide ? Je flaire les crimes de mise en forme."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मदद चाहिए? मैं फ़ॉर्मैटिंग के अपराध सूँघ लेता हूँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手伝おうか？書式の犯罪なら嗅ぎつけるよ。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要帮忙吗？排版上的小毛病，我一嗅便知。"
+          }
+        }
+      }
+    },
+    "pet.dog.hoverTip.3": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF patrol active."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Patrulla de PDF activada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Patrouille PDF active."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF गश्त सक्रिय है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDFパトロール中。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF 巡逻，已启动。"
+          }
+        }
+      }
+    },
+    "pet.cat.hoverTip.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I am observing the document. Elegantly."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estoy observando el documento. Con elegancia."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "J'observe le document. Avec élégance."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मैं दस्तावेज़ का निरीक्षण कर रहा हूँ। शालीनता से।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文書を観察している。優雅にね。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我在观察这份文档。优雅地。"
+          }
+        }
+      }
+    },
+    "pet.cat.hoverTip.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Margins seem acceptable. For now."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los márgenes parecen aceptables. Por ahora."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les marges semblent acceptables. Pour l'instant."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मार्जिन ठीक-ठाक लगते हैं। फ़िलहाल।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "余白はまあ許せる。今のところは。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "页边距还算过得去。暂时如此。"
+          }
+        }
+      }
+    },
+    "pet.cat.hoverTip.3": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Need help? I may pretend this was my idea."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Necesitas ayuda? Puede que finja que fue idea mía."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Besoin d'aide ? Je ferai peut-être semblant que c'était mon idée."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मदद चाहिए? हो सकता है मैं दिखावा करूँ कि यह मेरा विचार था।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手伝おうか？これは私のアイデアってことにしておくかもね。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要帮忙吗？我可能会假装这是我的主意。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

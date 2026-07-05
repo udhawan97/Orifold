@@ -148,6 +148,28 @@ enum PetLines {
             L10n.string("pet.inspiration.10")
         ]
     }
+
+    /// A quick in-character line shown when the user hovers the workspace pet — an
+    /// affordance hint, not a feature notification, so it bypasses the event throttle
+    /// entirely and is always available on hover.
+    static func hoverTip(for species: PetSpecies) -> String {
+        let lines: [String]
+        switch species {
+        case .dog:
+            lines = [
+                L10n.string("pet.dog.hoverTip.1"),
+                L10n.string("pet.dog.hoverTip.2"),
+                L10n.string("pet.dog.hoverTip.3")
+            ]
+        case .cat:
+            lines = [
+                L10n.string("pet.cat.hoverTip.1"),
+                L10n.string("pet.cat.hoverTip.2"),
+                L10n.string("pet.cat.hoverTip.3")
+            ]
+        }
+        return lines.randomElement() ?? ""
+    }
 }
 
 enum PetBuddyHook {
@@ -377,31 +399,60 @@ struct PetView: View {
     @State private var buddy = PetBuddy.shared
     @State private var isPopoverPresented = false
     @State private var replayToken = 0
+    @State private var isHovered = false
+    @State private var hoverTipMessage: String?
+    @State private var hoverShowWorkItem: DispatchWorkItem?
+    @State private var hoverHideWorkItem: DispatchWorkItem?
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    /// Only the workspace pet grows on hover and shows a hover tip — the welcome
+    /// (intro) pet is already large and expressive, and sits beside its own greeting.
+    private var supportsHoverExpansion: Bool { presentation == .workspace }
 
     var body: some View {
+        // IMPORTANT: background/border/opacity/scaleEffect/shadow are chained OUTSIDE
+        // the Button (decorating it), not nested inside its label. Nesting a transform
+        // like `scaleEffect` inside a Button's label can get its rendered bounds pinned
+        // to the label's pre-transform layout size on macOS, silently clipping the
+        // visual growth — this mirrors the proven-working hover pattern already used by
+        // `EmptyStatePill` elsewhere in this app, which decorates its Button the same way.
         Button {
             isPopoverPresented.toggle()
         } label: {
             petIcon
                 .frame(width: iconSize, height: iconSize)
                 .padding(iconPadding)
-                .background(petBackground, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(borderColor, lineWidth: 1)
-                }
-                .overlay {
-                    if presentation == .welcome {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(LinearGradient.dsAccent.opacity(0.55), lineWidth: 1)
-                            .blur(radius: 0.4)
-                    }
-                }
-                .opacity(presentation == .workspace ? 0.88 : 1)
-                .shadow(color: shadowColor, radius: presentation == .welcome ? 18 : 10, x: 0, y: presentation == .welcome ? 8 : 4)
         }
         .buttonStyle(.plain)
+        .background(petBackground, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(borderColor, lineWidth: 1)
+        }
+        .overlay {
+            if presentation == .welcome {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(LinearGradient.dsAccent.opacity(0.55), lineWidth: 1)
+                    .blur(radius: 0.4)
+            } else if isHovered {
+                // Soft accent glow that fades in on hover — the interactive
+                // affordance the tiny workspace chip was missing.
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.dsAccent.opacity(colorScheme == .dark ? 0.5 : 0.4), lineWidth: 1.25)
+            }
+        }
+        .opacity(presentation == .workspace && !isHovered ? 0.88 : 1)
+        .scaleEffect(isHovered && supportsHoverExpansion ? hoverScale : 1, anchor: .bottomTrailing)
+        .shadow(color: shadowColor, radius: shadowRadius, x: 0, y: shadowYOffset)
+        // A larger invisible margin around the visible chip so users don't need
+        // pixel-perfect hovering — the hit area extends past the paper card.
+        .padding(hitAreaPadding)
+        .contentShape(Rectangle())
         .help("petBuddy.avatar.help")
         .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
             PetControlPopover(
@@ -410,9 +461,31 @@ struct PetView: View {
                 buddy: buddy
             )
         }
-        // Re-fold the companion each time a feature fires a fresh message.
+        .overlay(alignment: .topTrailing) {
+            if presentation == .workspace, let hoverTipMessage {
+                PetBubble(message: hoverTipMessage)
+                    .allowsHitTesting(false)
+                    .fixedSize()
+                    .offset(x: 6, y: -14)
+                    .transition(hoverTipTransition)
+            }
+        }
+        .onHover(perform: handleHover)
+        // Re-fold the companion each time a feature fires a fresh message, and hide
+        // any hover tip so the two bubbles never stack.
         .onChange(of: buddy.currentMessage) { _, newValue in
-            if newValue != nil { replayToken += 1 }
+            if newValue != nil {
+                replayToken += 1
+                hideHoverTipImmediately()
+            }
+        }
+        // A popover taking focus should not leave a stray hover tip behind it.
+        .onChange(of: isPopoverPresented) { _, isPresented in
+            if isPresented { hideHoverTipImmediately() }
+        }
+        .onDisappear {
+            hoverShowWorkItem?.cancel()
+            hoverHideWorkItem?.cancel()
         }
     }
 
@@ -425,20 +498,113 @@ struct PetView: View {
             .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
     }
 
-    private var feedbackURL: URL? {
-        URL(string: "mailto:umangdhawan97@gmail.com")
+    private func handleHover(_ hovering: Bool) {
+        if hovering {
+            NSCursor.pointingHand.push()
+        } else {
+            NSCursor.pop()
+        }
+
+        hoverShowWorkItem?.cancel()
+        hoverHideWorkItem?.cancel()
+
+        withAnimation(shouldReduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78)) {
+            isHovered = hovering
+        }
+
+        guard presentation == .workspace else { return }
+
+        if hovering {
+            // A brief pause before the tip appears, so a mouse just passing over the
+            // corner doesn't spam a message every time.
+            let delay: TimeInterval = shouldReduceMotion ? 0.05 : 0.35
+            let item = DispatchWorkItem {
+                // Never stack the hover tip on top of a live feature-event bubble.
+                guard !buddy.isBubbleVisible else { return }
+                let message = PetLines.hoverTip(for: buddy.species)
+                if shouldReduceMotion {
+                    hoverTipMessage = message
+                } else {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        hoverTipMessage = message
+                    }
+                }
+            }
+            hoverShowWorkItem = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+        } else {
+            let item = DispatchWorkItem { hideHoverTipImmediately() }
+            hoverHideWorkItem = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: item)
+        }
     }
 
-    private var iconSize: CGFloat {
-        presentation == .welcome ? 54 : 34
+    private func hideHoverTipImmediately() {
+        guard hoverTipMessage != nil else { return }
+        if shouldReduceMotion {
+            hoverTipMessage = nil
+        } else {
+            withAnimation(.easeOut(duration: 0.16)) {
+                hoverTipMessage = nil
+            }
+        }
+    }
+
+    private var hoverTipTransition: AnyTransition {
+        shouldReduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.94, anchor: .bottomTrailing))
+    }
+
+    // MARK: Sizing
+    //
+    // Workspace and welcome (intro) contexts are sized independently: the intro pet is
+    // already large and brand-forward, while the workspace pet docks compactly and
+    // grows only on hover/interaction. Sizes are clamped to explicit min/max bounds
+    // (rather than one hardcoded literal) so the compact chip, hover-expanded chip, and
+    // hit area stay in their intended ranges even if the base constants are tuned later.
+
+    /// Compact (at-rest) container size — icon + its padding — clamped to Apple HIG's
+    /// comfortable-but-unobtrusive dock-widget range.
+    private var compactContainerSize: CGFloat {
+        switch presentation {
+        case .welcome: return 64
+        case .workspace: return clamp(72, in: 64...80)
+        }
+    }
+
+    /// How much larger the container becomes on hover, clamped to a clearly-bigger but
+    /// still-corner-sized preview.
+    private var hoverContainerSize: CGFloat {
+        switch presentation {
+        case .welcome: return compactContainerSize * 1.15
+        case .workspace: return clamp(112, in: 96...120)
+        }
+    }
+
+    private var hoverScale: CGFloat {
+        hoverContainerSize / compactContainerSize
     }
 
     private var iconPadding: CGFloat {
-        presentation == .welcome ? 5 : 4
+        presentation == .welcome ? 5 : 8
+    }
+
+    private var iconSize: CGFloat {
+        compactContainerSize - iconPadding * 2
     }
 
     private var cornerRadius: CGFloat {
-        presentation == .welcome ? 16 : 10
+        presentation == .welcome ? 16 : 14
+    }
+
+    /// Extra invisible margin around the visible chip, so the button's tappable/
+    /// hoverable region is comfortably larger than the paper card without visually
+    /// growing it — a standard "generous hit target" pattern.
+    private var hitAreaPadding: CGFloat {
+        presentation == .welcome ? 4 : 10
+    }
+
+    private func clamp(_ value: CGFloat, in range: ClosedRange<CGFloat>) -> CGFloat {
+        min(max(value, range.lowerBound), range.upperBound)
     }
 
     private var petBackground: Color {
@@ -446,7 +612,7 @@ struct PetView: View {
         case .welcome:
             return Color.dsCard.opacity(colorScheme == .dark ? 0.92 : 0.96)
         case .workspace:
-            return Color.dsSurface.opacity(colorScheme == .dark ? 0.86 : 0.78)
+            return Color.dsSurface.opacity(colorScheme == .dark ? (isHovered ? 0.94 : 0.86) : (isHovered ? 0.92 : 0.78))
         }
     }
 
@@ -464,10 +630,24 @@ struct PetView: View {
         case .welcome:
             return Color.dsAccent.opacity(colorScheme == .dark ? 0.22 : 0.18)
         case .workspace:
-            return Color.black.opacity(colorScheme == .dark ? 0.24 : 0.12)
+            let base = Color.black.opacity(colorScheme == .dark ? 0.24 : 0.12)
+            return isHovered ? Color.black.opacity(colorScheme == .dark ? 0.38 : 0.22) : base
         }
     }
 
+    private var shadowRadius: CGFloat {
+        switch presentation {
+        case .welcome: return 18
+        case .workspace: return isHovered ? 16 : 10
+        }
+    }
+
+    private var shadowYOffset: CGFloat {
+        switch presentation {
+        case .welcome: return 8
+        case .workspace: return isHovered ? 6 : 4
+        }
+    }
 }
 
 private struct PetControlPopover: View {

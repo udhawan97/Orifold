@@ -211,8 +211,10 @@ private struct FoldState: Equatable {
             bloomTail: track(2.08, 0.48),
             bloomNeck: track(2.20, 0.55),
             bloomHead: track(2.52, 0.50),
-            paperOut: resolvesToAppIcon ? track(3.20, 0.40) : 0,
-            iconIn: resolvesToAppIcon ? track(3.65, 0.45) : 0
+            // The dissolve and the icon overlap by a beat so the hand-off crossfades
+            // gracefully rather than cutting between two shapes.
+            paperOut: resolvesToAppIcon ? track(3.15, 0.55) : 0,
+            iconIn: resolvesToAppIcon ? track(3.45, 0.60) : 0
         )
     }
 }
@@ -276,6 +278,10 @@ private struct PaperPalette {
     static let innerEarDog = PaperPalette(warm: (0.80, 0.58, 0.42), cool: (0.44, 0.30, 0.22))
     static let innerEarCat = PaperPalette(warm: (0.99, 0.82, 0.84), cool: (0.72, 0.48, 0.55))
     static let catchlight = PaperPalette(warm: (1.00, 1.00, 1.00), cool: (0.88, 0.92, 0.98))
+
+    // The red-crowned crane's (tancho) scarlet crown patch and dark eye.
+    static let craneCrown = PaperPalette(warm: (0.90, 0.24, 0.22), cool: (0.52, 0.09, 0.11))
+    static let craneInk = PaperPalette(warm: (0.26, 0.28, 0.34), cool: (0.09, 0.10, 0.14))
 }
 
 /// One paper facet. `hi`/`lo` are paper-tone values (0…1) for the two ends of the
@@ -410,6 +416,20 @@ extension PaperFigure {
             PaperFacet(group: .head,
                        pts: [CGPoint(x: 0.762, y: 0.240), CGPoint(x: 0.850, y: 0.300), CGPoint(x: 0.712, y: 0.320)],
                        hi: 0.90, lo: 0.72, gradFrom: CGPoint(x: 0.850, y: 0.300), gradTo: CGPoint(x: 0.712, y: 0.320)),
+            // Tancho crown — the crane's scarlet cap, a quiet pop of color.
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.726, y: 0.298), CGPoint(x: 0.762, y: 0.246), CGPoint(x: 0.782, y: 0.288)],
+                       hi: 0.92, lo: 0.52, gradFrom: CGPoint(x: 0.762, y: 0.246), gradTo: CGPoint(x: 0.726, y: 0.298),
+                       overridePalette: .craneCrown),
+            // Eye — a dark bead with a bright catchlight.
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.788, y: 0.281), CGPoint(x: 0.803, y: 0.286), CGPoint(x: 0.792, y: 0.298)],
+                       hi: 0.80, lo: 0.30, gradFrom: CGPoint(x: 0.803, y: 0.286), gradTo: CGPoint(x: 0.792, y: 0.298),
+                       overridePalette: .craneInk),
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.790, y: 0.283), CGPoint(x: 0.797, y: 0.285), CGPoint(x: 0.791, y: 0.290)],
+                       hi: 1.0, lo: 0.9, gradFrom: CGPoint(x: 0.790, y: 0.283), gradTo: CGPoint(x: 0.791, y: 0.290),
+                       overridePalette: .catchlight),
             // Near wing — shadowed back + bright front, sweeping up-left.
             PaperFacet(group: .wing,
                        pts: [CGPoint(x: 0.560, y: 0.520), CGPoint(x: 0.235, y: 0.130), CGPoint(x: 0.420, y: 0.545)],
@@ -704,6 +724,28 @@ private enum FoldMarkRenderer {
 
         // Keep all paper contained within the rounded tile.
         context.clip(to: tilePath)
+
+        // Luminous cross-bloom that smooths the crane→icon hand-off: a soft swell of
+        // light peaking exactly as the paper dissolves and the icon materializes.
+        if figure.resolvesToAppIcon {
+            let bloom = 4 * state.paperOut * (1 - state.paperOut)   // bell, peaks mid-dissolve
+            if bloom > 0.01 {
+                let center = CGPoint(x: tileRect.midX, y: tileRect.minY + tileRect.height * 0.44)
+                let radius = side * 0.62
+                context.drawLayer { layer in
+                    layer.opacity = bloom
+                    layer.fill(
+                        Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
+                        with: .radialGradient(
+                            Gradient(colors: [
+                                Color(.sRGB, red: 0.88, green: 0.96, blue: 0.99, opacity: 0.55),
+                                Color(.sRGB, red: 0.62, green: 0.86, blue: 0.92, opacity: 0.18),
+                                .clear,
+                            ]),
+                            center: center, startRadius: 0, endRadius: radius))
+                }
+            }
+        }
 
         // The paper fades out on its own while the tile stays put, so the incoming
         // logo hands off on a steady ground rather than crossfading two shapes. Only
