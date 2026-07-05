@@ -30,12 +30,14 @@
     <ellipse cx="150" cy="280" rx="66" ry="12" fill="url(#catContactG)"/>
 
     <g filter="url(#catSoft)">
-      <!-- Tail — long curl, swaying slowly and smoothly (not a dog-like wag), pivoting near its base. -->
-      <g transform="rotate(0 148 250)">
-        <animateTransform attributeName="transform" type="rotate" values="-6 148 250;6 148 250;-6 148 250" keyTimes="0;0.5;1" dur="3.4s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
-        <polygon points="130,262 210,272 148,232" fill="url(#catTailLit)"/>
-        <polygon points="148,232 210,272 188,238" fill="url(#catTailShade)"/>
-        <polygon points="196,268 216,272 202,250" fill="#5c6785" opacity="0.55"/>
+      <!-- Tail — long curl sweeping well past the body (the body silhouette tops out
+           around x=195), swaying slowly and smoothly (not a dog-like wag), pivoting
+           near its base. -->
+      <g transform="rotate(0 155 258)">
+        <animateTransform attributeName="transform" type="rotate" values="-6 155 258;6 155 258;-6 155 258" keyTimes="0;0.5;1" dur="3.4s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
+        <polygon points="152,268 250,252 172,228" fill="url(#catTailLit)"/>
+        <polygon points="172,228 250,252 222,222" fill="url(#catTailShade)"/>
+        <polygon points="236,258 262,250 244,220" fill="#5c6785" opacity="0.55"/>
       </g>
 
       <!-- Body -->
