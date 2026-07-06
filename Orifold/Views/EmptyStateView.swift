@@ -29,10 +29,6 @@ struct EmptyStateView: View {
             Color.dsCanvas.ignoresSafeArea()
             EmptyStateAmbientBackground()
 
-            LanguageSwitcher()
-                .padding(.dsMD)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
             ScrollView {
                 VStack(spacing: .dsXL) {
                     // Wordmark block
@@ -116,6 +112,10 @@ struct EmptyStateView: View {
             }
             .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+            LanguageSwitcher()
+                .padding(.dsMD)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             GuideButton(autoShow: true)
                 .buttonStyle(.borderless)
