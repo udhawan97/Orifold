@@ -75,15 +75,18 @@ It is not perfect yet, but it is being built in public with care, curiosity, and
 
 The same fold that opens Orifold's logo blossoms into a small companion that lives in your workspace — pick **Gami** (the origami dog) or **Ori** (the origami cat) on first launch, or switch anytime. Your companion keeps a quiet eye on your document, offers the occasional tip in character, and reacts — visibly — whenever you highlight, sign, export, or fix something.
 
-<p align="center">
-  <img src="docs/assets/orifold-crane-fold.svg" alt="Animated: a sheet of paper folds into an origami crane, then becomes the app icon" width="220">
-  &nbsp;&nbsp;&nbsp;
-  <img src="docs/assets/orifold-dog-wag.svg" alt="Animated: Gami the origami dog, tail wagging" width="220">
-  &nbsp;&nbsp;&nbsp;
-  <img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Ori the origami cat, ears twitching and tail swaying" width="220">
-</p>
-
-<p align="center"><sub>The brand mark folds into a crane, its tancho crown a quiet red accent · <strong>Gami</strong> — loyal, excited, endlessly encouraging, tail wagging faster the closer you get · <strong>Ori</strong> — clever, composed, quietly in charge, ears twitching sharp while its tail sways slow</sub></p>
+<table align="center">
+  <tr>
+    <td align="center" width="240"><img src="docs/assets/orifold-crane-fold.svg" alt="Animated: a sheet of paper folds into an origami crane, then becomes the app icon" width="200"></td>
+    <td align="center" width="240"><img src="docs/assets/orifold-dog-wag.svg" alt="Animated: Gami the origami dog, tail wagging" width="200"></td>
+    <td align="center" width="240"><img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Ori the origami cat, short triangular ears twitching, tail swaying" width="200"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>The Fold</strong><br><sub>The brand mark folds into a crane — a quiet red tancho crown its only splash of color.</sub></td>
+    <td align="center"><strong>Gami</strong> &nbsp;<sub>· the dog</sub><br><sub>Loyal, excited, endlessly encouraging. Tail wags faster the closer your cursor gets.</sub></td>
+    <td align="center"><strong>Ori</strong> &nbsp;<sub>· the cat</sub><br><sub>Clever, composed, quietly in charge. Ears twitch sharp while the tail sways slow.</sub></td>
+  </tr>
+</table>
 
 ## ⚡ Install in 30 Seconds
 
