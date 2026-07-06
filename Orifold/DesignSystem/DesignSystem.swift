@@ -251,6 +251,99 @@ extension CGFloat {
 // A single, quiet brush-circle stroke — never closed, never symmetric —
 // used sparingly as a decorative flourish (About popover, empty states).
 
+// MARK: - Folded-corner motif
+//
+// A quiet dog-ear: one corner of an otherwise-rounded rect is cut on the diagonal,
+// as if that corner of the sheet were folded back. Used for the sidebar's workspace
+// card, the selected document card, and the drop-zone footer — the origami motif
+// applied as real geometry (no seam against the background) rather than an overlay.
+
+struct FoldedCornerRect: Shape, InsettableShape {
+    var cornerRadius: CGFloat
+    var foldSize: CGFloat
+    private var insetAmount: CGFloat = 0
+
+    init(cornerRadius: CGFloat, foldSize: CGFloat) {
+        self.cornerRadius = cornerRadius
+        self.foldSize = foldSize
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let insetRect = rect.insetBy(dx: insetAmount, dy: insetAmount)
+        let r = max(0, min(cornerRadius - insetAmount, insetRect.width / 2, insetRect.height / 2))
+        let f = max(0, min(foldSize - insetAmount, insetRect.width - r, insetRect.height - r))
+        var path = Path()
+        path.move(to: CGPoint(x: insetRect.minX + r, y: insetRect.minY))
+        path.addLine(to: CGPoint(x: insetRect.maxX - f, y: insetRect.minY))
+        path.addLine(to: CGPoint(x: insetRect.maxX, y: insetRect.minY + f))
+        path.addLine(to: CGPoint(x: insetRect.maxX, y: insetRect.maxY - r))
+        path.addArc(center: CGPoint(x: insetRect.maxX - r, y: insetRect.maxY - r), radius: r,
+                    startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+        path.addLine(to: CGPoint(x: insetRect.minX + r, y: insetRect.maxY))
+        path.addArc(center: CGPoint(x: insetRect.minX + r, y: insetRect.maxY - r), radius: r,
+                    startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+        path.addLine(to: CGPoint(x: insetRect.minX, y: insetRect.minY + r))
+        path.addArc(center: CGPoint(x: insetRect.minX + r, y: insetRect.minY + r), radius: r,
+                    startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        path.closeSubpath()
+        return path
+    }
+
+    func inset(by amount: CGFloat) -> some InsettableShape {
+        var copy = self
+        copy.insetAmount += amount
+        return copy
+    }
+}
+
+/// The small triangular flap along the folded-corner cut, drawn as its own thin
+/// accent so the notch reads as paper folded back rather than simply clipped away.
+private struct FoldedCornerFlap: Shape {
+    var foldSize: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let f = min(foldSize, rect.width, rect.height)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.maxX - f, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + f))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+extension View {
+    /// Fills with `fill`, clips to a folded-corner rounded rect, and adds the
+    /// fold-back flap accent plus a matching hairline stroke.
+    func foldedCard(
+        fill: Color,
+        stroke: Color = .dsSeparator,
+        radius: CGFloat = .dsRadiusMd,
+        foldSize: CGFloat = 10
+    ) -> some View {
+        let shape = FoldedCornerRect(cornerRadius: radius, foldSize: foldSize)
+        return self
+            .background(fill, in: shape)
+            .overlay(FoldedCornerFlap(foldSize: foldSize).fill(stroke.opacity(0.6)))
+            .overlay(shape.strokeBorder(stroke, lineWidth: 1))
+    }
+}
+
+// MARK: - Crease rule
+//
+// A quiet fold-shadow divider — fades to nothing rather than a uniform hairline.
+
+struct CreaseRule: View {
+    var height: CGFloat = 1
+
+    var body: some View {
+        LinearGradient(colors: [.dsSeparator, .clear], startPoint: .leading, endPoint: .trailing)
+            .frame(height: height)
+    }
+}
+
+// MARK: - Ensō motif
+
 struct EnsoRing: Shape {
     /// Fraction of the circle left open, like a real brushstroke's gap.
     var gap: Double = 0.16

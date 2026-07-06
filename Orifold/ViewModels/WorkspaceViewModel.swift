@@ -295,6 +295,13 @@ final class WorkspaceViewModel {
     var selectedCommentID: UUID? = nil
     var commentFilter: CommentFilter = .open
     private(set) var commentRevision = 0
+    /// Bumped by `rebuild()` — every operation that changes which documents/pages are
+    /// loaded (import, remove, move, rotate, duplicate, delete, undo/redo restore) calls
+    /// `rebuild()`, so this catches structural changes that `commentRevision` alone would
+    /// miss (e.g. removing a document that has no anchored `WorkspaceComment`s but does
+    /// carry PDF-native sticky notes `pdfNoteComments` still needs to stop enumerating).
+    private(set) var structureRevision = 0
+    @ObservationIgnored private var pdfNoteCommentsCache: (commentRevision: Int, structureRevision: Int, notes: [PDFNoteComment])?
     var editingStatus: EditingStatus? = nil
     var copiedInlineTextFormat: PDFTextEditFormat? = nil
     var isInlineTextFormatPainterArmed = false
@@ -532,7 +539,21 @@ final class WorkspaceViewModel {
     }
 
     var pdfNoteComments: [PDFNoteComment] {
-        _ = commentRevision
+        if let cache = pdfNoteCommentsCache,
+           cache.commentRevision == commentRevision,
+           cache.structureRevision == structureRevision {
+            return cache.notes
+        }
+        let notes = computePDFNoteComments()
+        pdfNoteCommentsCache = (commentRevision, structureRevision, notes)
+        return notes
+    }
+
+    /// The uncached scan behind `pdfNoteComments`. Walks every loaded PDF page's live
+    /// annotations, so this is O(total pages) — cheap for typical workspaces, but expensive
+    /// enough (e.g. from a sidebar row re-rendering on every hover) to be worth memoizing
+    /// above rather than calling this directly.
+    private func computePDFNoteComments() -> [PDFNoteComment] {
         var notes: [PDFNoteComment] = []
         for (member, pdf) in loadedPDFs {
             for localPageIndex in 0..<pdf.pageCount {
@@ -960,6 +981,7 @@ final class WorkspaceViewModel {
         normalizePageSelection()
         refreshFormSummary()
         refreshScannedPageSummary()
+        structureRevision += 1
         // PDFSelections are bound to the old document; drop them so search navigation
         // doesn't jump to pages in a detached doc.
         searchResults = []
@@ -1062,6 +1084,45 @@ final class WorkspaceViewModel {
         rebuildPageOrder()
         rebuild()
         registerUndo(snapshot: snapshot, actionName: L10n.string("undo.removeDocument"))
+    }
+
+    // MARK: - Rename (with undo)
+
+    func renameDocument(_ member: MemberDocument, to newName: String) {
+        guard canPerformMutatingAction() else { return }
+        guard let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == member.id }),
+              let docIndex = document.workspace.documents.firstIndex(where: { $0.id == member.id }) else { return }
+        // Read the live current name rather than trusting the caller's possibly-stale
+        // `member` snapshot, so the no-op guard and the undo's captured "previous name"
+        // are always correct even if the view passed a value from an earlier render.
+        let currentName = document.workspace.documents[docIndex].displayName
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != currentName else { return }
+        applyRename(loadedIndex: loadedIndex, docIndex: docIndex, name: trimmed)
+        registerRenameUndo(memberID: member.id, previousName: currentName)
+    }
+
+    private func applyRename(loadedIndex: Int, docIndex: Int, name: String) {
+        document.workspace.documents[docIndex].displayName = name
+        loadedPDFs[loadedIndex].0.displayName = name
+        markWorkspaceModified()
+    }
+
+    /// Isolated (see `registerIsolatedUndo`) so two renames committed in the same run-loop
+    /// turn — e.g. correcting a typo and immediately refining the name again — don't
+    /// collapse into a single undo step; each rename steps back individually.
+    private func registerRenameUndo(memberID: UUID, previousName: String) {
+        registerIsolatedUndo {
+            undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation(),
+                      let loadedIndex = vm.loadedPDFs.firstIndex(where: { $0.0.id == memberID }),
+                      let docIndex = vm.document.workspace.documents.firstIndex(where: { $0.id == memberID }) else { return }
+                let currentName = vm.document.workspace.documents[docIndex].displayName
+                vm.applyRename(loadedIndex: loadedIndex, docIndex: docIndex, name: previousName)
+                vm.registerRenameUndo(memberID: memberID, previousName: currentName)
+            }
+            undoManager?.setActionName(L10n.string("undo.renameDocument"))
+        }
     }
 
     private struct OrderSnapshot: @unchecked Sendable {
@@ -1485,6 +1546,12 @@ final class WorkspaceViewModel {
         let workspaceCount = document.workspace.comments.filter { $0.anchor?.pageRefID == pageRefID }.count
         let noteCount = pdfNoteComments.filter { $0.pageRef.id == pageRefID }.count
         return workspaceCount + noteCount
+    }
+
+    /// Total comment count across every page belonging to `member`, for the sidebar's
+    /// per-document metadata line.
+    func commentCount(for member: MemberDocument) -> Int {
+        member.pageRefs.reduce(0) { $0 + commentCount(for: $1) }
     }
 
     func isCommentVisibleOnPage(_ comment: WorkspaceComment) -> Bool {

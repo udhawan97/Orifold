@@ -5496,6 +5496,149 @@ final class WorkspaceViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedPageRefIDs, [second.refs[0].id])
     }
 
+    // MARK: - Rename document
+
+    func testRenameDocumentUpdatesDisplayNameAndUndoRedoRoundTrips() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Invoice", pageTexts: ["one"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+
+        viewModel.renameDocument(fixture.member, to: "March Invoice")
+
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "March Invoice")
+        XCTAssertEqual(viewModel.document.workspace.documents.first?.displayName, "March Invoice")
+
+        undoManager.undo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "Invoice")
+
+        undoManager.redo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "March Invoice")
+    }
+
+    /// Regression test for two bugs found in code review: (1) `registerRenameUndo` must
+    /// isolate each rename into its own undo group (`UndoManager.groupsByEvent` defaults
+    /// to true, so two renames committed with no run-loop turn between them — as happens
+    /// here, and as the caller can trigger by pressing Return on two quick renames —
+    /// would otherwise collapse into a single undo step); (2) `renameDocument` must read
+    /// the live current name rather than trusting the caller's `member` snapshot, which
+    /// this test deliberately keeps stale (always passing the original `fixture.member`)
+    /// to prove the fix doesn't depend on the caller re-fetching an up-to-date value.
+    func testConsecutiveRenamesEachUndoAndRedoIndependently() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "A", pageTexts: ["one"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+
+        viewModel.renameDocument(fixture.member, to: "B")
+        viewModel.renameDocument(fixture.member, to: "C")
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "C")
+
+        undoManager.undo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "B")
+
+        undoManager.undo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "A")
+
+        undoManager.redo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "B")
+
+        undoManager.redo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "C")
+    }
+
+    func testRenameDocumentTrimsWhitespace() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Invoice", pageTexts: ["one"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+
+        viewModel.renameDocument(fixture.member, to: "  Trimmed Name  ")
+
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "Trimmed Name")
+    }
+
+    func testRenameDocumentRejectsEmptyOrUnchangedName() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Invoice", pageTexts: ["one"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+
+        viewModel.renameDocument(fixture.member, to: "   ")
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "Invoice")
+
+        viewModel.renameDocument(fixture.member, to: "Invoice")
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "Invoice")
+        XCTAssertFalse(undoManager.canUndo)
+    }
+
+    func testCommentCountForMemberSumsAcrossAllItsPages() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Anchored", pageTexts: ["one", "two"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        document.workspace.comments = [
+            WorkspaceComment(
+                body: "First page note",
+                anchor: WorkspaceCommentAnchor(pageRefID: fixture.refs[0].id, rect: .zero, kind: .text, snippet: nil)
+            ),
+            WorkspaceComment(
+                body: "Second page note",
+                anchor: WorkspaceCommentAnchor(pageRefID: fixture.refs[1].id, rect: .zero, kind: .text, snippet: nil)
+            ),
+        ]
+        let viewModel = WorkspaceViewModel(document: document)
+
+        XCTAssertEqual(viewModel.commentCount(for: fixture.member), 2)
+    }
+
+    /// `pdfNoteComments` is memoized (revision-keyed) for performance. This guards the
+    /// specific gap that memoization could introduce: removing a document whose only
+    /// PDF-native sticky note has no anchored `WorkspaceComment` doesn't bump
+    /// `commentRevision` (see `clearCommentAnchors`'s `didChange` guard), so the cache
+    /// must also invalidate on `rebuild()`'s `structureRevision` bump, not just on
+    /// `commentRevision` changes.
+    func testPDFNoteCommentsCacheInvalidatesWhenDocumentWithStickyNoteIsRemoved() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Notes", pageTexts: ["Sticky note target"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let page = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
+        let annotation = try XCTUnwrap(viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page))
+        annotation.contents = "Orphaned sticky note"
+        annotation.setValue(false, forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey)
+
+        // Warm the cache before the removal — this is the read that must not be
+        // trusted stale afterward.
+        XCTAssertEqual(viewModel.pdfNoteComments.count, 1)
+        XCTAssertEqual(viewModel.commentCount(for: fixture.member), 1)
+
+        viewModel.removeDocument(fixture.member)
+
+        XCTAssertTrue(viewModel.pdfNoteComments.isEmpty)
+        XCTAssertEqual(viewModel.totalCommentCount, 0)
+    }
+
     // MARK: - Empty workspace after deleting the last document
 
     func testRemovingLastDocumentClearsSelectionAndMarksWorkspaceEmpty() throws {
