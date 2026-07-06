@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" width="220" height="220" role="img" aria-label="Gami the origami dog: a seated paper dog with a continuously wagging tail">
+  <title>Orifold — Gami the origami dog, tail wagging</title>
+  <defs>
+    <linearGradient id="dogTileG" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2b4566"/><stop offset="1" stop-color="#75bfd4"/></linearGradient>
+    <radialGradient id="dogMoonG" cx="0.71" cy="0.30" r="0.20"><stop offset="0" stop-color="rgba(219,242,247,0.26)"/><stop offset="1" stop-color="rgba(179,230,242,0)"/></radialGradient>
+    <radialGradient id="dogTileGlow" cx="0.82" cy="0.2" r="0.75"><stop offset="0" stop-color="rgba(128,209,219,0.22)"/><stop offset="1" stop-color="rgba(128,209,219,0)"/></radialGradient>
+    <radialGradient id="dogContactG"><stop offset="0" stop-color="rgba(0,0,0,0.20)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient>
+    <filter id="dogSoft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="1" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.22"/></filter>
+
+    <!-- Warm kraft paper tones, matching the in-app dog palette. -->
+    <linearGradient id="dogHeadLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe5ba"/><stop offset="1" stop-color="#e8b988"/></linearGradient>
+    <linearGradient id="dogHeadShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a877"/><stop offset="1" stop-color="#a87850"/></linearGradient>
+    <linearGradient id="dogEarLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0c896"/><stop offset="1" stop-color="#c99968"/></linearGradient>
+    <linearGradient id="dogEarShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c99968"/><stop offset="1" stop-color="#93673f"/></linearGradient>
+    <linearGradient id="dogBodyLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6d6a8"/><stop offset="1" stop-color="#d3a374"/></linearGradient>
+    <linearGradient id="dogBodyShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c99968"/><stop offset="1" stop-color="#96673f"/></linearGradient>
+    <linearGradient id="dogTailLit" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f6d6a8"/><stop offset="1" stop-color="#d9ad7c"/></linearGradient>
+    <linearGradient id="dogTailShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c99968"/><stop offset="1" stop-color="#96673f"/></linearGradient>
+  </defs>
+
+  <clipPath id="dogTileClip"><rect width="340" height="340" rx="75"/></clipPath>
+  <g clip-path="url(#dogTileClip)">
+    <rect width="340" height="340" fill="url(#dogTileG)"/>
+    <rect width="340" height="340" fill="url(#dogMoonG)"/>
+    <rect width="340" height="340" fill="url(#dogTileGlow)"/>
+    <rect x="19" y="19" width="303" height="303" rx="56" fill="none" stroke="rgba(255,255,255,0.06)"/>
+    <rect x="37" y="37" width="265" height="265" rx="37" fill="none" stroke="rgba(255,255,255,0.06)"/>
+
+    <ellipse cx="150" cy="278" rx="72" ry="13" fill="url(#dogContactG)"/>
+
+    <g filter="url(#dogSoft)">
+      <!-- Far (near-camera) ear -->
+      <polygon points="150,96 118,58 158,140" fill="url(#dogEarShade)"/>
+      <!-- Tail — wagging group, pivoting at its base near the haunch. -->
+      <g transform="rotate(0 128 236)">
+        <animateTransform attributeName="transform" type="rotate" values="-16 128 236;16 128 236;-16 128 236" keyTimes="0;0.5;1" dur="1.05s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
+        <polygon points="128,236 68,188 140,218" fill="url(#dogTailLit)"/>
+        <polygon points="128,236 140,218 150,236" fill="url(#dogTailShade)"/>
+        <polygon points="68,188 88,198 80,213" fill="#4a3527" opacity="0.55"/>
+      </g>
+      <!-- Body / seated haunch -->
+      <polygon points="160,180 160,270 100,240" fill="url(#dogBodyShade)"/>
+      <polygon points="160,180 200,260 160,270" fill="url(#dogBodyLit)"/>
+      <polygon points="168,187 188,230 163,255" fill="url(#dogTailLit)" opacity="0.9"/>
+      <polygon points="168,258 205,256 200,272 168,272" fill="url(#dogBodyLit)"/>
+      <!-- Head -->
+      <polygon points="170,110 170,195 135,150" fill="url(#dogHeadShade)"/>
+      <polygon points="170,110 205,150 170,195" fill="url(#dogHeadLit)"/>
+      <!-- Eye -->
+      <polygon points="182,141 200,147 183,159" fill="#2e241d"/>
+      <polygon points="185,143 191,145 186,149" fill="#ffffff" opacity="0.85"/>
+      <!-- Snout -->
+      <polygon points="196,128 255,163 198,158" fill="url(#dogEarLit)"/>
+      <polygon points="198,158 255,163 206,178" fill="url(#dogHeadShade)"/>
+      <!-- Nose -->
+      <polygon points="248,157 264,163 249,173" fill="#3a2a22"/>
+      <polygon points="251,159 258,161 253,165" fill="#ffffff" opacity="0.5"/>
+      <!-- Near ear -->
+      <polygon points="150,96 118,58 158,140" fill="url(#dogEarLit)" opacity="0"/>
+      <polygon points="150,96 122,66 155,136" fill="url(#dogEarLit)"/>
+      <polygon points="150,100 132,80 152,132" fill="url(#dogEarShade)" opacity="0.7"/>
+    </g>
+  </g>
+</svg>

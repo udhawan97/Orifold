@@ -53,7 +53,8 @@
 <a href="#-meet-your-paper-companion"><kbd> &nbsp;🐾 Companion&nbsp; </kbd></a>&ensp;
 <a href="#-privacy"><kbd> &nbsp;🔒 Privacy&nbsp; </kbd></a>&ensp;
 <a href="#%EF%B8%8F-under-the-hood"><kbd> &nbsp;⚙️ Under the Hood&nbsp; </kbd></a>&ensp;
-<a href="#-troubleshooting"><kbd> &nbsp;🆘 Help&nbsp; </kbd></a>
+<a href="#-troubleshooting"><kbd> &nbsp;🆘 Help&nbsp; </kbd></a>&ensp;
+<a href="https://udhawan97.github.io/Orifold/"><kbd> &nbsp;📖 Docs&nbsp; </kbd></a>
 
 </div>
 

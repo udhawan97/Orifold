@@ -1,0 +1,313 @@
+/* Orifold docs theme — maps Starlight's CSS variables onto our tokens and adds
+   the one signature motif: a small folded corner on cards and callouts. */
+
+:root {
+	--sl-font: -apple-system, 'SF Pro Text', Inter, system-ui, sans-serif;
+	--sl-font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', monospace;
+}
+
+:root[data-theme='dark'] {
+	--sl-color-white: var(--of-text-1);
+	--sl-color-gray-1: var(--of-text-1);
+	--sl-color-gray-2: var(--of-text-2);
+	--sl-color-gray-3: var(--of-text-2);
+	--sl-color-gray-4: var(--of-text-3);
+	--sl-color-gray-5: #223046;
+	--sl-color-gray-6: #16202f;
+	--sl-color-black: var(--of-canvas);
+	--sl-color-accent-low: #16344a;
+	--sl-color-accent: var(--of-accent);
+	--sl-color-accent-high: var(--of-accent-bright);
+	--sl-color-text-accent: var(--of-accent-bright);
+	--sl-color-bg: var(--of-canvas);
+	--sl-color-bg-nav: var(--of-surface);
+	--sl-color-bg-sidebar: var(--of-surface);
+	--sl-color-bg-inline-code: var(--of-card);
+	--sl-color-hairline: var(--of-separator);
+	--sl-color-hairline-light: var(--of-separator);
+	--sl-color-hairline-shade: var(--of-separator);
+}
+
+:root[data-theme='light'] {
+	--sl-color-black: var(--of-canvas);
+	--sl-color-gray-1: #1c2b40;
+	--sl-color-gray-2: var(--of-text-2);
+	--sl-color-gray-3: var(--of-text-2);
+	--sl-color-gray-4: #b7c2cd;
+	--sl-color-gray-5: #d8dee4;
+	--sl-color-gray-6: #eceff2;
+	--sl-color-gray-7: var(--of-surface);
+	--sl-color-white: var(--of-text-1);
+	--sl-color-accent-low: #d8ecf5;
+	--sl-color-accent: var(--of-accent);
+	--sl-color-accent-high: #08466f;
+	--sl-color-text-accent: var(--of-accent);
+	--sl-color-bg: var(--of-canvas);
+	--sl-color-bg-nav: var(--of-surface);
+	--sl-color-bg-sidebar: var(--of-surface);
+	--sl-color-bg-inline-code: var(--of-card);
+	--sl-color-hairline: var(--of-separator);
+	--sl-color-hairline-light: var(--of-separator);
+	--sl-color-hairline-shade: var(--of-separator);
+}
+
+/* Content column rhythm */
+.sl-markdown-content {
+	max-width: 72ch;
+}
+
+/* Sidebar current-item crease indicator */
+starlight-nav a[aria-current='page'],
+.sidebar a[aria-current='page'] {
+	position: relative;
+}
+
+/* Focus rings */
+:focus-visible {
+	outline: 2px solid var(--of-accent);
+	outline-offset: 2px;
+}
+
+/* ---- Folded-corner motif (cards, callouts, figures) ---- */
+.of-card {
+	position: relative;
+	background: var(--of-card);
+	border: 1px solid var(--of-separator);
+	border-radius: 10px;
+	padding: 1.25rem;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	transition:
+		border-color 120ms ease,
+		transform 120ms ease;
+}
+
+.of-card::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 14px;
+	height: 14px;
+	background: linear-gradient(135deg, transparent 50%, var(--of-fold-shade) 50%);
+	border-bottom-left-radius: 3px;
+	pointer-events: none;
+}
+
+.of-card:hover {
+	border-color: rgba(79, 195, 232, 0.4);
+	transform: translateY(-1px);
+}
+
+:root[data-theme='light'] .of-card {
+	box-shadow: 0 1px 3px rgba(19, 31, 51, 0.06);
+}
+
+.of-card-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 1rem;
+	margin-block: 1.5rem;
+}
+
+.of-card h3 {
+	margin-top: 0;
+	font-size: 1rem;
+}
+
+.of-card-body {
+	color: var(--of-text-2);
+	font-size: 0.9rem;
+	flex-grow: 1;
+}
+
+.of-card-body p {
+	margin: 0;
+}
+
+.of-card a.of-card-link {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+}
+
+/* ---- Callouts ---- */
+.of-callout {
+	position: relative;
+	border-radius: 8px;
+	border-left: 3px solid var(--of-accent);
+	background: var(--of-accent-soft);
+	padding: 0.85rem 1rem;
+	margin-block: 1rem;
+	font-size: 0.95rem;
+}
+
+.of-callout::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 10px;
+	height: 10px;
+	background: linear-gradient(135deg, transparent 50%, var(--of-fold-shade) 50%);
+}
+
+.of-callout > p:first-child {
+	margin-top: 0;
+}
+.of-callout > p:last-child {
+	margin-bottom: 0;
+}
+
+.of-callout-tip {
+	border-color: var(--of-accent);
+	background: var(--of-accent-soft);
+}
+.of-callout-note {
+	border-color: var(--of-text-3);
+	background: rgba(124, 143, 163, 0.12);
+}
+.of-callout-warning {
+	border-color: var(--of-warning);
+	background: rgba(249, 196, 82, 0.12);
+}
+.of-callout-danger {
+	border-color: var(--of-error);
+	background: rgba(249, 122, 109, 0.12);
+}
+.of-callout-whentouse {
+	border-color: var(--of-accent);
+	background: var(--of-accent-soft);
+}
+
+.of-callout-label {
+	font-weight: 650;
+	display: block;
+	margin-bottom: 0.25rem;
+}
+
+/* ---- Badges ---- */
+.of-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3em;
+	font-size: 0.75rem;
+	font-weight: 650;
+	padding: 0.15em 0.6em;
+	border-radius: 999px;
+	line-height: 1.6;
+	white-space: nowrap;
+}
+.of-badge-pro {
+	background: var(--of-accent-soft);
+	color: var(--of-accent-bright);
+}
+.of-badge-new {
+	background: rgba(116, 205, 164, 0.18);
+	color: var(--of-success);
+}
+.of-badge-platform {
+	background: rgba(124, 143, 163, 0.16);
+	color: var(--of-text-2);
+}
+
+/* ---- Keyboard keys ---- */
+.of-kbd {
+	display: inline-block;
+	font-family: var(--sl-font-mono);
+	font-size: 0.85em;
+	background: var(--of-card);
+	border: 1px solid var(--of-separator);
+	border-radius: 5px;
+	padding: 0.1em 0.45em;
+	box-shadow: 0 1px 0 var(--of-separator);
+}
+
+/* ---- Trust strip ---- */
+.of-trust-strip {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.5rem;
+	justify-content: center;
+	padding: 0.9rem 1.25rem;
+	border-top: 1px solid var(--of-separator);
+	border-bottom: 1px solid var(--of-separator);
+	font-size: 0.9rem;
+	color: var(--of-text-2);
+	margin-block: 2rem;
+}
+.of-trust-strip a {
+	color: inherit;
+	text-decoration: none;
+}
+.of-trust-strip a:hover {
+	color: var(--of-accent);
+}
+
+/* ---- Footer signature line ---- */
+.of-footer-signature {
+	text-align: center;
+	font-size: 0.8rem;
+	color: var(--of-text-2);
+	padding-block: 1rem;
+}
+
+/* ---- Screenshot / figure frame ---- */
+.of-figure {
+	position: relative;
+	border: 1px solid var(--of-separator);
+	border-radius: 10px;
+	background: var(--of-card);
+	padding: 0.5rem;
+	margin-block: 1.25rem;
+	overflow: hidden;
+}
+.of-figure::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 16px;
+	height: 16px;
+	background: linear-gradient(135deg, transparent 50%, var(--of-fold-shade) 50%);
+}
+.of-figure img {
+	display: block;
+	width: 100%;
+	border-radius: 6px;
+}
+.of-figure-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	min-height: 220px;
+	border: 1px dashed var(--of-separator);
+	border-radius: 6px;
+	color: var(--of-text-2);
+	font-size: 0.85rem;
+	padding: 1.5rem;
+	background: var(--of-surface);
+}
+.of-figure figcaption {
+	color: var(--of-text-2);
+	font-size: 0.8rem;
+	text-align: center;
+	margin-top: 0.4rem;
+}
+
+/* ---- Crease divider (landing sections) ---- */
+.of-crease {
+	border: none;
+	border-top: 1px solid var(--of-separator);
+	transform: skewY(-1deg);
+	margin-block: 2.5rem;
+}
+
+/* Reduced motion: kill any animated SVG frames */
+@media (prefers-reduced-motion: reduce) {
+	.of-animate {
+		animation: none !important;
+	}
+}

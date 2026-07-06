@@ -1,0 +1,34 @@
+---
+title: Testing & the release gate
+description: The full command list that must pass before an Orifold release ships.
+keywords: [testing, release gate, ci, quality]
+---
+
+Every release runs the same gate — 354 tests, plus a manual pass.
+
+```zsh
+plutil -lint Orifold/Resources/Info.plist
+plutil -lint Orifold/Resources/Orifold.entitlements
+zsh -n install.sh
+zsh -n scripts/install-mac.sh
+zsh -n scripts/uninstall-mac.sh
+zsh -n scripts/install-mac.command
+zsh -n "Install or Update Orifold.command"
+zsh -n "Uninstall Orifold.command"
+zsh -n "Install or Update Orifold.app/Contents/MacOS/OrifoldInstaller"
+plutil -lint "Install or Update Orifold.app/Contents/Info.plist"
+swift build
+swift test
+xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
+```
+
+## Manual pass
+
+A manual walk through the user workflow: import, search, annotate, forms, OCR, stamps, compression, protected export, update, uninstall.
+
+## Related
+
+- [Build from source](/developers/build/)
+- [Contributing](/developers/contributing/)

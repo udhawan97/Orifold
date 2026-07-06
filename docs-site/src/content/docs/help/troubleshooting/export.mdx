@@ -1,0 +1,30 @@
+---
+title: Export & save problems
+description: Fixes for structural check failures, missing exports, and compression or protection issues.
+keywords: [export failed, cant find export, structural check failed, compression didnt work]
+---
+
+## Export failed with a structural check error
+
+Every export runs a qpdf structural check before writing to disk. If it fails, the source file likely has an underlying issue — try re-importing the original file, or run [Sanitize](/export/sanitize/) first if the file came from an untrusted source.
+
+## I can't find my exported file
+
+Check the location shown in the save panel at the moment you exported — Orifold writes exactly there, with no hidden folder or upload step. Search Spotlight for the filename if you're unsure.
+
+## A password-protected export won't open in another app
+
+Orifold uses real AES-256 (PDF 2.0 / R6) encryption. A handful of older PDF readers don't support R6 — try a current version of Preview, Acrobat, or another modern reader.
+
+## Compression didn't shrink the file much
+
+Text-only PDFs have little to compress — the compression pass mainly reduces file size on documents with large embedded images or scans.
+
+## Still stuck?
+
+[Open an issue on GitHub](https://github.com/udhawan97/Orifold/issues).
+
+## Related
+
+- [Export & save](/export/export-save/)
+- [Export integrity checks](/export/integrity/)

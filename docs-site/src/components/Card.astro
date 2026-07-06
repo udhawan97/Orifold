@@ -1,0 +1,16 @@
+---
+interface Props {
+	title: string;
+	href: string;
+	icon?: string;
+}
+const { title, href, icon } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const resolvedHref = href.startsWith('http') ? href : `${base}/${href.replace(/^\//, '')}`;
+---
+
+<div class="of-card">
+	<h3>{icon ? `${icon} ` : ''}{title}</h3>
+	<div class="of-card-body"><slot /></div>
+	<a class="of-card-link" href={resolvedHref} aria-label={title}></a>
+</div>

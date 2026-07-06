@@ -1,0 +1,29 @@
+---
+title: Localization guide
+description: How Orifold's six-language localization is set up, tested, and extended.
+keywords: [localization, i18n, xcstrings, translations, add a language]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+Orifold ships full interface localization in English, Spanish, French, Hindi, Simplified Chinese, and Japanese, stored in `Orifold/Resources/Localizable.xcstrings`.
+
+## Coverage is enforced by a test
+
+A test in the suite checks that every localization key has a translation in all six languages, so a missing string fails CI rather than shipping silently.
+
+<Callout variant="note">
+	`swift test` alone never compiles `.xcstrings` — only Xcode's build step does. This gap once caused 27 CI test failures that looked unrelated to localization at all. The fix loads strings through `Bundle.module` with a JSON fallback, so `swift test` and Xcode both resolve the same strings consistently.
+</Callout>
+
+## Adding a language
+
+1. Add the new language to `Localizable.xcstrings`.
+2. Translate every existing key.
+3. Update the coverage test's expected language list.
+4. Run the full test suite to confirm nothing is missing.
+
+## Related
+
+- [Change the app language](/settings/language/)
+- [Testing & the release gate](/developers/release-gate/)

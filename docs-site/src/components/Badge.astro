@@ -1,0 +1,13 @@
+---
+interface Props {
+	variant?: 'pro' | 'new' | 'platform';
+}
+const { variant = 'platform' } = Astro.props;
+const text: Record<string, string> = {
+	pro: 'Advanced workflow',
+	new: 'New in v7',
+	platform: 'macOS 14+',
+};
+---
+
+<span class={`of-badge of-badge-${variant}`}><slot>{text[variant]}</slot></span>

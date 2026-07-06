@@ -1,0 +1,31 @@
+---
+title: What's new
+description: Orifold release notes, latest first.
+keywords: [release notes, changelog, whats new, latest version]
+---
+
+import Badge from '../../components/Badge.astro';
+
+<Badge variant="new" />
+
+## v7 — A bulletproof PDF engine underneath
+
+*Released July 5, 2026*
+
+Orifold v7 adds a native qpdf engine alongside PDFKit and PDFium, gating every export behind a structural integrity check.
+
+- **Corrupt PDFs are repaired, not rejected** — a qpdf recovery pass runs automatically on import when the native reader fails. See [Import files](/import/import-files/).
+- **Real AES-256 password protection** — protected exports now use qpdf's R6 encryption handler, verified after every export. See [Password-protect a PDF](/export/protect/).
+- **Sanitize for sharing** — strip auto-run actions, embedded JavaScript, embedded files, and (opt-in) metadata. See [Sanitize before sharing](/export/sanitize/).
+- **Lossless structural compression** — a qpdf object-stream pass follows image downsampling for extra size wins, especially on text-heavy PDFs. See [Compress a PDF](/export/compress/).
+- **Every export is structurally validated** before it reaches disk. See [Export integrity checks](/export/integrity/).
+- **Reader Mode and three Night Mode presets** — Gentle, Paper, and Amber. See [Night Mode & Document Comfort](/reading/night-mode/).
+- **Full six-language localization** — English, Español, Français, हिन्दी, 简体中文, 日本語. See [Change the app language](/settings/language/).
+- **Gami & Ori**, the origami companions, and a **Recently Viewed** shelf on the empty-state screen. See [Meet Gami & Ori](/get-started/companion/) and [Recently viewed files](/import/recently-viewed/).
+
+## Older releases
+
+- [v6 — Searchable scans, forms, stamps, and protected export](/releases/v6/)
+- [v5 — A cleaner save, export, and editing release](/releases/v5/)
+- [v4 — Inline editing, digital signatures, and Xcode build parity](/releases/v4/)
+- [v3 — Automatic updates and clean uninstall](/releases/v3/)

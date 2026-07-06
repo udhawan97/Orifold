@@ -1,0 +1,34 @@
+---
+title: Import & file problems
+description: Fixes for corrupt PDFs, the 50-file limit, unsupported formats, and password loops.
+keywords: [import problem, wont import, corrupt pdf, file limit, password loop]
+---
+
+## A PDF won't import or shows as corrupted
+
+Orifold attempts a qpdf recovery pass automatically for damaged PDFs. If recovery still fails, the file's internal structure may be too badly damaged to repair — try opening it in another app first to see if it opens at all.
+
+## I've hit the 50-file limit
+
+A single workspace holds up to 50 files. Export what you have as one PDF, then start a second workspace for the remaining files, and combine the two exports if needed.
+
+## An imported file doesn't show any content
+
+Confirm the format is supported: PDF, Word, HTML, Markdown, plain text, CSV, JSON, XML, and common image formats. Other formats aren't recognized yet.
+
+## The password prompt keeps reappearing
+
+Double-check you're entering the PDF's actual open password, not a permissions/owner password — some PDFs use different passwords for opening versus editing permissions.
+
+## Large files feel slow
+
+Very large scanned PDFs (hundreds of high-resolution pages) can take longer to render and OCR. This is expected — everything is processing locally, with no cloud offload to speed it up.
+
+## Still stuck?
+
+[Open an issue on GitHub](https://github.com/udhawan97/Orifold/issues).
+
+## Related
+
+- [Import files](/import/import-files/)
+- [Opening locked PDFs](/import/locked-pdfs/)

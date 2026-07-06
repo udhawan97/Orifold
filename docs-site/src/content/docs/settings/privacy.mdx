@@ -1,0 +1,36 @@
+---
+title: Privacy & local-first design
+description: Orifold is local-first by architecture, not by setting — no uploads, no account, zero telemetry.
+keywords: [privacy, local-first, telemetry, sandbox, is orifold private, offline]
+---
+
+There is no server. Import, editing, OCR, compression, encryption, and export all run on your Mac, and nothing about your files or your use of the app is sent anywhere.
+
+## What runs locally
+
+Every feature in Orifold — import, page organization, text editing, annotation, OCR, compression, encryption, signing, form filling, and export — executes entirely on-device. There is no cloud processing step to opt out of, because there isn't one to opt into.
+
+## Sandboxed by design
+
+Orifold runs inside the macOS App Sandbox with exactly two entitlements:
+
+```
+com.apple.security.app-sandbox
+com.apple.security.files.user-selected.read-write
+```
+
+The second entitlement means Orifold can only read and write files you explicitly select — it has no standing access to the rest of your disk.
+
+## Zero telemetry
+
+There is no analytics pipeline in Orifold, and no server to send data to even if there were. Usage isn't measured, tracked, or reported.
+
+## Verify it yourself
+
+Orifold is open source. Read the code, watch network activity while using the app (you'll find none), and check the entitlements file directly in the repository.
+
+## Related
+
+- [Recently viewed files](/import/recently-viewed/)
+- [Sanitize before sharing](/export/sanitize/)
+- [Architecture overview](/developers/architecture/)

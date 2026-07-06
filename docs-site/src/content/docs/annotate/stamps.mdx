@@ -1,0 +1,54 @@
+---
+title: Stamps, watermarks & Bates labels
+description: Add movable stamps, watermarks, page numbers, and sequential Bates labels, burned in at export.
+keywords: [stamps, watermark, page numbers, bates label, bates numbering]
+badge: pro
+---
+
+import Badge from '../../../components/Badge.astro';
+import Callout from '../../../components/Callout.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
+
+<Badge variant="pro" />
+
+<Callout variant="whentouse">
+	You're preparing a packet or exhibit set that needs page numbers, a "DRAFT" watermark, or sequential legal numbering.
+</Callout>
+
+## Watermarks
+
+1. Choose a watermark from the decorations menu.
+2. Adjust its text, opacity, and rotation.
+3. Apply it across all pages, or just the current one.
+
+## Page numbers
+
+Add a page-number decoration and choose its position and starting number.
+
+## Bates labels
+
+Bates numbering stamps a sequential identifier (a prefix plus a zero-padded number) across every page in a packet — the format legal exhibits expect.
+
+1. Add a Bates label decoration.
+2. Set the prefix (e.g. `EXHIBIT-`) and the padding (e.g. `000001`).
+3. The sequence continues across every document in the workspace, in sidebar order.
+
+<Callout variant="note">
+	Stamps and decorations are burned into the page at export — they aren't editable after the file leaves Orifold, which is exactly what makes a Bates-numbered exhibit trustworthy.
+</Callout>
+
+## What you should see
+
+Every exported page carries the watermark, page number, or Bates label you configured, in a fixed position and sequence.
+
+## Related
+
+<CardGrid>
+	<Card title="Section banners" href="import/section-banners/">
+		Dividing a packet before stamping it.
+	</Card>
+	<Card title="Reset & lock form answers" href="fill-sign/lock-forms/">
+		Locking a document alongside its stamps.
+	</Card>
+</CardGrid>
