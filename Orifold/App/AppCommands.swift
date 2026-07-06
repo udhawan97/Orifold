@@ -1,6 +1,11 @@
 import AppKit
 import SwiftUI
 
+/// Externally-hosted links referenced from menu commands and in-app help surfaces.
+enum OrifoldLinks {
+    static let documentation = URL(string: "https://udhawan97.github.io/Orifold/")!
+}
+
 struct AppCommands: Commands {
     var body: some Commands {
         // File menu additions — DocumentGroup already provides New, Open, Save, etc.
@@ -25,6 +30,10 @@ struct AppCommands: Commands {
         // Replace the default "About" item with the witty popover version
         CommandGroup(replacing: .appInfo) {
             AboutCommandButton()
+        }
+
+        CommandGroup(after: .help) {
+            ViewDocumentationCommandLink()
         }
     }
 }
@@ -208,5 +217,13 @@ private struct AboutCommandButton: View {
 
     var body: some View {
         Button(L10n.string("appCommands.aboutOrifold.button")) { openWindow(id: "about-orifold") }
+    }
+}
+
+private struct ViewDocumentationCommandLink: View {
+    @EnvironmentObject private var languageManager: LanguageManager
+
+    var body: some View {
+        Link(L10n.string("help.viewDocumentation.button"), destination: OrifoldLinks.documentation)
     }
 }
