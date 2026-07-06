@@ -370,6 +370,9 @@ private struct PaperWag {
     /// When true, this wag speeds up and widens while `IdlePhase.excitement` is
     /// elevated (the dog's tail, picking up when the cursor is close).
     var excitable: Bool = false
+    /// When true, this wag is silent at rest and only appears while
+    /// `IdlePhase.excitement` is elevated — the cat's hover head-tilt.
+    var hoverOnly: Bool = false
 }
 
 /// A complete blossomed figure. The brand crane (`.crane`) hands off to the app icon;
@@ -633,111 +636,128 @@ extension PaperFigure {
 
 // MARK: Cat geometry
 //
-// A composed seated origami cat in cool slate paper, facing right: a two-tone head
-// crowned by two short, broad-based TRIANGULAR ears that TWITCH — deliberately shorter
-// and wider than a rabbit's so Ori reads unmistakably as a cat — plus a small muzzle
-// with a dark nose, a slim upright torso, a dark almond eye, and a long tail that curls
-// along the front paws and sways slowly. Group mapping matches the dog (head→head,
-// ears→wing, muzzle→neck, torso→body, tail→tail).
+// Ori: a FRONT-FACING seated origami cat in cool slate paper — deliberately a different
+// pose family from the dog's 3/4 profile so the two never read as reskinned silhouettes.
+// A wide, rounded diamond face split on a center keel, two broad triangular ears with
+// pink inner folds, two dark almond eyes with catchlights, a tiny pink nose over a
+// bright muzzle wedge, whisker crease lines on both cheeks, a compact seated bell of a
+// body with chest tuft and two front paws, and a tail that hooks around the right side
+// with a raised dark tip. Group mapping: head+eyes→head, ears→wing, muzzle/nose/whiskers
+// →neck, torso→body, tail→tail. The front-facing symmetry is what makes it read as a
+// cat instantly, even at the 72 pt workspace-chip size.
 
 extension PaperFigure {
     static let cat: PaperFigure = {
-        let headTop = CGPoint(x: 0.500, y: 0.360)
-        let headR = CGPoint(x: 0.595, y: 0.470)
-        let headBot = CGPoint(x: 0.500, y: 0.580)
-        let headL = CGPoint(x: 0.405, y: 0.470)
+        let headTop = CGPoint(x: 0.500, y: 0.288)
+        let headBot = CGPoint(x: 0.500, y: 0.548)
 
         let facets: [PaperFacet] = [
-            // Far ear — a short, broad-based cat triangle rooted on the head's upper-right
-            // corner and standing nearly upright (not the tall, narrow rabbit ear it used
-            // to be). Base spans the crown; the tip is only a little above the head.
+            // Tail — a bold hook curling around the right side from behind, dark tip
+            // raised: the classic curled cat tail, nothing like the dog's plume.
+            PaperFacet(group: .tail,
+                       pts: [CGPoint(x: 0.565, y: 0.805), CGPoint(x: 0.750, y: 0.780), CGPoint(x: 0.618, y: 0.726)],
+                       hi: 0.74, lo: 0.56, gradFrom: CGPoint(x: 0.618, y: 0.726), gradTo: CGPoint(x: 0.750, y: 0.780)),
+            PaperFacet(group: .tail,
+                       pts: [CGPoint(x: 0.618, y: 0.726), CGPoint(x: 0.750, y: 0.780), CGPoint(x: 0.734, y: 0.630)],
+                       hi: 0.56, lo: 0.40, gradFrom: CGPoint(x: 0.734, y: 0.630), gradTo: CGPoint(x: 0.750, y: 0.780)),
+            PaperFacet(group: .tail,
+                       pts: [CGPoint(x: 0.716, y: 0.652), CGPoint(x: 0.766, y: 0.622), CGPoint(x: 0.720, y: 0.560)],
+                       hi: 0.38, lo: 0.22, gradFrom: CGPoint(x: 0.766, y: 0.622), gradTo: CGPoint(x: 0.720, y: 0.560)),
+            // Torso — a compact seated bell, shadowed left + lit right.
+            PaperFacet(group: .body,
+                       pts: [CGPoint(x: 0.500, y: 0.545), CGPoint(x: 0.500, y: 0.815), CGPoint(x: 0.372, y: 0.795), CGPoint(x: 0.428, y: 0.560)],
+                       hi: 0.56, lo: 0.40, gradFrom: CGPoint(x: 0.500, y: 0.545), gradTo: CGPoint(x: 0.372, y: 0.795)),
+            PaperFacet(group: .body,
+                       pts: [CGPoint(x: 0.500, y: 0.545), CGPoint(x: 0.572, y: 0.560), CGPoint(x: 0.628, y: 0.795), CGPoint(x: 0.500, y: 0.815)],
+                       hi: 0.82, lo: 0.62, gradFrom: CGPoint(x: 0.500, y: 0.545), gradTo: CGPoint(x: 0.628, y: 0.795)),
+            // Chest tuft — a soft bright kite down the front.
+            PaperFacet(group: .body,
+                       pts: [CGPoint(x: 0.500, y: 0.560), CGPoint(x: 0.542, y: 0.720), CGPoint(x: 0.500, y: 0.790), CGPoint(x: 0.458, y: 0.720)],
+                       hi: 0.96, lo: 0.76, gradFrom: CGPoint(x: 0.500, y: 0.560), gradTo: CGPoint(x: 0.500, y: 0.790)),
+            // Front paws — two small tabs, the near one brighter.
+            PaperFacet(group: .body,
+                       pts: [CGPoint(x: 0.442, y: 0.775), CGPoint(x: 0.498, y: 0.772), CGPoint(x: 0.498, y: 0.818), CGPoint(x: 0.436, y: 0.818)],
+                       hi: 0.86, lo: 0.70, gradFrom: CGPoint(x: 0.442, y: 0.775), gradTo: CGPoint(x: 0.436, y: 0.818)),
+            PaperFacet(group: .body,
+                       pts: [CGPoint(x: 0.502, y: 0.772), CGPoint(x: 0.558, y: 0.775), CGPoint(x: 0.564, y: 0.818), CGPoint(x: 0.502, y: 0.818)],
+                       hi: 0.98, lo: 0.80, gradFrom: CGPoint(x: 0.502, y: 0.772), gradTo: CGPoint(x: 0.502, y: 0.818)),
+            // Ears — wide symmetric triangles rooted ON the crown edges, tips splayed
+            // slightly outward. Painted before the head so their bases tuck under it.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.500, y: 0.360), CGPoint(x: 0.556, y: 0.252), CGPoint(x: 0.586, y: 0.412)],
-                       hi: 0.50, lo: 0.30, gradFrom: CGPoint(x: 0.556, y: 0.252), gradTo: CGPoint(x: 0.586, y: 0.412)),
-            // Inner far-ear — a soft pink nested triangle.
+                       pts: [CGPoint(x: 0.402, y: 0.372), CGPoint(x: 0.386, y: 0.184), CGPoint(x: 0.478, y: 0.306)],
+                       hi: 0.86, lo: 0.62, gradFrom: CGPoint(x: 0.386, y: 0.184), gradTo: CGPoint(x: 0.402, y: 0.372)),
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.510, y: 0.364), CGPoint(x: 0.546, y: 0.300), CGPoint(x: 0.562, y: 0.402)],
-                       hi: 0.60, lo: 0.34, gradFrom: CGPoint(x: 0.546, y: 0.300), gradTo: CGPoint(x: 0.560, y: 0.400),
+                       pts: [CGPoint(x: 0.414, y: 0.352), CGPoint(x: 0.398, y: 0.230), CGPoint(x: 0.460, y: 0.306)],
+                       hi: 0.86, lo: 0.55, gradFrom: CGPoint(x: 0.398, y: 0.230), gradTo: CGPoint(x: 0.414, y: 0.352),
                        overridePalette: .innerEarCat),
-            // Tail — long curl sweeping along the front, two facets.
-            PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.470, y: 0.830), CGPoint(x: 0.720, y: 0.800), CGPoint(x: 0.510, y: 0.740)],
-                       hi: 0.72, lo: 0.50, gradFrom: CGPoint(x: 0.510, y: 0.740), gradTo: CGPoint(x: 0.720, y: 0.800)),
-            PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.510, y: 0.740), CGPoint(x: 0.720, y: 0.800), CGPoint(x: 0.645, y: 0.700)],
-                       hi: 0.58, lo: 0.40, gradFrom: CGPoint(x: 0.645, y: 0.700), gradTo: CGPoint(x: 0.720, y: 0.800)),
-            // Dark tail tip curling up at the end.
-            PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.690, y: 0.792), CGPoint(x: 0.734, y: 0.802), CGPoint(x: 0.706, y: 0.752)],
-                       hi: 0.42, lo: 0.24, gradFrom: CGPoint(x: 0.734, y: 0.802), gradTo: CGPoint(x: 0.706, y: 0.752)),
-            // Torso — slim seated body, shadowed back + lit front.
-            PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.480, y: 0.560), CGPoint(x: 0.480, y: 0.840), CGPoint(x: 0.375, y: 0.740)],
-                       hi: 0.60, lo: 0.40, gradFrom: CGPoint(x: 0.480, y: 0.560), gradTo: CGPoint(x: 0.375, y: 0.740)),
-            PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.480, y: 0.560), CGPoint(x: 0.560, y: 0.830), CGPoint(x: 0.480, y: 0.840)],
-                       hi: 0.84, lo: 0.60, gradFrom: CGPoint(x: 0.480, y: 0.560), gradTo: CGPoint(x: 0.560, y: 0.830)),
-            // Chest tuft — a soft bright wedge down the front.
-            PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.492, y: 0.575), CGPoint(x: 0.532, y: 0.720), CGPoint(x: 0.480, y: 0.782)],
-                       hi: 0.97, lo: 0.72, gradFrom: CGPoint(x: 0.492, y: 0.575), gradTo: CGPoint(x: 0.480, y: 0.782)),
-            // Front paws — a small lit tab at the base.
-            PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.482, y: 0.806), CGPoint(x: 0.572, y: 0.804), CGPoint(x: 0.560, y: 0.844), CGPoint(x: 0.482, y: 0.846)],
-                       hi: 0.92, lo: 0.70, gradFrom: CGPoint(x: 0.482, y: 0.806), gradTo: CGPoint(x: 0.482, y: 0.846)),
-            // Head — shadowed left + lit right, split on the keel.
+            PaperFacet(group: .wing,
+                       pts: [CGPoint(x: 0.522, y: 0.306), CGPoint(x: 0.614, y: 0.184), CGPoint(x: 0.598, y: 0.372)],
+                       hi: 0.60, lo: 0.40, gradFrom: CGPoint(x: 0.614, y: 0.184), gradTo: CGPoint(x: 0.598, y: 0.372)),
+            PaperFacet(group: .wing,
+                       pts: [CGPoint(x: 0.540, y: 0.306), CGPoint(x: 0.602, y: 0.230), CGPoint(x: 0.586, y: 0.352)],
+                       hi: 0.62, lo: 0.38, gradFrom: CGPoint(x: 0.602, y: 0.230), gradTo: CGPoint(x: 0.586, y: 0.352),
+                       overridePalette: .innerEarCat),
+            // Head — a wide, rounded diamond with cheek corners, split on a center
+            // keel: shadowed left half + lit right half under the cool top-right light.
             PaperFacet(group: .head,
-                       pts: [headTop, headBot, headL],
-                       hi: 0.66, lo: 0.46, gradFrom: headTop, gradTo: headL),
+                       pts: [headTop, headBot, CGPoint(x: 0.408, y: 0.502), CGPoint(x: 0.362, y: 0.408)],
+                       hi: 0.68, lo: 0.50, gradFrom: headTop, gradTo: CGPoint(x: 0.395, y: 0.480)),
             PaperFacet(group: .head,
-                       pts: [headTop, headR, headBot],
-                       hi: 1.00, lo: 0.80, gradFrom: headTop, gradTo: headBot),
-            // Eye — dark almond on the lit cheek, lifted by a tiny catchlight.
+                       pts: [headTop, CGPoint(x: 0.638, y: 0.408), CGPoint(x: 0.592, y: 0.502), headBot],
+                       hi: 1.00, lo: 0.82, gradFrom: headTop, gradTo: CGPoint(x: 0.605, y: 0.480)),
+            // Eyes — two dark ink almonds, each lifted by a tiny catchlight.
             PaperFacet(group: .head,
-                       pts: [CGPoint(x: 0.526, y: 0.448), CGPoint(x: 0.568, y: 0.460), CGPoint(x: 0.532, y: 0.480)],
-                       hi: 0.20, lo: 0.08, gradFrom: CGPoint(x: 0.568, y: 0.460), gradTo: CGPoint(x: 0.532, y: 0.480)),
+                       pts: [CGPoint(x: 0.415, y: 0.408), CGPoint(x: 0.468, y: 0.398), CGPoint(x: 0.462, y: 0.432)],
+                       hi: 0.60, lo: 0.20, gradFrom: CGPoint(x: 0.468, y: 0.398), gradTo: CGPoint(x: 0.462, y: 0.432),
+                       overridePalette: .craneInk),
             PaperFacet(group: .head,
-                       pts: [CGPoint(x: 0.535, y: 0.454), CGPoint(x: 0.547, y: 0.458), CGPoint(x: 0.538, y: 0.467)],
-                       hi: 1.0, lo: 0.9, gradFrom: CGPoint(x: 0.535, y: 0.454), gradTo: CGPoint(x: 0.538, y: 0.467),
+                       pts: [CGPoint(x: 0.532, y: 0.398), CGPoint(x: 0.585, y: 0.408), CGPoint(x: 0.538, y: 0.432)],
+                       hi: 0.60, lo: 0.20, gradFrom: CGPoint(x: 0.532, y: 0.398), gradTo: CGPoint(x: 0.538, y: 0.432),
+                       overridePalette: .craneInk),
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.432, y: 0.407), CGPoint(x: 0.447, y: 0.404), CGPoint(x: 0.443, y: 0.415)],
+                       hi: 1.0, lo: 0.9, gradFrom: CGPoint(x: 0.432, y: 0.407), gradTo: CGPoint(x: 0.443, y: 0.415),
                        overridePalette: .catchlight),
-            // Muzzle — small flat wedge, two-tone.
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.549, y: 0.404), CGPoint(x: 0.564, y: 0.407), CGPoint(x: 0.553, y: 0.415)],
+                       hi: 1.0, lo: 0.9, gradFrom: CGPoint(x: 0.549, y: 0.404), gradTo: CGPoint(x: 0.553, y: 0.415),
+                       overridePalette: .catchlight),
+            // Muzzle — a short bright wedge; the chin ends well above the head's
+            // bottom point so the face stays round and cute, never long.
             PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.548, y: 0.478), CGPoint(x: 0.640, y: 0.520), CGPoint(x: 0.548, y: 0.548)],
-                       hi: 0.96, lo: 0.78, gradFrom: CGPoint(x: 0.640, y: 0.520), gradTo: CGPoint(x: 0.548, y: 0.548)),
+                       pts: [CGPoint(x: 0.464, y: 0.460), CGPoint(x: 0.536, y: 0.460), CGPoint(x: 0.500, y: 0.512)],
+                       hi: 1.00, lo: 0.86, gradFrom: CGPoint(x: 0.500, y: 0.460), gradTo: CGPoint(x: 0.500, y: 0.512)),
+            // Nose — a tiny pink downward triangle centered under the eyes.
             PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.548, y: 0.548), CGPoint(x: 0.640, y: 0.520), CGPoint(x: 0.582, y: 0.556)],
-                       hi: 0.76, lo: 0.58, gradFrom: CGPoint(x: 0.640, y: 0.520), gradTo: CGPoint(x: 0.582, y: 0.556)),
-            // Nose — a little pink downward triangle.
-            PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.606, y: 0.502), CGPoint(x: 0.648, y: 0.514), CGPoint(x: 0.620, y: 0.540)],
-                       hi: 0.92, lo: 0.46, gradFrom: CGPoint(x: 0.606, y: 0.502), gradTo: CGPoint(x: 0.620, y: 0.540),
+                       pts: [CGPoint(x: 0.482, y: 0.460), CGPoint(x: 0.518, y: 0.460), CGPoint(x: 0.500, y: 0.485)],
+                       hi: 0.85, lo: 0.50, gradFrom: CGPoint(x: 0.500, y: 0.460), gradTo: CGPoint(x: 0.500, y: 0.485),
                        overridePalette: .noseCat),
-            // Near ear — bright short cat triangle on the head's upper-left corner,
-            // mirroring the far ear so the two read as a matched feline pair.
-            PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.414, y: 0.412), CGPoint(x: 0.444, y: 0.252), CGPoint(x: 0.500, y: 0.360)],
-                       hi: 0.86, lo: 0.60, gradFrom: CGPoint(x: 0.444, y: 0.252), gradTo: CGPoint(x: 0.414, y: 0.412)),
-            // Inner near-ear — bright pink nested triangle.
-            PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.438, y: 0.402), CGPoint(x: 0.454, y: 0.300), CGPoint(x: 0.490, y: 0.364)],
-                       hi: 0.92, lo: 0.60, gradFrom: CGPoint(x: 0.454, y: 0.300), gradTo: CGPoint(x: 0.440, y: 0.400),
-                       overridePalette: .innerEarCat),
         ]
 
         let creases: [PaperCrease] = [
-            PaperCrease(group: .head, a: headTop, b: headBot, valley: true, strength: 1.0),                                          // head keel
-            PaperCrease(group: .neck, a: CGPoint(x: 0.548, y: 0.478), b: CGPoint(x: 0.640, y: 0.520), valley: false, strength: 0.5), // muzzle ridge
-            PaperCrease(group: .wing, a: CGPoint(x: 0.458, y: 0.386), b: CGPoint(x: 0.444, y: 0.252), valley: true, strength: 0.7),  // near-ear fold (up the ear's spine)
-            PaperCrease(group: .wing, a: CGPoint(x: 0.542, y: 0.386), b: CGPoint(x: 0.556, y: 0.252), valley: true, strength: 0.4),  // far-ear fold
-            PaperCrease(group: .body, a: CGPoint(x: 0.480, y: 0.560), b: CGPoint(x: 0.480, y: 0.840), valley: true, strength: 0.5),  // chest keel
-            PaperCrease(group: .tail, a: CGPoint(x: 0.510, y: 0.740), b: CGPoint(x: 0.720, y: 0.800), valley: false, strength: 0.4), // tail median
+            PaperCrease(group: .head, a: headTop, b: headBot, valley: true, strength: 0.9),                                          // center face keel
+            PaperCrease(group: .wing, a: CGPoint(x: 0.462, y: 0.318), b: CGPoint(x: 0.392, y: 0.196), valley: true, strength: 0.5),  // left-ear fold
+            PaperCrease(group: .wing, a: CGPoint(x: 0.538, y: 0.318), b: CGPoint(x: 0.608, y: 0.196), valley: true, strength: 0.35), // right-ear fold
+            PaperCrease(group: .body, a: CGPoint(x: 0.500, y: 0.560), b: CGPoint(x: 0.500, y: 0.790), valley: true, strength: 0.45), // chest keel
+            PaperCrease(group: .tail, a: CGPoint(x: 0.600, y: 0.780), b: CGPoint(x: 0.734, y: 0.640), valley: false, strength: 0.4), // tail median
+            // Whiskers — four thin bright crease lines fanning off the muzzle. Ridge
+            // hairlines at low strength read as fold accents, not drawn-on whiskers.
+            PaperCrease(group: .neck, a: CGPoint(x: 0.452, y: 0.472), b: CGPoint(x: 0.372, y: 0.458), valley: false, strength: 0.5),
+            PaperCrease(group: .neck, a: CGPoint(x: 0.452, y: 0.492), b: CGPoint(x: 0.376, y: 0.502), valley: false, strength: 0.5),
+            PaperCrease(group: .neck, a: CGPoint(x: 0.548, y: 0.472), b: CGPoint(x: 0.628, y: 0.458), valley: false, strength: 0.5),
+            PaperCrease(group: .neck, a: CGPoint(x: 0.548, y: 0.492), b: CGPoint(x: 0.624, y: 0.502), valley: false, strength: 0.5),
         ]
 
         let occlusion: [PaperOcclusion] = [
-            PaperOcclusion(center: CGPoint(x: 0.50, y: 0.48), radius: 0.11, group: .head),
-            PaperOcclusion(center: CGPoint(x: 0.47, y: 0.62), radius: 0.09, group: .body),
-            PaperOcclusion(center: CGPoint(x: 0.50, y: 0.37), radius: 0.07, group: .wing),
+            PaperOcclusion(center: CGPoint(x: 0.500, y: 0.550), radius: 0.09, group: .body),  // under the chin
+            PaperOcclusion(center: CGPoint(x: 0.500, y: 0.340), radius: 0.07, group: .wing),  // between the ear bases
+            PaperOcclusion(center: CGPoint(x: 0.595, y: 0.770), radius: 0.07, group: .tail),  // tail root
         ]
+
+        // The hover head-tilt is one gentle rotation applied identically to the head,
+        // muzzle, and ears (same pivot/speed/phase → the whole face leans as one piece);
+        // the ears' own twitch composes on top of it.
+        let headTiltPivot = CGPoint(x: 0.500, y: 0.430)
 
         return PaperFigure(
             species: .cat,
@@ -745,18 +765,25 @@ extension PaperFigure {
             creases: creases,
             occlusion: occlusion,
             packetTriangle: PaperFigure.packet,
-            groundCenter: CGPoint(x: 0.48, y: 0.87),
-            specular: PaperSpecular(from: CGPoint(x: 0.500, y: 0.360), to: CGPoint(x: 0.440, y: 0.470), group: .head),
+            groundCenter: CGPoint(x: 0.500, y: 0.845),
+            specular: PaperSpecular(from: CGPoint(x: 0.545, y: 0.330), to: CGPoint(x: 0.610, y: 0.430), group: .head),
             palette: .slate,
-            // Two independent motions, distinctly un-dog-like: the ears stay near rest
-            // and snap through a quick, sharp flick (`.twitch`, alert and reflexive),
-            // while the tail sways in a slow, smooth curl (`.sway`, well below the
-            // dog's tail speed) — elegant rather than eager.
+            // Distinctly un-dog-like motion: the ears stay near rest and snap through a
+            // quick, sharp flick (`.twitch`), the tail sways in a slow, smooth curl
+            // (`.sway`, well below the dog's tail speed), and on hover the whole face
+            // adds a gentle, curious tilt (`hoverOnly`) while the twitch sharpens and
+            // the tail curl deepens (`excitable`).
             idle: [
-                PaperWag(group: .wing, pivot: CGPoint(x: 0.500, y: 0.392), amplitude: 0.20, speed: 9.0,
-                         motion: .twitch),
-                PaperWag(group: .tail, pivot: CGPoint(x: 0.510, y: 0.740), amplitude: 0.20, speed: 1.6,
-                         motion: .sway)
+                PaperWag(group: .wing, pivot: CGPoint(x: 0.500, y: 0.330), amplitude: 0.10, speed: 9.0,
+                         motion: .twitch, excitable: true),
+                PaperWag(group: .tail, pivot: CGPoint(x: 0.600, y: 0.790), amplitude: 0.16, speed: 1.6,
+                         motion: .sway, excitable: true),
+                PaperWag(group: .head, pivot: headTiltPivot, amplitude: 0.07, speed: 1.3,
+                         motion: .sway, hoverOnly: true),
+                PaperWag(group: .neck, pivot: headTiltPivot, amplitude: 0.07, speed: 1.3,
+                         motion: .sway, hoverOnly: true),
+                PaperWag(group: .wing, pivot: headTiltPivot, amplitude: 0.07, speed: 1.3,
+                         motion: .sway, hoverOnly: true),
             ]
         )
     }()
@@ -966,15 +993,16 @@ private enum FoldMarkRenderer {
         let overall = max(state.bloomBody, state.bloomWing, state.bloomTail, state.bloomNeck, state.bloomHead)
         guard overall > 0.001 else { return }
 
-        // The live idle wags: how far each wagging group is currently rotated (and
-        // around which pivot), so a tile-unit transform can be applied only to that
-        // group's points (identity for every other group). A figure can carry more
-        // than one independent wag (the cat twitches its ears and sways its tail).
-        var wagAngle: [BloomGroup: Double] = [:]
-        var wagPivot: [BloomGroup: CGPoint] = [:]
+        // The live idle wags: each group carries an ordered list of (pivot, angle)
+        // rotations composed in sequence, so a tile-unit transform can be applied only
+        // to that group's points (identity for every other group). A figure can carry
+        // more than one wag per group — the cat's ears twitch around the crown while
+        // the whole face (head + muzzle + ears) tilts around the head's center on hover.
+        var wagTransforms: [BloomGroup: [(pivot: CGPoint, angle: Double)]] = [:]
         for w in figure.idle {
             let speedBoost = w.excitable ? 1 + idle.excitement * 0.6 : 1
             let ampBoost = w.excitable ? 1 + idle.excitement * 0.35 : 1
+            let gate = w.hoverOnly ? idle.excitement : 1
             let raw = sin(idle.phase * w.speed * speedBoost)
             let shaped: Double
             switch w.motion {
@@ -985,12 +1013,13 @@ private enum FoldMarkRenderer {
                 // sharp flick — reads as alert/reflexive rather than rhythmic.
                 shaped = copysign(pow(abs(raw), 6), raw)
             }
-            wagAngle[w.group, default: 0] += shaped * w.amplitude * ampBoost * idle.intensity
-            wagPivot[w.group] = w.pivot
+            let angle = shaped * w.amplitude * ampBoost * gate * idle.intensity
+            guard angle != 0 else { continue }
+            wagTransforms[w.group, default: []].append((w.pivot, angle))
         }
         func wag(_ group: BloomGroup) -> (CGPoint) -> CGPoint {
-            guard let angle = wagAngle[group], angle != 0, let pivot = wagPivot[group] else { return { $0 } }
-            return { rotate($0, around: pivot, angle: angle) }
+            guard let transforms = wagTransforms[group], !transforms.isEmpty else { return { $0 } }
+            return { p in transforms.reduce(p) { rotate($0, around: $1.pivot, angle: $1.angle) } }
         }
 
         // Contact shadow beneath the settling figure — a single soft ellipse.
