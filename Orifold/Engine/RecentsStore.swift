@@ -116,9 +116,10 @@ import PDFKit
     /// Resolves the entry's URL, preferring the security-scoped bookmark (which
     /// survives a move/rename) over the raw path. Self-heals `path`/`bookmarkData`
     /// in place when the bookmark resolves to a different location or goes stale.
-    /// The returned URL's security scope is NOT held open — use `openResolvedURL`
-    /// to actually read/open the file, or bracket this URL yourself with
-    /// `SecurityScopedAccess.withAccess`.
+    /// The returned URL's security scope is NOT held open — callers that actually
+    /// read/open the file must bracket it themselves with `SecurityScopedAccess`
+    /// (see `EmptyStateView.openRecentFile`, which holds the scope across the
+    /// asynchronous `NSDocumentController.openDocument` completion).
     func resolvedURL(for entry: RecentFileEntry) -> URL? {
         if let bookmarkData = entry.bookmarkData {
             if let resolved = SecurityScopedAccess.resolve(bookmarkData) {
@@ -132,15 +133,6 @@ import PDFKit
             ImportLog.log(event: .bookmarkResolveFailed)
         }
         return FileManager.default.fileExists(atPath: entry.path) ? entry.url : nil
-    }
-
-    /// Resolves the entry's URL and runs `body` with its security scope held open for
-    /// the duration of the call — this is what every "Open Recent" call site must use
-    /// instead of calling `resolvedURL` and reading the file separately, since a
-    /// security-scoped URL grants nothing once the scope isn't active.
-    func openResolvedURL<T>(for entry: RecentFileEntry, _ body: (URL) throws -> T) rethrows -> T? {
-        guard let url = resolvedURL(for: entry) else { return nil }
-        return try SecurityScopedAccess.withAccess(to: url, body)
     }
 
     /// True only when the file both exists AND the sandbox can actually read it —

@@ -62,14 +62,13 @@ final class ImportPermissionTests: XCTestCase {
     // MARK: - Recovery action mapping
 
     func testUnsupportedTypeAndTooLargeOfferNoRecoveryActions() {
-        XCTAssertFalse(ImportFailureKind.unsupportedType.isRecoverable)
         XCTAssertFalse(ImportFailureKind.unsupportedType.showsChooseFileAgain)
         XCTAssertFalse(ImportFailureKind.unsupportedType.showsGrantFolderAccess)
-        XCTAssertFalse(ImportFailureKind.tooLarge.isRecoverable)
+        XCTAssertFalse(ImportFailureKind.tooLarge.showsChooseFileAgain)
+        XCTAssertFalse(ImportFailureKind.tooLarge.showsGrantFolderAccess)
     }
 
     func testPermissionDeniedOffersBothChooseFileAgainAndGrantFolderAccess() {
-        XCTAssertTrue(ImportFailureKind.permissionDenied.isRecoverable)
         XCTAssertTrue(ImportFailureKind.permissionDenied.showsChooseFileAgain)
         XCTAssertTrue(ImportFailureKind.permissionDenied.showsGrantFolderAccess)
     }

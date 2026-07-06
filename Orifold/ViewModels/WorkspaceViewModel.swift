@@ -821,9 +821,8 @@ final class WorkspaceViewModel {
 
     private func importDocument(from url: URL, cancellation: OperationCancellationToken) async -> Result<AsyncImportedDocument, AsyncImportFailure> {
         await Task.detached(priority: .userInitiated) {
-            let fileName = url.lastPathComponent
             guard !cancellation.isCancelled, !Task.isCancelled else {
-                return .failure(AsyncImportFailure(url: URL(fileURLWithPath: fileName), error: CancellationError()))
+                return .failure(AsyncImportFailure(url: url, error: CancellationError()))
             }
             let isSecurityScoped = url.startAccessingSecurityScopedResource()
             defer {
@@ -854,7 +853,6 @@ final class WorkspaceViewModel {
                 )
                 return .success(AsyncImportedDocument(url: url, document: document))
             } catch {
-                let failedURL = URL(fileURLWithPath: fileName)
                 ImportLog.recordAttempt(
                     source: .openPanel,
                     fileExtension: url.pathExtension,
@@ -865,7 +863,7 @@ final class WorkspaceViewModel {
                     errorDomain: (error as NSError).domain,
                     errorCode: (error as NSError).code
                 )
-                return .failure(AsyncImportFailure(url: failedURL, error: error))
+                return .failure(AsyncImportFailure(url: url, error: error))
             }
         }.value
     }

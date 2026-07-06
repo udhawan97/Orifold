@@ -21,31 +21,6 @@ enum ImportFailureKind: Equatable, Error {
     case tooLarge
     case unknown
 
-    var messageKey: String {
-        switch self {
-        case .permissionDenied: return "error.import.permissionDenied"
-        case .staleBookmark: return "error.import.staleBookmark"
-        case .fileMissing: return "error.import.fileMissing"
-        case .unsupportedType: return "error.import.unsupportedFileType"
-        case .corruptOrEncrypted: return "error.import.corruptOrEncrypted"
-        case .iCloudNotDownloaded: return "error.import.iCloudNotDownloaded"
-        case .exportTempMissing: return "error.import.exportTempMissing"
-        case .tooLarge: return "error.import.fileTooLarge"
-        case .unknown: return "error.import.unknown"
-        }
-    }
-
-    /// True when the user can plausibly recover by taking an action (reselect,
-    /// re-grant, remove) rather than this being a hard, structural failure.
-    var isRecoverable: Bool {
-        switch self {
-        case .unsupportedType, .tooLarge, .unknown:
-            return false
-        case .permissionDenied, .staleBookmark, .fileMissing, .corruptOrEncrypted, .iCloudNotDownloaded, .exportTempMissing:
-            return true
-        }
-    }
-
     /// Reselecting the exact file both re-grants access and re-locates it, so this
     /// covers every recoverable kind except a folder-wide permission problem (where
     /// granting the containing folder is the more useful action).
@@ -64,24 +39,6 @@ enum ImportFailureKind: Equatable, Error {
     var showsGrantFolderAccess: Bool {
         self == .permissionDenied || self == .staleBookmark
     }
-}
-
-/// A recovery action offered alongside a classified import failure. Views render these
-/// as buttons; `ContentView`/`EmptyStateView` supply the closures since they own the
-/// panels, view model, and (for recents) the `RecentsStore`.
-struct ImportRecoveryAction: Identifiable {
-    enum Kind {
-        case chooseFileAgain
-        case grantFolderAccess
-        case showInFinder
-        case removeFromRecents
-        case cancel
-    }
-
-    var id: Kind { kind }
-    var kind: Kind
-    var titleKey: String
-    var perform: () -> Void
 }
 
 enum ImportFailureClassifier {
@@ -120,7 +77,8 @@ enum ImportFailureClassifier {
             }
         }
 
-        if let url, let exists = fileExistsOverride ?? (try? FileManager.default.fileExists(atPath: url.path)) {
+        if let url {
+            let exists = fileExistsOverride ?? FileManager.default.fileExists(atPath: url.path)
             if !exists { return .fileMissing }
         }
         if let url, isPendingiCloudDownload(url) {
