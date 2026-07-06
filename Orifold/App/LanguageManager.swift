@@ -59,7 +59,10 @@ final class LanguageManager: ObservableObject {
 
     init() {
         let stored = UserDefaults.standard.string(forKey: Self.storageKey)
-        language = stored.flatMap(SupportedLanguage.init(rawValue:)) ?? .system
+        // Default to English on first launch rather than following the OS
+        // language — `.system` remains a selectable option in the picker,
+        // but it must be chosen explicitly rather than assumed.
+        language = stored.flatMap(SupportedLanguage.init(rawValue:)) ?? .en
     }
 
     var effectiveLocale: Locale {
