@@ -20,16 +20,16 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
 
     var menuTitle: String {
         switch self {
-        case .pdf: return "PDF (.pdf)"
-        case .word: return "Word (.docx)"
-        case .legacyWord: return "Word 97-2004 (.doc)"
-        case .odt: return "OpenDocument Text (.odt)"
-        case .rtf: return "Rich Text (.rtf)"
-        case .text: return "Text (.txt)"
-        case .markdown: return "Markdown (.md)"
-        case .html: return "HTML (.html)"
-        case .png: return "PNG images (.png)"
-        case .jpeg: return "JPEG images (.jpg)"
+        case .pdf: return L10n.string("workspaceExportFormat.pdf.menuTitle")
+        case .word: return L10n.string("workspaceExportFormat.word.menuTitle")
+        case .legacyWord: return L10n.string("workspaceExportFormat.legacyWord.menuTitle")
+        case .odt: return L10n.string("workspaceExportFormat.odt.menuTitle")
+        case .rtf: return L10n.string("workspaceExportFormat.rtf.menuTitle")
+        case .text: return L10n.string("workspaceExportFormat.text.menuTitle")
+        case .markdown: return L10n.string("workspaceExportFormat.markdown.menuTitle")
+        case .html: return L10n.string("workspaceExportFormat.html.menuTitle")
+        case .png: return L10n.string("workspaceExportFormat.png.menuTitle")
+        case .jpeg: return L10n.string("workspaceExportFormat.jpeg.menuTitle")
         }
     }
 
@@ -88,18 +88,18 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .none:      return "Select"
-        case .highlight: return "Highlight"
-        case .note:      return "Note"
-        case .comment:   return "Comment"
-        case .commentRegion: return "Region Comment"
-        case .editText:  return "Edit Text"
-        case .ink:       return "Ink"
-        case .eraser:    return "Eraser"
-        case .underline: return "Underline"
-        case .strikeout: return "Strikeout"
-        case .signature: return "Signature"
-        case .stamp:     return "Stamp"
+        case .none:      return L10n.string("annotationTool.select.label")
+        case .highlight: return L10n.string("annotationTool.highlight.label")
+        case .note:      return L10n.string("annotationTool.note.label")
+        case .comment:   return L10n.string("annotationTool.comment.label")
+        case .commentRegion: return L10n.string("annotationTool.commentRegion.label")
+        case .editText:  return L10n.string("annotationTool.editText.label")
+        case .ink:       return L10n.string("annotationTool.ink.label")
+        case .eraser:    return L10n.string("annotationTool.eraser.label")
+        case .underline: return L10n.string("annotationTool.underline.label")
+        case .strikeout: return L10n.string("annotationTool.strikeout.label")
+        case .signature: return L10n.string("annotationTool.signature.label")
+        case .stamp:     return L10n.string("annotationTool.stamp.label")
         }
     }
 
@@ -122,18 +122,18 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
 
     var helpText: String {
         switch self {
-        case .none:      return "Select annotations on the page. Press Delete to remove the selected annotation."
-        case .highlight: return "Select PDF text to mark it with color."
-        case .note:      return "Click the page to add a sticky note, or click an existing note to edit it."
-        case .comment:   return "Select PDF text, then create an anchored comment."
-        case .commentRegion: return "Drag a rectangle over a figure or region to create an anchored comment."
-        case .editText:  return "Click existing text to replace it, or click blank space to add text."
-        case .ink:       return "Draw freehand marks on the page."
-        case .eraser:    return "Click a highlight, underline, or strikeout to remove it."
-        case .underline: return "Select PDF text to underline it."
-        case .strikeout: return "Select PDF text to strike it out."
-        case .signature: return "Place a saved signature on the page."
-        case .stamp:     return "Place a stamp on the page."
+        case .none:      return L10n.string("annotationTool.select.help")
+        case .highlight: return L10n.string("annotationTool.highlight.help")
+        case .note:      return L10n.string("annotationTool.note.help")
+        case .comment:   return L10n.string("annotationTool.comment.help")
+        case .commentRegion: return L10n.string("annotationTool.commentRegion.help")
+        case .editText:  return L10n.string("annotationTool.editText.help")
+        case .ink:       return L10n.string("annotationTool.ink.help")
+        case .eraser:    return L10n.string("annotationTool.eraser.help")
+        case .underline: return L10n.string("annotationTool.underline.help")
+        case .strikeout: return L10n.string("annotationTool.strikeout.help")
+        case .signature: return L10n.string("annotationTool.signature.help")
+        case .stamp:     return L10n.string("annotationTool.stamp.help")
         }
     }
 
@@ -412,15 +412,6 @@ final class WorkspaceViewModel {
         let id = UUID()
         var url: URL
         var detail: String? = nil
-
-        var message: String {
-            let folderName = url.deletingLastPathComponent().lastPathComponent
-            var text = "\"\(url.lastPathComponent)\" was saved to \"\(folderName)\"."
-            if let detail, !detail.isEmpty {
-                text += " \(detail)"
-            }
-            return text
-        }
     }
 
     struct EditingStatus: Identifiable, Equatable {

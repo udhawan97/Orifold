@@ -614,39 +614,37 @@ private struct SidebarFileType {
     let symbolName: String
     let tint: Color
     let foreground: Color
-    let accessibilityLabel: String
 
     init(filename: String) {
         switch URL(fileURLWithPath: filename).pathExtension.lowercased() {
         case "pdf":
-            self.init("PDF", "doc.fill", Color(red: 0.78, green: 0.20, blue: 0.24), .white, "PDF file")
+            self.init("PDF", "doc.fill", Color(red: 0.78, green: 0.20, blue: 0.24), .white)
         case "html", "htm":
-            self.init("HTML", "globe", Color(red: 0.047, green: 0.404, blue: 0.651), .white, "HTML file")
+            self.init("HTML", "globe", Color(red: 0.047, green: 0.404, blue: 0.651), .white)
         case "doc", "docx", "odt", "rtf":
-            self.init("DOC", "doc.text.fill", Color(red: 0.10, green: 0.30, blue: 0.52), .white, "Word document")
+            self.init("DOC", "doc.text.fill", Color(red: 0.10, green: 0.30, blue: 0.52), .white)
         case "md", "markdown":
-            self.init("MD", "text.alignleft", Color(red: 0.27, green: 0.35, blue: 0.40), .white, "Markdown file")
+            self.init("MD", "text.alignleft", Color(red: 0.27, green: 0.35, blue: 0.40), .white)
         case "txt":
-            self.init("TXT", "doc.text", Color(red: 0.38, green: 0.47, blue: 0.52), .white, "Text file")
+            self.init("TXT", "doc.text", Color(red: 0.38, green: 0.47, blue: 0.52), .white)
         case "csv":
-            self.init("CSV", "tablecells.fill", Color(red: 0.09, green: 0.52, blue: 0.44), .white, "CSV file")
+            self.init("CSV", "tablecells.fill", Color(red: 0.09, green: 0.52, blue: 0.44), .white)
         case "json":
-            self.init("JSON", "curlybraces.square.fill", Color(red: 0.58, green: 0.42, blue: 0.16), .white, "JSON file")
+            self.init("JSON", "curlybraces.square.fill", Color(red: 0.58, green: 0.42, blue: 0.16), .white)
         case "xml":
-            self.init("XML", "chevron.left.forwardslash.chevron.right", Color(red: 0.43, green: 0.38, blue: 0.68), .white, "XML file")
+            self.init("XML", "chevron.left.forwardslash.chevron.right", Color(red: 0.43, green: 0.38, blue: 0.68), .white)
         case "png", "jpg", "jpeg", "heic", "tiff", "gif", "bmp":
-            self.init("IMG", "photo.fill", Color(red: 0.10, green: 0.58, blue: 0.63), .white, "Image file")
+            self.init("IMG", "photo.fill", Color(red: 0.10, green: 0.58, blue: 0.63), .white)
         default:
-            self.init("FILE", "doc.fill", Color.dsAccent, .white, "File")
+            self.init("FILE", "doc.fill", Color.dsAccent, .white)
         }
     }
 
-    private init(_ badgeText: String, _ symbolName: String, _ tint: Color, _ foreground: Color, _ accessibilityLabel: String) {
+    private init(_ badgeText: String, _ symbolName: String, _ tint: Color, _ foreground: Color) {
         self.badgeText = badgeText
         self.symbolName = symbolName
         self.tint = tint
         self.foreground = foreground
-        self.accessibilityLabel = accessibilityLabel
     }
 }
 
