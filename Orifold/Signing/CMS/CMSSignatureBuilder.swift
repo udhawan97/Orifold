@@ -131,6 +131,28 @@ enum CMSSignatureBuilder {
         ])
     }
 
+    /// Best-effort upper bound (bytes) for the DER-encoded CMS this identity will produce,
+    /// used to size the PDF's `/Contents` hex placeholder before the real signature exists
+    /// (chicken-and-egg: the placeholder must be laid out before ByteRange/digest/CMS can be
+    /// computed). A long certificate chain or an RFC-3161 timestamp token can otherwise
+    /// overflow a fixed-size placeholder.
+    static func estimatedMaxDEREncodedSize(identity: SigningIdentity, includeTimestampSlack: Bool) throws -> Int {
+        let adapter = try SigningIdentityCMSAdapter(identity: identity)
+        var seen = Set<Data>()
+        let chainBytes = ([adapter.certificateDER] + adapter.certificateChainDER)
+            .filter { seen.insert($0).inserted }
+            .reduce(0) { $0 + $1.count }
+        // SignerInfo overhead: signed attributes, signature value, algorithm identifiers, DER
+        // framing. 4 KB comfortably covers an RSA-4096 signature value plus attribute overhead.
+        var estimate = chainBytes + 4_096
+        if includeTimestampSlack {
+            // An RFC-3161 token embeds the TSA's own certificate chain plus its SignedData —
+            // typically a few KB; 8 KB is a generous margin.
+            estimate += 8_192
+        }
+        return estimate
+    }
+
     private static func normalizedCertificateChain(leaf: Data, chain: [Data]) -> [Data] {
         var certificates = chain.isEmpty ? [leaf] : chain
         if certificates.first != leaf {

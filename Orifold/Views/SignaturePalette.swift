@@ -8,14 +8,19 @@ struct SignaturePalette: View {
     @State private var selectedMode: SignaturePaletteMode = .type
     @State private var typedName: String = SignaturePalette.defaultSignerName
     @State private var initials: String = SignaturePalette.defaultInitials(from: SignaturePalette.defaultSignerName)
+    @State private var drawnSignatureData: Data?
+    @State private var drawClearTrigger = 0
     @State private var digitalSignerName: String = SignaturePalette.defaultSignerName
-    @State private var selectedIdentity: DigitalIdentityOption = .importP12
+    @State private var selectedCertificateProfileID: UUID?
     @State private var reason: String = ""
     @State private var location: String = ""
     @State private var contactInfo: String = ""
     @State private var useTimestamp: Bool = true
     @State private var isShowingGuide = false
     @State private var isShowingTrustInfo = false
+    @State private var isShowingCreateSelfSigned = false
+    @State private var isShowingManageCertificates = false
+    @State private var pendingP12Import: PendingP12Import?
 
     private static var defaultSignerName: String {
         let name = NSFullUserName().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,6 +45,8 @@ struct SignaturePalette: View {
                 switch selectedMode {
                 case .type:
                     typedSignaturePanel
+                case .draw:
+                    drawSignaturePanel
                 case .initials:
                     initialsPanel
                 case .digital:
@@ -53,6 +60,7 @@ struct SignaturePalette: View {
         .sheet(isPresented: $isShowingGuide) {
             CertificateGuideSheet()
         }
+        .onAppear(perform: selectDefaultCertificateProfileIfNeeded)
     }
 
     private var header: some View {
@@ -82,6 +90,48 @@ struct SignaturePalette: View {
         }
     }
 
+    private var drawSignaturePanel: some View {
+        VStack(alignment: .leading, spacing: .dsMD) {
+            Text("signaturePalette.draw.instructions")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+
+            SignatureDrawingCanvas(clearTrigger: $drawClearTrigger) { data in
+                drawnSignatureData = data
+            }
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                    .strokeBorder(Color.dsSeparator.opacity(0.75), lineWidth: 1)
+            }
+
+            Button("signaturePalette.draw.clear.button") {
+                drawClearTrigger += 1
+            }
+            .buttonStyle(.bordered)
+            .disabled(!hasDrawnStrokes)
+
+            // Shows the exact transparent-background PNG that will be placed — the canvas
+            // above paints an opaque white backdrop purely so the user can see their own
+            // ink while drawing, so without this preview they'd never see the composited
+            // (transparent) result before placing it on the page.
+            if hasDrawnStrokes {
+                SignaturePreview(data: drawnSignatureData)
+            }
+
+            Button(action: addDrawnSignature) {
+                Label("signaturePalette.add.button", systemImage: "plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.dsAccent)
+            .disabled(!hasDrawnStrokes)
+        }
+    }
+
+    private var hasDrawnStrokes: Bool { drawnSignatureData != nil }
+
     private var initialsPanel: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
             TextField("signaturePalette.initials.placeholder", text: $initials)
@@ -103,49 +153,67 @@ struct SignaturePalette: View {
     private var digitalSignaturePanel: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
             HStack(spacing: .dsSM) {
-                Picker("signaturePalette.digitalId.picker", selection: $selectedIdentity) {
-                    ForEach(DigitalIdentityOption.allCases) { option in
-                        Text(option.title).tag(option)
+                Menu {
+                    if !viewModel.certificateProfiles.isEmpty {
+                        ForEach(viewModel.certificateProfiles) { profile in
+                            Button(profile.label) {
+                                selectedCertificateProfileID = profile.id
+                            }
+                        }
+                        Divider()
                     }
+                    Button("signaturePalette.digitalId.createSelfSigned") { isShowingCreateSelfSigned = true }
+                    Button("signaturePalette.digitalId.importP12") { beginP12Import() }
+                    Button("signaturePalette.digitalId.addKeychain", action: addKeychainIdentities)
+                    Divider()
+                    Button("signaturePalette.digitalId.manage") { isShowingManageCertificates = true }
+                } label: {
+                    Text(selectedCertificateProfileLabel)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .pickerStyle(.menu)
+                .menuStyle(.borderlessButton)
 
-                if selectedIdentity == .importP12 {
-                    Button {
-                        isShowingTrustInfo.toggle()
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .frame(width: 18, height: 18)
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(Color.dsAccent)
-                    .help("signaturePalette.certificateTrustInfo.help")
-                    .popover(isPresented: $isShowingTrustInfo, arrowEdge: .trailing) {
-                        CertificateTrustPopover(isShowingGuide: $isShowingGuide)
-                    }
+                Button {
+                    isShowingTrustInfo.toggle()
+                } label: {
+                    Image(systemName: "info.circle")
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.dsAccent)
+                .help("signaturePalette.certificateTrustInfo.help")
+                .popover(isPresented: $isShowingTrustInfo, arrowEdge: .trailing) {
+                    CertificateTrustPopover(isShowingGuide: $isShowingGuide)
                 }
             }
 
-            if selectedIdentity == .selfSigned {
-                Text("signaturePalette.selfSigned.notice")
-                    .font(.dsCaption())
-                    .foregroundStyle(Color.dsTextSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            if let selectedProfile {
+                CertificateStatusChip(profile: selectedProfile)
             }
+
+            Text(hintText)
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             TextField("signaturePalette.digital.signerName.placeholder", text: $digitalSignerName)
                 .textFieldStyle(.roundedBorder)
             TextField("signaturePalette.digital.reason.placeholder", text: $reason)
                 .textFieldStyle(.roundedBorder)
+                .help("signaturePalette.digital.reason.help")
             TextField("signaturePalette.digital.location.placeholder", text: $location)
                 .textFieldStyle(.roundedBorder)
+                .help("signaturePalette.digital.location.help")
             TextField("signaturePalette.digital.contact.placeholder", text: $contactInfo)
                 .textFieldStyle(.roundedBorder)
+                .help("signaturePalette.digital.contact.help")
 
             Toggle(isOn: $useTimestamp) {
                 Label("signaturePalette.digital.timestamp.toggle", systemImage: "clock.badge.checkmark")
             }
             .toggleStyle(.checkbox)
+            .help("signaturePalette.digital.timestamp.help")
 
             SignaturePreview(data: digitalSignatureData)
 
@@ -156,7 +224,8 @@ struct SignaturePalette: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(Color.dsAccent)
-                .disabled(trimmed(digitalSignerName).isEmpty || digitalSignatureData == nil)
+                .disabled(!canPlaceDigitalSignature)
+                .help(placeDigitalSignatureHelp)
 
                 Button(action: signAndExport) {
                     Label("signaturePalette.digital.signAndExport.button", systemImage: "square.and.arrow.up")
@@ -165,8 +234,58 @@ struct SignaturePalette: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Color.dsAccent)
                 .disabled(!viewModel.hasCryptographicSignaturePlacement)
+                .help("signaturePalette.digital.signAndExport.help")
             }
         }
+        .sheet(isPresented: $isShowingCreateSelfSigned) {
+            CreateSelfSignedCertificateSheet(viewModel: viewModel) { profile in
+                selectedCertificateProfileID = profile.id
+            }
+        }
+        .sheet(isPresented: $isShowingManageCertificates) {
+            ManageCertificatesSheet(viewModel: viewModel)
+        }
+        .sheet(item: $pendingP12Import) { pending in
+            ImportCertificatePasswordSheet(viewModel: viewModel, fileURL: pending.url) { profile in
+                selectedCertificateProfileID = profile.id
+            }
+        }
+    }
+
+    private var selectedProfile: DigitalCertificateProfile? {
+        guard let selectedCertificateProfileID else { return nil }
+        return viewModel.certificateProfiles.first { $0.id == selectedCertificateProfileID }
+    }
+
+    private var selectedCertificateProfileLabel: String {
+        selectedProfile?.label ?? L10n.string("signaturePalette.digitalId.noneSelected")
+    }
+
+    private var hintText: String {
+        guard let selectedProfile else {
+            return L10n.string("signaturePalette.digital.hint.chooseIdentity")
+        }
+        if selectedProfile.isExpired {
+            return L10n.string("signaturePalette.digital.hint.expired")
+        }
+        return selectedProfile.isSelfSigned
+            ? L10n.string("signaturePalette.digital.hint.selfSigned")
+            : L10n.string("signaturePalette.digital.hint.caIssued")
+    }
+
+    private var canPlaceDigitalSignature: Bool {
+        guard let selectedProfile, !selectedProfile.isExpired else { return false }
+        return !trimmed(digitalSignerName).isEmpty && digitalSignatureData != nil
+    }
+
+    private var placeDigitalSignatureHelp: String {
+        if selectedProfile == nil {
+            return L10n.string("signaturePalette.digital.place.help.noIdentity")
+        }
+        if selectedProfile?.isExpired == true {
+            return L10n.string("signaturePalette.digital.place.help.expired")
+        }
+        return L10n.string("signaturePalette.digital.place.help.ready")
     }
 
     private var typedSignatureData: Data? {
@@ -208,23 +327,32 @@ struct SignaturePalette: View {
         )
     }
 
+    private func addDrawnSignature() {
+        guard let data = drawnSignatureData else { return }
+        viewModel.beginVisualSignaturePlacement(
+            imageData: data,
+            kind: .visualDrawn,
+            signerName: nil
+        )
+        drawClearTrigger += 1
+        drawnSignatureData = nil
+    }
+
     private func placeDigitalSignature() {
-        guard let data = digitalSignatureData else { return }
+        guard let data = digitalSignatureData, let profileID = selectedCertificateProfileID else { return }
         let signerName = trimmed(digitalSignerName)
         do {
-            let identity = try viewModel.resolveSigningIdentity(
-                reference: selectedIdentity.identityReference,
-                signerName: signerName
-            )
+            let identity = try viewModel.resolveSigningIdentity(certificateProfileID: profileID)
             viewModel.beginCryptographicSignaturePlacement(
                 imageData: data,
                 signerName: signerName,
-                signerIdentityRef: selectedIdentity.identityReference,
+                signerIdentityRef: profileID.uuidString,
                 reason: optionalTrimmed(reason),
                 location: optionalTrimmed(location),
                 contactInfo: optionalTrimmed(contactInfo),
                 timestampRequested: useTimestamp,
-                identity: identity
+                identity: identity,
+                certificateProfileID: profileID
             )
         } catch SigningError.missingIdentity {
             viewModel.exportError = WorkspaceViewModel.ExportError(
@@ -239,6 +367,29 @@ struct SignaturePalette: View {
 
     private func signAndExport() {
         viewModel.signAndExportCryptographicPDF(timestampRequested: useTimestamp)
+    }
+
+    private func selectDefaultCertificateProfileIfNeeded() {
+        guard selectedCertificateProfileID == nil else { return }
+        selectedCertificateProfileID = viewModel.certificateProfiles.first?.id
+    }
+
+    private func beginP12Import() {
+        guard let url = viewModel.chooseCertificateFileURL() else { return }
+        pendingP12Import = PendingP12Import(url: url)
+    }
+
+    private func addKeychainIdentities() {
+        do {
+            let profiles = try viewModel.addKeychainCertificateProfiles()
+            if let first = profiles.first {
+                selectedCertificateProfileID = first.id
+            }
+        } catch {
+            viewModel.exportError = WorkspaceViewModel.ExportError(
+                message: L10n.format("signaturePalette.error.signingFailed", error.localizedDescription)
+            )
+        }
     }
 
     private func trimmed(_ value: String) -> String {
@@ -260,8 +411,14 @@ struct SignaturePalette: View {
     }
 }
 
+private struct PendingP12Import: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
 private enum SignaturePaletteMode: String, CaseIterable, Identifiable {
     case type
+    case draw
     case initials
     case digital
 
@@ -270,32 +427,9 @@ private enum SignaturePaletteMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .type: return L10n.string("signatureMethod.type.title")
+        case .draw: return L10n.string("signatureMethod.draw.title")
         case .initials: return L10n.string("signatureMethod.initials.title")
         case .digital: return L10n.string("signatureMethod.digital.title")
-        }
-    }
-}
-
-private enum DigitalIdentityOption: String, CaseIterable, Identifiable {
-    case importP12
-    case keychain
-    case selfSigned
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .importP12: return L10n.string("signatureMethod.importP12.title")
-        case .keychain: return L10n.string("signatureMethod.keychain.title")
-        case .selfSigned: return L10n.string("signatureMethod.selfSigned.title")
-        }
-    }
-
-    var identityReference: String {
-        switch self {
-        case .importP12: return "p12"
-        case .keychain: return "keychain"
-        case .selfSigned: return "self-signed"
         }
     }
 }

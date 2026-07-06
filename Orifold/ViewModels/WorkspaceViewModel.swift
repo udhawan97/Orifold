@@ -463,6 +463,7 @@ final class WorkspaceViewModel {
         var contactInfo: String?
         var subFilter: String?
         var timestampRequested: Bool
+        var certificateProfileID: UUID?
 
         static var visualTyped: PendingSignaturePlacementOptions {
             PendingSignaturePlacementOptions(
@@ -473,7 +474,8 @@ final class WorkspaceViewModel {
                 location: nil,
                 contactInfo: nil,
                 subFilter: nil,
-                timestampRequested: false
+                timestampRequested: false,
+                certificateProfileID: nil
             )
         }
     }
@@ -3029,7 +3031,8 @@ final class WorkspaceViewModel {
             location: nil,
             contactInfo: nil,
             subFilter: nil,
-            timestampRequested: false
+            timestampRequested: false,
+            certificateProfileID: nil
         )
         currentTool = .signature
         isShowingSignaturePalette = false
@@ -3044,7 +3047,8 @@ final class WorkspaceViewModel {
                                               location: String?,
                                               contactInfo: String?,
                                               timestampRequested: Bool,
-                                              identity: (any SigningIdentity)? = nil) {
+                                              identity: (any SigningIdentity)? = nil,
+                                              certificateProfileID: UUID? = nil) {
         guard canPerformSigningAction() else { return }
         pendingSignatureData = imageData
         pendingSigningIdentity = identity
@@ -3056,7 +3060,8 @@ final class WorkspaceViewModel {
             location: location,
             contactInfo: contactInfo,
             subFilter: "ETSI.CAdES.detached",
-            timestampRequested: timestampRequested
+            timestampRequested: timestampRequested,
+            certificateProfileID: certificateProfileID
         )
         currentTool = .signature
         isShowingSignaturePalette = false
@@ -3089,18 +3094,80 @@ final class WorkspaceViewModel {
         isShowingStampPalette = false
     }
 
-    func resolveSigningIdentity(reference: String, signerName: String) throws -> any SigningIdentity {
-        switch reference {
-        case "p12":
-            return try importPKCS12SigningIdentity()
-        case "keychain":
-            return try chooseKeychainSigningIdentity()
-        case "self-signed":
-            let request = SelfSignedIdentityRequest(commonName: signerName)
-            return try SelfSignedSigningIdentityProvider.generate(request: request)
-        default:
+    // MARK: - Certificate profiles (persistent digital IDs)
+
+    /// All persisted signing identities (self-signed, imported `.p12`, or Keychain
+    /// references) available for the Digital ID picker. Persistent — the same self-signed
+    /// certificate is offered every time, rather than a fresh one being minted per signature.
+    @MainActor
+    var certificateProfiles: [DigitalCertificateProfile] {
+        CertificateProfileStore.shared.profiles
+    }
+
+    /// Generates a self-signed certificate ONCE and registers it as a reusable profile. Call
+    /// this only from the "Create local self-signed ID…" flow — never per-signature — so the
+    /// resulting certificate stays stable enough for a recipient to eventually trust it.
+    @MainActor
+    func createSelfSignedCertificateProfile(commonName: String, emailAddress: String?, validityDays: Int) throws -> DigitalCertificateProfile {
+        let trimmedName = commonName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { throw SigningError.missingIdentity }
+        let identity = try SelfSignedSigningIdentityProvider.generate(
+            request: SelfSignedIdentityRequest(commonName: trimmedName, emailAddress: emailAddress, validityDays: validityDays)
+        )
+        return try CertificateProfileStore.shared.register(identity: identity, label: trimmedName, source: .selfSignedGenerated)
+    }
+
+    /// Opens a file picker for a `.p12`/`.pfx`. Returns nil if the user cancels.
+    func chooseCertificateFileURL() -> URL? {
+        let panel = NSOpenPanel()
+        panel.title = L10n.string("savePanel.importDigitalID.title")
+        panel.prompt = L10n.string("savePanel.import.prompt")
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = ["p12", "pfx"].compactMap { UTType(filenameExtension: $0) }
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url
+    }
+
+    /// Single-attempt `.p12`/`.pfx` import. Deliberately does not retry internally — the
+    /// caller (an in-app password sheet) owns the retry loop so it can show an inline
+    /// "wrong password" message and let the user try again without re-choosing the file.
+    @MainActor
+    func importCertificateProfile(fileURL: URL, passphrase: String, label: String) throws -> DigitalCertificateProfile {
+        let data = try Data(contentsOf: fileURL)
+        let identity = try PKCS12SigningIdentityProvider.importIdentity(from: data, passphrase: passphrase)
+        return try CertificateProfileStore.shared.register(
+            identity: identity,
+            label: label,
+            source: .importedP12(originalFilename: fileURL.lastPathComponent)
+        )
+    }
+
+    /// Registers every identity already present in the macOS login Keychain as a profile
+    /// (idempotent — an identity already registered is refreshed in place, not duplicated).
+    @discardableResult
+    @MainActor
+    func addKeychainCertificateProfiles() throws -> [DigitalCertificateProfile] {
+        let identities = try KeychainSigningIdentityProvider.identities()
+        guard !identities.isEmpty else { throw SigningError.missingIdentity }
+        return try CertificateProfileStore.shared.registerAll(
+            identities: identities,
+            label: { $0.commonName ?? L10n.string("signAlert.untitledDigitalID") },
+            source: .keychainReference
+        )
+    }
+
+    @MainActor
+    func removeCertificateProfile(id: UUID) {
+        CertificateProfileStore.shared.remove(id: id)
+    }
+
+    @MainActor
+    func resolveSigningIdentity(certificateProfileID: UUID) throws -> any SigningIdentity {
+        guard let profile = CertificateProfileStore.shared.profiles.first(where: { $0.id == certificateProfileID }) else {
             throw SigningError.missingIdentity
         }
+        return try CertificateProfileStore.shared.resolveIdentity(for: profile)
     }
 
     @discardableResult
@@ -3127,7 +3194,8 @@ final class WorkspaceViewModel {
             location: options.location,
             contactInfo: options.contactInfo,
             subFilter: options.subFilter,
-            timestampApplied: false
+            timestampApplied: false,
+            certificateProfileID: options.certificateProfileID
         )
         document.workspace.signatures.append(placement)
         if options.kind == .cryptographic, let identity {
@@ -3323,6 +3391,7 @@ final class WorkspaceViewModel {
         return result
     }
 
+    @MainActor
     func signAndExportCryptographicPDF(timestampRequested: Bool) {
         guard canPerformSigningAction() else { return }
         guard let placement = document.workspace.signatures.last(where: { $0.isCryptographic }) else {
@@ -3331,10 +3400,16 @@ final class WorkspaceViewModel {
         }
         let identity: any SigningIdentity
         do {
-            guard let resolvedIdentity = signingIdentitiesByPlacementID[placement.id] else {
+            if let resolvedIdentity = signingIdentitiesByPlacementID[placement.id] {
+                identity = resolvedIdentity
+            } else if let profileID = placement.certificateProfileID {
+                // The in-memory identity cache doesn't survive a document close/reopen —
+                // fall back to re-resolving from the persisted certificate profile so a
+                // cryptographic placement made in an earlier session can still be signed.
+                identity = try resolveSigningIdentity(certificateProfileID: profileID)
+            } else {
                 throw SigningError.missingIdentity
             }
-            identity = resolvedIdentity
         } catch SigningError.missingIdentity {
             exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
             return
@@ -3368,6 +3443,10 @@ final class WorkspaceViewModel {
         guard panel.runModal() == .OK, let chosenURL = panel.url else { return }
         targetURL = chosenURL
 
+        let estimatedDERBytes = try? CMSSignatureBuilder.estimatedMaxDEREncodedSize(
+            identity: identity,
+            includeTimestampSlack: timestampRequested
+        )
         let field = SignatureFieldSpec(
             pageIndex: pageIndex,
             rect: placement.rect,
@@ -3375,7 +3454,8 @@ final class WorkspaceViewModel {
             reason: placement.reason,
             location: placement.location,
             contactInfo: placement.contactInfo,
-            subFilter: placement.subFilter ?? "ETSI.CAdES.detached"
+            subFilter: placement.subFilter ?? "ETSI.CAdES.detached",
+            estimatedSignatureDERBytes: estimatedDERBytes
         )
         let appearance: PDFAppearanceStream?
         do {
@@ -3454,62 +3534,6 @@ final class WorkspaceViewModel {
         }
     }
 
-    private func importPKCS12SigningIdentity() throws -> any SigningIdentity {
-        let panel = NSOpenPanel()
-        panel.title = L10n.string("savePanel.importDigitalID.title")
-        panel.prompt = L10n.string("savePanel.import.prompt")
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = ["p12", "pfx"].compactMap { UTType(filenameExtension: $0) }
-        guard panel.runModal() == .OK, let url = panel.url else {
-            throw SigningError.missingIdentity
-        }
-        let passphrase = try promptForPKCS12Passphrase()
-        return try PKCS12SigningIdentityProvider.importIdentity(from: url) { passphrase }
-    }
-
-    private func chooseKeychainSigningIdentity() throws -> any SigningIdentity {
-        let identities = try KeychainSigningIdentityProvider.identities()
-        guard !identities.isEmpty else {
-            throw SigningError.missingIdentity
-        }
-        guard identities.count > 1 else {
-            return identities[0]
-        }
-
-        let alert = NSAlert()
-        alert.messageText = L10n.string("signAlert.chooseKeychainID.message")
-        alert.informativeText = L10n.string("signAlert.chooseKeychainID.info")
-        alert.addButton(withTitle: L10n.string("signAlert.choose.button"))
-        alert.addButton(withTitle: L10n.string("signAlert.cancel.button"))
-
-        let popup = NSPopUpButton(frame: CGRect(x: 0, y: 0, width: 360, height: 28), pullsDown: false)
-        for identity in identities {
-            popup.addItem(withTitle: identity.commonName ?? L10n.string("signAlert.untitledDigitalID"))
-        }
-        alert.accessoryView = popup
-
-        guard alert.runModal() == .alertFirstButtonReturn else {
-            throw SigningError.missingIdentity
-        }
-        return identities[max(0, popup.indexOfSelectedItem)]
-    }
-
-    private func promptForPKCS12Passphrase() throws -> String {
-        let alert = NSAlert()
-        alert.messageText = L10n.string("signAlert.digitalIDPassword.message")
-        alert.informativeText = L10n.string("signAlert.digitalIDPassword.info")
-        alert.addButton(withTitle: L10n.string("signAlert.unlock.button"))
-        alert.addButton(withTitle: L10n.string("signAlert.cancel.button"))
-
-        let field = NSSecureTextField(frame: CGRect(x: 0, y: 0, width: 320, height: 24))
-        alert.accessoryView = field
-
-        guard alert.runModal() == .alertFirstButtonReturn else {
-            throw SigningError.missingIdentity
-        }
-        return field.stringValue
-    }
 
     private func pageRefID(for page: PDFPage) -> UUID? {
         // Map the PDFPage back to a PageRef.id using position in combinedPDF.
