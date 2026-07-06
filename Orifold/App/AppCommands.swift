@@ -29,6 +29,12 @@ struct AppCommands: Commands {
 }
 
 private struct AddFilesCommandButton: View {
+    // Subscribing to LanguageManager (an ObservableObject) is what makes SwiftUI
+    // re-evaluate this Commands-hosted view's body — and thus re-resolve the
+    // L10n.string() label below — when the user switches languages. Without it,
+    // menu titles built from L10n.string() go stale until the app relaunches,
+    // since nothing else here depends on the stored language preference.
+    @EnvironmentObject private var languageManager: LanguageManager
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     var body: some View {
@@ -47,6 +53,7 @@ private struct AddFilesCommandButton: View {
 }
 
 private struct MakeSearchableCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     var body: some View {
@@ -59,6 +66,7 @@ private struct MakeSearchableCommandButton: View {
 }
 
 private struct ReduceFileSizeCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     var body: some View {
@@ -70,6 +78,7 @@ private struct ReduceFileSizeCommandButton: View {
 }
 
 private struct UndoRedoCommandButtons: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @Environment(\.undoManager) private var undoManager
     @FocusedValue(\.orifoldIsImporting) private var isImporting
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
@@ -92,6 +101,7 @@ private struct UndoRedoCommandButtons: View {
 }
 
 private struct PetBuddyCommandToggle: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @AppStorage("petEnabled") private var petEnabled = true
     @State private var buddy = PetBuddy.shared
 
@@ -118,6 +128,7 @@ private struct PetBuddyCommandToggle: View {
 }
 
 private struct PetSpeciesCommandPicker: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @AppStorage("petEnabled") private var petEnabled = true
     @State private var buddy = PetBuddy.shared
 
@@ -155,6 +166,7 @@ extension FocusedValues {
 }
 
 private struct AboutCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
