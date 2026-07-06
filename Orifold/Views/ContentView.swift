@@ -1551,12 +1551,86 @@ var importBatchPanelMessage: String { L10n.string("contentView.importBatchPanel.
 var importBatchLimitMessage: String { L10n.string("contentView.importBatchLimit.message") }
 var importDropProviderLimitMessage: String { L10n.string("contentView.importDropProviderLimit.message") }
 
+func folderImportSummaryMessage(importedCount: Int, skippedCount: Int) -> String {
+    L10n.format("folderImport.summary.importedSkipped", importedCount, skippedCount)
+}
+
+func folderImportOverLimitTitle(supportedCount: Int) -> String {
+    L10n.format("folderImport.overLimit.title", supportedCount)
+}
+
+func folderImportOverLimitImportFirstLabel(count: Int) -> String {
+    L10n.format("folderImport.overLimit.importFirst", count)
+}
+
+/// What kind of items are currently hovering over an import drop zone, used to show
+/// drag-specific release copy ("Release to import folder contents", etc.).
+enum ImportDragKind {
+    case files
+    case folder
+    case mixed
+}
+
+enum FolderScanPhase: Equatable {
+    case idle
+    case scanning
+    case finding
+}
+
+/// Shared drop delegate for import drop zones that accept both files and folders.
+/// Classifies the drag (files/folder/mixed) for live release copy, then resolves and
+/// hands off to `onResolved` on drop.
+struct ImportDropDelegate: DropDelegate {
+    var onKindChange: (ImportDragKind?) -> Void
+    var onResolved: (ResolvedImportDrop) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.folder]) || info.hasItemsConforming(to: importDropContentTypes)
+    }
+
+    func dropEntered(info: DropInfo) {
+        onKindChange(classify(info))
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        onKindChange(classify(info))
+        return DropProposal(operation: .copy)
+    }
+
+    func dropExited(info: DropInfo) {
+        onKindChange(nil)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        onKindChange(nil)
+        let providers = info.itemProviders(for: importDropContentTypes)
+        resolveImportDrop(from: providers) { resolved in
+            onResolved(resolved)
+        }
+        return true
+    }
+
+    private func classify(_ info: DropInfo) -> ImportDragKind {
+        let hasFolder = info.hasItemsConforming(to: [.folder])
+        let hasFile = !info.itemProviders(for: WorkspaceDocument.importableContentTypes).isEmpty
+        if hasFolder && hasFile { return .mixed }
+        return hasFolder ? .folder : .files
+    }
+}
+
 func configureImportOpenPanel(_ panel: NSOpenPanel) {
     panel.allowsMultipleSelection = true
     panel.canChooseFiles = true
     panel.canChooseDirectories = false
     panel.allowedContentTypes = WorkspaceDocument.importableContentTypes
     panel.message = importBatchPanelMessage
+}
+
+func configureFolderImportOpenPanel(_ panel: NSOpenPanel) {
+    panel.allowsMultipleSelection = true
+    panel.canChooseFiles = false
+    panel.canChooseDirectories = true
+    panel.message = L10n.string("folderImport.panel.message")
 }
 
 func importFilesWithBatchLimit(
@@ -1621,6 +1695,111 @@ func resolveImportURLs(from providers: [NSItemProvider], maxCount: Int = maximum
     DispatchQueue.main.async {
         resolveNextProvider()
     }
+}
+
+/// A drop resolved into files and folder roots, so folders can be scanned separately
+/// instead of being silently dropped by `isSupportedImportURL` (which only recognizes
+/// document types, never directories).
+struct ResolvedImportDrop {
+    var files: [URL]
+    var folders: [URL]
+    var wasLimited: Bool
+}
+
+func resolveImportDrop(from providers: [NSItemProvider], maxFileCount: Int = maximumImportBatchSize, completion: @escaping (ResolvedImportDrop) -> Void) {
+    var files: [URL] = []
+    var folders: [URL] = []
+    var seenURLs: Set<String> = []
+    var nextProviderIndex = 0
+    var wasLimited = false
+
+    func resolveNextProvider() {
+        guard nextProviderIndex < providers.count else {
+            completion(ResolvedImportDrop(files: files, folders: folders, wasLimited: wasLimited))
+            return
+        }
+
+        let provider = providers[nextProviderIndex]
+        nextProviderIndex += 1
+        loadImportURL(from: provider) { url in
+            if let url {
+                let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+                if isDirectory {
+                    let key = url.fileURLIdentityKey
+                    if seenURLs.insert(key).inserted {
+                        folders.append(url)
+                    }
+                } else if isSupportedImportURL(url) {
+                    if files.count < maxFileCount {
+                        let key = url.fileURLIdentityKey
+                        if seenURLs.insert(key).inserted {
+                            files.append(url)
+                        }
+                    } else {
+                        wasLimited = true
+                    }
+                }
+            }
+            DispatchQueue.main.async {
+                resolveNextProvider()
+            }
+        }
+    }
+
+    DispatchQueue.main.async {
+        resolveNextProvider()
+    }
+}
+
+/// Outcome of resolving a mix of individually-selected/dropped files and folders, once any
+/// folder roots have been scanned. The view maps each case to the appropriate alert, status
+/// toast, or confirmation dialog. `.ready` does not perform the import itself — the caller
+/// calls `viewModel.importFiles(urls:insertingAfter:)` so it can sequence UI state around it.
+enum FolderImportOutcome {
+    case ready(urls: [URL], unsupportedCount: Int, wasLimited: Bool)
+    case empty
+    case onlyUnsupported
+    case needsConfirmation(PendingFolderImportBatch)
+    case nothingToImport
+}
+
+struct PendingFolderImportBatch {
+    var urls: [URL]
+    var unsupportedCount: Int
+    var wasTruncated: Bool
+}
+
+func importPickedOrDropped(
+    files: [URL],
+    folders: [URL],
+    wasLimited: Bool = false
+) async -> FolderImportOutcome {
+    guard !folders.isEmpty else {
+        guard !files.isEmpty else { return .nothingToImport }
+        return .ready(urls: files, unsupportedCount: 0, wasLimited: wasLimited)
+    }
+
+    let scan = await FolderImportScanner.scan(folders: folders)
+
+    var merged = files
+    var seenKeys = Set(files.map(\.fileURLIdentityKey))
+    for url in scan.supportedURLs where seenKeys.insert(url.fileURLIdentityKey).inserted {
+        merged.append(url)
+    }
+
+    guard !merged.isEmpty else {
+        return scan.unsupportedCount > 0 ? .onlyUnsupported : .empty
+    }
+
+    guard merged.count <= maximumImportBatchSize else {
+        return .needsConfirmation(PendingFolderImportBatch(
+            urls: merged,
+            unsupportedCount: scan.unsupportedCount,
+            wasTruncated: scan.wasTruncated
+        ))
+    }
+
+    return .ready(urls: merged, unsupportedCount: scan.unsupportedCount, wasLimited: false)
 }
 
 private func loadImportURL(from provider: NSItemProvider, completion: @escaping (URL?) -> Void) {

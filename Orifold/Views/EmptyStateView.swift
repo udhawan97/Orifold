@@ -10,6 +10,9 @@ struct EmptyStateView: View {
     @State private var optionGuidance: String?
     @State private var chooseFilesNudge = 0
     @State private var recentsStore = RecentsStore.shared
+    @State private var draggedKind: ImportDragKind?
+    @State private var scanPhase: FolderScanPhase = .idle
+    @State private var pendingFolderBatch: PendingFolderImportBatch?
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -68,26 +71,26 @@ struct EmptyStateView: View {
                         dropZoneIcon
 
                         VStack(spacing: 5) {
-                            Text(isDropTargeted ? "emptyState.dropZone.releaseToImport" : "emptyState.dropZone.dropFilesToBegin")
+                            Text(dropZoneHeadlineKey)
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("emptyState.dropZone.supportedTypes")
-                                .font(.dsCaption())
-                                .foregroundStyle(Color.dsTextTertiary)
+                            if let scanStatusKey {
+                                Text(scanStatusKey)
+                                    .font(.dsCaption())
+                                    .foregroundStyle(Color.dsAccent)
+                                    .transition(.opacity)
+                            } else {
+                                Text("emptyState.dropZone.supportedTypes")
+                                    .font(.dsCaption())
+                                    .foregroundStyle(Color.dsTextTertiary)
+                            }
                         }
+                        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: scanPhase)
 
-                        Button {
-                            openFiles()
-                        } label: {
-                            Label("emptyState.chooseFiles.label", systemImage: "folder.badge.plus")
-                                .frame(minWidth: 140)
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: .dsSM) { chooseButtons }
+                            VStack(spacing: .dsSM) { chooseButtons }
                         }
-                        .controlSize(.large)
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color.dsAccent)
-                        .scaleEffect(chooseFilesNudge.isMultiple(of: 2) || shouldReduceMotion ? 1 : 1.045)
-                        .shadow(color: Color.dsAccent.opacity(chooseFilesNudge.isMultiple(of: 2) ? 0 : 0.24), radius: 12, x: 0, y: 5)
-                        .animation(shouldReduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.48), value: chooseFilesNudge)
                     }
                     .padding(.horizontal, .dsXXL)
                     .padding(.vertical, .dsXXL)
@@ -101,6 +104,7 @@ struct EmptyStateView: View {
                             .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isDropTargeted)
                     }
                     .dsElevation()
+                    .help("emptyState.dropZone.tooltip")
 
                     RecentFilesSection(store: recentsStore, onOpen: openRecentFile)
                 }
@@ -133,25 +137,15 @@ struct EmptyStateView: View {
                 .padding(.dsMD)
                 .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isDropTargeted)
         }
-        .onDrop(of: importDropContentTypes, isTargeted: $isDropTargeted) { providers in
-            resolveImportURLs(from: providers) { urls, wasLimited in
-                guard !urls.isEmpty else {
-                    viewModel.importError = WorkspaceViewModel.ImportError(
-                        fileName: "Dropped Files",
-                        message: L10n.string("contentView.dropImportError.noSupportedDocument")
-                    )
-                    return
-                }
-                if wasLimited {
-                    viewModel.importError = WorkspaceViewModel.ImportError(
-                        fileName: "Dropped Files",
-                        message: importDropProviderLimitMessage
-                    )
-                }
-                importFilesWithBatchLimit(urls: urls, into: viewModel, sourceName: "Dropped Files")
+        .onDrop(of: importDropContentTypes, delegate: ImportDropDelegate(
+            onKindChange: { kind in
+                draggedKind = kind
+                isDropTargeted = kind != nil
+            },
+            onResolved: { resolved in
+                handleResolvedDrop(resolved)
             }
-            return true
-        }
+        ))
         .onAppear {
             guard !hasIntroducedOptions else { return }
             if shouldReduceMotion {
@@ -162,6 +156,26 @@ struct EmptyStateView: View {
                 }
             }
         }
+        .confirmationDialog(
+            overLimitTitle,
+            isPresented: Binding(
+                get: { pendingFolderBatch != nil },
+                set: { if !$0 { pendingFolderBatch = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingFolderBatch
+        ) { batch in
+            Button(folderImportOverLimitImportFirstLabel(count: maximumImportBatchSize)) {
+                importFirstFromPendingBatch(batch)
+            }
+            Button("folderImport.overLimit.cancel", role: .cancel) {
+                pendingFolderBatch = nil
+            }
+        } message: { batch in
+            if batch.wasTruncated {
+                Text("folderImport.overLimit.truncatedNote")
+            }
+        }
     }
 
     private func showGuidance(for option: EmptyStateOption) {
@@ -170,6 +184,59 @@ struct EmptyStateView: View {
         guard !shouldReduceMotion else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
             chooseFilesNudge += 1
+        }
+    }
+
+    private var overLimitTitle: String {
+        guard let pendingFolderBatch else { return "" }
+        return folderImportOverLimitTitle(supportedCount: pendingFolderBatch.urls.count)
+    }
+
+    private var chooseButtons: some View {
+        Group {
+            Button {
+                openFiles()
+            } label: {
+                Label("emptyState.chooseFiles.label", systemImage: "folder.badge.plus")
+                    .frame(minWidth: 140)
+            }
+            .controlSize(.large)
+            .buttonStyle(.borderedProminent)
+            .tint(Color.dsAccent)
+            .scaleEffect(chooseFilesNudge.isMultiple(of: 2) || shouldReduceMotion ? 1 : 1.045)
+            .shadow(color: Color.dsAccent.opacity(chooseFilesNudge.isMultiple(of: 2) ? 0 : 0.24), radius: 12, x: 0, y: 5)
+            .animation(shouldReduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.48), value: chooseFilesNudge)
+            .help("emptyState.chooseFiles.tooltip")
+            .accessibilityHint("emptyState.chooseFiles.tooltip")
+
+            Button {
+                openFolder()
+            } label: {
+                Label("emptyState.chooseFolder.label", systemImage: "folder")
+                    .frame(minWidth: 140)
+            }
+            .controlSize(.large)
+            .buttonStyle(.bordered)
+            .tint(Color.dsAccent)
+            .help("emptyState.chooseFolder.tooltip")
+            .accessibilityHint("emptyState.chooseFolder.tooltip")
+        }
+    }
+
+    private var dropZoneHeadlineKey: LocalizedStringKey {
+        switch draggedKind {
+        case .files: return "emptyState.dropZone.releaseFiles"
+        case .folder: return "emptyState.dropZone.releaseFolder"
+        case .mixed: return "emptyState.dropZone.releaseMixed"
+        case nil: return "emptyState.dropZone.dropFilesOrFolders"
+        }
+    }
+
+    private var scanStatusKey: LocalizedStringKey? {
+        switch scanPhase {
+        case .idle: return nil
+        case .scanning: return "folderImport.scanning"
+        case .finding: return "folderImport.findingSupported"
         }
     }
 
@@ -238,6 +305,80 @@ struct EmptyStateView: View {
         if panel.runModal() == .OK {
             importFilesWithBatchLimit(urls: panel.urls, into: viewModel)
         }
+    }
+
+    private func openFolder() {
+        let panel = NSOpenPanel()
+        configureFolderImportOpenPanel(panel)
+        guard panel.runModal() == .OK else { return }
+        handleResolvedDrop(ResolvedImportDrop(files: [], folders: panel.urls, wasLimited: false))
+    }
+
+    private func handleResolvedDrop(_ resolved: ResolvedImportDrop) {
+        guard !resolved.files.isEmpty || !resolved.folders.isEmpty else {
+            viewModel.importError = WorkspaceViewModel.ImportError(
+                fileName: "Dropped Files",
+                message: L10n.string("contentView.dropImportError.noSupportedDocument")
+            )
+            return
+        }
+        scanPhase = resolved.folders.isEmpty ? .idle : .scanning
+        Task {
+            if !resolved.folders.isEmpty {
+                await MainActor.run { scanPhase = .finding }
+            }
+            let outcome = await importPickedOrDropped(
+                files: resolved.files,
+                folders: resolved.folders,
+                wasLimited: resolved.wasLimited
+            )
+            await MainActor.run {
+                scanPhase = .idle
+                applyOutcome(outcome)
+            }
+        }
+    }
+
+    private func applyOutcome(_ outcome: FolderImportOutcome) {
+        switch outcome {
+        case .ready(let urls, let unsupportedCount, let wasLimited):
+            viewModel.importFiles(urls: urls)
+            if unsupportedCount > 0 {
+                let message = folderImportSummaryMessage(importedCount: urls.count, skippedCount: unsupportedCount)
+                viewModel.editingStatus = .success(message)
+                AccessibilityNotification.Announcement(message).post()
+            } else if wasLimited {
+                viewModel.importError = WorkspaceViewModel.ImportError(
+                    fileName: "Dropped Files",
+                    message: importDropProviderLimitMessage
+                )
+            }
+        case .empty:
+            viewModel.importError = WorkspaceViewModel.ImportError(
+                fileName: "Folder",
+                message: L10n.string("folderImport.error.empty")
+            )
+        case .onlyUnsupported:
+            viewModel.importError = WorkspaceViewModel.ImportError(
+                fileName: "Folder",
+                message: L10n.string("folderImport.error.onlyUnsupported")
+            )
+        case .needsConfirmation(let batch):
+            pendingFolderBatch = batch
+        case .nothingToImport:
+            break
+        }
+    }
+
+    private func importFirstFromPendingBatch(_ batch: PendingFolderImportBatch) {
+        let firstBatch = Array(batch.urls.prefix(maximumImportBatchSize))
+        viewModel.importFiles(urls: firstBatch)
+        if batch.unsupportedCount > 0 {
+            viewModel.editingStatus = .success(
+                folderImportSummaryMessage(importedCount: firstBatch.count, skippedCount: batch.unsupportedCount)
+            )
+        }
+        pendingFolderBatch = nil
     }
 
     private func openRecentFile(_ url: URL) {

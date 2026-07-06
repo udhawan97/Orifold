@@ -6,6 +6,7 @@ struct AppCommands: Commands {
         // File menu additions — DocumentGroup already provides New, Open, Save, etc.
         CommandGroup(after: .newItem) {
             AddFilesCommandButton()
+            AddFolderCommandButton()
             Divider()
             ReduceFileSizeCommandButton()
             MakeSearchableCommandButton()
@@ -48,6 +49,42 @@ private struct AddFilesCommandButton: View {
             }
         }
         .keyboardShortcut("o", modifiers: [.command, .shift])
+        .disabled(viewModel == nil)
+    }
+}
+
+private struct AddFolderCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+
+    var body: some View {
+        Button(L10n.string("appCommands.addFolderToWorkspace.button")) {
+            let panel = NSOpenPanel()
+            configureFolderImportOpenPanel(panel)
+            guard panel.runModal() == .OK, let viewModel else { return }
+            let folders = panel.urls
+            Task {
+                let scan = await FolderImportScanner.scan(folders: folders)
+                guard !scan.supportedURLs.isEmpty else {
+                    await MainActor.run {
+                        viewModel.importError = WorkspaceViewModel.ImportError(
+                            fileName: "Folder",
+                            message: L10n.string(scan.unsupportedCount > 0 ? "folderImport.error.onlyUnsupported" : "folderImport.error.empty")
+                        )
+                    }
+                    return
+                }
+                await MainActor.run {
+                    importFilesWithBatchLimit(urls: scan.supportedURLs, into: viewModel, sourceName: "Folder")
+                    if scan.unsupportedCount > 0 {
+                        let importedCount = min(scan.supportedURLs.count, maximumImportBatchSize)
+                        viewModel.editingStatus = .success(
+                            folderImportSummaryMessage(importedCount: importedCount, skippedCount: scan.unsupportedCount)
+                        )
+                    }
+                }
+            }
+        }
         .disabled(viewModel == nil)
     }
 }
