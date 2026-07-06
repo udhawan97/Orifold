@@ -64,29 +64,29 @@ private struct AddFolderCommandButton: View {
             guard panel.runModal() == .OK, let viewModel else { return }
             let folders = panel.urls
             Task {
-                let scan = await FolderImportScanner.scan(folders: folders)
-                guard !scan.supportedURLs.isEmpty else {
-                    await MainActor.run {
-                        viewModel.importError = WorkspaceViewModel.ImportError(
-                            fileName: "Folder",
-                            message: L10n.string(scan.unsupportedCount > 0 ? "folderImport.error.onlyUnsupported" : "folderImport.error.empty")
-                        )
-                    }
-                    return
-                }
+                let outcome = await importPickedOrDropped(files: [], folders: folders)
                 await MainActor.run {
-                    importFilesWithBatchLimit(urls: scan.supportedURLs, into: viewModel, sourceName: "Folder")
-                    if scan.unsupportedCount > 0 {
-                        let importedCount = min(scan.supportedURLs.count, maximumImportBatchSize)
-                        viewModel.editingStatus = .success(
-                            folderImportSummaryMessage(importedCount: importedCount, skippedCount: scan.unsupportedCount)
-                        )
+                    applyFolderImportOutcome(outcome, into: viewModel) { batch in
+                        presentOverLimitAlert(for: batch, into: viewModel)
                     }
                 }
             }
         }
         .disabled(viewModel == nil)
     }
+}
+
+@MainActor
+private func presentOverLimitAlert(for batch: PendingFolderImportBatch, into viewModel: WorkspaceViewModel) {
+    let alert = NSAlert()
+    alert.messageText = folderImportOverLimitTitle(supportedCount: batch.urls.count)
+    if batch.wasTruncated {
+        alert.informativeText = L10n.string("folderImport.overLimit.truncatedNote")
+    }
+    alert.addButton(withTitle: folderImportOverLimitImportFirstLabel(count: maximumImportBatchSize))
+    alert.addButton(withTitle: L10n.string("folderImport.overLimit.cancel"))
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+    importFirstFromPendingBatch(batch, into: viewModel)
 }
 
 private struct MakeSearchableCommandButton: View {

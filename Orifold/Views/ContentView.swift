@@ -1555,6 +1555,21 @@ func folderImportSummaryMessage(importedCount: Int, skippedCount: Int) -> String
     L10n.format("folderImport.summary.importedSkipped", importedCount, skippedCount)
 }
 
+/// Builds the post-import status toast for a `.ready` outcome, or nil if nothing
+/// noteworthy happened (no unsupported files skipped, no truncation). Skipped-file
+/// and truncation notes are independent facts and both need to reach the user when
+/// both are true, rather than one silently overriding the other.
+func folderImportReadyStatusMessage(importedCount: Int, unsupportedCount: Int, wasTruncated: Bool) -> String? {
+    guard unsupportedCount > 0 || wasTruncated else { return nil }
+    var message = unsupportedCount > 0
+        ? folderImportSummaryMessage(importedCount: importedCount, skippedCount: unsupportedCount)
+        : L10n.string("folderImport.overLimit.truncatedNote")
+    if wasTruncated && unsupportedCount > 0 {
+        message += " " + L10n.string("folderImport.overLimit.truncatedNote")
+    }
+    return message
+}
+
 func folderImportOverLimitTitle(supportedCount: Int) -> String {
     L10n.format("folderImport.overLimit.title", supportedCount)
 }
@@ -1756,7 +1771,7 @@ func resolveImportDrop(from providers: [NSItemProvider], maxFileCount: Int = max
 /// toast, or confirmation dialog. `.ready` does not perform the import itself — the caller
 /// calls `viewModel.importFiles(urls:insertingAfter:)` so it can sequence UI state around it.
 enum FolderImportOutcome {
-    case ready(urls: [URL], unsupportedCount: Int, wasLimited: Bool)
+    case ready(urls: [URL], unsupportedCount: Int, wasLimited: Bool, wasTruncated: Bool)
     case empty
     case onlyUnsupported
     case needsConfirmation(PendingFolderImportBatch)
@@ -1776,7 +1791,7 @@ func importPickedOrDropped(
 ) async -> FolderImportOutcome {
     guard !folders.isEmpty else {
         guard !files.isEmpty else { return .nothingToImport }
-        return .ready(urls: files, unsupportedCount: 0, wasLimited: wasLimited)
+        return .ready(urls: files, unsupportedCount: 0, wasLimited: wasLimited, wasTruncated: false)
     }
 
     let scan = await FolderImportScanner.scan(folders: folders)
@@ -1799,7 +1814,59 @@ func importPickedOrDropped(
         ))
     }
 
-    return .ready(urls: merged, unsupportedCount: scan.unsupportedCount, wasLimited: false)
+    return .ready(urls: merged, unsupportedCount: scan.unsupportedCount, wasLimited: wasLimited, wasTruncated: scan.wasTruncated)
+}
+
+/// Shared handling for a `FolderImportOutcome`, used by every folder-import entry point
+/// (intro drop zone, Choose Folder button, File-menu command) so they can't silently
+/// diverge on error messages, skip summaries, or over-limit handling. The only thing
+/// callers customize is how `.needsConfirmation` is presented, since a SwiftUI view can
+/// show a `confirmationDialog` while a menu command needs a synchronous `NSAlert`.
+@MainActor
+func applyFolderImportOutcome(
+    _ outcome: FolderImportOutcome,
+    into viewModel: WorkspaceViewModel,
+    onNeedsConfirmation: (PendingFolderImportBatch) -> Void
+) {
+    switch outcome {
+    case .ready(let urls, let unsupportedCount, let wasLimited, let wasTruncated):
+        viewModel.importFiles(urls: urls)
+        if let message = folderImportReadyStatusMessage(importedCount: urls.count, unsupportedCount: unsupportedCount, wasTruncated: wasTruncated) {
+            viewModel.editingStatus = .success(message)
+            AccessibilityNotification.Announcement(message).post()
+        }
+        if wasLimited {
+            viewModel.importError = WorkspaceViewModel.ImportError(
+                fileName: "Dropped Files",
+                message: importDropProviderLimitMessage
+            )
+        }
+    case .empty:
+        viewModel.importError = WorkspaceViewModel.ImportError(
+            fileName: "Folder",
+            message: L10n.string("folderImport.error.empty")
+        )
+    case .onlyUnsupported:
+        viewModel.importError = WorkspaceViewModel.ImportError(
+            fileName: "Folder",
+            message: L10n.string("folderImport.error.onlyUnsupported")
+        )
+    case .needsConfirmation(let batch):
+        onNeedsConfirmation(batch)
+    case .nothingToImport:
+        break
+    }
+}
+
+/// Imports the first `maximumImportBatchSize` URLs from an over-limit folder batch,
+/// shared by every entry point's "Import first 50" action.
+@MainActor
+func importFirstFromPendingBatch(_ batch: PendingFolderImportBatch, into viewModel: WorkspaceViewModel) {
+    let firstBatch = Array(batch.urls.prefix(maximumImportBatchSize))
+    viewModel.importFiles(urls: firstBatch)
+    if let message = folderImportReadyStatusMessage(importedCount: firstBatch.count, unsupportedCount: batch.unsupportedCount, wasTruncated: batch.wasTruncated) {
+        viewModel.editingStatus = .success(message)
+    }
 }
 
 private func loadImportURL(from provider: NSItemProvider, completion: @escaping (URL?) -> Void) {
