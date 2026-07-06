@@ -45,7 +45,6 @@
 		7D15A5DADAC698BED688D415 /* PDFSerializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF484D9AFAB5E2501794A81D /* PDFSerializer.swift */; };
 		8164A5219C9A5E3017CD5FBF /* PasswordPromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12772EF49E3A2300AD720F50 /* PasswordPromptView.swift */; };
 		86E7E7493D3BB3421F5A62F8 /* BoundaryPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E6DDC1DD7EADB46FF86B8A /* BoundaryPage.swift */; };
-		886C7AE969EEE91A7AA51EE5 /* NightModeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A67D36835455E14560BCD0C9 /* NightModeSettings.swift */; };
 		8C41E25FC9F45F7F5542683A /* PDFium in Frameworks */ = {isa = PBXBuildFile; productRef = DB186812550B10FC10B8C93A /* PDFium */; };
 		8CB7A4B563A65998601187E8 /* SignatureAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEBA427D87007CEE6505CEBE /* SignatureAppearanceTests.swift */; };
 		8EE7D4B56AAF05AAAE5427F5 /* MemberDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C225D168B9A2D445CCCF62B /* MemberDocument.swift */; };
@@ -53,7 +52,9 @@
 		BF9BD96D2D676CA816FCC452 /* RecentFilesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF49865576782C40D36EC30 /* RecentFilesSection.swift */; };
 		3C32D5F146EFD0F038559DBA /* RecentsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D79565B718057C4EF355FEE /* RecentsStore.swift */; };
 		A83D6D51E866C67F95AE5A0E /* RecentFileEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1BACD30EB58431D3B7A94C3 /* RecentFileEntry.swift */; };
+		17B9FBC9BC8C2AEDC31550EB /* DocumentComfortSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFE7907191FACF14A4CD130E /* DocumentComfortSettings.swift */; };
 		1238CD43F41461942522832D /* RecentFileEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2483E9FBEE37EA5349738C97 /* RecentFileEntryTests.swift */; };
+		A85CDB03B461EC234D48031C /* DocumentComfortSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E549642B58CE0AB9AB6A08EC /* DocumentComfortSettingsTests.swift */; };
 		9146EA42E43B2E17A6DEF609 /* OrifoldApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 144E694787595BA401D105FB /* OrifoldApp.swift */; };
 		9174DB3E60D4AF80870613B8 /* OrifoldFoldMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0CBE7680829B8425C141AE /* OrifoldFoldMark.swift */; };
 		976BF031FB603C521643B987 /* CMSSignatureBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDDD646A0A8A5E95AD82CDBE /* CMSSignatureBuilderTests.swift */; };
@@ -85,7 +86,6 @@
 		D943F1505CCD76116EAC87DB /* PDFProcessingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE5EF0F836F8569C6C4BCB0 /* PDFProcessingEngine.swift */; };
 		DFD8026EF708E2CB2302405A /* PKCS12SigningIdentityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D1CEC6303AD21D084418BF /* PKCS12SigningIdentityProvider.swift */; };
 		E3B2BAEA4759DC872DB0D612 /* StampPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E0996DA7F00D70B60BEEC5 /* StampPalette.swift */; };
-		E511C5FD05874DF3DB827CA3 /* NightModeSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90D475782FC98B6DC8DD49F5 /* NightModeSettingsTests.swift */; };
 		E6DA97C017DB9BEA2BE12EEE /* WorkspaceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BF8549C9BAE0A40062B2D8 /* WorkspaceViewModel.swift */; };
 		E85110B1370137ABE301992C /* TimestampClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E82B383C7124F1AE1524A5 /* TimestampClientTests.swift */; };
 		E98ADF6159DD07FBA48CE8F9 /* PDFCompressionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A2CF78FE0A6BD083689499 /* PDFCompressionService.swift */; };
@@ -150,7 +150,6 @@
 		8225EBA056A88D15C874C2C2 /* PetSpecies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetSpecies.swift; sourceTree = "<group>"; };
 		83DEEB6D244D33464EBD47AE /* PDFTextAnalysisEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextAnalysisEngine.swift; sourceTree = "<group>"; };
 		84B38C10463BCC9DFC571C72 /* PageDecoration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageDecoration.swift; sourceTree = "<group>"; };
-		90D475782FC98B6DC8DD49F5 /* NightModeSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightModeSettingsTests.swift; sourceTree = "<group>"; };
 		91002084FF9EDA56ABC62E9B /* SourceDocumentRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceDocumentRoundTripTests.swift; sourceTree = "<group>"; };
 		91B6A51AF9512EF792F6179E /* GuidePopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidePopover.swift; sourceTree = "<group>"; };
 		9328919DD0053E421B744545 /* SelfSignedSigningIdentityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfSignedSigningIdentityProvider.swift; sourceTree = "<group>"; };
@@ -161,7 +160,6 @@
 		A20EF68BE6710AF6FD4A95CF /* SigningContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningContracts.swift; sourceTree = "<group>"; };
 		A34D99502EC3CFC93DC21510 /* CERTIFICATE_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CERTIFICATE_GUIDE.md; sourceTree = "<group>"; };
 		A3F50610C13BB183FB3804EE /* QPDFBinary */ = {isa = PBXFileReference; lastKnownFileType = folder; name = QPDFBinary; path = Packages/QPDFBinary; sourceTree = SOURCE_ROOT; };
-		A67D36835455E14560BCD0C9 /* NightModeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightModeSettings.swift; sourceTree = "<group>"; };
 		A8061257878401A1313CB952 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		AA0CBE7680829B8425C141AE /* OrifoldFoldMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrifoldFoldMark.swift; sourceTree = "<group>"; };
 		AC8C606AC354B55ABC3D30CD /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
@@ -186,7 +184,9 @@
 		FCF49865576782C40D36EC30 /* RecentFilesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesSection.swift; sourceTree = "<group>"; };
 		8D79565B718057C4EF355FEE /* RecentsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentsStore.swift; sourceTree = "<group>"; };
 		A1BACD30EB58431D3B7A94C3 /* RecentFileEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFileEntry.swift; sourceTree = "<group>"; };
+		AFE7907191FACF14A4CD130E /* DocumentComfortSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentComfortSettings.swift; sourceTree = "<group>"; };
 		2483E9FBEE37EA5349738C97 /* RecentFileEntryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFileEntryTests.swift; sourceTree = "<group>"; };
+		E549642B58CE0AB9AB6A08EC /* DocumentComfortSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentComfortSettingsTests.swift; sourceTree = "<group>"; };
 		EDDD646A0A8A5E95AD82CDBE /* CMSSignatureBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CMSSignatureBuilderTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -408,11 +408,11 @@
 				EDDD646A0A8A5E95AD82CDBE /* CMSSignatureBuilderTests.swift */,
 				27E5E2F3AEAD36290772F4E7 /* ImportStressTests.swift */,
 				4B44F4FC778B68881DBAA6EB /* LocalizationCoverageTests.swift */,
-				90D475782FC98B6DC8DD49F5 /* NightModeSettingsTests.swift */,
 				1F8068580359DBDD38EB7801 /* OrifoldTests.swift */,
 				6C86A44C1039DEDF1D7951D7 /* PDFOCRTests.swift */,
 				C8435C48AB8FDF829FF58120 /* PDFSigningTests.swift */,
 				E3B051321CC974DE14719728 /* QPDFServiceTests.swift */,
+				E549642B58CE0AB9AB6A08EC /* DocumentComfortSettingsTests.swift */,
 				2483E9FBEE37EA5349738C97 /* RecentFileEntryTests.swift */,
 				BEBA427D87007CEE6505CEBE /* SignatureAppearanceTests.swift */,
 				60A39CA21F89EA9F82D1CD8B /* SigningVerificationHarness.swift */,
@@ -428,10 +428,10 @@
 			children = (
 				2069D39A0187FAD569685A2E /* AnnotationIndexEntry.swift */,
 				4C225D168B9A2D445CCCF62B /* MemberDocument.swift */,
-				A67D36835455E14560BCD0C9 /* NightModeSettings.swift */,
 				84B38C10463BCC9DFC571C72 /* PageDecoration.swift */,
 				DFA15BBF9F557FE0EC337A2F /* PageRef.swift */,
 				25C80ECC46A5DFBE04BEC503 /* PDFTextEditingModels.swift */,
+				AFE7907191FACF14A4CD130E /* DocumentComfortSettings.swift */,
 				A1BACD30EB58431D3B7A94C3 /* RecentFileEntry.swift */,
 				DD5B1F4B0BEA4FE05A099BDD /* SignaturePlacement.swift */,
 				625E0447CDF60023EEC77F9A /* SourceDocumentPayload.swift */,
@@ -570,11 +570,11 @@
 				976BF031FB603C521643B987 /* CMSSignatureBuilderTests.swift in Sources */,
 				3649F47473DBE15AF94B6806 /* ImportStressTests.swift in Sources */,
 				D87E3C7026F9E2BDE3DBA3E7 /* LocalizationCoverageTests.swift in Sources */,
-				E511C5FD05874DF3DB827CA3 /* NightModeSettingsTests.swift in Sources */,
 				CD6562D8CFC253CBDC3B2EF1 /* OrifoldTests.swift in Sources */,
 				BD040E1459C6B05D563A5F5A /* PDFOCRTests.swift in Sources */,
 				AA23DE5D38181932692FD24F /* PDFSigningTests.swift in Sources */,
 				CD623ED774CA006C6916E83B /* QPDFServiceTests.swift in Sources */,
+				A85CDB03B461EC234D48031C /* DocumentComfortSettingsTests.swift in Sources */,
 				1238CD43F41461942522832D /* RecentFileEntryTests.swift in Sources */,
 				8CB7A4B563A65998601187E8 /* SignatureAppearanceTests.swift in Sources */,
 				F6A9D5153C22A97CAF492F23 /* SigningVerificationHarness.swift in Sources */,
@@ -602,7 +602,6 @@
 				0055EC1C209B2139C0E1AB84 /* LanguageManager.swift in Sources */,
 				BB8E1BD3E39B76B2ABD3267D /* LanguageSwitcher.swift in Sources */,
 				8EE7D4B56AAF05AAAE5427F5 /* MemberDocument.swift in Sources */,
-				886C7AE969EEE91A7AA51EE5 /* NightModeSettings.swift in Sources */,
 				9146EA42E43B2E17A6DEF609 /* OrifoldApp.swift in Sources */,
 				9174DB3E60D4AF80870613B8 /* OrifoldFoldMark.swift in Sources */,
 				E98ADF6159DD07FBA48CE8F9 /* PDFCompressionService.swift in Sources */,
@@ -625,6 +624,7 @@
 				3BCB655CFB42BCA4FFFD5BA9 /* PageRef.swift in Sources */,
 				8164A5219C9A5E3017CD5FBF /* PasswordPromptView.swift in Sources */,
 				9DE41BE088CB945335E706EA /* PetBuddy.swift in Sources */,
+				17B9FBC9BC8C2AEDC31550EB /* DocumentComfortSettings.swift in Sources */,
 				A83D6D51E866C67F95AE5A0E /* RecentFileEntry.swift in Sources */,
 				1E4A9284AD104A54F9AF2876 /* PetSpecies.swift in Sources */,
 				17F9BF4A253DF40D4E624B40 /* QPDFService.swift in Sources */,
