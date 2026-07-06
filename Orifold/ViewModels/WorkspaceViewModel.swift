@@ -2333,6 +2333,12 @@ final class WorkspaceViewModel {
             bounds.origin.y = pageBounds.maxY - height - 12
         }
         let nearbyStyle = nearbyTextStyle(near: pagePoint, in: nearbyBlocks)
+        // No block anywhere on the page AND the page itself looks like a scanned/flattened
+        // image (no text layer, but visible ink) — the click can't be bound to any known text
+        // region, so tell the user honestly instead of silently opening what looks like a
+        // normal "detected this line" editor. A page with a real (if sparse) text layer, or
+        // any genuinely blank spot on an otherwise-editable page, stays a plain `.insertion`.
+        let isOnFlattenedPage = nearbyBlocks.isEmpty && PDFOCRService.isLikelyScannedPage(page)
         return EditableTextBlock(
             pageRefID: pageRefID,
             text: "",
@@ -2345,7 +2351,9 @@ final class WorkspaceViewModel {
             alignment: nearbyStyle?.alignment,
             rotation: CGFloat(page.rotation),
             baseline: bounds.minY,
-            confidence: .medium
+            confidence: .medium,
+            editability: isOnFlattenedPage ? .overlayOnly : .insertion,
+            textSource: .none
         )
     }
 

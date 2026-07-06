@@ -609,6 +609,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             case .editText:
                 inlineEditor?.finishForHandoff()
                 if let target = viewModel.editableTextBlock(at: pagePoint, on: page, in: pdfView.document) {
+                    announceEditability(of: target.block)
                     showInlineTextEditor(
                         for: target.block,
                         pageRef: target.pageRef,
@@ -651,6 +652,21 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 viewModel.selectedAnnotation = nil
                 viewModel.selectedStampDecorationID = nil
                 refreshSignatureOverlay()
+            }
+        }
+
+        /// Surfaces the detected region's editability before the inline editor opens, so a
+        /// reconstructed or explicitly-not-really-detected block never looks identical to a
+        /// normal high-confidence edit. `.direct` and a plain `.insertion` on an otherwise-
+        /// editable page need no banner — that's the ordinary case and stays silent.
+        private func announceEditability(of block: EditableTextBlock) {
+            switch block.editability {
+            case .replace:
+                viewModel.showEditMessage(L10n.string("readingCanvas.textEdit.chip.reconstructed"), isError: false)
+            case .overlayOnly:
+                viewModel.showEditMessage(L10n.string("readingCanvas.textEdit.chip.scannedPage"), isError: false)
+            case .direct, .insertion:
+                break
             }
         }
 

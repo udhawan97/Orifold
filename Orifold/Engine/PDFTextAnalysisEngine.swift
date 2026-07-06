@@ -94,10 +94,32 @@ final class PDFTextAnalysisEngine {
         return analyzeWithPDFKit(page: fallbackPage, pageRefID: pageRefID)
     }
 
+    /// Tiered hit test: a click is checked against every hittable block's own bounds first
+    /// (tight tolerance), and among ties the SMALLEST containing block wins — so clicking a
+    /// word in a dense table grabs that cell, not the whole row/paragraph. If nothing tightly
+    /// contains the point, retry with a per-block adaptive band (roughly half that block's own
+    /// line height) so a click landing in inter-word/inter-line whitespace just outside the
+    /// tight glyph ink still resolves instead of silently falling through to a blank insertion
+    /// box. `.insertion` blocks (the synthetic "nothing was detected here" placeholder) are
+    /// never candidates — callers build one of those themselves once hitTest returns nil.
     func hitTest(_ point: CGPoint, in analysis: PDFTextPageAnalysis, tolerance: CGFloat = 5) -> EditableTextBlock? {
-        analysis.blocks
-            .filter { $0.confidence != .low }
-            .first { $0.bounds.insetBy(dx: -tolerance, dy: -tolerance).contains(point) }
+        let candidates = analysis.blocks.filter { $0.editability != .insertion }
+        guard !candidates.isEmpty else { return nil }
+
+        let tightHits = candidates.filter { $0.bounds.insetBy(dx: -tolerance, dy: -tolerance).contains(point) }
+        if let best = smallestBlock(among: tightHits) {
+            return best
+        }
+
+        let bandHits = candidates.filter { block in
+            let bandTolerance = max(tolerance, block.bounds.height * 0.5)
+            return block.bounds.insetBy(dx: -bandTolerance, dy: -bandTolerance * 0.6).contains(point)
+        }
+        return smallestBlock(among: bandHits)
+    }
+
+    private func smallestBlock(among blocks: [EditableTextBlock]) -> EditableTextBlock? {
+        blocks.min { ($0.bounds.width * $0.bounds.height) < ($1.bounds.width * $1.bounds.height) }
     }
 
     private func analyzeWithPDFium(data: Data, pageIndex: Int, pageRefID: UUID?, sourcePage: PDFPage?) -> PDFTextPageAnalysis? {
@@ -468,7 +490,9 @@ final class PDFTextAnalysisEngine {
             textColor: color,
             rotation: 0,
             baseline: bounds.minY,
-            confidence: confidence
+            confidence: confidence,
+            editability: .direct,
+            textSource: .pdfiumGlyphs
         )
     }
 
@@ -524,27 +548,82 @@ final class PDFTextAnalysisEngine {
         return italicCount * 2 > samples.count
     }
 
+    /// Runs when PDFium extracted zero usable glyph boxes for the page (unusual encodings,
+    /// CID fonts PDFium can't box, some malformed content streams) but `page.string` proves
+    /// PDFKit itself can still see a text layer. Rather than returning one whole-page,
+    /// `.low`-confidence block that `hitTest` used to silently exclude — the historical
+    /// "blank white box" bug, since PDFium-empty pages fell straight through to an empty
+    /// insertion block even though the text was right there — reconstruct LINE-LEVEL blocks
+    /// from PDFKit's own selection geometry so clicking a visible line still opens the editor
+    /// prefilled with that line's real text. Font/size here are necessarily approximate (no
+    /// per-glyph font data is available from this path), so these are tagged `.replace`
+    /// rather than `.direct`.
     private func analyzeWithPDFKit(page: PDFPage?, pageRefID: UUID?) -> PDFTextPageAnalysis {
         guard let page,
               let pageText = page.string,
               !pageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: [])
         }
-        let bounds = page.bounds(for: .cropBox)
-        let block = EditableTextBlock(
+        let cropBox = page.bounds(for: .cropBox)
+        guard let fullSelection = page.selection(for: cropBox) else {
+            return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: [wholePageFallbackBlock(page: page, pageRefID: pageRefID, cropBox: cropBox, text: pageText)])
+        }
+
+        let lineSelections = fullSelection.selectionsByLine()
+        let columnBounds = cropBox.insetBy(dx: 24, dy: 8)
+        let lineBlocks: [EditableTextBlock] = lineSelections.compactMap { selection in
+            let text = (selection.string ?? "")
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return nil }
+            let bounds = selection.bounds(for: page)
+            guard bounds.width > 2, bounds.height > 2 else { return nil }
+            let fontName = "Helvetica"
+            let estimatedSize = effectiveFontSize(fromInkHeight: bounds.height, fontName: fontName)
+            return EditableTextBlock(
+                pageRefID: pageRefID,
+                text: text,
+                bounds: bounds.insetBy(dx: -2, dy: -2),
+                lines: [],
+                columnBounds: columnBounds,
+                fontName: fontName,
+                fontSize: estimatedSize > 0 ? estimatedSize : 12,
+                textColor: .documentText,
+                rotation: CGFloat(page.rotation),
+                baseline: bounds.minY,
+                confidence: .medium,
+                editability: .replace,
+                textSource: .pdfKitString
+            )
+        }
+
+        guard !lineBlocks.isEmpty else {
+            return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: [wholePageFallbackBlock(page: page, pageRefID: pageRefID, cropBox: cropBox, text: pageText)])
+        }
+        return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: lineBlocks.sorted { $0.bounds.minY > $1.bounds.minY })
+    }
+
+    /// Last-resort single whole-page block for the rare case PDFKit's own line-selection API
+    /// can't segment the page (e.g. a single selection spanning unusual glyph runs). Still
+    /// tagged hittable (not `.low`/excluded) so a click at least opens an editor pre-filled
+    /// with the page's real text instead of a blank box, but flagged `.overlayOnly` since its
+    /// geometry can't be trusted at line granularity.
+    private func wholePageFallbackBlock(page: PDFPage, pageRefID: UUID?, cropBox: CGRect, text: String) -> EditableTextBlock {
+        EditableTextBlock(
             pageRefID: pageRefID,
-            text: pageText,
-            bounds: bounds.insetBy(dx: 48, dy: 48),
+            text: text,
+            bounds: cropBox.insetBy(dx: 48, dy: 48),
             lines: [],
-            columnBounds: bounds.insetBy(dx: 48, dy: 48),
+            columnBounds: cropBox.insetBy(dx: 48, dy: 48),
             fontName: "Helvetica",
             fontSize: 12,
             textColor: .documentText,
             rotation: CGFloat(page.rotation),
-            baseline: bounds.maxY - 48,
-            confidence: .low
+            baseline: cropBox.maxY - 48,
+            confidence: .medium,
+            editability: .overlayOnly,
+            textSource: .pdfKitString
         )
-        return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: [block])
     }
 
     private func unionBounds(_ rects: [CGRect]) -> CGRect? {
