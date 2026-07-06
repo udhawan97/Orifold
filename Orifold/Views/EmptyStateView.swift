@@ -13,6 +13,7 @@ struct EmptyStateView: View {
     @State private var draggedKind: ImportDragKind?
     @State private var scanPhase: FolderScanPhase = .idle
     @State private var pendingFolderBatch: PendingFolderImportBatch?
+    @State private var activeImportTask: Task<Void, Never>?
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -166,7 +167,7 @@ struct EmptyStateView: View {
             presenting: pendingFolderBatch
         ) { batch in
             Button(folderImportOverLimitImportFirstLabel(count: maximumImportBatchSize)) {
-                importFirstFromPendingBatch(batch)
+                confirmOverLimitImport(batch)
             }
             Button("folderImport.overLimit.cancel", role: .cancel) {
                 pendingFolderBatch = nil
@@ -315,7 +316,9 @@ struct EmptyStateView: View {
     }
 
     private func handleResolvedDrop(_ resolved: ResolvedImportDrop) {
+        activeImportTask?.cancel()
         guard !resolved.files.isEmpty || !resolved.folders.isEmpty else {
+            scanPhase = .idle
             viewModel.importError = WorkspaceViewModel.ImportError(
                 fileName: "Dropped Files",
                 message: L10n.string("contentView.dropImportError.noSupportedDocument")
@@ -323,7 +326,7 @@ struct EmptyStateView: View {
             return
         }
         scanPhase = resolved.folders.isEmpty ? .idle : .scanning
-        Task {
+        activeImportTask = Task {
             if !resolved.folders.isEmpty {
                 await MainActor.run { scanPhase = .finding }
             }
@@ -332,6 +335,7 @@ struct EmptyStateView: View {
                 folders: resolved.folders,
                 wasLimited: resolved.wasLimited
             )
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 scanPhase = .idle
                 applyOutcome(outcome)
@@ -340,44 +344,13 @@ struct EmptyStateView: View {
     }
 
     private func applyOutcome(_ outcome: FolderImportOutcome) {
-        switch outcome {
-        case .ready(let urls, let unsupportedCount, let wasLimited):
-            viewModel.importFiles(urls: urls)
-            if unsupportedCount > 0 {
-                let message = folderImportSummaryMessage(importedCount: urls.count, skippedCount: unsupportedCount)
-                viewModel.editingStatus = .success(message)
-                AccessibilityNotification.Announcement(message).post()
-            } else if wasLimited {
-                viewModel.importError = WorkspaceViewModel.ImportError(
-                    fileName: "Dropped Files",
-                    message: importDropProviderLimitMessage
-                )
-            }
-        case .empty:
-            viewModel.importError = WorkspaceViewModel.ImportError(
-                fileName: "Folder",
-                message: L10n.string("folderImport.error.empty")
-            )
-        case .onlyUnsupported:
-            viewModel.importError = WorkspaceViewModel.ImportError(
-                fileName: "Folder",
-                message: L10n.string("folderImport.error.onlyUnsupported")
-            )
-        case .needsConfirmation(let batch):
+        applyFolderImportOutcome(outcome, into: viewModel) { batch in
             pendingFolderBatch = batch
-        case .nothingToImport:
-            break
         }
     }
 
-    private func importFirstFromPendingBatch(_ batch: PendingFolderImportBatch) {
-        let firstBatch = Array(batch.urls.prefix(maximumImportBatchSize))
-        viewModel.importFiles(urls: firstBatch)
-        if batch.unsupportedCount > 0 {
-            viewModel.editingStatus = .success(
-                folderImportSummaryMessage(importedCount: firstBatch.count, skippedCount: batch.unsupportedCount)
-            )
-        }
+    private func confirmOverLimitImport(_ batch: PendingFolderImportBatch) {
+        importFirstFromPendingBatch(batch, into: viewModel)
         pendingFolderBatch = nil
     }
 

@@ -17,6 +17,15 @@ final class FolderImportOrchestratorTests: XCTestCase {
         return url
     }
 
+    @MainActor
+    private func makeViewModel() -> WorkspaceViewModel {
+        WorkspaceViewModel(
+            document: WorkspaceDocument(),
+            engine: PDFKitEngine(),
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+    }
+
     // MARK: - importPickedOrDropped
 
     func testFilesOnlyWithNoFoldersReturnsReadyUnchanged() async {
@@ -24,12 +33,13 @@ final class FolderImportOrchestratorTests: XCTestCase {
 
         let outcome = await importPickedOrDropped(files: files, folders: [])
 
-        guard case .ready(let urls, let unsupportedCount, let wasLimited) = outcome else {
+        guard case .ready(let urls, let unsupportedCount, let wasLimited, let wasTruncated) = outcome else {
             return XCTFail("expected .ready, got \(outcome)")
         }
         XCTAssertEqual(urls, files)
         XCTAssertEqual(unsupportedCount, 0)
         XCTAssertFalse(wasLimited)
+        XCTAssertFalse(wasTruncated)
     }
 
     func testFilesOnlyPropagatesWasLimitedFlagWithoutTouchingFolderPath() async {
@@ -37,10 +47,27 @@ final class FolderImportOrchestratorTests: XCTestCase {
 
         let outcome = await importPickedOrDropped(files: files, folders: [], wasLimited: true)
 
-        guard case .ready(_, _, let wasLimited) = outcome else {
+        guard case .ready(_, _, let wasLimited, _) = outcome else {
             return XCTFail("expected .ready, got \(outcome)")
         }
         XCTAssertTrue(wasLimited)
+    }
+
+    func testWasLimitedIsPreservedWhenAFolderIsAlsoPresent() async throws {
+        // Regression test: importPickedOrDropped used to hardcode wasLimited: false
+        // once any folder was involved, silently dropping the "too many loose files
+        // were dropped" signal the moment a folder was scanned alongside them.
+        let root = makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try write("a.txt", in: root)
+
+        let files = [URL(fileURLWithPath: "/tmp/a.txt")]
+        let outcome = await importPickedOrDropped(files: files, folders: [root], wasLimited: true)
+
+        guard case .ready(_, _, let wasLimited, _) = outcome else {
+            return XCTFail("expected .ready, got \(outcome)")
+        }
+        XCTAssertTrue(wasLimited, "wasLimited must survive merging with folder-scanned files, not just the folders-empty path")
     }
 
     func testNoFilesAndNoFoldersReturnsNothingToImport() async {
@@ -58,7 +85,7 @@ final class FolderImportOrchestratorTests: XCTestCase {
 
         let outcome = await importPickedOrDropped(files: [], folders: [root])
 
-        guard case .ready(let urls, let unsupportedCount, let wasLimited) = outcome else {
+        guard case .ready(let urls, let unsupportedCount, let wasLimited, _) = outcome else {
             return XCTFail("expected .ready, got \(outcome)")
         }
         XCTAssertEqual(urls.count, 2)
@@ -74,7 +101,7 @@ final class FolderImportOrchestratorTests: XCTestCase {
 
         let outcome = await importPickedOrDropped(files: [shared], folders: [root])
 
-        guard case .ready(let urls, _, _) = outcome else {
+        guard case .ready(let urls, _, _, _) = outcome else {
             return XCTFail("expected .ready, got \(outcome)")
         }
         XCTAssertEqual(urls.count, 2, "the dragged file and its folder-scanned duplicate should not both appear")
@@ -121,6 +148,60 @@ final class FolderImportOrchestratorTests: XCTestCase {
         let firstFifty = Array(batch.urls.prefix(maximumImportBatchSize))
         XCTAssertEqual(firstFifty.count, maximumImportBatchSize)
         XCTAssertEqual(firstFifty, firstFifty.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending })
+    }
+
+    // MARK: - applyFolderImportOutcome (regression guards for the swallowed-signal bugs)
+
+    @MainActor
+    func testReadyOutcomeSurfacesBothSkippedSummaryAndProviderLimitWarning() {
+        // Regression test: applyOutcome used to be an if/else-if that let the
+        // unsupported-file summary toast silently swallow the provider-limit error
+        // whenever both were true for the same outcome. They're independent UI
+        // surfaces (editingStatus toast vs. importError alert) and must both fire.
+        let viewModel = makeViewModel()
+        let outcome = FolderImportOutcome.ready(
+            urls: [URL(fileURLWithPath: "/tmp/a.txt")],
+            unsupportedCount: 2,
+            wasLimited: true,
+            wasTruncated: false
+        )
+
+        applyFolderImportOutcome(outcome, into: viewModel) { _ in
+            XCTFail("should not need confirmation for a .ready outcome")
+        }
+
+        XCTAssertNotNil(viewModel.editingStatus, "skipped-file summary must still be shown")
+        XCTAssertNotNil(viewModel.importError, "provider-limit warning must not be swallowed by the summary toast")
+    }
+
+    func testReadyStatusMessageSurfacesTruncationEvenWithNoUnsupportedFiles() {
+        // Regression test: scan.wasTruncated used to be discarded entirely once the
+        // merged file count fit under the batch limit, leaving no signal that the
+        // 10,000-entry safety cap cut a scan short.
+        let message = folderImportReadyStatusMessage(importedCount: 5, unsupportedCount: 0, wasTruncated: true)
+        XCTAssertNotNil(message, "a truncated scan must produce a status message even with zero unsupported files")
+    }
+
+    func testReadyStatusMessageIsNilWhenNothingNoteworthyHappened() {
+        XCTAssertNil(folderImportReadyStatusMessage(importedCount: 5, unsupportedCount: 0, wasTruncated: false))
+    }
+
+    @MainActor
+    func testImportFirstFromPendingBatchSurfacesTruncationEvenWithNoUnsupportedFiles() {
+        // Regression test: the shared "Import first 50" handler used by both the
+        // drop-zone/button confirmation dialog and the File-menu's NSAlert only
+        // checked unsupportedCount, silently dropping the truncation signal after
+        // the user confirmed the import even though the dialog showed it beforehand.
+        let viewModel = makeViewModel()
+        let batch = PendingFolderImportBatch(
+            urls: (0..<60).map { URL(fileURLWithPath: "/tmp/file-\($0).txt") },
+            unsupportedCount: 0,
+            wasTruncated: true
+        )
+
+        importFirstFromPendingBatch(batch, into: viewModel)
+
+        XCTAssertNotNil(viewModel.editingStatus, "a truncated scan must still be surfaced after confirming the import")
     }
 
     // MARK: - resolveImportDrop classification (regression guard for the folder-aware drop path)
