@@ -14,8 +14,8 @@ struct OrifoldApp: App {
         }
         .commands {
             AppCommands()
-                .environmentObject(languageManager)
         }
+        .environmentObject(languageManager)
 
         Window("window.about.title", id: "about-orifold") {
             AppAboutPopover()
