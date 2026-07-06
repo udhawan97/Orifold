@@ -231,8 +231,16 @@ final class WorkspaceViewModel {
     var loadedPDFs: [(MemberDocument, PDFDocument)] = []
 
     // MARK: - UI state
-    var importError: ImportError? = nil
-    var exportError: ExportError? = nil
+    // A single, centralized integration point for the pet's "warning" reaction: every
+    // import/export failure in the app funnels through one of these two properties, so
+    // observing them here fires exactly one throttled pet reaction per surfaced error
+    // rather than scattering `PetBuddyHook.trigger(.warning)` across ~20 failure sites.
+    var importError: ImportError? = nil {
+        didSet { if importError != nil { PetBuddyHook.trigger(.warning) } }
+    }
+    var exportError: ExportError? = nil {
+        didSet { if exportError != nil { PetBuddyHook.trigger(.warning) } }
+    }
     var exportSuccess: ExportSuccess? = nil
     var isImporting = false
     var pendingPasswordURL: URL? = nil

@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" width="220" height="220" role="img" aria-label="Origami Cat: a seated paper cat with continuously twitching ears">
-  <title>Orifold — Origami Cat companion, ears twitching</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" width="220" height="220" role="img" aria-label="Ori the origami cat: a seated paper cat with short triangular ears that twitch and a slowly swaying tail">
+  <title>Orifold — Ori the origami cat, ears twitching and tail swaying</title>
   <defs>
     <linearGradient id="catTileG" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2b4566"/><stop offset="1" stop-color="#75bfd4"/></linearGradient>
     <radialGradient id="catMoonG" cx="0.71" cy="0.30" r="0.20"><stop offset="0" stop-color="rgba(219,242,247,0.26)"/><stop offset="1" stop-color="rgba(179,230,242,0)"/></radialGradient>
@@ -46,13 +46,14 @@
       <polygon points="170,190 184,236 162,258" fill="url(#catTailLit)" opacity="0.9"/>
       <polygon points="164,264 195,262 190,272 164,272" fill="url(#catBodyLit)"/>
 
-      <!-- Ears — twitching group, pivoting at the crown. -->
-      <g transform="rotate(0 170 130)">
-        <animateTransform attributeName="transform" type="rotate" values="0 170 130;0 170 130;-9 170 130;7 170 130;0 170 130;0 170 130" keyTimes="0;0.55;0.68;0.80;0.92;1" dur="3.6s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1"/>
-        <polygon points="188,128 200,63 172,122" fill="url(#catEarShade)"/>
-        <polygon points="196,120 200,80 179,120" fill="url(#catInnerEar)" opacity="0.9"/>
-        <polygon points="152,128 140,63 168,122" fill="url(#catEarLit)"/>
-        <polygon points="145,120 141,80 162,120" fill="url(#catInnerEar)"/>
+      <!-- Ears — short, broad-based TRIANGULAR cat ears (not tall rabbit ears),
+           twitching sharply and quickly, pivoting near their base on the crown. -->
+      <g transform="rotate(0 170 133)">
+        <animateTransform attributeName="transform" type="rotate" values="0 170 133;0 170 133;-10 170 133;8 170 133;0 170 133;0 170 133" keyTimes="0;0.6;0.7;0.8;0.9;1" dur="3.2s" repeatCount="indefinite" calcMode="spline" keySplines="0.3 0 0.15 1;0.3 0 0.15 1;0.3 0 0.15 1;0.3 0 0.15 1;0.3 0 0.15 1"/>
+        <polygon points="170,122 189,86 199,140" fill="url(#catEarShade)"/>
+        <polygon points="173,124 186,102 191,137" fill="url(#catInnerEar)" opacity="0.9"/>
+        <polygon points="141,140 151,86 170,122" fill="url(#catEarLit)"/>
+        <polygon points="149,137 154,102 167,124" fill="url(#catInnerEar)"/>
       </g>
 
       <!-- Head -->

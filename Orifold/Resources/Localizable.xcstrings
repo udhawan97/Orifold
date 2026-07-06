@@ -16612,37 +16612,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy — your Orifold buddy"
+            "value": "Your Orifold companion"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy: tu compañero de Orifold"
+            "value": "Tu compañero de Orifold"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy, votre compagnon Orifold"
+            "value": "Votre compagnon Orifold"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy — आपका Orifold साथी"
+            "value": "आपका Orifold साथी"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy——你的 Orifold 伙伴"
+            "value": "你的 Orifold 伙伴"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy — あなたのOrifoldバディ"
+            "value": "あなたの Orifold コンパニオン"
           }
         }
       }
@@ -16694,37 +16694,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hide Foldy"
+            "value": "Hide companion"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ocultar a Foldy"
+            "value": "Ocultar compañero"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masquer Foldy"
+            "value": "Masquer le compagnon"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy छिपाएं"
+            "value": "साथी छिपाएँ"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "隐藏 Foldy"
+            "value": "隐藏伙伴"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldyを非表示"
+            "value": "コンパニオンを非表示"
           }
         }
       }
@@ -16776,37 +16776,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy is here to help"
+            "value": "Your companion is here to help"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy está aquí para ayudar"
+            "value": "Tu compañero está aquí para ayudar"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy est là pour vous aider"
+            "value": "Votre compagnon est là pour vous aider"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "मदद के लिए Foldy यहाँ है"
+            "value": "आपका साथी मदद के लिए यहाँ है"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldy 随时为你效劳"
+            "value": "你的伙伴来帮忙了"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Foldyがお手伝いします"
+            "value": "コンパニオンがお手伝いします"
           }
         }
       }
@@ -21614,37 +21614,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dog"
+            "value": "Gami"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Perro"
+            "value": "Gami"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chien"
+            "value": "Gami"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "कुत्ता"
+            "value": "Gami"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "犬"
+            "value": "Gami"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "狗"
+            "value": "Gami"
           }
         }
       }
@@ -21655,37 +21655,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cat"
+            "value": "Ori"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gato"
+            "value": "Ori"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chat"
+            "value": "Ori"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "बिल्ली"
+            "value": "Ori"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "猫"
+            "value": "Ori"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "猫"
+            "value": "Ori"
           }
         }
       }
@@ -21696,37 +21696,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Loyal, tidy, endlessly encouraging."
+            "value": "Origami dog · loyal, excited, endlessly encouraging."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leal, ordenado y siempre alentador."
+            "value": "Perro de origami · leal, entusiasta, siempre alentador."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Loyal, soigné, toujours encourageant."
+            "value": "Chien en origami · loyal, enthousiaste, toujours encourageant."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "वफ़ादार, सुव्यवस्थित और हमेशा हौसला बढ़ाने वाला।"
+            "value": "ओरिगामी कुत्ता · वफ़ादार, उत्साही, हमेशा हौसला बढ़ाने वाला।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "忠実で几帳面、いつでも励ましてくれる。"
+            "value": "折り紙の犬 · 忠実で、元気いっぱい、いつも励ましてくれる。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "忠诚、爱整洁，永远为你加油。"
+            "value": "折纸狗 · 忠诚、热情、永远给你打气。"
           }
         }
       }
@@ -21737,37 +21737,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clever, composed, quietly in charge."
+            "value": "Origami cat · clever, composed, quietly in charge."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuto, sereno y al mando sin alardear."
+            "value": "Gato de origami · astuto, sereno, al mando en silencio."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Malin, posé, aux commandes en toute discrétion."
+            "value": "Chat en origami · malin, posé, aux commandes en silence."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "चतुर, शांत और चुपचाप सब कुछ संभालने वाला।"
+            "value": "ओरिगामी बिल्ली · चतुर, शांत, चुपचाप सब संभालने वाली।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "賢く、落ち着いて、静かに仕切っている。"
+            "value": "折り紙の猫 · 賢く、落ち着いていて、静かに仕切る。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "聪明、沉稳，不动声色地掌控一切。"
+            "value": "折纸猫 · 聪慧、沉着，不动声色地掌控全局。"
           }
         }
       }
@@ -21778,7 +21778,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ready when you are. I've been guarding the margins."
+            "value": "PDF patrol reporting for duty."
           }
         },
         "es": {
@@ -21819,7 +21819,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New page, fresh scent. Let's make it neat."
+            "value": "You edit. I supervise with enthusiasm."
           }
         },
         "es": {
@@ -22024,37 +22024,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hi, I'm your paper pup."
+            "value": "Hi, I'm Gami — your paper pup."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hola, soy tu cachorro de papel."
+            "value": "¡Hola! Soy Gami, tu cachorro de papel."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Salut, je suis ton chiot en papier."
+            "value": "Salut, je suis Gami — ton chiot en papier."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "नमस्ते, मैं आपका काग़ज़ी पिल्ला हूँ।"
+            "value": "नमस्ते, मैं Gami हूँ — तुम्हारा कागज़ी पिल्ला।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "やあ、僕は紙のワンコだよ。"
+            "value": "こんにちは、ぼくは Gami — きみの紙の子犬だよ。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "嗨，我是你的纸折小狗。"
+            "value": "嗨，我是 Gami——你的纸小狗。"
           }
         }
       }
@@ -22147,7 +22147,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A new page. I'll pretend to be impressed."
+            "value": "You may continue editing. I permit it."
           }
         },
         "es": {
@@ -22229,7 +22229,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Done. It behaved because I was watching."
+            "value": "Export it. I wanted closure."
           }
         },
         "es": {
@@ -22311,7 +22311,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saved. You're welcome, presumably."
+            "value": "The formatting is behaving. Suspicious."
           }
         },
         "es": {
@@ -22352,37 +22352,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "I'm your paper cat. Obviously."
+            "value": "I'm Ori. This is my document now. You may assist."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Soy tu gato de papel. Evidentemente."
+            "value": "Soy Ori. Ahora este documento es mío. Puedes ayudar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je suis ton chat en papier. Évidemment."
+            "value": "Je suis Ori. Ce document est le mien désormais. Tu peux m'assister."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "मैं आपकी काग़ज़ी बिल्ली हूँ। ज़ाहिर है।"
+            "value": "मैं Ori हूँ। अब यह दस्तावेज़ मेरा है। तुम मदद कर सकते हो।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "私は紙の猫。言うまでもなく。"
+            "value": "私は Ori。この書類は今、私のもの。手伝ってよろしい。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "我是你的纸折猫。不用问也知道。"
+            "value": "我是 Ori。这份文档现在归我了。你可以来协助。"
           }
         }
       }
@@ -26452,7 +26452,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "I'm guarding the margins. Suspiciously well-behaved today."
+            "value": "You hovered! I've been preparing for this moment."
           }
         },
         "es": {
@@ -26493,7 +26493,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Need help? I sniff out formatting crimes."
+            "value": "PDF patrol reporting for duty."
           }
         },
         "es": {
@@ -26534,7 +26534,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "PDF patrol active."
+            "value": "I sniffed the margins. Something smells aligned."
           }
         },
         "es": {
@@ -26575,7 +26575,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "I am observing the document. Elegantly."
+            "value": "Human, your document requires attention."
           }
         },
         "es": {
@@ -26616,7 +26616,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Margins seem acceptable. For now."
+            "value": "I inspected the margins. Acceptable. Barely."
           }
         },
         "es": {
@@ -26657,7 +26657,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Need help? I may pretend this was my idea."
+            "value": "Proceed. I will supervise."
           }
         },
         "es": {
@@ -26688,6 +26688,416 @@
           "stringUnit": {
             "state": "translated",
             "value": "需要帮忙吗？我可能会假装这是我的主意。"
+          }
+        }
+      }
+    },
+    "pet.dog.hoverTip.4": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Need help? I can emotionally support the export button."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Necesitas ayuda? Puedo dar apoyo emocional al botón de exportar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Besoin d'aide ? Je peux soutenir moralement le bouton d'export."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मदद चाहिए? मैं एक्सपोर्ट बटन को भावनात्मक सहारा दे सकता हूँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お手伝いしましょうか？書き出しボタンを心から応援できます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要帮忙吗？我可以给导出按钮提供情感支持。"
+          }
+        }
+      }
+    },
+    "pet.dog.hoverTip.5": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I'm guarding this document like it owes you money."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigilo este documento como si te debiera dinero."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je garde ce document comme s'il te devait de l'argent."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मैं इस दस्तावेज़ की ऐसे रखवाली कर रहा हूँ जैसे यह आपका कर्ज़दार हो।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この書類を、借金でもあるかのように見張っています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我守着这份文档，就像它欠你钱一样。"
+          }
+        }
+      }
+    },
+    "pet.dog.hoverTip.6": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Still here. Still loyal. Still judging bad spacing."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sigo aquí. Sigo leal. Sigo juzgando el mal espaciado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours là. Toujours loyal. Toujours à juger les mauvais espacements."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अब भी यहीं हूँ। अब भी वफ़ादार। अब भी ख़राब स्पेसिंग को परख रहा हूँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだここにいます。まだ忠実です。まだ雑な余白を見張っています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还在这儿。依然忠诚。依然在挑剔糟糕的间距。"
+          }
+        }
+      }
+    },
+    "pet.cat.hoverTip.4": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This PDF is under my silent judgment."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este PDF está bajo mi juicio silencioso."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce PDF est soumis à mon jugement silencieux."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह PDF मेरी ख़ामोश परख के अधीन है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この PDF は、私の静かな審判の下にあります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这份 PDF 正接受我无声的评判。"
+          }
+        }
+      }
+    },
+    "pet.cat.hoverTip.5": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I was not waiting for you. I was observing."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No te estaba esperando. Estaba observando."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je ne t'attendais pas. J'observais."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मैं तुम्हारा इंतज़ार नहीं कर रहा था। मैं बस देख रहा था।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あなたを待っていたのではありません。観察していたのです。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我不是在等你。我是在观察。"
+          }
+        }
+      }
+    },
+    "pet.cat.hoverTip.6": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click wisely, human."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic con sabiduría, humano."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clique avec sagesse, humain."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "समझदारी से क्लिक करो, इंसान।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "賢くクリックしなさい、人間よ。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击需谨慎，人类。"
+          }
+        }
+      }
+    },
+    "pet.dog.warning.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something smells off. I'll sit right here while you fix it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algo huele mal. Me quedaré aquí sentado mientras lo arreglas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelque chose cloche. Je reste assis ici pendant que tu répares."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुछ गड़बड़ महसूस हो रही है। जब तक तुम इसे ठीक करो, मैं यहीं बैठा रहूँगा।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "何か様子がおかしいです。直すあいだ、ここに座って待っています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有点不对劲。你修的时候，我就守在这儿。"
+          }
+        }
+      }
+    },
+    "pet.dog.warning.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uh oh — I sniffed a problem. You've got this."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uy… olí un problema. Tú puedes con esto."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oh oh — j'ai flairé un problème. Tu vas y arriver."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अरे — मुझे कोई गड़बड़ सूँघ आई। तुम यह कर लोगे।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "おっと、問題のにおいがします。あなたなら大丈夫。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "糟糕——我嗅到了问题。你可以搞定的。"
+          }
+        }
+      }
+    },
+    "pet.cat.warning.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A problem. Do not panic — that is my job, and I refuse."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un problema. No te alarmes: ese es mi trabajo, y me niego."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un problème. Ne panique pas — c'est mon rôle, et je refuse."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक समस्या। घबराओ मत — यह मेरा काम है, और मैं मना करता हूँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "問題ですね。慌てないで——それは私の役目ですが、私は断ります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有个问题。别慌——那是我的职责，而我拒绝。"
+          }
+        }
+      }
+    },
+    "pet.cat.warning.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something is amiss. I will supervise the repair."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algo va mal. Supervisaré la reparación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelque chose ne va pas. Je superviserai la réparation."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुछ गड़बड़ है। मैं मरम्मत की निगरानी करूँगा।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "何かがおかしいです。修復を監督します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有些不对劲。我会监督修复。"
           }
         }
       }

@@ -633,10 +633,12 @@ extension PaperFigure {
 
 // MARK: Cat geometry
 //
-// A composed seated origami cat in cool slate paper, facing right: a narrow two-tone
-// head crowned by two tall pointed ears that TWITCH, a small muzzle with a dark nose, a
-// slim upright torso, a dark almond eye, and a long tail curling along the front paws.
-// Group mapping matches the dog (head→head, ears→wing, muzzle→neck, torso→body, tail→tail).
+// A composed seated origami cat in cool slate paper, facing right: a two-tone head
+// crowned by two short, broad-based TRIANGULAR ears that TWITCH — deliberately shorter
+// and wider than a rabbit's so Ori reads unmistakably as a cat — plus a small muzzle
+// with a dark nose, a slim upright torso, a dark almond eye, and a long tail that curls
+// along the front paws and sways slowly. Group mapping matches the dog (head→head,
+// ears→wing, muzzle→neck, torso→body, tail→tail).
 
 extension PaperFigure {
     static let cat: PaperFigure = {
@@ -646,14 +648,16 @@ extension PaperFigure {
         let headL = CGPoint(x: 0.405, y: 0.470)
 
         let facets: [PaperFacet] = [
-            // Far ear — broad feline triangle, set wide on the right of the crown.
+            // Far ear — a short, broad-based cat triangle rooted on the head's upper-right
+            // corner and standing nearly upright (not the tall, narrow rabbit ear it used
+            // to be). Base spans the crown; the tip is only a little above the head.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.585, y: 0.400), CGPoint(x: 0.600, y: 0.185), CGPoint(x: 0.500, y: 0.360)],
-                       hi: 0.50, lo: 0.30, gradFrom: CGPoint(x: 0.600, y: 0.185), gradTo: CGPoint(x: 0.54, y: 0.375)),
+                       pts: [CGPoint(x: 0.500, y: 0.360), CGPoint(x: 0.556, y: 0.252), CGPoint(x: 0.586, y: 0.412)],
+                       hi: 0.50, lo: 0.30, gradFrom: CGPoint(x: 0.556, y: 0.252), gradTo: CGPoint(x: 0.586, y: 0.412)),
             // Inner far-ear — a soft pink nested triangle.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.578, y: 0.388), CGPoint(x: 0.590, y: 0.238), CGPoint(x: 0.512, y: 0.360)],
-                       hi: 0.60, lo: 0.34, gradFrom: CGPoint(x: 0.590, y: 0.238), gradTo: CGPoint(x: 0.55, y: 0.360),
+                       pts: [CGPoint(x: 0.510, y: 0.364), CGPoint(x: 0.546, y: 0.300), CGPoint(x: 0.562, y: 0.402)],
+                       hi: 0.60, lo: 0.34, gradFrom: CGPoint(x: 0.546, y: 0.300), gradTo: CGPoint(x: 0.560, y: 0.400),
                        overridePalette: .innerEarCat),
             // Tail — long curl sweeping along the front, two facets.
             PaperFacet(group: .tail,
@@ -708,22 +712,23 @@ extension PaperFigure {
                        pts: [CGPoint(x: 0.606, y: 0.502), CGPoint(x: 0.648, y: 0.514), CGPoint(x: 0.620, y: 0.540)],
                        hi: 0.92, lo: 0.46, gradFrom: CGPoint(x: 0.606, y: 0.502), gradTo: CGPoint(x: 0.620, y: 0.540),
                        overridePalette: .noseCat),
-            // Near ear — bright broad feline triangle, set wide on the left of the crown.
+            // Near ear — bright short cat triangle on the head's upper-left corner,
+            // mirroring the far ear so the two read as a matched feline pair.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.415, y: 0.400), CGPoint(x: 0.400, y: 0.185), CGPoint(x: 0.500, y: 0.360)],
-                       hi: 0.86, lo: 0.60, gradFrom: CGPoint(x: 0.400, y: 0.185), gradTo: CGPoint(x: 0.48, y: 0.360)),
+                       pts: [CGPoint(x: 0.414, y: 0.412), CGPoint(x: 0.444, y: 0.252), CGPoint(x: 0.500, y: 0.360)],
+                       hi: 0.86, lo: 0.60, gradFrom: CGPoint(x: 0.444, y: 0.252), gradTo: CGPoint(x: 0.414, y: 0.412)),
             // Inner near-ear — bright pink nested triangle.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.424, y: 0.388), CGPoint(x: 0.412, y: 0.238), CGPoint(x: 0.492, y: 0.360)],
-                       hi: 0.92, lo: 0.60, gradFrom: CGPoint(x: 0.412, y: 0.238), gradTo: CGPoint(x: 0.47, y: 0.360),
+                       pts: [CGPoint(x: 0.438, y: 0.402), CGPoint(x: 0.454, y: 0.300), CGPoint(x: 0.490, y: 0.364)],
+                       hi: 0.92, lo: 0.60, gradFrom: CGPoint(x: 0.454, y: 0.300), gradTo: CGPoint(x: 0.440, y: 0.400),
                        overridePalette: .innerEarCat),
         ]
 
         let creases: [PaperCrease] = [
             PaperCrease(group: .head, a: headTop, b: headBot, valley: true, strength: 1.0),                                          // head keel
             PaperCrease(group: .neck, a: CGPoint(x: 0.548, y: 0.478), b: CGPoint(x: 0.640, y: 0.520), valley: false, strength: 0.5), // muzzle ridge
-            PaperCrease(group: .wing, a: CGPoint(x: 0.415, y: 0.400), b: CGPoint(x: 0.400, y: 0.185), valley: true, strength: 0.7),  // near-ear fold
-            PaperCrease(group: .wing, a: CGPoint(x: 0.585, y: 0.400), b: CGPoint(x: 0.600, y: 0.185), valley: true, strength: 0.4),  // far-ear fold
+            PaperCrease(group: .wing, a: CGPoint(x: 0.458, y: 0.386), b: CGPoint(x: 0.444, y: 0.252), valley: true, strength: 0.7),  // near-ear fold (up the ear's spine)
+            PaperCrease(group: .wing, a: CGPoint(x: 0.542, y: 0.386), b: CGPoint(x: 0.556, y: 0.252), valley: true, strength: 0.4),  // far-ear fold
             PaperCrease(group: .body, a: CGPoint(x: 0.480, y: 0.560), b: CGPoint(x: 0.480, y: 0.840), valley: true, strength: 0.5),  // chest keel
             PaperCrease(group: .tail, a: CGPoint(x: 0.510, y: 0.740), b: CGPoint(x: 0.720, y: 0.800), valley: false, strength: 0.4), // tail median
         ]
@@ -748,7 +753,7 @@ extension PaperFigure {
             // while the tail sways in a slow, smooth curl (`.sway`, well below the
             // dog's tail speed) — elegant rather than eager.
             idle: [
-                PaperWag(group: .wing, pivot: CGPoint(x: 0.500, y: 0.380), amplitude: 0.20, speed: 9.0,
+                PaperWag(group: .wing, pivot: CGPoint(x: 0.500, y: 0.392), amplitude: 0.20, speed: 9.0,
                          motion: .twitch),
                 PaperWag(group: .tail, pivot: CGPoint(x: 0.510, y: 0.740), amplitude: 0.20, speed: 1.6,
                          motion: .sway)

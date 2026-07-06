@@ -3,14 +3,14 @@ import Observation
 import SwiftUI
 
 enum PetEvent: CaseIterable {
-    case highlight, comment, tag, sign, note, edit, ink, rotate, delete, export, save, addFile, search, greeting
+    case highlight, comment, tag, sign, note, edit, ink, rotate, delete, export, save, addFile, search, greeting, warning
 }
 
 enum PetLines {
     /// The curated "hero" events that get a distinct dog/cat voice. Every other
     /// event reuses the shared, species-neutral copy so the localization burden
     /// stays bounded while personality lands where it's most visible.
-    private static let heroEvents: Set<PetEvent> = [.greeting, .export, .save]
+    private static let heroEvents: Set<PetEvent> = [.greeting, .export, .save, .warning]
 
     /// Resolve the lines for an event, giving the chosen companion its own voice on
     /// the hero events and falling back to shared copy everywhere else.
@@ -38,6 +38,10 @@ enum PetLines {
             return [L10n.string("pet.cat.export.1"), L10n.string("pet.cat.export.2")]
         case (.cat, .save):
             return [L10n.string("pet.cat.save.1"), L10n.string("pet.cat.save.2")]
+        case (.dog, .warning):
+            return [L10n.string("pet.dog.warning.1"), L10n.string("pet.dog.warning.2")]
+        case (.cat, .warning):
+            return [L10n.string("pet.cat.warning.1"), L10n.string("pet.cat.warning.2")]
         default:
             return nil
         }
@@ -123,6 +127,14 @@ enum PetLines {
                 L10n.string("pet.event.greeting.1"),
                 L10n.string("pet.event.greeting.2")
             ]
+        case .warning:
+            // Warning is always a hero event (both species define their own lines), so
+            // this species-neutral fallback is only reached if a species ever loses its
+            // hero copy — kept exhaustive for the compiler and as a safe default.
+            return [
+                L10n.string("pet.dog.warning.1"),
+                L10n.string("pet.cat.warning.1")
+            ]
         }
     }
 
@@ -159,13 +171,19 @@ enum PetLines {
             lines = [
                 L10n.string("pet.dog.hoverTip.1"),
                 L10n.string("pet.dog.hoverTip.2"),
-                L10n.string("pet.dog.hoverTip.3")
+                L10n.string("pet.dog.hoverTip.3"),
+                L10n.string("pet.dog.hoverTip.4"),
+                L10n.string("pet.dog.hoverTip.5"),
+                L10n.string("pet.dog.hoverTip.6")
             ]
         case .cat:
             lines = [
                 L10n.string("pet.cat.hoverTip.1"),
                 L10n.string("pet.cat.hoverTip.2"),
-                L10n.string("pet.cat.hoverTip.3")
+                L10n.string("pet.cat.hoverTip.3"),
+                L10n.string("pet.cat.hoverTip.4"),
+                L10n.string("pet.cat.hoverTip.5"),
+                L10n.string("pet.cat.hoverTip.6")
             ]
         }
         return lines.randomElement() ?? ""

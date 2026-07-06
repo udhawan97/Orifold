@@ -73,17 +73,17 @@ It is not perfect yet, but it is being built in public with care, curiosity, and
 
 ## 🐾 Meet Your Paper Companion
 
-The same fold that opens Orifold's logo blossoms into a small companion that lives in your workspace — pick **Origami Dog** or **Origami Cat** on first launch, or switch anytime. It keeps a quiet eye on your document, offers the occasional tip in character, and reacts — visibly — whenever you highlight, sign, export, or fix something.
+The same fold that opens Orifold's logo blossoms into a small companion that lives in your workspace — pick **Gami** (the origami dog) or **Ori** (the origami cat) on first launch, or switch anytime. Your companion keeps a quiet eye on your document, offers the occasional tip in character, and reacts — visibly — whenever you highlight, sign, export, or fix something.
 
 <p align="center">
   <img src="docs/assets/orifold-crane-fold.svg" alt="Animated: a sheet of paper folds into an origami crane, then becomes the app icon" width="220">
   &nbsp;&nbsp;&nbsp;
-  <img src="docs/assets/orifold-dog-wag.svg" alt="Animated: Origami Dog, tail wagging" width="220">
+  <img src="docs/assets/orifold-dog-wag.svg" alt="Animated: Gami the origami dog, tail wagging" width="220">
   &nbsp;&nbsp;&nbsp;
-  <img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Origami Cat, ears twitching and tail swaying" width="220">
+  <img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Ori the origami cat, ears twitching and tail swaying" width="220">
 </p>
 
-<p align="center"><sub>The brand mark folds into a crane, its tancho crown a quiet red accent · <strong>Origami Dog</strong> — loyal, tidy, endlessly encouraging, tail wagging faster the closer you get · <strong>Origami Cat</strong> — clever, composed, quietly in charge, ears twitching sharp while its tail sways slow</sub></p>
+<p align="center"><sub>The brand mark folds into a crane, its tancho crown a quiet red accent · <strong>Gami</strong> — loyal, excited, endlessly encouraging, tail wagging faster the closer you get · <strong>Ori</strong> — clever, composed, quietly in charge, ears twitching sharp while its tail sways slow</sub></p>
 
 ## ⚡ Install in 30 Seconds
 
@@ -147,7 +147,7 @@ Everything below runs on your Mac. The cloud was not consulted.
 | 📖 | **Read comfortably** — distraction-free Reader Mode, plus Night Mode with Gentle/Paper/Amber warmth presets | Long documents that don't fight your eyes or your focus |
 
 > [!TIP]
-> **Meet Foldy 🤝** — Orifold ships with a small built-in buddy who reacts to what you do with short tips and the occasional wisecrack ("Highlighted. Future-you will pretend they read the rest."). Helpful when you're new, easy to silence when you're not: toggle **Show Orifold Buddy** from the app's menu.
+> **Meet Gami & Ori 🤝** — Orifold ships with a small built-in companion who reacts to what you do with short tips and the occasional wisecrack (Gami: "Highlighted. Future-you will pretend they read the rest." · Ori: "This PDF is under my silent judgment."). Helpful when you're new, easy to silence when you're not: toggle **Show Orifold Buddy** from the app's menu.
 
 <details>
 <summary>📋 &nbsp;Full capability list, feature by feature</summary>
@@ -286,7 +286,7 @@ Orifold/
   Document/        macOS document package read/write support
   Engine/          PDF loading, repair, conversion, OCR, compression, encryption, sanitize, forms, export
   Models/          Workspace, page, annotation, comment, export, and decoration models
-  Pet/             Foldy, the in-app buddy
+  Pet/             Gami & Ori, the in-app companions
   Resources/       App metadata, entitlements, assets
   Signing/         Signing identities, CMS construction, timestamping, verification
   ViewModels/      Workspace state, document operations, search, export, undo
