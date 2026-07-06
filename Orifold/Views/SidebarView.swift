@@ -167,9 +167,14 @@ private struct WorkspaceHeaderCard: View {
                     .font(.dsDisplay(size: 13))
                     .tracking(.dsWordmarkTracking)
                     .foregroundStyle(Color.dsTextPrimary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .truncationMode(.middle)
-                Spacer(minLength: .dsXS)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.trailing, .dsXS)
+                    .help(viewModel.document.workspace.title)
+                    .accessibilityLabel(viewModel.document.workspace.title)
                 overflowMenu
             }
 
@@ -398,7 +403,7 @@ struct MemberDocRow: View {
                     .monospacedDigit()
                     .lineLimit(1)
             }
-            Spacer(minLength: .dsSM)
+            .frame(maxWidth: .infinity, alignment: .leading)
             overflowMenu
                 .opacity(isHovered || isOverflowMenuFocused ? 1 : 0)
         }
@@ -466,8 +471,12 @@ struct MemberDocRow: View {
             Text(member.displayName)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.dsTextPrimary)
-                .lineLimit(1)
+                .lineLimit(2)
                 .truncationMode(.middle)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .help(member.displayName)
+                .accessibilityLabel(member.displayName)
         }
     }
 
