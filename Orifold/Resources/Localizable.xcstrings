@@ -21362,6 +21362,88 @@
         }
       }
     },
+    "readingCanvas.textEdit.chip.reconstructed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconstructed text — style approximated"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto reconstruido: estilo aproximado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texte reconstruit : style approché"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पुनर्निर्मित टेक्स्ट — शैली अनुमानित है"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再構築されたテキスト — スタイルは推定値です"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已重建的文本 — 样式为估算值"
+          }
+        }
+      }
+    },
+    "readingCanvas.textEdit.chip.scannedPage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This page looks scanned. Orifold can't detect exact text here — what you type is placed as new text."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta página parece escaneada. Orifold no puede detectar texto exacto aquí; lo que escribas se colocará como texto nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette page semble numérisée. Orifold ne peut pas détecter de texte exact ici — ce que vous saisissez sera placé comme nouveau texte."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह पेज स्कैन किया हुआ लगता है। Orifold यहां सटीक टेक्स्ट नहीं पहचान सकता — आप जो टाइप करेंगे वह नए टेक्स्ट के रूप में रखा जाएगा।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このページはスキャンされているようです。Orifoldはここで正確なテキストを検出できません — 入力した内容は新しいテキストとして配置されます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此页面似乎是扫描件。Orifold 无法在此处检测到确切的文本 — 您输入的内容将作为新文本放置。"
+          }
+        }
+      }
+    },
     "readingCanvas.zoomFit.help": {
       "extractionState": "manual",
       "localizations": {

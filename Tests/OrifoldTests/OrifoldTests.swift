@@ -246,6 +246,62 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(hit?.id, block.id)
         XCTAssertGreaterThan(block.fontSize, 6)
         XCTAssertNotEqual(block.confidence, .low)
+        XCTAssertEqual(block.editability, .direct)
+        XCTAssertEqual(block.textSource, .pdfiumGlyphs)
+    }
+
+    /// Regression test for the root-cause "blank white box" bug: when PDFium can't be used
+    /// at all (simulated here by passing empty `data`, the same path `analyze()` takes when
+    /// PDFium extracts zero glyphs), the PDFKit fallback used to return a single whole-page
+    /// `.low`-confidence block that `hitTest` silently excluded — so a click on perfectly
+    /// visible text fell straight through to an empty insertion box. It must now return
+    /// hittable, line-level `.replace` blocks instead.
+    func testPDFKitFallbackProducesHittableLineLevelBlocksWhenPDFiumIsUnavailable() throws {
+        let pdf = makePDF(pageTexts: ["First reservation line\nSecond guest detail line"])
+        let engine = PDFTextAnalysisEngine()
+        let page = try XCTUnwrap(pdf.page(at: 0))
+
+        let analysis = engine.analyze(data: Data(), pageIndex: 0, pageRefID: UUID(), fallbackPage: page)
+
+        XCTAssertFalse(analysis.blocks.isEmpty, "PDFKit fallback should still detect line-level text")
+        XCTAssertTrue(analysis.blocks.allSatisfy { $0.editability == .replace })
+        XCTAssertTrue(analysis.blocks.allSatisfy { $0.textSource == .pdfKitString })
+        XCTAssertTrue(analysis.blocks.allSatisfy { $0.confidence != .low })
+
+        let firstLineBlock = try XCTUnwrap(analysis.blocks.first { $0.text.contains("First reservation") })
+        let hit = engine.hitTest(CGPoint(x: firstLineBlock.bounds.midX, y: firstLineBlock.bounds.midY), in: analysis)
+        XCTAssertEqual(hit?.id, firstLineBlock.id, "A click on visible fallback text must resolve to that line, not fall through to a blank box")
+
+        let secondLineBlock = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Second guest detail") })
+        XCTAssertNotEqual(firstLineBlock.id, secondLineBlock.id, "Each visual line should be its own hittable block, not one whole-page block")
+    }
+
+    func testEditableTextBlockOnFlattenedScannedPageIsExplicitOverlayNotSilentBlankBox() throws {
+        let fixture = try makeMemberWithScannedPDF(name: "ScannedFallback")
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let pageBounds = page.bounds(for: .cropBox)
+
+        let target = try XCTUnwrap(viewModel.editableTextBlock(
+            at: CGPoint(x: pageBounds.midX, y: pageBounds.midY),
+            on: page,
+            in: viewModel.combinedPDF
+        ))
+
+        // No text layer exists at all on a scanned/flattened page, so there's nothing to
+        // prefill — but the block must still be explicitly tagged `.overlayOnly` rather than
+        // a plain, unlabelled `.insertion`, so the UI can tell the user why (see
+        // `announceEditability` in ReadingCanvas) instead of silently behaving like an
+        // ordinary blank-page insertion.
+        XCTAssertEqual(target.block.editability, .overlayOnly)
+        XCTAssertEqual(target.block.text, "")
     }
 
     func testPDFTextAnalysisMergesWrappedBulletIntoOneEditableBlock() throws {
@@ -7534,6 +7590,33 @@ private func makeMemberWithPDF(
     member.pageRefs = refs.map(\.id)
     let pdfData = try pdf.dataRepresentation().unwrap()
     return (member, refs, pdfData)
+}
+
+/// A page with visible ink but no extractable text layer at all — neither PDFium nor
+/// PDFKit can produce any text blocks for it, matching `PDFOCRService.isLikelyScannedPage`.
+private func makeMemberWithScannedPDF(
+    name: String
+) throws -> (member: MemberDocument, refs: [PageRef], pdfData: Data) {
+    let view = ScannedFixturePageView(frame: CGRect(x: 0, y: 0, width: 612, height: 792))
+    let pdf = try XCTUnwrap(PDFDocument(data: view.dataWithPDF(inside: view.bounds)))
+    var member = MemberDocument(displayName: name, sourcePDFRef: "\(name).pdf")
+    let refs = (0..<pdf.pageCount).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+    member.pageRefs = refs.map(\.id)
+    let pdfData = try pdf.dataRepresentation().unwrap()
+    return (member, refs, pdfData)
+}
+
+private final class ScannedFixturePageView: NSView {
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        bounds.fill()
+        NSColor(calibratedWhite: 0.85, alpha: 1).setFill()
+        NSBezierPath(rect: CGRect(x: 100, y: 160, width: 400, height: 300)).fill()
+        NSColor(calibratedWhite: 0.3, alpha: 1).setFill()
+        NSBezierPath(ovalIn: CGRect(x: 240, y: 260, width: 100, height: 100)).fill()
+    }
 }
 
 private func makeFormMemberWithPDF(
