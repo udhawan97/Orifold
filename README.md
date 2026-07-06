@@ -464,5 +464,5 @@ Orifold is available under the [MIT License](LICENSE).
 </p>
 
 <p align="center">
-  Built with SwiftUI, PDFKit, PDFium, qpdf, and Vision — all running on your machine.
+ Built as a local-first PDF workspace. I used Claude/Codex to accelerate implementation, then manually reviewed, tested, refactored, and documented the system
 </p>
