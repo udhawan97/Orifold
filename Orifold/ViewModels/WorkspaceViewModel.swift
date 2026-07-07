@@ -2393,6 +2393,7 @@ final class WorkspaceViewModel {
                 alignment: reopenedAlignment,
                 underline: reopenedUnderline,
                 rotation: 0,
+                pageRotation: page.rotation,
                 baseline: syntheticBounds.minY,
                 confidence: .high
             )
@@ -2482,7 +2483,8 @@ final class WorkspaceViewModel {
             fontSize: nearbyStyle?.fontSize ?? 14,
             textColor: nearbyStyle?.textColor ?? .documentText,
             alignment: nearbyStyle?.alignment,
-            rotation: CGFloat(page.rotation),
+            rotation: 0,
+            pageRotation: page.rotation,
             baseline: bounds.minY,
             confidence: .medium,
             editability: isOnFlattenedPage ? .overlayOnly : .insertion,

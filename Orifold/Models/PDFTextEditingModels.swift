@@ -31,6 +31,26 @@ enum PDFTextSource: String, Codable {
     case none
 }
 
+/// A raw affine transform (matches PDFium's `FS_MATRIX` / `CGAffineTransform` layout: `a b c
+/// d e f` where `e`/`f` are the translation). Captured separately from the scalar `rotation`
+/// angle because rotation alone can't represent shear, mirroring, or non-uniform horizontal
+/// scaling (condensed/expanded text) — cases the plan explicitly calls out as needing their
+/// own preserved geometry rather than being flattened into "just an angle."
+struct PDFTextTransform: Codable, Equatable {
+    var a: CGFloat
+    var b: CGFloat
+    var c: CGFloat
+    var d: CGFloat
+    var e: CGFloat
+    var f: CGFloat
+
+    static let identity = PDFTextTransform(a: 1, b: 0, c: 0, d: 1, e: 0, f: 0)
+
+    var cgAffineTransform: CGAffineTransform {
+        CGAffineTransform(a: a, b: b, c: c, d: d, tx: e, ty: f)
+    }
+}
+
 struct PDFTextRun: Codable, Identifiable, Equatable {
     var id: UUID = UUID()
     var text: String
@@ -38,9 +58,29 @@ struct PDFTextRun: Codable, Identifiable, Equatable {
     var fontName: String
     var fontSize: CGFloat
     var textColor: CodableColor
+    /// This run's OWN content-stream rotation in degrees (e.g. text drawn via a rotated `cm`
+    /// matrix), independent of the page's `/Rotate` entry. Always 0 when no per-glyph angle
+    /// signal is available (see `EditableTextBlock.pageRotation` for the page-level value —
+    /// the two must never be conflated, since a consumer that already accounts for page
+    /// rotation via `PDFView`'s page/view coordinate conversion would double-rotate if this
+    /// field also carried the page's rotation).
     var rotation: CGFloat
     var baseline: CGFloat
     var confidence: PDFTextEditConfidence
+    /// The stroke color PDFium reports for this run's ink glyphs, when available. Only
+    /// meaningful for render modes that actually stroke (stroke-only / fill+stroke) —
+    /// present here as captured geometry for a future consumer to decide how to use, not
+    /// yet surfaced as a distinct render mode itself.
+    var strokeColor: CodableColor? = nil
+    /// The full affine transform for this run's ink glyphs, when PDFium can report one.
+    /// `rotation` above is derived from this same signal for callers that only need the
+    /// angle; this preserves shear/scale/mirroring `rotation` alone would lose.
+    var transform: PDFTextTransform? = nil
+    /// True when at least one of this run's ink glyphs was PDFium-synthesized (a missing or
+    /// unmappable glyph filled in rather than read from the embedded font) rather than a
+    /// genuine read of the document's own content. A signal of lower extraction confidence,
+    /// independent of `confidence` (which reflects which analysis path produced the block).
+    var hasSyntheticGlyphs: Bool = false
 }
 
 struct PDFTextLine: Codable, Identifiable, Equatable {
@@ -63,11 +103,28 @@ struct EditableTextBlock: Codable, Identifiable, Equatable {
     var textColor: CodableColor
     var alignment: CodableTextAlignment? = nil
     var underline: Bool = false
+    /// See `PDFTextRun.rotation` — this block's own content-stream rotation, never the
+    /// page's. Use `pageRotation` for the page-level `/Rotate` value.
     var rotation: CGFloat
+    /// The owning page's `/Rotate` value in degrees (0/90/180/270), captured verbatim from
+    /// `PDFPage.rotation`. Kept separate from `rotation` (this block's own text-level
+    /// rotation) so a consumer can tell "this whole page is sideways" apart from "this
+    /// specific text run is drawn at an angle within an otherwise upright page" — conflating
+    /// the two into one field previously meant a rotated page's blocks reported page rotation
+    /// AS IF it were per-run rotation, which either double-rotates once a real consumer
+    /// applies both page-rotation-aware coordinate conversion and this field, or silently
+    /// hides genuine text-level rotation on a page that isn't itself rotated.
+    var pageRotation: Int = 0
     var baseline: CGFloat
     var confidence: PDFTextEditConfidence
     var editability: PDFTextEditability = .direct
     var textSource: PDFTextSource = .pdfiumGlyphs
+    /// See `PDFTextRun.strokeColor`.
+    var strokeColor: CodableColor? = nil
+    /// See `PDFTextRun.transform`.
+    var transform: PDFTextTransform? = nil
+    /// See `PDFTextRun.hasSyntheticGlyphs`.
+    var hasSyntheticGlyphs: Bool = false
 }
 
 struct PDFTextEditOperation: Codable, Identifiable, Equatable {

@@ -111,12 +111,69 @@ final class InlineEditStressFixtureAnalysisTests: XCTestCase {
         XCTAssertNil(PDFTextAnalysisEngine().hitTest(farAway, in: analysis))
     }
 
+    /// Verified against a probe run before writing this test: PDFium's `FPDFText_GetCharAngle`
+    /// uses a different sign convention than the angle fed to `CGContext.rotate(by:)` when
+    /// authoring the fixture (e.g. an authored 90° comes back as ~270°, 45° comes back as
+    /// ~315°). That's an implementation-convention difference between the two APIs, not a
+    /// defect, so this test asserts internal properties (non-zero, mutually consistent
+    /// per drawn angle, distinct from unrotated text) instead of the exact authored degrees.
+    func testRotatedTextReportsNonZeroRotationDistinctFromUpright() throws {
+        let document = InlineEditStressFixture.buildDocument()
+        let data = try XCTUnwrap(document.dataRepresentation())
+        let analysis = try analyze(.textRotation, document: document, data: data)
+        assertSaneGeometry(analysis.blocks)
+
+        let rotated180 = try XCTUnwrap(analysis.blocks.first(where: { $0.text.contains("180") }))
+        let rotated45 = try XCTUnwrap(analysis.blocks.first(where: { $0.text.contains("45") }))
+        XCTAssertGreaterThan(abs(rotated180.rotation), 90, "a 180°-drawn line must not report a near-zero rotation")
+        XCTAssertGreaterThan(abs(rotated45.rotation), 10, "a 45°-drawn line must report a clearly non-zero rotation")
+        XCTAssertNotEqual(rotated180.pageRotation, 90, "text-level rotation on an unrotated page must never leak into pageRotation")
+
+        // 90°/270° vertically-flowing rotated text is a known, documented limitation: the
+        // line-grouping heuristic (`blocksFromSamples`) assumes horizontal reading order and
+        // fragments vertically-stacked glyphs into multiple small blocks instead of one
+        // coherent line. Each fragment still reports an individually-accurate, clearly
+        // non-zero rotation (verified via probe), so hit-testing and geometry stay sane even
+        // though the fragments aren't merged -- assert that weaker but true property instead
+        // of a full-line reconstruction this pass doesn't attempt to fix.
+        let verticallyRotatedFragments = analysis.blocks.filter { block in
+            ["R o", "t t", "a e d", "2 7", "°"].contains(block.text)
+        }
+        XCTAssertFalse(verticallyRotatedFragments.isEmpty, "expected at least some fragments from the 90°/270° vertical text")
+        for fragment in verticallyRotatedFragments {
+            XCTAssertGreaterThan(abs(fragment.rotation.truncatingRemainder(dividingBy: 360)), 10, "fragment '\(fragment.text)' should still report a non-zero rotation even though it wasn't merged into one line")
+        }
+    }
+
+    func testShearedAndMirroredTextPreservesFullTransformNotJustAngle() throws {
+        let document = InlineEditStressFixture.buildDocument()
+        let data = try XCTUnwrap(document.dataRepresentation())
+        let analysis = try analyze(.textRotation, document: document, data: data)
+        let sheared = try XCTUnwrap(analysis.blocks.first(where: { $0.text.contains("Sheared") }))
+        let mirrored = try XCTUnwrap(analysis.blocks.first(where: { $0.text.contains("Mirrored") || $0.text.contains("derorriM") }))
+        let shearedTransform = try XCTUnwrap(sheared.transform)
+        let mirroredTransform = try XCTUnwrap(mirrored.transform)
+        XCTAssertNotEqual(shearedTransform, .identity)
+        XCTAssertNotEqual(mirroredTransform, .identity)
+        // The defining signature of a horizontal mirror is a negated `a` (x-axis flipped)
+        // while `d` (y-axis) stays positive -- a plain 180° rotation would negate both.
+        // `rotation` alone can't tell these apart (both read back as ~180°, since PDFium's
+        // angle is derived from the x-axis basis vector only); `transform` is what lets a
+        // future consumer distinguish "flipped" from "rotated" and choose a correct fallback.
+        XCTAssertLessThan(mirroredTransform.a, 0)
+        XCTAssertGreaterThan(mirroredTransform.d, 0)
+    }
+
     func testPageLevelRotationDoesNotCrashAnalysisAndPreservesRotationFlag() throws {
         let document = InlineEditStressFixture.buildDocument()
         let data = try XCTUnwrap(document.dataRepresentation())
         let page = try XCTUnwrap(document.page(at: InlineEditStressFixture.index(of: .pageLevelRotation)))
         XCTAssertEqual(page.rotation, 90, "fixture must actually carry a /Rotate 90 page dict entry")
         let analysis = try analyze(.pageLevelRotation, document: document, data: data)
+        for block in analysis.blocks {
+            XCTAssertEqual(block.pageRotation, 90, "block '\(block.text)' should record the page's own /Rotate value")
+            XCTAssertEqual(block.rotation, 0, "block '\(block.text)' has no per-glyph rotation signal and must not have the page rotation smuggled into it")
+        }
         assertSaneGeometry(analysis.blocks)
     }
 

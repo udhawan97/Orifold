@@ -55,6 +55,36 @@ private func FPDFText_GetFontInfo(
 @_silgen_name("FPDFText_GetFontWeight")
 private func FPDFText_GetFontWeight(_ textPage: OpaquePointer?, _ index: Int32) -> Int32
 
+@_silgen_name("FPDFText_GetCharAngle")
+private func FPDFText_GetCharAngle(_ textPage: OpaquePointer?, _ index: Int32) -> Float
+
+/// Layout-compatible with PDFium's `FS_MATRIX` (six packed floats, `a b c d e f`, matching
+/// `CGAffineTransform`'s `a b c d tx ty`).
+private struct FSMatrix {
+    var a: Float = 0
+    var b: Float = 0
+    var c: Float = 0
+    var d: Float = 0
+    var e: Float = 0
+    var f: Float = 0
+}
+
+@_silgen_name("FPDFText_GetMatrix")
+private func FPDFText_GetMatrix(_ textPage: OpaquePointer?, _ index: Int32, _ matrix: UnsafeMutablePointer<FSMatrix>?) -> Int32
+
+@_silgen_name("FPDFText_GetStrokeColor")
+private func FPDFText_GetStrokeColor(
+    _ textPage: OpaquePointer?,
+    _ index: Int32,
+    _ r: UnsafeMutablePointer<UInt32>?,
+    _ g: UnsafeMutablePointer<UInt32>?,
+    _ b: UnsafeMutablePointer<UInt32>?,
+    _ a: UnsafeMutablePointer<UInt32>?
+) -> Int32
+
+@_silgen_name("FPDFText_IsGenerated")
+private func FPDFText_IsGenerated(_ textPage: OpaquePointer?, _ index: Int32) -> Int32
+
 /// PDF font-descriptor `/Flags` bit for an italic/oblique face (bit 7, value 64). Set even
 /// when the embedded font's PostScript name carries no "Italic"/"Oblique" token, so it is
 /// the only reliable slant signal for many documents.
@@ -84,6 +114,17 @@ final class PDFTextAnalysisEngine {
         /// True when the embedded font descriptor's italic flag is set, even if the font
         /// name has no "Italic"/"Oblique" token.
         var isItalic: Bool
+        /// This glyph's own content-stream rotation in degrees, derived from
+        /// `FPDFText_GetCharAngle` (radians). nil when PDFium can't report an angle for this
+        /// glyph — never assume 0 in that case, since 0 is also a legitimate reading for
+        /// upright text.
+        var angleDegrees: CGFloat?
+        /// This glyph's full text-rendering matrix, when PDFium can report one.
+        var transform: PDFTextTransform?
+        var strokeColor: CodableColor?
+        /// True when PDFium synthesized this glyph (e.g. a missing/unmappable glyph filled
+        /// in) rather than reading it from the document's own embedded font.
+        var isGenerated: Bool
     }
 
     func analyze(data: Data, pageIndex: Int, pageRefID: UUID? = nil, fallbackPage: PDFPage? = nil) -> PDFTextPageAnalysis {
@@ -160,6 +201,14 @@ final class PDFTextAnalysisEngine {
                 let reportedFontSize: CGFloat? = size.isFinite && size >= 4 ? CGFloat(size) : nil
                 let descriptor = fontDescriptor(textPage: textPage, index: index)
                 let rawWeight = FPDFText_GetFontWeight(textPage, Int32(index))
+                let rawAngle = FPDFText_GetCharAngle(textPage, Int32(index))
+                let angleDegrees: CGFloat? = rawAngle.isFinite ? CGFloat(rawAngle) * 180 / .pi : nil
+                var fsMatrix = FSMatrix()
+                let hasMatrix = FPDFText_GetMatrix(textPage, Int32(index), &fsMatrix) != 0
+                let transform: PDFTextTransform? = hasMatrix
+                    ? PDFTextTransform(a: CGFloat(fsMatrix.a), b: CGFloat(fsMatrix.b), c: CGFloat(fsMatrix.c), d: CGFloat(fsMatrix.d), e: CGFloat(fsMatrix.e), f: CGFloat(fsMatrix.f))
+                    : nil
+                let isGenerated = FPDFText_IsGenerated(textPage, Int32(index)) == 1
                 samples.append(CharacterSample(
                     scalar: scalar,
                     bounds: bounds,
@@ -167,7 +216,11 @@ final class PDFTextAnalysisEngine {
                     color: color,
                     rawFontName: descriptor.name,
                     fontWeight: rawWeight > 0 ? Int(rawWeight) : nil,
-                    isItalic: descriptor.isItalic
+                    isItalic: descriptor.isItalic,
+                    angleDegrees: angleDegrees,
+                    transform: transform,
+                    strokeColor: strokeColor(textPage: textPage, index: index),
+                    isGenerated: isGenerated
                 ))
             }
 
@@ -322,6 +375,22 @@ final class PDFTextAnalysisEngine {
         var a: UInt32 = 255
         guard FPDFText_GetFillColor(textPage, Int32(index), &r, &g, &b, &a) != 0 else {
             return .documentText
+        }
+        return CodableColor(
+            red: CGFloat(r) / 255,
+            green: CGFloat(g) / 255,
+            blue: CGFloat(b) / 255,
+            alpha: CGFloat(a) / 255
+        )
+    }
+
+    private func strokeColor(textPage: OpaquePointer?, index: Int) -> CodableColor? {
+        var r: UInt32 = 0
+        var g: UInt32 = 0
+        var b: UInt32 = 0
+        var a: UInt32 = 255
+        guard FPDFText_GetStrokeColor(textPage, Int32(index), &r, &g, &b, &a) != 0 else {
+            return nil
         }
         return CodableColor(
             red: CGFloat(r) / 255,
@@ -541,15 +610,23 @@ final class PDFTextAnalysisEngine {
             Self.resolveFontPostScriptName(from: $0, weightHint: weightHint, italicHint: italicHint)
         } ?? Self.resolveFontPostScriptName(from: "Helvetica", weightHint: weightHint, italicHint: italicHint)
         let fontSize = resolveLineFontSize(sorted, lineBounds: bounds, resolvedFontName: fontName)
+        let rotationDegrees = dominantAngle(among: inkSamples) ?? 0
+        let transform = dominantTransform(among: inkSamples)
+        let strokeColor = dominantStrokeColor(among: inkSamples)
+        let hasSyntheticGlyphs = inkSamples.contains(where: \.isGenerated)
+        let pageRotation = sourcePage?.rotation ?? 0
         let run = PDFTextRun(
             text: text,
             bounds: bounds,
             fontName: fontName,
             fontSize: fontSize,
             textColor: color,
-            rotation: 0,
+            rotation: rotationDegrees,
             baseline: bounds.minY,
-            confidence: confidence
+            confidence: confidence,
+            strokeColor: strokeColor,
+            transform: transform,
+            hasSyntheticGlyphs: hasSyntheticGlyphs
         )
         let line = PDFTextLine(text: text, bounds: bounds, runs: [run], confidence: confidence)
         return EditableTextBlock(
@@ -561,11 +638,15 @@ final class PDFTextAnalysisEngine {
             fontName: fontName,
             fontSize: fontSize,
             textColor: color,
-            rotation: 0,
+            rotation: rotationDegrees,
+            pageRotation: pageRotation,
             baseline: bounds.minY,
             confidence: confidence,
             editability: .direct,
-            textSource: .pdfiumGlyphs
+            textSource: .pdfiumGlyphs,
+            strokeColor: strokeColor,
+            transform: transform,
+            hasSyntheticGlyphs: hasSyntheticGlyphs
         )
     }
 
@@ -621,6 +702,42 @@ final class PDFTextAnalysisEngine {
         return italicCount * 2 > samples.count
     }
 
+    /// Median reported rotation across the line's ink glyphs, in degrees. Uses the same
+    /// "median, not first-glyph" reasoning as `dominantFontWeight`: a run's glyphs should
+    /// all share one content-stream rotation, but any single glyph's angle reading can be
+    /// noisy right at the seam between two runs on the same line.
+    private func dominantAngle(among samples: [CharacterSample]) -> CGFloat? {
+        let angles = samples.compactMap(\.angleDegrees).sorted()
+        guard !angles.isEmpty else { return nil }
+        return angles[angles.count / 2]
+    }
+
+    /// The transform belonging to whichever glyph's angle reading is closest to the
+    /// already-chosen `dominantAngle`, so the returned matrix is consistent with the
+    /// rotation this block actually reports rather than an arbitrary glyph's.
+    private func dominantTransform(among samples: [CharacterSample]) -> PDFTextTransform? {
+        guard let targetAngle = dominantAngle(among: samples) else {
+            return samples.first(where: { $0.transform != nil })?.transform
+        }
+        return samples
+            .filter { $0.transform != nil && $0.angleDegrees != nil }
+            .min { abs($0.angleDegrees! - targetAngle) < abs($1.angleDegrees! - targetAngle) }?
+            .transform
+    }
+
+    /// Same majority-vote reasoning as `dominantColor`, applied to stroke color.
+    private func dominantStrokeColor(among samples: [CharacterSample]) -> CodableColor? {
+        let strokeColors = samples.compactMap(\.strokeColor)
+        guard !strokeColors.isEmpty else { return nil }
+        var counts: [String: (count: Int, color: CodableColor)] = [:]
+        for color in strokeColors {
+            let key = colorBucketKey(color)
+            counts[key, default: (0, color)].count += 1
+            counts[key]?.color = color
+        }
+        return counts.values.max { $0.count < $1.count }?.color
+    }
+
     /// Runs when PDFium extracted zero usable glyph boxes for the page (unusual encodings,
     /// CID fonts PDFium can't box, some malformed content streams) but `page.string` proves
     /// PDFKit itself can still see a text layer. Rather than returning one whole-page,
@@ -667,7 +784,11 @@ final class PDFTextAnalysisEngine {
                 fontName: fontName,
                 fontSize: estimatedSize > 0 ? estimatedSize : 12,
                 textColor: .documentText,
-                rotation: CGFloat(page.rotation),
+                // No per-glyph rotation signal exists on this fallback path — `rotation`
+                // stays 0, and the page's own `/Rotate` is recorded separately via
+                // `pageRotation` so the two are never conflated (see `EditableTextBlock`).
+                rotation: 0,
+                pageRotation: page.rotation,
                 baseline: rawBounds.minY,
                 confidence: .medium,
                 editability: .replace,
@@ -696,7 +817,8 @@ final class PDFTextAnalysisEngine {
             fontName: "Helvetica",
             fontSize: 12,
             textColor: .documentText,
-            rotation: CGFloat(page.rotation),
+            rotation: 0,
+            pageRotation: page.rotation,
             baseline: cropBox.maxY - 48,
             confidence: .medium,
             editability: .overlayOnly,
