@@ -78,12 +78,12 @@ The same fold that opens Orifold's logo blossoms into a small companion that liv
 
 <table align="center">
   <tr>
-    <td align="center" width="240"><img src="docs/assets/orifold-crane-fold.svg" alt="Animated: a sheet of paper folds into an origami crane, then becomes the app icon" width="200"></td>
+    <td align="center" width="240"><img src="docs/assets/orifold-crane-fold.svg" alt="Animated: a sheet of paper folds into an origami crane in flight across a red sun — the Orifold app icon" width="200"></td>
     <td align="center" width="240"><img src="docs/assets/orifold-dog-wag.svg" alt="Animated: Gami the origami Bernedoodle, tail wagging" width="200"></td>
     <td align="center" width="240"><img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Ori the origami Siberian, front-facing with a cream ruff, tufted ears that twitch, and a long tail that wraps around her paws and sways" width="200"></td>
   </tr>
   <tr>
-    <td align="center"><strong>The Fold</strong><br><sub>The brand mark folds into a crane — a quiet red tancho crown its only splash of color.</sub></td>
+    <td align="center"><strong>The Fold</strong><br><sub>The brand mark folds into an origami crane in flight across a red sun — its one note of color.</sub></td>
     <td align="center"><strong>Gami</strong> &nbsp;<sub>· the Bernedoodle</sub><br><sub>Floppy black ears, a cream blaze, a calm wag. A quiet guide, not a mascot — tips stay brief and out of your document's way.</sub></td>
     <td align="center"><strong>Ori</strong> &nbsp;<sub>· the Siberian</sub><br><sub>Curious, clever, elegant, charmingly bossy. She notices first, speaks second — a wrapped tail instead of a wag.</sub></td>
   </tr>

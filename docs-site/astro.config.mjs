@@ -15,7 +15,22 @@ export default defineConfig({
 				src: './public/assets/orifold-app-icon-128.png',
 				replacesTitle: false,
 			},
-			favicon: '/assets/orifold-app-icon-32.png',
+			// Crisp vector favicon; PNG/ICO fallbacks + apple-touch, manifest and
+			// social-card metadata are added via `head` below. Every icon asset is
+			// generated from docs/assets/brand/ by scripts/generate-icons.sh.
+			favicon: '/favicon.svg',
+			head: [
+				{ tag: 'link', attrs: { rel: 'icon', href: '/Orifold/favicon.ico', sizes: '48x48 32x32 16x16' } },
+				{ tag: 'link', attrs: { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/Orifold/assets/orifold-app-icon-32.png' } },
+				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/Orifold/assets/orifold-app-icon-180.png' } },
+				{ tag: 'link', attrs: { rel: 'manifest', href: '/Orifold/site.webmanifest' } },
+				{ tag: 'meta', attrs: { name: 'theme-color', content: '#192c48' } },
+				{ tag: 'meta', attrs: { property: 'og:image', content: 'https://udhawan97.github.io/Orifold/assets/orifold-og.png' } },
+				{ tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
+				{ tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
+				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+				{ tag: 'meta', attrs: { name: 'twitter:image', content: 'https://udhawan97.github.io/Orifold/assets/orifold-og.png' } },
+			],
 			customCss: ['./src/styles/tokens.css', './src/styles/theme.css'],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/udhawan97/Orifold' }],
 			editLink: {

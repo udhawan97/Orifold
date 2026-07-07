@@ -40,6 +40,26 @@ filenames — an empty folder + this manifest is the honest state until a real c
 Each target page's placeholder `alt` text repeats the exact filename and framing above, so
 whoever captures these can grep the docs source for a filename and know precisely what to shoot.
 
+## Brand & icon assets (single source of truth)
+
+The app/brand icon is the **Hinomaru Tsuru** origami crane. Two hand-authored SVGs are the
+only sources — everything else (app PNGs, `.icns`, favicons, apple-touch, PWA, OG card) is a
+**generated artifact**. Never hand-edit the outputs; edit a source and run
+`zsh scripts/generate-icons.sh`.
+
+| File | Role |
+| --- | --- |
+| `docs/assets/brand/orifold-crane-icon.svg` | Master (full facet detail). Used for 128 px+ everywhere. |
+| `docs/assets/brand/orifold-crane-icon-small.svg` | Small variant drawn for 16–64 px legibility (flat, no keyline). |
+| `docs/assets/orifold-crane-fold.svg` | One-shot animated hero (~1.1 s, freezes on the master). README + docs hero. |
+| `docs/assets/icon-redesign/` | Design archive: the 5 exploration candidates + contact sheet (not shipped). |
+
+Generated (do not edit by hand): `Orifold/Resources/Assets.xcassets/AppIcon.appiconset/*.png`,
+`Install or Update Orifold.app/Contents/Resources/AppIcon.icns`, `docs-site/public/favicon.{svg,ico}`,
+`docs-site/public/assets/orifold-app-icon-{32,128,180,192,512}.png`, `docs-site/public/assets/orifold-og.png`.
+The release `.icns` inside the distributed app is rebuilt from the same AppIcon PNGs by
+`scripts/install-mac.sh` at package time.
+
 ## After capturing a real asset
 
 1. Drop the file into `docs/assets/screenshots/` or `docs/assets/gifs/`.
