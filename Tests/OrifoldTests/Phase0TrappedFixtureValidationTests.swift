@@ -9,6 +9,9 @@ final class Phase0TrappedFixtureValidationTests: XCTestCase {
     private static let fixtureURL = URL(fileURLWithPath: "/Users/umang/Documents/development/test-files-Orifold/test-text-edit-latest.pdf")
 
     func testTrappedFixtureSelfHealsOnLoadAndExportsVisibly() throws {
+        guard FileManager.default.fileExists(atPath: Self.fixtureURL.path) else {
+            throw XCTSkip("test-text-edit-latest.pdf not present (expected outside the repo)")
+        }
         let data = try Data(contentsOf: Self.fixtureURL)
         let wrapper = FileWrapper(regularFileWithContents: data)
         wrapper.preferredFilename = "test-text-edit-latest.pdf"
