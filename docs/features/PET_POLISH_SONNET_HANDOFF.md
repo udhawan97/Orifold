@@ -1,6 +1,6 @@
 # Pet Polish — Sonnet Implementation Handoff
 
-**Status:** Active spec, ready to implement. SVG asset work is ALREADY DONE — this covers only the remaining in-app code.
+**Status:** Implemented and shipped (commit `c6c32d4`, merged to main). Kept as a historical record of the spec.
 **Date:** 2026-07-07
 **Supersedes:** `PET_VARIANTS_AND_INTRO_PLAN.md` (variants/restorations dropped by owner decision).
 

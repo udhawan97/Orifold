@@ -693,6 +693,11 @@ struct PetView: View {
     @State private var hoverTipMessage: String?
     @State private var hoverShowWorkItem: DispatchWorkItem?
     @State private var hoverHideWorkItem: DispatchWorkItem?
+    /// True while the welcome pet is showing off its detail at launch, before
+    /// settling to rest size. Defaults to `true` only for `.welcome` (set in
+    /// `init`, since `presentation` isn't available yet at property-default time).
+    @State private var isShowcasing: Bool
+    @State private var showcaseWorkItem: DispatchWorkItem?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     // `.popover` content on macOS doesn't inherit the `.environment(\.locale:)`
@@ -700,13 +705,27 @@ struct PetView: View {
     // so it must be re-applied explicitly to the presented content below.
     @EnvironmentObject private var languageManager: LanguageManager
 
+    init(presentation: PetPresentation = .workspace, isCramped: Bool = false) {
+        self.presentation = presentation
+        self.isCramped = isCramped
+        _isShowcasing = State(initialValue: presentation == .welcome)
+    }
+
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
-    /// Only the workspace pet grows on hover and shows a hover tip — the welcome
-    /// (intro) pet is already large and expressive, and sits beside its own greeting.
-    private var supportsHoverExpansion: Bool { presentation == .workspace && !isCramped }
+    /// Both presentations grow on hover; only the workspace chip also shows a hover
+    /// tip (the welcome/intro pet sits beside its own greeting, so a second bubble
+    /// would be redundant — see the `presentation == .workspace` guard in
+    /// `handleHover`).
+    private var supportsHoverExpansion: Bool { !isCramped }
+
+    /// The workspace chip is docked in a corner, so it grows up-and-left from that
+    /// corner; the welcome pet sits in an open layout and grows symmetrically.
+    private var scaleAnchor: UnitPoint {
+        presentation == .welcome ? .center : .bottomTrailing
+    }
 
     var body: some View {
         // IMPORTANT: background/border/opacity/scaleEffect/shadow are chained OUTSIDE
@@ -747,7 +766,7 @@ struct PetView: View {
             }
         }
         .opacity(presentation == .workspace && !isHovered ? 0.88 : 1)
-        .scaleEffect(currentScale, anchor: .bottomTrailing)
+        .scaleEffect(currentScale, anchor: scaleAnchor)
         .shadow(color: shadowColor, radius: shadowRadius, x: 0, y: shadowYOffset)
         // A larger invisible margin around the visible chip so users don't need
         // pixel-perfect hovering — the hit area extends past the paper card.
@@ -820,14 +839,18 @@ struct PetView: View {
             if !isPresented { buddy.markSwitchHintShown() }
         }
         .onAppear {
-            guard presentation == .workspace else { return }
-            scheduleSwitchHintIfEligible()
+            if presentation == .workspace {
+                scheduleSwitchHintIfEligible()
+            } else {
+                scheduleShowcaseShrinkIfNeeded()
+            }
         }
         .onDisappear {
             hoverShowWorkItem?.cancel()
             hoverHideWorkItem?.cancel()
             pulseResetWorkItem?.cancel()
             switchHintWorkItem?.cancel()
+            showcaseWorkItem?.cancel()
         }
     }
 
@@ -853,12 +876,36 @@ struct PetView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: item)
     }
 
-    /// The chip's combined scale: hover growth and the brief event pulse compose
-    /// multiplicatively, so either can be mid-animation without fighting the other.
+    /// The chip's combined scale: hover growth and the launch showcase both grow
+    /// to the same hover size, so they compose via `max` (never stacking past it),
+    /// while the brief event pulse composes multiplicatively on top of whichever
+    /// of those is active.
     private var currentScale: CGFloat {
         let hover = isHovered && supportsHoverExpansion ? hoverScale : 1
+        let showcase = isShowcasing ? hoverScale : 1
+        let grown = max(hover, showcase)
         let pulse = isPulsing ? 1.09 : 1
-        return hover * pulse
+        return grown * pulse
+    }
+
+    /// A one-shot "look at me" moment on the welcome page: the pet launches at its
+    /// enlarged size so its fold detail and idle motion are visible immediately,
+    /// then settles to rest after ~5s. Never rescheduled — if the view disappears
+    /// first, the timer is simply cancelled.
+    private func scheduleShowcaseShrinkIfNeeded() {
+        guard presentation == .welcome else { return }
+        guard !shouldReduceMotion else {
+            isShowcasing = false
+            return
+        }
+        showcaseWorkItem?.cancel()
+        let item = DispatchWorkItem {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) {
+                isShowcasing = false
+            }
+        }
+        showcaseWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0, execute: item)
     }
 
     /// A quick, springy "acknowledged!" pop — independent of hover — so the pet
@@ -983,14 +1030,14 @@ struct PetView: View {
 
     static func compactContainerSize(for presentation: PetPresentation) -> CGFloat {
         switch presentation {
-        case .welcome: return 64
+        case .welcome: return 80
         case .workspace: return .gamiChipCompact
         }
     }
 
     static func hoverContainerSize(for presentation: PetPresentation) -> CGFloat {
         switch presentation {
-        case .welcome: return compactContainerSize(for: presentation) * 1.15
+        case .welcome: return 96
         case .workspace: return .gamiChipHover
         }
     }
