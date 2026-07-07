@@ -484,24 +484,6 @@ struct ContentView: View {
             }
             .keyboardShortcut("f", modifiers: .command)
 
-            Menu {
-                Button("toolbar.export.menuItem.export") {
-                    isShowingExportSheet = true
-                }
-                Divider()
-                Button("toolbar.export.menuItem.print") {
-                    NotificationCenter.default.post(name: .orifoldPrint, object: nil)
-                }
-            } label: {
-                Label("toolbar.export.label", systemImage: "square.and.arrow.up")
-                    .labelStyle(ToolbarMenuIconLabelStyle())
-            }
-            .acceptsImportDrops { providers in
-                handleDrop(providers: providers)
-            }
-            .help("toolbar.export.help")
-            .keyboardShortcut("e", modifiers: .command)
-
             ToolbarIconButton(
                 labelKey: "toolbar.inspector.label",
                 systemImage: "sidebar.right",
@@ -537,6 +519,25 @@ struct ContentView: View {
             }
 
             Menu {
+                Button("toolbar.export.menuItem.export") {
+                    isShowingExportSheet = true
+                }
+                Divider()
+                Button("toolbar.export.menuItem.print") {
+                    NotificationCenter.default.post(name: .orifoldPrint, object: nil)
+                }
+            } label: {
+                ToolbarMenuGlyph(labelKey: "toolbar.export.label", systemImage: "square.and.arrow.up")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
+            .help("toolbar.export.help")
+            .keyboardShortcut("e", modifiers: .command)
+
+            Menu {
                 Menu("more.pages.submenu") {
                     let selection = viewModel.currentSelectionPageRefs
                     if selection.isEmpty {
@@ -565,9 +566,10 @@ struct ContentView: View {
                 Button("more.settings") { openSettings() }
                 Button("more.about") { openWindow(id: "about-orifold") }
             } label: {
-                Label("toolbar.more.label", systemImage: "ellipsis.circle")
-                    .labelStyle(ToolbarMenuIconLabelStyle())
+                ToolbarMenuGlyph(labelKey: "toolbar.more.label", systemImage: "ellipsis.circle")
             }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
@@ -1974,6 +1976,7 @@ private struct ToolbarIconButton: View {
     var action: () -> Void
 
     @State private var isHovered = false
+    @FocusState private var isFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isEnabled) private var isEnabled
 
@@ -2001,24 +2004,61 @@ private struct ToolbarIconButton: View {
             }
             .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
             .clipShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
+            // Keyboard focus drawn as an inset ring inside the already-clipped bounds
+            // rather than relying on AppKit's default focus ring, which halos outside
+            // the control and reintroduces the exact "bleeds past the icon" look this
+            // component exists to avoid.
+            .overlay {
+                RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous)
+                    .strokeBorder(Color.dsAccent, lineWidth: 2)
+                    .padding(1)
+                    .opacity(isFocused ? 1 : 0)
+            }
             .contentShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
         }
         .buttonStyle(ToolButtonStyle(isHovered: isHovered, isSelected: isActive, reduceMotion: shouldReduceMotion))
+        .focused($isFocused)
+        .focusEffectDisabled()
         .opacity(isEnabled ? 1 : 0.35)
         .onHover { isHovered = $0 }
         .help(helpKey)
     }
 }
 
-/// Icon-only label style for `Menu`-based toolbar buttons (Export, More) so their
-/// glyph matches `ToolbarIconButton`'s scale — the disclosure chevron is left to the
-/// system, since that's the expected affordance for "this opens a menu".
-private struct ToolbarMenuIconLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.icon
+/// Label content for `Menu`-based toolbar buttons (Export, More), styled to match
+/// `ToolbarIconButton` exactly — same hit area, corner radius, and hover fill — so the
+/// pair reads as one control instead of a plain icon frame nested inside separate,
+/// system-drawn menu chrome. Callers must also apply `.menuStyle(.borderlessButton)`
+/// and `.menuIndicator(.hidden)` to the enclosing `Menu`; otherwise AppKit's default
+/// menu-button border and disclosure chevron widen the control past this glyph's own
+/// clipped bounds, which is what was throwing off the spacing rhythm next to Search.
+private struct ToolbarMenuGlyph: View {
+    var labelKey: LocalizedStringKey
+    var systemImage: String
+
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    var body: some View {
+        Label(labelKey, systemImage: systemImage)
+            .labelStyle(.iconOnly)
             .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
             .symbolRenderingMode(.monochrome)
+            .foregroundStyle(Color.dsTextSecondary)
             .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
+            .background {
+                RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous)
+                    .fill(Color.dsAccentSoft)
+                    .opacity(isHovered ? 1 : 0)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
+            .animation(shouldReduceMotion ? nil : .easeOut(duration: 0.12), value: isHovered)
+            .onHover { isHovered = $0 }
     }
 }
 
