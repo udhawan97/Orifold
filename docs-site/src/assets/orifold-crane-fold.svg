@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" width="340" height="340" role="img" aria-label="Orifold: a sheet of paper folds into an origami crane, then becomes the app icon">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" width="280" height="280" id="of-hero-crane" role="img" aria-label="Orifold: a sheet of paper folds into an origami crane, then becomes the app icon">
   <title>Orifold — paper folds into an origami crane, then the app icon</title>
   <defs>
     <linearGradient id="tileG" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2b4566"/><stop offset="1" stop-color="#75bfd4"/></linearGradient>

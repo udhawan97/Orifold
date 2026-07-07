@@ -4,11 +4,11 @@
 <script>
 	// SMIL animation tags don't respect prefers-reduced-motion on their own —
 	// pause the crane fold explicitly when the user has asked for less motion.
+	// The crane is inlined directly into the page (not <object>-embedded) so
+	// there's no nested document to wait on — pauseAnimations() is available
+	// as soon as the SVG itself exists in the DOM.
 	const crane = document.getElementById('of-hero-crane');
-	if (crane instanceof HTMLObjectElement && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-		crane.addEventListener('load', () => {
-			const svg = crane.contentDocument?.documentElement;
-			if (svg instanceof SVGSVGElement) svg.pauseAnimations();
-		});
+	if (crane instanceof SVGSVGElement && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		crane.pauseAnimations();
 	}
 </script>

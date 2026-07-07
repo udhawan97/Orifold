@@ -23,6 +23,7 @@ export default defineConfig({
 			},
 			components: {
 				Footer: './src/components/overrides/Footer.astro',
+				Hero: './src/components/overrides/Hero.astro',
 				MarkdownContent: './src/components/overrides/MarkdownContent.astro',
 				PageTitle: './src/components/overrides/PageTitle.astro',
 			},
