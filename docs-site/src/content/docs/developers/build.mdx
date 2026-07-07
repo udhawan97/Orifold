@@ -1,0 +1,52 @@
+---
+title: Build from source
+description: Build, test, and package Orifold from a source checkout.
+keywords: [build from source, xcodebuild, swift build, contribute, dev setup]
+---
+
+Source builds need Apple Command Line Tools with Swift 5.9+. The normal installer never needs this — it downloads a prebuilt app.
+
+## Open in Xcode
+
+```zsh
+open Orifold.xcodeproj
+```
+
+## Build and test
+
+```zsh
+swift build
+swift test
+xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+```
+
+## Package a release zip
+
+```zsh
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
+```
+
+## Install from source without opening the app
+
+```zsh
+./scripts/install-mac.sh --no-open
+```
+
+## Signed & notarized builds
+
+```zsh
+ORIFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+ORIFOLD_NOTARIZE=1 \
+ORIFOLD_APPLE_ID="apple-id@example.com" \
+ORIFOLD_APPLE_TEAM_ID="TEAMID" \
+ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD="app-specific-password" \
+./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
+```
+
+GitHub Actions uses the same path when the corresponding secrets are configured.
+
+## Related
+
+- [Testing & the release gate](/Orifold/developers/release-gate/)
+- [Contributing](/Orifold/developers/contributing/)

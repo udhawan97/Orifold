@@ -1,0 +1,53 @@
+---
+title: Export & save
+description: Save your workspace as PDF, DOCX, Markdown, HTML, images, or print — and know exactly where the file goes.
+keywords: [export, save, download, where did my export go, where is my file, print]
+---
+
+import Kbd from '../../../components/Kbd.astro';
+import Callout from '../../../components/Callout.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
+import Figure from '../../../components/Figure.astro';
+
+<Callout variant="whentouse">
+	You've finished arranging, editing, or signing a workspace and want the finished file.
+</Callout>
+
+## Steps
+
+1. Press <Kbd>⇧⌘E</Kbd> or choose **File → Export**.
+2. Choose a format: PDF, DOCX, Markdown, plain text, HTML, PNG pages, or JPEG pages. Choose Print to send straight to a printer.
+3. Pick a location in the save panel and confirm.
+
+<Figure alt="PLACEHOLDER for gifs/export-save-confirmation.gif — ⇧⌘E opens the format picker, then the save panel, ending on the saved-file confirmation — dark mode, 1600×1000, 2x" caption="Exporting a workspace to PDF." />
+
+## Where did my file go?
+
+Exactly where you chose in the save panel — there's no hidden folder or upload step. If you're not sure where you saved it, check the location shown in the save dialog before you clicked Save, or search Spotlight for the filename.
+
+<Callout variant="note">
+	Every exported PDF passes a structural integrity check before it reaches disk. If export fails, see [Export & save problems](/Orifold/help/troubleshooting/export/).
+</Callout>
+
+## What you should see
+
+A new file at the location you chose, in the format you picked, reflecting every change made in the workspace.
+
+## Related
+
+<CardGrid>
+	<Card title="Compress a PDF" href="export/compress/">
+		Shrinking a file before you send it.
+	</Card>
+	<Card title="Password-protect a PDF" href="export/protect/">
+		Encrypting a file at export.
+	</Card>
+	<Card title="Export integrity checks" href="export/integrity/">
+		What the structural check verifies.
+	</Card>
+</CardGrid>
+
+## If something went wrong
+
+- [Export & save problems →](/Orifold/help/troubleshooting/export/)

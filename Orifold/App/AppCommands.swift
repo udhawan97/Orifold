@@ -1,11 +1,17 @@
 import AppKit
 import SwiftUI
 
+/// Externally-hosted links referenced from menu commands and in-app help surfaces.
+enum OrifoldLinks {
+    static let documentation = URL(string: "https://udhawan97.github.io/Orifold/")!
+}
+
 struct AppCommands: Commands {
     var body: some Commands {
         // File menu additions — DocumentGroup already provides New, Open, Save, etc.
         CommandGroup(after: .newItem) {
             AddFilesCommandButton()
+            AddFolderCommandButton()
             Divider()
             ReduceFileSizeCommandButton()
             MakeSearchableCommandButton()
@@ -25,10 +31,20 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .appInfo) {
             AboutCommandButton()
         }
+
+        CommandGroup(after: .help) {
+            ViewDocumentationCommandLink()
+        }
     }
 }
 
 private struct AddFilesCommandButton: View {
+    // Subscribing to LanguageManager (an ObservableObject) is what makes SwiftUI
+    // re-evaluate this Commands-hosted view's body — and thus re-resolve the
+    // L10n.string() label below — when the user switches languages. Without it,
+    // menu titles built from L10n.string() go stale until the app relaunches,
+    // since nothing else here depends on the stored language preference.
+    @EnvironmentObject private var languageManager: LanguageManager
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     var body: some View {
@@ -46,7 +62,44 @@ private struct AddFilesCommandButton: View {
     }
 }
 
+private struct AddFolderCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+
+    var body: some View {
+        Button(L10n.string("appCommands.addFolderToWorkspace.button")) {
+            let panel = NSOpenPanel()
+            configureFolderImportOpenPanel(panel)
+            guard panel.runModal() == .OK, let viewModel else { return }
+            let folders = panel.urls
+            Task {
+                let outcome = await importPickedOrDropped(files: [], folders: folders)
+                await MainActor.run {
+                    applyFolderImportOutcome(outcome, into: viewModel) { batch in
+                        presentOverLimitAlert(for: batch, into: viewModel)
+                    }
+                }
+            }
+        }
+        .disabled(viewModel == nil)
+    }
+}
+
+@MainActor
+private func presentOverLimitAlert(for batch: PendingFolderImportBatch, into viewModel: WorkspaceViewModel) {
+    let alert = NSAlert()
+    alert.messageText = folderImportOverLimitTitle(supportedCount: batch.urls.count)
+    if batch.wasTruncated {
+        alert.informativeText = L10n.string("folderImport.overLimit.truncatedNote")
+    }
+    alert.addButton(withTitle: folderImportOverLimitImportFirstLabel(count: maximumImportBatchSize))
+    alert.addButton(withTitle: L10n.string("folderImport.overLimit.cancel"))
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+    importFirstFromPendingBatch(batch, into: viewModel)
+}
+
 private struct MakeSearchableCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     var body: some View {
@@ -59,6 +112,7 @@ private struct MakeSearchableCommandButton: View {
 }
 
 private struct ReduceFileSizeCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
 
     var body: some View {
@@ -70,6 +124,7 @@ private struct ReduceFileSizeCommandButton: View {
 }
 
 private struct UndoRedoCommandButtons: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @Environment(\.undoManager) private var undoManager
     @FocusedValue(\.orifoldIsImporting) private var isImporting
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
@@ -92,6 +147,7 @@ private struct UndoRedoCommandButtons: View {
 }
 
 private struct PetBuddyCommandToggle: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @AppStorage("petEnabled") private var petEnabled = true
     @State private var buddy = PetBuddy.shared
 
@@ -118,6 +174,7 @@ private struct PetBuddyCommandToggle: View {
 }
 
 private struct PetSpeciesCommandPicker: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @AppStorage("petEnabled") private var petEnabled = true
     @State private var buddy = PetBuddy.shared
 
@@ -155,9 +212,18 @@ extension FocusedValues {
 }
 
 private struct AboutCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Button(L10n.string("appCommands.aboutOrifold.button")) { openWindow(id: "about-orifold") }
+    }
+}
+
+private struct ViewDocumentationCommandLink: View {
+    @EnvironmentObject private var languageManager: LanguageManager
+
+    var body: some View {
+        Link(L10n.string("help.viewDocumentation.button"), destination: OrifoldLinks.documentation)
     }
 }

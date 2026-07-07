@@ -1,0 +1,10 @@
+[
+	{ "title": "Combine files into one PDF", "href": "import/combine/" },
+	{ "title": "Edit existing PDF text", "href": "edit/edit-text/" },
+	{ "title": "Sign a document", "href": "fill-sign/signatures/" },
+	{ "title": "Fill a form", "href": "fill-sign/forms/" },
+	{ "title": "Compress a PDF for email", "href": "export/compress/" },
+	{ "title": "Password-protect a PDF", "href": "export/protect/" },
+	{ "title": "Make a scan searchable (OCR)", "href": "edit/ocr/" },
+	{ "title": "Change the app language", "href": "settings/language/" }
+]

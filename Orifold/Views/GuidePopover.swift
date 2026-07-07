@@ -207,6 +207,9 @@ private struct GuidePopover: View {
             .frame(maxHeight: 420)
 
             HStack {
+                Link("help.viewDocumentation.button", destination: OrifoldLinks.documentation)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
                 Spacer()
                 Button("guidePopover.gotIt.button") { isPresented = false }
                     .buttonStyle(.borderedProminent)

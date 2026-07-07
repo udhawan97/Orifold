@@ -230,6 +230,11 @@ enum PetBuddyHook {
     }
     var currentMessage: String?
     var isBubbleVisible = false
+    /// Mirrors `PetView`'s hover state so `PetOverlay` can widen the gap above
+    /// the pet before it grows into the space the message bubble occupies —
+    /// the pet's `scaleEffect` doesn't change its layout size, so the VStack
+    /// spacing has to be told about the hover growth explicitly.
+    var isHovered = false
 
     let minInterval: TimeInterval = 6
     let displayDuration: TimeInterval = 4.5
@@ -344,7 +349,7 @@ struct PetOverlay: View {
 
     var body: some View {
         if buddy.isEnabled {
-            VStack(alignment: .trailing, spacing: .dsSM) {
+            VStack(alignment: .trailing, spacing: bubbleSpacing) {
                 if buddy.isBubbleVisible, let message = buddy.currentMessage {
                     PetBubble(message: message)
                         .allowsHitTesting(false)
@@ -353,8 +358,19 @@ struct PetOverlay: View {
                 PetView(presentation: .workspace)
             }
             .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82), value: buddy.isBubbleVisible)
+            .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82), value: buddy.isHovered)
             .onAppear { buddy.trigger(.greeting) }
         }
+    }
+
+    /// While at rest, the pet's compact size only needs the base 8pt rhythm.
+    /// On hover the pet scales up (from a bottom-trailing anchor, growing
+    /// upward) without changing its layout size, so the bubble above it needs
+    /// extra room reserved for that growth plus a safe gap, or the enlarged
+    /// pet visually pushes into the bubble.
+    private var bubbleSpacing: CGFloat {
+        guard buddy.isHovered else { return .dsSM }
+        return PetView.hoverGrowthDelta(for: .workspace) + PetView.popoverGap
     }
 
     private var bubbleTransition: AnyTransition {
@@ -384,7 +400,7 @@ struct PetBubble: View {
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
-        .frame(maxWidth: 240, alignment: .leading)
+        .frame(maxWidth: 300, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
@@ -400,6 +416,7 @@ struct PetBubble: View {
     private var bubbleText: some View {
         Text(message)
             .font(.dsCaption())
+            .lineSpacing(3)
             .foregroundStyle(Color.dsTextPrimary)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
@@ -483,10 +500,16 @@ struct PetView: View {
         }
         .overlay(alignment: .topTrailing) {
             if presentation == .workspace, let hoverTipMessage {
+                // The tip only ever shows while hovered, i.e. while the chip is
+                // scaled up — but `.overlay(alignment:)` positions against the
+                // pre-scale layout frame (scaleEffect doesn't change layout
+                // size), so the offset has to add back the hover growth (which
+                // extends upward, since the scale anchor is bottomTrailing)
+                // plus a safe gap, or the tip lands on top of the enlarged pet.
                 PetBubble(message: hoverTipMessage)
                     .allowsHitTesting(false)
                     .fixedSize()
-                    .offset(x: 6, y: -14)
+                    .offset(x: 6, y: -(14 + Self.hoverGrowthDelta(for: .workspace) + Self.popoverGap))
                     .transition(hoverTipTransition)
             }
         }
@@ -571,6 +594,13 @@ struct PetView: View {
 
         guard presentation == .workspace else { return }
 
+        // Mirrored onto the shared buddy so `PetOverlay`'s VStack (a sibling,
+        // not a descendant of this view) can widen its spacing before this
+        // chip finishes growing into the space above it.
+        withAnimation(shouldReduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78)) {
+            buddy.isHovered = hovering
+        }
+
         if hovering {
             // A brief pause before the tip appears, so a mouse just passing over the
             // corner doesn't spam a message every time.
@@ -621,24 +651,45 @@ struct PetView: View {
 
     /// Compact (at-rest) container size — icon + its padding — clamped to Apple HIG's
     /// comfortable-but-unobtrusive dock-widget range.
-    private var compactContainerSize: CGFloat {
+    private var compactContainerSize: CGFloat { Self.compactContainerSize(for: presentation) }
+
+    /// How much larger the container becomes on hover, clamped to a clearly-bigger but
+    /// still-corner-sized preview.
+    private var hoverContainerSize: CGFloat { Self.hoverContainerSize(for: presentation) }
+
+    private var hoverScale: CGFloat {
+        hoverContainerSize / compactContainerSize
+    }
+
+    static func compactContainerSize(for presentation: PetPresentation) -> CGFloat {
         switch presentation {
         case .welcome: return 64
         case .workspace: return clamp(72, in: 64...80)
         }
     }
 
-    /// How much larger the container becomes on hover, clamped to a clearly-bigger but
-    /// still-corner-sized preview.
-    private var hoverContainerSize: CGFloat {
+    static func hoverContainerSize(for presentation: PetPresentation) -> CGFloat {
         switch presentation {
-        case .welcome: return compactContainerSize * 1.15
+        case .welcome: return compactContainerSize(for: presentation) * 1.15
         case .workspace: return clamp(112, in: 96...120)
         }
     }
 
-    private var hoverScale: CGFloat {
-        hoverContainerSize / compactContainerSize
+    /// How much the container's top edge grows upward on hover — the scale
+    /// anchor is `.bottomTrailing`, so this growth is entirely up-and-left;
+    /// the right/bottom edges never move. Callers outside `PetView` (like
+    /// `PetOverlay`) use this to keep floating bubbles clear of the enlarged
+    /// pet without needing to measure rendered geometry at runtime.
+    static func hoverGrowthDelta(for presentation: PetPresentation) -> CGFloat {
+        hoverContainerSize(for: presentation) - compactContainerSize(for: presentation)
+    }
+
+    /// Minimum safe gap between the pet's scaled bounds and any floating
+    /// bubble — mirrors a `--pet-popover-gap` design token.
+    static let popoverGap: CGFloat = .dsLG
+
+    private static func clamp(_ value: CGFloat, in range: ClosedRange<CGFloat>) -> CGFloat {
+        min(max(value, range.lowerBound), range.upperBound)
     }
 
     private var iconPadding: CGFloat {
@@ -658,10 +709,6 @@ struct PetView: View {
     /// growing it — a standard "generous hit target" pattern.
     private var hitAreaPadding: CGFloat {
         presentation == .welcome ? 4 : 10
-    }
-
-    private func clamp(_ value: CGFloat, in range: ClosedRange<CGFloat>) -> CGFloat {
-        min(max(value, range.lowerBound), range.upperBound)
     }
 
     private var petBackground: Color {

@@ -179,18 +179,15 @@ struct ContentView: View {
     @State private var isShowingExportSheet = false
     @State private var isWorkspaceDropTargeted = false
     @State private var isNavigationDropTargeted = false
-    @State private var isShowingNightModeControls = false
+    @State private var isShowingDocumentComfortPopover = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @AppStorage("orifoldAppAppearanceMode") private var persistedAppAppearanceMode = AppAppearanceMode.system.rawValue
-    @AppStorage("orifoldNightModeEnabled") private var persistedNightModeEnabled = false
-    @AppStorage("orifoldNightModeWarmth") private var persistedNightModeWarmth = NightModeSettings.default.warmth
-    @AppStorage("orifoldNightModeIntensity") private var persistedNightModeIntensity = NightModeSettings.default.intensity
-    @AppStorage("orifoldNightModeDimming") private var persistedNightModeDimming = NightModeSettings.default.dimming
+    @AppStorage("orifoldDocumentComfortSettings") private var persistedDocumentComfortSettingsData = Data()
     @Environment(\.undoManager) private var undoManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var shouldReduceMotion: Bool {
-        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || viewModel.documentComfortSettings.reduceAnimations
     }
 
     init(document: WorkspaceDocument, fileURL: URL? = nil) {
@@ -224,6 +221,12 @@ struct ContentView: View {
                         handleDrop(providers: providers, insertingAfter: targetPageRefID)
                     }
                         .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 320)
+                        .overlay {
+                            if viewModel.documentComfortSettings.focusMode {
+                                Color.black.opacity(0.35).allowsHitTesting(false)
+                            }
+                        }
+                        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.2), value: viewModel.documentComfortSettings.focusMode)
                 } detail: {
                     HStack(spacing: 0) {
                         ReadingCanvas(viewModel: viewModel)
@@ -251,9 +254,15 @@ struct ContentView: View {
                             Rectangle().fill(Color.dsSeparator).frame(width: 0.5)
                             InspectorView(viewModel: viewModel, selectedTab: $inspectorTab)
                                 .frame(width: 280)
+                                .overlay {
+                                    if viewModel.documentComfortSettings.focusMode {
+                                        Color.black.opacity(0.35).allowsHitTesting(false)
+                                    }
+                                }
                         }
                     }
                     .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: showInspector)
+                    .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.2), value: viewModel.documentComfortSettings.focusMode)
                     .overlay { workspaceDropOverlay }
                     .onDrop(
                         of: importDropContentTypes,
@@ -295,8 +304,7 @@ struct ContentView: View {
         .onAppear {
             viewModel.undoManager = undoManager
             setAppAppearanceMode(persistedAppAppearanceModeValue)
-            viewModel.isNightModeEnabled = persistedNightModeEnabled
-            viewModel.nightModeSettings = persistedNightModeSettings
+            viewModel.documentComfortSettings = persistedDocumentComfortSettings
         }
         .onChange(of: undoManager) { _, um in viewModel.undoManager = um }
         .onChange(of: viewModel.appAppearanceMode) { _, mode in
@@ -306,11 +314,8 @@ struct ContentView: View {
         .onChange(of: persistedAppAppearanceMode) { _, _ in
             syncPersistedAppAppearanceMode()
         }
-        .onChange(of: viewModel.isNightModeEnabled) { _, enabled in
-            persistedNightModeEnabled = enabled
-        }
-        .onChange(of: viewModel.nightModeSettings) { _, settings in
-            persistedNightModeSettings = settings
+        .onChange(of: viewModel.documentComfortSettings) { _, settings in
+            persistedDocumentComfortSettings = settings
         }
         .onChange(of: viewModel.selectedCommentID) { _, newValue in
             guard newValue != nil else { return }
@@ -338,8 +343,8 @@ struct ContentView: View {
         .alert("contentView.importError.title", isPresented: Binding(
             get: { viewModel.importError != nil },
             set: { if !$0 { viewModel.importError = nil } }
-        ), presenting: viewModel.importError) { _ in
-            Button("contentView.ok.button") { viewModel.importError = nil }
+        ), presenting: viewModel.importError) { err in
+            importRecoveryButtons(for: err)
         } message: { err in
             Text(err.message)
         }
@@ -452,27 +457,19 @@ struct ContentView: View {
             .help("toolbar.inspector.help")
 
             Button {
-                viewModel.isNightModeEnabled.toggle()
+                isShowingDocumentComfortPopover.toggle()
             } label: {
-                Label("toolbar.nightMode.label", systemImage: viewModel.isNightModeEnabled ? "moon.stars.fill" : "moon.stars")
+                Label("toolbar.documentComfort.label", systemImage: "eyeglasses")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help(viewModel.isNightModeEnabled ? "toolbar.nightMode.turnOff.help" : "toolbar.nightMode.turnOn.help")
-
-            Button {
-                isShowingNightModeControls.toggle()
-            } label: {
-                Label("toolbar.nightTone.label", systemImage: "slider.horizontal.3")
-            }
-            .acceptsImportDrops { providers in
-                handleDrop(providers: providers)
-            }
-            .help("toolbar.nightTone.help")
-            .popover(isPresented: $isShowingNightModeControls, arrowEdge: .top) {
-                NightModeControls(viewModel: viewModel)
-                    .frame(width: 320)
+            .foregroundStyle(viewModel.documentComfortSettings.isAtDefault ? Color.dsTextPrimary : Color.dsAccent)
+            .help("toolbar.documentComfort.help")
+            .accessibilityLabel(Text("toolbar.documentComfort.accessibilityLabel"))
+            .popover(isPresented: $isShowingDocumentComfortPopover, arrowEdge: .top) {
+                DocumentComfortPopover(viewModel: viewModel)
+                    .frame(width: 360)
             }
 
             GuideButton(autoShow: true)
@@ -484,19 +481,15 @@ struct ContentView: View {
 
     // MARK: - Helpers
 
-    private var persistedNightModeSettings: NightModeSettings {
+    private var persistedDocumentComfortSettings: DocumentComfortSettings {
         get {
-            NightModeSettings(
-                warmth: persistedNightModeWarmth,
-                intensity: persistedNightModeIntensity,
-                dimming: persistedNightModeDimming
-            ).clamped
+            guard let decoded = try? JSONDecoder().decode(DocumentComfortSettings.self, from: persistedDocumentComfortSettingsData) else {
+                return .default
+            }
+            return decoded.clamped
         }
         nonmutating set {
-            let settings = newValue.clamped
-            persistedNightModeWarmth = settings.warmth
-            persistedNightModeIntensity = settings.intensity
-            persistedNightModeDimming = settings.dimming
+            persistedDocumentComfortSettingsData = (try? JSONEncoder().encode(newValue.clamped)) ?? Data()
         }
     }
 
@@ -595,6 +588,68 @@ struct ContentView: View {
             importFilesWithBatchLimit(urls: panel.urls, into: viewModel)
         }
     }
+
+    // MARK: - Import failure recovery
+
+    @ViewBuilder
+    private func importRecoveryButtons(for err: WorkspaceViewModel.ImportError) -> some View {
+        if let url = err.sourceURL, FileManager.default.fileExists(atPath: url.path) {
+            Button("contentView.showInFinder.button") {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+                viewModel.importError = nil
+            }
+        }
+        if err.kind.showsChooseFileAgain {
+            Button("contentView.importRecovery.chooseFileAgain.button") {
+                chooseFileAgain(for: err)
+            }
+        }
+        if err.kind.showsGrantFolderAccess {
+            Button("contentView.importRecovery.grantFolderAccess.button") {
+                grantFolderAccess(for: err)
+            }
+        }
+        if let recentEntryID = err.recentEntryID {
+            Button("recentFiles.menu.remove", role: .destructive) {
+                RecentsStore.shared.remove(id: recentEntryID)
+                viewModel.importError = nil
+            }
+        }
+        Button("folderImport.overLimit.cancel", role: .cancel) { viewModel.importError = nil }
+    }
+
+    private func chooseFileAgain(for err: WorkspaceViewModel.ImportError) {
+        let panel = NSOpenPanel()
+        configureImportOpenPanel(panel)
+        if let url = err.sourceURL {
+            panel.directoryURL = url.deletingLastPathComponent()
+        }
+        let recentEntryID = err.recentEntryID
+        viewModel.importError = nil
+        guard panel.runModal() == .OK else { return }
+        if let recentEntryID {
+            RecentsStore.shared.remove(id: recentEntryID)
+        }
+        importFilesWithBatchLimit(urls: panel.urls, into: viewModel)
+    }
+
+    private func grantFolderAccess(for err: WorkspaceViewModel.ImportError) {
+        let panel = NSOpenPanel()
+        configureFolderImportOpenPanel(panel)
+        if let url = err.sourceURL {
+            panel.directoryURL = url.deletingLastPathComponent()
+        }
+        let sourceURL = err.sourceURL
+        let recentEntryID = err.recentEntryID
+        viewModel.importError = nil
+        guard panel.runModal() == .OK, let folderURL = panel.urls.first else { return }
+        SecurityScopedAccess.grantFolderAccessForSession(folderURL)
+        guard let sourceURL, FileManager.default.fileExists(atPath: sourceURL.path) else { return }
+        if let recentEntryID {
+            RecentsStore.shared.remove(id: recentEntryID)
+        }
+        importFilesWithBatchLimit(urls: [sourceURL], into: viewModel)
+    }
 }
 
 private struct ReaderModePill: View {
@@ -612,15 +667,16 @@ private struct ReaderModePill: View {
             Button {
                 isShowingToneControls.toggle()
             } label: {
-                Image(systemName: viewModel.isNightModeEnabled ? "moon.stars.fill" : "slider.horizontal.3")
+                Image(systemName: "eyeglasses")
                     .frame(width: 22, height: 22)
             }
             .buttonStyle(.borderless)
-            .foregroundStyle(viewModel.isNightModeEnabled ? Color.dsAccent : Color.dsTextTertiary)
+            .foregroundStyle(viewModel.documentComfortSettings.isAtDefault ? Color.dsTextTertiary : Color.dsAccent)
             .help("contentView.readerModePill.toneControls.help")
+            .accessibilityLabel(Text("toolbar.documentComfort.accessibilityLabel"))
             .popover(isPresented: $isShowingToneControls, arrowEdge: .top) {
-                NightModeControls(viewModel: viewModel)
-                    .frame(width: 320)
+                DocumentComfortPopover(viewModel: viewModel)
+                    .frame(width: 360)
             }
 
             Button(action: openNotes) {
@@ -652,80 +708,339 @@ private struct ReaderModePill: View {
     }
 }
 
-private struct NightModeControls: View {
-    @Bindable var viewModel: WorkspaceViewModel
+/// A small info-circle affordance that opens a short plain-language explanation.
+/// Being a real `Button`, it is reachable and activatable by both mouse and keyboard
+/// focus (Tab + Space), and mirrors its copy into `.help()` so VoiceOver and the
+/// hover tooltip both read the same text.
+private struct ComfortInfoButton: View {
+    let titleKey: String
+    let infoKey: String
+    @State private var isPresented = false
+
+    private var titleText: Text { Text(LocalizedStringKey(titleKey)) }
+    private var infoText: Text { Text(LocalizedStringKey(infoKey)) }
+    private var helpText: String { L10n.string(String.LocalizationValue(stringLiteral: infoKey)) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: .dsMD) {
-            VStack(alignment: .leading, spacing: .dsSM) {
-                Label("contentView.nightModeControls.application.label", systemImage: "macwindow")
-                    .font(.dsHeadline())
-                Picker("contentView.nightModeControls.applicationAppearance.picker", selection: appAppearanceModeBinding) {
-                    ForEach(AppAppearanceMode.allCases) { mode in
-                        Label(mode.title, systemImage: mode.systemImage)
-                            .tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
+        Button {
+            isPresented.toggle()
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 12))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.dsTextTertiary)
+        .help(helpText)
+        .accessibilityLabel(titleText)
+        .accessibilityHint(infoText)
+        .popover(isPresented: $isPresented, arrowEdge: .trailing) {
+            infoText
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 220, alignment: .leading)
+                .padding(.dsMD)
+        }
+    }
+}
+
+/// The unified "Document Comfort" control: one-tap reading presets, viewer-only page
+/// modes, and fine-tune sliders/toggles that never touch PDF content or exported
+/// output (see `DocumentComfortSettings`). Every row shares a common icon/label/value
+/// grid so alignment stays consistent regardless of label length or language.
+private struct DocumentComfortPopover: View {
+    @Bindable var viewModel: WorkspaceViewModel
+    @AppStorage("orifoldComfortAdvancedExpanded") private var isAdvancedExpanded = false
+    @State private var pendingReset = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || viewModel.documentComfortSettings.reduceAnimations
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsLG) {
+            header
+
+            presetsSection
+
+            Rectangle()
+                .fill(Color.dsSeparator.opacity(0.5))
+                .frame(height: 1)
+
+            appThemeSection
+
+            pageModeSection
+
+            advancedSection
+
+            readingFocusSection
+
+            Rectangle()
+                .fill(Color.dsSeparator.opacity(0.5))
+                .frame(height: 1)
+
+            resetRow
+        }
+        .padding(.dsLG)
+        .confirmationDialog(
+            "documentComfort.reset.confirm.title",
+            isPresented: $pendingReset,
+            titleVisibility: .visible
+        ) {
+            Button("documentComfort.reset.confirm.confirm", role: .destructive) {
+                applyReset()
             }
+            Button("documentComfort.reset.confirm.cancel", role: .cancel) {}
+        }
+    }
 
-            Divider()
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("documentComfort.title")
+                .font(.dsTitle())
+            Text("documentComfort.subtitle")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+        }
+    }
 
-            Toggle(isOn: $viewModel.isNightModeEnabled) {
-                Label("toolbar.nightMode.label", systemImage: viewModel.isNightModeEnabled ? "moon.stars.fill" : "moon.stars")
-                    .font(.dsHeadline())
-            }
+    // MARK: - Reading Presets
 
-            HStack(spacing: .dsSM) {
-                ForEach(NightModePreset.allCases) { preset in
-                    Button {
-                        viewModel.isNightModeEnabled = true
-                        viewModel.nightModeSettings = preset.settings
-                    } label: {
-                        Label(preset.title, systemImage: preset.systemImage)
-                            .labelStyle(.titleAndIcon)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: .dsSM) {
-                nightModeSlider(
-                    title: "contentView.nightModeControls.warmth.title",
-                    systemImage: "thermometer.sun",
-                    value: Binding(
-                        get: { viewModel.nightModeSettings.warmth },
-                        set: { viewModel.nightModeSettings.warmth = $0 }
-                    )
+    private var presetsSection: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            HStack(spacing: .dsXS) {
+                sectionLabel("documentComfort.presets.section")
+                ComfortInfoButton(
+                    titleKey: "documentComfort.presets.section",
+                    infoKey: "documentComfort.presets.info"
                 )
-                nightModeSlider(
-                    title: "contentView.nightModeControls.tone.title",
-                    systemImage: "circle.lefthalf.filled",
-                    value: Binding(
-                        get: { viewModel.nightModeSettings.intensity },
-                        set: { viewModel.nightModeSettings.intensity = $0 }
-                    )
-                )
-                nightModeSlider(
-                    title: "contentView.nightModeControls.dimming.title",
-                    systemImage: "sun.min",
-                    value: Binding(
-                        get: { viewModel.nightModeSettings.dimming },
-                        set: { viewModel.nightModeSettings.dimming = $0 }
-                    )
-                )
             }
-
-            HStack {
-                Spacer()
-                Button("contentView.nightModeControls.reset.button") {
-                    viewModel.nightModeSettings = .default
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: .dsSM), count: 4), spacing: .dsSM) {
+                ForEach(ComfortPreset.allCases) { preset in
+                    presetChip(preset)
                 }
             }
         }
-        .padding(.dsLG)
+    }
+
+    private func presetChip(_ preset: ComfortPreset) -> some View {
+        let isSelected = viewModel.documentComfortSettings.activePreset == preset
+        return Button {
+            applyPreset(preset)
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: preset.systemImage)
+                    .font(.system(size: 15))
+                Text(preset.title)
+                    .font(.dsCaption())
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+        }
+        .buttonStyle(ComfortCardButtonStyle(isSelected: isSelected, shouldReduceMotion: shouldReduceMotion))
+        .foregroundStyle(isSelected ? Color.dsAccent : Color.dsTextPrimary)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .help(preset.title)
+    }
+
+    private func applyPreset(_ preset: ComfortPreset) {
+        var transaction = Transaction(animation: shouldReduceMotion ? nil : .easeInOut(duration: 0.15))
+        transaction.disablesAnimations = shouldReduceMotion
+        withTransaction(transaction) {
+            viewModel.documentComfortSettings = preset.settings
+        }
+    }
+
+    // MARK: - Application theme
+
+    private var appThemeSection: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            HStack(spacing: .dsXS) {
+                sectionLabel("contentView.nightModeControls.application.label")
+                ComfortInfoButton(
+                    titleKey: "contentView.nightModeControls.application.label",
+                    infoKey: "documentComfort.appTheme.info"
+                )
+            }
+            Picker("contentView.nightModeControls.applicationAppearance.picker", selection: appAppearanceModeBinding) {
+                ForEach(AppAppearanceMode.allCases) { mode in
+                    Label(mode.title, systemImage: mode.systemImage)
+                        .tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+    }
+
+    // MARK: - Page Mode
+
+    private var pageModeSection: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            HStack(spacing: .dsXS) {
+                sectionLabel("documentComfort.pageMode.section")
+                ComfortInfoButton(
+                    titleKey: "documentComfort.pageMode.section",
+                    infoKey: "documentComfort.pageMode.info"
+                )
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: .dsSM), count: 3), spacing: .dsSM) {
+                ForEach(PageMode.allCases) { mode in
+                    pageModeChip(mode)
+                }
+            }
+        }
+    }
+
+    private func pageModeChip(_ mode: PageMode) -> some View {
+        let isSelected = viewModel.documentComfortSettings.pageMode == mode
+        return Button {
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                viewModel.documentComfortSettings.pageMode = mode
+            }
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: mode.systemImage)
+                    .font(.system(size: 15))
+                Text(mode.title)
+                    .font(.dsCaption())
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 64)
+        }
+        .buttonStyle(ComfortCardButtonStyle(isSelected: isSelected, shouldReduceMotion: shouldReduceMotion))
+        .foregroundStyle(isSelected ? Color.dsAccent : Color.dsTextPrimary)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .help(mode.title)
+    }
+
+    // MARK: - Advanced (fine-tune) controls
+
+    private var advancedSection: some View {
+        DisclosureGroup(isExpanded: $isAdvancedExpanded) {
+            VStack(alignment: .leading, spacing: .dsMD) {
+                comfortSlider(
+                    title: "documentComfort.brightness.title",
+                    systemImage: "sun.max",
+                    infoKey: "documentComfort.brightness.info",
+                    value: Binding(
+                        get: { viewModel.documentComfortSettings.brightness },
+                        set: { viewModel.documentComfortSettings.brightness = $0 }
+                    ),
+                    range: 50...150
+                )
+                comfortSlider(
+                    title: "documentComfort.contrast.title",
+                    systemImage: "circle.lefthalf.filled",
+                    infoKey: "documentComfort.contrast.info",
+                    value: Binding(
+                        get: { viewModel.documentComfortSettings.contrast },
+                        set: { viewModel.documentComfortSettings.contrast = $0 }
+                    ),
+                    range: 50...150
+                )
+                comfortSlider(
+                    title: "documentComfort.warmth.title",
+                    systemImage: "thermometer.sun",
+                    infoKey: "documentComfort.warmth.info",
+                    value: Binding(
+                        get: { viewModel.documentComfortSettings.warmth },
+                        set: { viewModel.documentComfortSettings.warmth = $0 }
+                    ),
+                    range: 0...100
+                )
+
+                comfortToggle(
+                    title: "documentComfort.reduceGlare.title",
+                    systemImage: "sparkles",
+                    infoKey: "documentComfort.reduceGlare.info",
+                    isOn: Binding(
+                        get: { viewModel.documentComfortSettings.reduceGlare },
+                        set: { viewModel.documentComfortSettings.reduceGlare = $0 }
+                    )
+                )
+                comfortToggle(
+                    title: "documentComfort.softenWhitePages.title",
+                    systemImage: "doc.text.image",
+                    infoKey: "documentComfort.softenWhitePages.info",
+                    isOn: Binding(
+                        get: { viewModel.documentComfortSettings.softenWhitePages },
+                        set: { viewModel.documentComfortSettings.softenWhitePages = $0 }
+                    )
+                )
+            }
+            .padding(.top, .dsSM)
+        } label: {
+            Text("documentComfort.advanced.disclosure")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+        }
+    }
+
+    // MARK: - Reading Focus
+
+    private var readingFocusSection: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            comfortToggle(
+                title: "documentComfort.focusMode.title",
+                systemImage: "viewfinder",
+                infoKey: "documentComfort.focusMode.info",
+                isOn: Binding(
+                    get: { viewModel.documentComfortSettings.focusMode },
+                    set: { viewModel.documentComfortSettings.focusMode = $0 }
+                )
+            )
+            comfortToggle(
+                title: "documentComfort.reduceAnimations.title",
+                systemImage: "wand.and.stars",
+                infoKey: "documentComfort.reduceAnimations.info",
+                isOn: Binding(
+                    get: { viewModel.documentComfortSettings.reduceAnimations },
+                    set: { viewModel.documentComfortSettings.reduceAnimations = $0 }
+                )
+            )
+        }
+    }
+
+    // MARK: - Reset
+
+    private var resetRow: some View {
+        HStack(spacing: .dsXS) {
+            Button {
+                if viewModel.documentComfortSettings.isAtDefault {
+                    return
+                }
+                pendingReset = true
+            } label: {
+                Label("documentComfort.reset.button", systemImage: "arrow.counterclockwise")
+                    .font(.dsCaption())
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(viewModel.documentComfortSettings.isAtDefault)
+
+            ComfortInfoButton(
+                titleKey: "documentComfort.reset.button",
+                infoKey: "documentComfort.reset.info"
+            )
+        }
+    }
+
+    private func applyReset() {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            viewModel.documentComfortSettings = .default
+        }
     }
 
     private var appAppearanceModeBinding: Binding<AppAppearanceMode> {
@@ -746,24 +1061,104 @@ private struct NightModeControls: View {
         }
     }
 
-    private func nightModeSlider(title: LocalizedStringKey, systemImage: String, value: Binding<Double>) -> some View {
+    private func sectionLabel(_ key: LocalizedStringKey) -> some View {
+        Text(key)
+            .font(.dsCaption())
+            .fontWeight(.semibold)
+            .tracking(.dsLabelTracking)
+            .foregroundStyle(Color.dsTextSecondary)
+            .textCase(.uppercase)
+    }
+
+    private func comfortSlider(
+        title: String,
+        systemImage: String,
+        infoKey: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: .dsSM) {
+                Image(systemName: systemImage)
+                    .frame(width: 20)
+                    .foregroundStyle(Color.dsTextTertiary)
+                Text(LocalizedStringKey(title))
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: .dsSM)
+                Text("\(Int(value.wrappedValue))%")
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .monospacedDigit()
+                    .frame(width: 44, alignment: .trailing)
+                ComfortInfoButton(titleKey: title, infoKey: infoKey)
+            }
+            HStack(spacing: .dsSM) {
+                Color.clear.frame(width: 20)
+                Slider(value: value, in: range, step: 1)
+            }
+        }
+    }
+
+    private func comfortToggle(
+        title: String,
+        systemImage: String,
+        infoKey: String,
+        isOn: Binding<Bool>
+    ) -> some View {
         HStack(spacing: .dsSM) {
             Image(systemName: systemImage)
-                .frame(width: 18)
+                .frame(width: 20)
                 .foregroundStyle(Color.dsTextTertiary)
-            Text(title)
-                .font(.dsCaption())
-                .foregroundStyle(Color.dsTextSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .frame(width: 78, alignment: .leading)
-            Slider(value: value, in: 0...1, step: 0.01)
-            Text("\(Int(value.wrappedValue * 100))%")
-                .font(.dsCaption())
-                .foregroundStyle(Color.dsTextSecondary)
-                .monospacedDigit()
-                .frame(width: 42, alignment: .trailing)
+            Toggle(isOn: isOn) {
+                Text(LocalizedStringKey(title))
+                    .font(.dsCaption())
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            ComfortInfoButton(titleKey: title, infoKey: infoKey)
         }
+    }
+}
+
+/// Shared card visual for preset and page-mode chips: selected/hover/pressed states,
+/// with hover/press motion gated behind Reduce Animations / OS reduced-motion.
+private struct ComfortCardButtonStyle: ButtonStyle {
+    let isSelected: Bool
+    let shouldReduceMotion: Bool
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.vertical, 6)
+            .background(
+                fillColor(isPressed: configuration.isPressed),
+                in: RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                    .strokeBorder(isSelected ? Color.dsAccent : Color.clear, lineWidth: 1.5)
+            }
+            .scaleEffect(configuration.isPressed && !shouldReduceMotion ? 0.97 : 1)
+            .onHover { hovering in
+                isHovered = hovering
+            }
+            .animation(shouldReduceMotion ? nil : .easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+
+    private func fillColor(isPressed: Bool) -> Color {
+        if isSelected {
+            return Color.dsAccent.opacity(isPressed ? 0.26 : 0.18)
+        }
+        if isPressed {
+            return Color.dsSeparator.opacity(0.6)
+        }
+        if isHovered {
+            return Color.dsSeparator.opacity(0.5)
+        }
+        return Color.dsSeparator.opacity(0.35)
     }
 }
 
@@ -1434,12 +1829,101 @@ var importBatchPanelMessage: String { L10n.string("contentView.importBatchPanel.
 var importBatchLimitMessage: String { L10n.string("contentView.importBatchLimit.message") }
 var importDropProviderLimitMessage: String { L10n.string("contentView.importDropProviderLimit.message") }
 
+func folderImportSummaryMessage(importedCount: Int, skippedCount: Int) -> String {
+    L10n.format("folderImport.summary.importedSkipped", importedCount, skippedCount)
+}
+
+/// Builds the post-import status toast for a `.ready` outcome, or nil if nothing
+/// noteworthy happened (no unsupported files skipped, no truncation). Skipped-file
+/// and truncation notes are independent facts and both need to reach the user when
+/// both are true, rather than one silently overriding the other.
+func folderImportReadyStatusMessage(importedCount: Int, unsupportedCount: Int, wasTruncated: Bool) -> String? {
+    guard unsupportedCount > 0 || wasTruncated else { return nil }
+    var message = unsupportedCount > 0
+        ? folderImportSummaryMessage(importedCount: importedCount, skippedCount: unsupportedCount)
+        : L10n.string("folderImport.overLimit.truncatedNote")
+    if wasTruncated && unsupportedCount > 0 {
+        message += " " + L10n.string("folderImport.overLimit.truncatedNote")
+    }
+    return message
+}
+
+func folderImportOverLimitTitle(supportedCount: Int) -> String {
+    L10n.format("folderImport.overLimit.title", supportedCount)
+}
+
+func folderImportOverLimitImportFirstLabel(count: Int) -> String {
+    L10n.format("folderImport.overLimit.importFirst", count)
+}
+
+/// What kind of items are currently hovering over an import drop zone, used to show
+/// drag-specific release copy ("Release to import folder contents", etc.).
+enum ImportDragKind {
+    case files
+    case folder
+    case mixed
+}
+
+enum FolderScanPhase: Equatable {
+    case idle
+    case scanning
+    case finding
+}
+
+/// Shared drop delegate for import drop zones that accept both files and folders.
+/// Classifies the drag (files/folder/mixed) for live release copy, then resolves and
+/// hands off to `onResolved` on drop.
+struct ImportDropDelegate: DropDelegate {
+    var onKindChange: (ImportDragKind?) -> Void
+    var onResolved: (ResolvedImportDrop) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.folder]) || info.hasItemsConforming(to: importDropContentTypes)
+    }
+
+    func dropEntered(info: DropInfo) {
+        onKindChange(classify(info))
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        onKindChange(classify(info))
+        return DropProposal(operation: .copy)
+    }
+
+    func dropExited(info: DropInfo) {
+        onKindChange(nil)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        onKindChange(nil)
+        let providers = info.itemProviders(for: importDropContentTypes)
+        resolveImportDrop(from: providers) { resolved in
+            onResolved(resolved)
+        }
+        return true
+    }
+
+    private func classify(_ info: DropInfo) -> ImportDragKind {
+        let hasFolder = info.hasItemsConforming(to: [.folder])
+        let hasFile = !info.itemProviders(for: WorkspaceDocument.importableContentTypes).isEmpty
+        if hasFolder && hasFile { return .mixed }
+        return hasFolder ? .folder : .files
+    }
+}
+
 func configureImportOpenPanel(_ panel: NSOpenPanel) {
     panel.allowsMultipleSelection = true
     panel.canChooseFiles = true
     panel.canChooseDirectories = false
     panel.allowedContentTypes = WorkspaceDocument.importableContentTypes
     panel.message = importBatchPanelMessage
+}
+
+func configureFolderImportOpenPanel(_ panel: NSOpenPanel) {
+    panel.allowsMultipleSelection = true
+    panel.canChooseFiles = false
+    panel.canChooseDirectories = true
+    panel.message = L10n.string("folderImport.panel.message")
 }
 
 func importFilesWithBatchLimit(
@@ -1503,6 +1987,163 @@ func resolveImportURLs(from providers: [NSItemProvider], maxCount: Int = maximum
 
     DispatchQueue.main.async {
         resolveNextProvider()
+    }
+}
+
+/// A drop resolved into files and folder roots, so folders can be scanned separately
+/// instead of being silently dropped by `isSupportedImportURL` (which only recognizes
+/// document types, never directories).
+struct ResolvedImportDrop {
+    var files: [URL]
+    var folders: [URL]
+    var wasLimited: Bool
+}
+
+func resolveImportDrop(from providers: [NSItemProvider], maxFileCount: Int = maximumImportBatchSize, completion: @escaping (ResolvedImportDrop) -> Void) {
+    var files: [URL] = []
+    var folders: [URL] = []
+    var seenURLs: Set<String> = []
+    var nextProviderIndex = 0
+    var wasLimited = false
+
+    func resolveNextProvider() {
+        guard nextProviderIndex < providers.count else {
+            completion(ResolvedImportDrop(files: files, folders: folders, wasLimited: wasLimited))
+            return
+        }
+
+        let provider = providers[nextProviderIndex]
+        nextProviderIndex += 1
+        loadImportURL(from: provider) { url in
+            if let url {
+                let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+                if isDirectory {
+                    let key = url.fileURLIdentityKey
+                    if seenURLs.insert(key).inserted {
+                        folders.append(url)
+                    }
+                } else if isSupportedImportURL(url) {
+                    if files.count < maxFileCount {
+                        let key = url.fileURLIdentityKey
+                        if seenURLs.insert(key).inserted {
+                            files.append(url)
+                        }
+                    } else {
+                        wasLimited = true
+                    }
+                }
+            }
+            DispatchQueue.main.async {
+                resolveNextProvider()
+            }
+        }
+    }
+
+    DispatchQueue.main.async {
+        resolveNextProvider()
+    }
+}
+
+/// Outcome of resolving a mix of individually-selected/dropped files and folders, once any
+/// folder roots have been scanned. The view maps each case to the appropriate alert, status
+/// toast, or confirmation dialog. `.ready` does not perform the import itself — the caller
+/// calls `viewModel.importFiles(urls:insertingAfter:)` so it can sequence UI state around it.
+enum FolderImportOutcome {
+    case ready(urls: [URL], unsupportedCount: Int, wasLimited: Bool, wasTruncated: Bool)
+    case empty
+    case onlyUnsupported
+    case needsConfirmation(PendingFolderImportBatch)
+    case nothingToImport
+}
+
+struct PendingFolderImportBatch {
+    var urls: [URL]
+    var unsupportedCount: Int
+    var wasTruncated: Bool
+}
+
+func importPickedOrDropped(
+    files: [URL],
+    folders: [URL],
+    wasLimited: Bool = false
+) async -> FolderImportOutcome {
+    guard !folders.isEmpty else {
+        guard !files.isEmpty else { return .nothingToImport }
+        return .ready(urls: files, unsupportedCount: 0, wasLimited: wasLimited, wasTruncated: false)
+    }
+
+    let scan = await FolderImportScanner.scan(folders: folders)
+
+    var merged = files
+    var seenKeys = Set(files.map(\.fileURLIdentityKey))
+    for url in scan.supportedURLs where seenKeys.insert(url.fileURLIdentityKey).inserted {
+        merged.append(url)
+    }
+
+    guard !merged.isEmpty else {
+        return scan.unsupportedCount > 0 ? .onlyUnsupported : .empty
+    }
+
+    guard merged.count <= maximumImportBatchSize else {
+        return .needsConfirmation(PendingFolderImportBatch(
+            urls: merged,
+            unsupportedCount: scan.unsupportedCount,
+            wasTruncated: scan.wasTruncated
+        ))
+    }
+
+    return .ready(urls: merged, unsupportedCount: scan.unsupportedCount, wasLimited: wasLimited, wasTruncated: scan.wasTruncated)
+}
+
+/// Shared handling for a `FolderImportOutcome`, used by every folder-import entry point
+/// (intro drop zone, Choose Folder button, File-menu command) so they can't silently
+/// diverge on error messages, skip summaries, or over-limit handling. The only thing
+/// callers customize is how `.needsConfirmation` is presented, since a SwiftUI view can
+/// show a `confirmationDialog` while a menu command needs a synchronous `NSAlert`.
+@MainActor
+func applyFolderImportOutcome(
+    _ outcome: FolderImportOutcome,
+    into viewModel: WorkspaceViewModel,
+    onNeedsConfirmation: (PendingFolderImportBatch) -> Void
+) {
+    switch outcome {
+    case .ready(let urls, let unsupportedCount, let wasLimited, let wasTruncated):
+        viewModel.importFiles(urls: urls)
+        if let message = folderImportReadyStatusMessage(importedCount: urls.count, unsupportedCount: unsupportedCount, wasTruncated: wasTruncated) {
+            viewModel.editingStatus = .success(message)
+            AccessibilityNotification.Announcement(message).post()
+        }
+        if wasLimited {
+            viewModel.importError = WorkspaceViewModel.ImportError(
+                fileName: "Dropped Files",
+                message: importDropProviderLimitMessage
+            )
+        }
+    case .empty:
+        viewModel.importError = WorkspaceViewModel.ImportError(
+            fileName: "Folder",
+            message: L10n.string("folderImport.error.empty")
+        )
+    case .onlyUnsupported:
+        viewModel.importError = WorkspaceViewModel.ImportError(
+            fileName: "Folder",
+            message: L10n.string("folderImport.error.onlyUnsupported")
+        )
+    case .needsConfirmation(let batch):
+        onNeedsConfirmation(batch)
+    case .nothingToImport:
+        break
+    }
+}
+
+/// Imports the first `maximumImportBatchSize` URLs from an over-limit folder batch,
+/// shared by every entry point's "Import first 50" action.
+@MainActor
+func importFirstFromPendingBatch(_ batch: PendingFolderImportBatch, into viewModel: WorkspaceViewModel) {
+    let firstBatch = Array(batch.urls.prefix(maximumImportBatchSize))
+    viewModel.importFiles(urls: firstBatch)
+    if let message = folderImportReadyStatusMessage(importedCount: firstBatch.count, unsupportedCount: batch.unsupportedCount, wasTruncated: batch.wasTruncated) {
+        viewModel.editingStatus = .success(message)
     }
 }
 

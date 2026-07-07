@@ -6,7 +6,7 @@ import AppKit
 /// placement/behavior rationale.
 struct RecentFilesSection: View {
     var store: RecentsStore
-    var onOpen: (URL) -> Void
+    var onOpen: (RecentFileEntry) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = false
@@ -108,7 +108,7 @@ private struct RecentFileCard: View {
     var entry: RecentFileEntry
     var store: RecentsStore
     var isMostRecent: Bool
-    var onOpen: (URL) -> Void
+    var onOpen: (RecentFileEntry) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var thumbnail: NSImage?
@@ -286,10 +286,10 @@ private struct RecentFileCard: View {
     }
 
     private func open() {
-        guard let url = store.resolvedURL(for: entry) else {
+        guard store.resolvedURL(for: entry) != nil else {
             isAvailable = false
             return
         }
-        onOpen(url)
+        onOpen(entry)
     }
 }

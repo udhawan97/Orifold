@@ -1,0 +1,38 @@
+---
+title: OCR scanned pages
+description: Make scanned PDF pages searchable and editable using local Vision OCR.
+keywords: [ocr, scan, searchable pdf, scanned document, recognize text]
+---
+
+import Callout from '../../../components/Callout.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
+
+<Callout variant="whentouse">
+	You imported a scan or a photo of a document and ⌘F finds nothing on the page.
+</Callout>
+
+## Steps
+
+1. Open the scanned page in your workspace.
+2. Run OCR from the page or document menu.
+3. Wait for recognition to finish — it runs entirely on your Mac.
+
+<Callout variant="tip">
+	OCR runs locally using Apple's Vision framework. A scan of your passport, a lease, or a medical form never leaves the machine.
+</Callout>
+
+## What you should see
+
+⌘F now finds text on the page, and the recognized text can be edited the same way as any other detected text.
+
+## Related
+
+<CardGrid>
+	<Card title="Edit existing PDF text" href="edit/edit-text/">
+		Editing text once it's recognized.
+	</Card>
+	<Card title="Search inside your workspace" href="reading/search/">
+		Searching across OCR'd and native pages alike.
+	</Card>
+</CardGrid>

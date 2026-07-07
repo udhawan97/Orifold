@@ -1,0 +1,38 @@
+---
+title: Password-protect a PDF
+description: Lock a PDF with real AES-256 encryption before sending it anywhere.
+keywords: [password protect pdf, encrypt pdf, lock pdf, aes-256, secure pdf]
+badge: pro
+---
+
+import Badge from '../../../components/Badge.astro';
+import Callout from '../../../components/Callout.astro';
+
+<Badge variant="pro" />
+
+<Callout variant="whentouse">
+	You're sending a PDF that contains sensitive information and want it locked with a password.
+</Callout>
+
+## Steps
+
+1. Choose Export, then enable password protection.
+2. Set the password and choose which permissions to restrict (printing, editing, and so on).
+3. Export — Orifold applies real AES-256 (PDF 2.0 / R6) encryption and verifies the result before writing the file.
+
+<Callout variant="danger">
+	There is no password recovery. This is real encryption — if you lose the password, the file is unrecoverable. Store it somewhere safe before you send the file.
+</Callout>
+
+## What you should see
+
+The exported PDF prompts for a password when opened in any standards-compliant PDF reader.
+
+## Related
+
+- [Opening locked PDFs](/Orifold/import/locked-pdfs/)
+- [Sanitize before sharing](/Orifold/export/sanitize/)
+
+## If something went wrong
+
+- [Export & save problems →](/Orifold/help/troubleshooting/export/)

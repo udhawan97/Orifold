@@ -1,0 +1,38 @@
+---
+title: Compress a PDF
+description: Shrink an oversized PDF for email by downsampling images and losslessly repacking its structure.
+keywords: [compress pdf, reduce file size, shrink pdf, email attachment too big]
+badge: pro
+---
+
+import Badge from '../../../components/Badge.astro';
+import Callout from '../../../components/Callout.astro';
+
+<Badge variant="pro" />
+
+<Callout variant="whentouse">
+	A PDF is too large to email or upload, usually because it's full of high-resolution images or scans.
+</Callout>
+
+## Steps
+
+1. Open the file in your workspace.
+2. Choose Compress from the export or document menu.
+3. Export — Orifold downsamples oversized images, then losslessly repacks the file's internal structure with a qpdf object-stream pass.
+
+<Callout variant="note">
+	Compression validates the result automatically after the pass completes, before the file reaches disk.
+</Callout>
+
+<Callout variant="tip">
+	Text-only PDFs barely shrink — compression mainly helps files with large embedded images or scans.
+</Callout>
+
+## What you should see
+
+A smaller file that opens and displays identically, aside from slightly softer high-resolution images.
+
+## Related
+
+- [Export & save](/Orifold/export/export-save/)
+- [Export integrity checks](/Orifold/export/integrity/)

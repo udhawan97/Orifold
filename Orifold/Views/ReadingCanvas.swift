@@ -355,7 +355,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         view.displaysPageBreaks = false
         view.backgroundColor = .dsCanvasNS
         view.pageOverlayViewProvider = context.coordinator
-        view.setNightModeEnabled(viewModel.isNightModeEnabled, settings: viewModel.nightModeSettings)
+        view.applyDocumentComfortSettings(viewModel.documentComfortSettings)
 
         // Wire up delete key handler
         view.onDeleteKey = { [weak coordinator = context.coordinator] in
@@ -481,7 +481,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         context.coordinator.viewModel = viewModel
         context.coordinator.inkOverlay.isHidden = (viewModel.currentTool != .ink)
         context.coordinator.inkOverlay.inkColor = viewModel.inkColor
-        nsView.setNightModeEnabled(viewModel.isNightModeEnabled, settings: viewModel.nightModeSettings)
+        nsView.applyDocumentComfortSettings(viewModel.documentComfortSettings)
         context.coordinator.refreshSignatureOverlay()
         context.coordinator.refreshDecorationOverlays()
         context.coordinator.refreshCommentOverlays()
@@ -566,7 +566,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             guard let pdfView,
                   let selection = pdfView.currentSelection,
                   !(selection.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) else {
-                viewModel.showEditMessage("Select text before adding a comment.", isError: false)
+                viewModel.showEditMessage(L10n.string("status.textEdit.selectTextBeforeComment"), isError: false)
                 return
             }
             createComment(from: selection)
@@ -609,6 +609,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             case .editText:
                 inlineEditor?.finishForHandoff()
                 if let target = viewModel.editableTextBlock(at: pagePoint, on: page, in: pdfView.document) {
+                    announceEditability(of: target.block)
                     showInlineTextEditor(
                         for: target.block,
                         pageRef: target.pageRef,
@@ -651,6 +652,21 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 viewModel.selectedAnnotation = nil
                 viewModel.selectedStampDecorationID = nil
                 refreshSignatureOverlay()
+            }
+        }
+
+        /// Surfaces the detected region's editability before the inline editor opens, so a
+        /// reconstructed or explicitly-not-really-detected block never looks identical to a
+        /// normal high-confidence edit. `.direct` and a plain `.insertion` on an otherwise-
+        /// editable page need no banner — that's the ordinary case and stays silent.
+        private func announceEditability(of block: EditableTextBlock) {
+            switch block.editability {
+            case .replace:
+                viewModel.showEditMessage(L10n.string("readingCanvas.textEdit.chip.reconstructed"), isError: false)
+            case .overlayOnly:
+                viewModel.showEditMessage(L10n.string("readingCanvas.textEdit.chip.scannedPage"), isError: false)
+            case .direct, .insertion:
+                break
             }
         }
 
@@ -908,7 +924,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             viewModel.selectedStampDecorationID = nil
             goToAnnotation(annotation, on: page, in: pdfView)
             guard annotation.type == "Text" || annotation.type == "FreeText" else {
-                viewModel.showEditMessage("Only notes and text boxes can be edited directly. Use delete to remove this markup.", isError: false)
+                viewModel.showEditMessage(L10n.string("status.annotation.onlyNotesEditable"), isError: false)
                 return
             }
             let rect = pdfView.convert(annotation.bounds, from: page)
@@ -1147,48 +1163,36 @@ final class OrifoldPDFView: PDFView {
     var onTabKey: ((Bool) -> Bool)?
     var onSelectionCommitted: (() -> Void)?
     var onCommentMenu: (() -> Void)?
-    private let nightToneOverlay = NightToneOverlayView()
-    private var isNightModeEnabled = false
-    private var nightModeSettings = NightModeSettings.default
+    private let comfortOverlay = DocumentComfortOverlayView()
+    private var comfortSettings = DocumentComfortSettings.default
 
     override var acceptsFirstResponder: Bool { true }
 
-    func setNightModeEnabled(_ enabled: Bool, settings: NightModeSettings) {
+    func applyDocumentComfortSettings(_ settings: DocumentComfortSettings) {
         let clampedSettings = settings.clamped
-        guard enabled != isNightModeEnabled ||
-              clampedSettings != nightModeSettings ||
-              nightToneOverlay.superview !== self else { return }
-        isNightModeEnabled = enabled
-        nightModeSettings = clampedSettings
-        backgroundColor = enabled
-            ? clampedSettings.canvasBackgroundColor
-            : .dsCanvasNS
-        nightToneOverlay.apply(settings: clampedSettings)
-        if enabled {
-            installNightToneOverlayIfNeeded()
-        } else if nightToneOverlay.superview !== self {
-            nightToneOverlay.removeFromSuperview()
-        }
-        nightToneOverlay.isHidden = !enabled
-        nightToneOverlay.alphaValue = enabled ? 1 : 0
-        layoutNightToneOverlay()
+        guard clampedSettings != comfortSettings || comfortOverlay.superview !== self else { return }
+        comfortSettings = clampedSettings
+        backgroundColor = clampedSettings.canvasBackgroundColor
+        installComfortOverlayIfNeeded()
+        comfortOverlay.apply(settings: clampedSettings)
+        layoutComfortOverlay()
     }
 
-    private func installNightToneOverlayIfNeeded() {
-        if nightToneOverlay.superview === self { return }
-        nightToneOverlay.removeFromSuperview()
-        addSubview(nightToneOverlay, positioned: .above, relativeTo: nil)
+    private func installComfortOverlayIfNeeded() {
+        if comfortOverlay.superview === self { return }
+        comfortOverlay.removeFromSuperview()
+        addSubview(comfortOverlay, positioned: .above, relativeTo: nil)
     }
 
-    private func layoutNightToneOverlay() {
-        guard nightToneOverlay.superview === self else { return }
-        nightToneOverlay.frame = bounds
-        nightToneOverlay.autoresizingMask = [.width, .height]
+    private func layoutComfortOverlay() {
+        guard comfortOverlay.superview === self else { return }
+        comfortOverlay.frame = bounds
+        comfortOverlay.autoresizingMask = [.width, .height]
     }
 
     override func layout() {
         super.layout()
-        layoutNightToneOverlay()
+        layoutComfortOverlay()
     }
 
     override func keyDown(with event: NSEvent) {
@@ -1231,15 +1235,28 @@ final class OrifoldPDFView: PDFView {
     }
 }
 
-private final class NightToneOverlayView: NSView {
+/// Composites `DocumentComfortSettings` above the rendered page using cheap, static
+/// `CALayer` blend-mode layers (no per-frame Core Image work), so scrolling stays smooth
+/// regardless of how many comfort controls are active.
+private final class DocumentComfortOverlayView: NSView {
     override var isOpaque: Bool { false }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    private let toneLayer = CALayer()
+    private let brightenLayer = CALayer()
+    private let contrastLayer = CALayer()
+    private let desaturationLayer = CALayer()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layerContentsRedrawPolicy = .onSetNeedsDisplay
-        configureCompositing()
+        for sublayer in [toneLayer, brightenLayer, contrastLayer, desaturationLayer] {
+            layer?.addSublayer(sublayer)
+        }
+        toneLayer.compositingFilter = "multiplyBlendMode"
+        brightenLayer.compositingFilter = "screenBlendMode"
+        contrastLayer.compositingFilter = "overlayBlendMode"
+        desaturationLayer.compositingFilter = "saturationBlendMode"
         apply(settings: .default)
     }
 
@@ -1247,20 +1264,21 @@ private final class NightToneOverlayView: NSView {
         nil
     }
 
-    func apply(settings: NightModeSettings) {
-        if layer == nil {
-            wantsLayer = true
-            configureCompositing()
+    override func layout() {
+        super.layout()
+        for sublayer in [toneLayer, brightenLayer, contrastLayer, desaturationLayer] {
+            sublayer.frame = bounds
         }
+    }
+
+    func apply(settings: DocumentComfortSettings) {
         CATransaction.begin()
         defer { CATransaction.commit() }
         CATransaction.setDisableActions(true)
-        layer?.backgroundColor = settings.overlayColor.cgColor
-    }
-
-    private func configureCompositing() {
-        layer?.compositingFilter = "multiplyBlendMode"
-        layer?.opacity = layer?.compositingFilter == nil ? 0.72 : 1
+        toneLayer.backgroundColor = settings.toneOverlayColor.cgColor
+        brightenLayer.backgroundColor = settings.brightenOverlayColor.cgColor
+        contrastLayer.backgroundColor = settings.contrastOverlayColor.cgColor
+        desaturationLayer.backgroundColor = settings.desaturationOverlayColor.cgColor
     }
 }
 
@@ -2047,7 +2065,7 @@ final class NoteEditorViewController: NSViewController {
             changeHandler(annotation, originalSnapshot, editorTitle)
             return true
         case .rejectReplacement:
-            statusHandler("Replacement text cannot be empty. Use a text box or a future redaction tool for removal.", true)
+            statusHandler(L10n.string("status.textEdit.replacementCannotBeEmpty"), true)
             return false
         case .allow:
             break
@@ -2167,12 +2185,12 @@ final class NoteEditorViewController: NSViewController {
         controls.addSubview(align)
 
         let swatches: [(NSColor, CGFloat, String, Int)] = [
-            (.labelColor, 204, "Default", 0),
-            (.dsTextPrimaryNS, 234, "Orifold blue", 1),
-            (.systemRed, 264, "Red", 2),
-            (.white, 294, "White", 3)
+            (.labelColor, 204, "readingCanvas.formatting.textColor.default.tooltip", 0),
+            (.dsTextPrimaryNS, 234, "readingCanvas.formatting.textColor.orifoldBlue.tooltip", 1),
+            (.systemRed, 264, "readingCanvas.formatting.textColor.red.tooltip", 2),
+            (.white, 294, "readingCanvas.formatting.textColor.white.tooltip", 3)
         ]
-        for (color, x, name, tag) in swatches {
+        for (color, x, tooltipKey, tag) in swatches {
             let button = NSButton(title: "", target: self, action: #selector(changeTextColor(_:)))
             button.frame = CGRect(x: x, y: 21, width: 20, height: 20)
             button.bezelStyle = .shadowlessSquare
@@ -2180,7 +2198,7 @@ final class NoteEditorViewController: NSViewController {
             button.isBordered = false
             button.image = nil
             button.attributedTitle = NSAttributedString(string: "")
-            button.toolTip = L10n.string("\(name) text")
+            button.toolTip = L10n.string(String.LocalizationValue(tooltipKey))
             button.wantsLayer = true
             button.layer?.backgroundColor = color.cgColor
             button.layer?.cornerRadius = 10
@@ -2409,13 +2427,19 @@ final class NoteEditorViewController: NSViewController {
     private let originalAlignment: NSTextAlignment
     private let originalUnderline: Bool
     private static let defaultInsertedTextColor = NSColor.black
-    private static let defaultTextColorChoices: [TextColorChoice] = [
-        TextColorChoice(name: "Black", color: .black, isDetected: false),
-        TextColorChoice(name: "White", color: .white, isDetected: false),
-        TextColorChoice(name: "Red", color: .systemRed, isDetected: false),
-        TextColorChoice(name: "Blue", color: .systemBlue, isDetected: false),
-        TextColorChoice(name: "Green", color: .systemGreen, isDetected: false)
-    ]
+    // Computed (not `static let`) so each new text-edit session re-resolves
+    // these names against the language active at that moment, rather than
+    // freezing them to whatever language was current the first time any
+    // text edit was opened in this process.
+    private static var defaultTextColorChoices: [TextColorChoice] {
+        [
+            TextColorChoice(name: L10n.string("readingCanvas.textColorChoice.black.name"), color: .black, isDetected: false),
+            TextColorChoice(name: L10n.string("readingCanvas.textColorChoice.white.name"), color: .white, isDetected: false),
+            TextColorChoice(name: L10n.string("readingCanvas.textColorChoice.red.name"), color: .systemRed, isDetected: false),
+            TextColorChoice(name: L10n.string("readingCanvas.textColorChoice.blue.name"), color: .systemBlue, isDetected: false),
+            TextColorChoice(name: L10n.string("readingCanvas.textColorChoice.green.name"), color: .systemGreen, isDetected: false)
+        ]
+    }
     private static let maxDetectedTextColors = 24
 
     private struct TextColorChoice {
@@ -3302,7 +3326,7 @@ final class NoteEditorViewController: NSViewController {
 
     @objc private func matchNearbyFormat() {
         applySourceFormat(markStyleChange: true)
-        viewModel?.showEditMessage("Matched nearby text style, margins, and wrapping. Press Done to save it.", severity: .success)
+        viewModel?.showEditMessage(L10n.string("status.textEdit.matchedNearbyFormat"), severity: .success)
         refocusEditor()
     }
 
@@ -3313,19 +3337,19 @@ final class NoteEditorViewController: NSViewController {
     @objc private func copyNearbyFormat() {
         viewModel?.copiedInlineTextFormat = sourceFormat
         viewModel?.isInlineTextFormatPainterArmed = true
-        viewModel?.showEditMessage("Copied nearby PDF text style. Click another text edit to paste it automatically, or press Paste style here.", severity: .success)
+        viewModel?.showEditMessage(L10n.string("status.textEdit.copiedNearbyFormat"), severity: .success)
         refocusEditor()
     }
 
     @objc private func applyCopiedFormat() {
         guard let format = viewModel?.copiedInlineTextFormat else {
-            viewModel?.showEditMessage("Copy a format first, then open another text edit and press Paste style.", severity: .warning)
+            viewModel?.showEditMessage(L10n.string("status.textEdit.copyFormatFirst"), severity: .warning)
             refocusEditor()
             return
         }
         apply(format: format, markStyleChange: true)
         viewModel?.isInlineTextFormatPainterArmed = false
-        viewModel?.showEditMessage("Pasted copied style. Press Done to save it.", severity: .success)
+        viewModel?.showEditMessage(L10n.string("status.textEdit.pastedStyle"), severity: .success)
         refocusEditor()
     }
 
@@ -3335,7 +3359,7 @@ final class NoteEditorViewController: NSViewController {
               let format = viewModel.copiedInlineTextFormat else { return }
         apply(format: format, markStyleChange: true)
         viewModel.isInlineTextFormatPainterArmed = false
-        viewModel.showEditMessage("Pasted copied style onto this edit. Press Done to save it.", severity: .success)
+        viewModel.showEditMessage(L10n.string("status.textEdit.pastedStyleOntoEdit"), severity: .success)
     }
 
     @objc private func restoreOriginalFormat() {
@@ -3343,7 +3367,7 @@ final class NoteEditorViewController: NSViewController {
         didChangeStyle = false
         didRestoreOriginalStyle = true
         viewModel?.isInlineTextFormatPainterArmed = false
-        viewModel?.showEditMessage("Text restored to original. Press Done to save it.", severity: .success)
+        viewModel?.showEditMessage(L10n.string("status.textEdit.restoredOriginal"), severity: .success)
         refocusEditor()
     }
 
@@ -3392,7 +3416,7 @@ final class NoteEditorViewController: NSViewController {
             textView.undoManager?.undo()
             resizeTextViewHeight()
         } else {
-            viewModel?.showEditMessage("Nothing to undo in this text box. Press Done or Cancel before undoing document changes.", isError: false)
+            viewModel?.showEditMessage(L10n.string("status.textEdit.nothingToUndo"), isError: false)
             refocusEditor()
         }
     }
@@ -3560,7 +3584,7 @@ final class NoteEditorViewController: NSViewController {
             let normalized = normalizedColor(color)
             guard normalized.alphaComponent > 0.05,
                   !choices.contains(where: { colorsApproximatelyEqual($0.color, normalized, tolerance: 0.025) }) else { return }
-            choices.append(TextColorChoice(name: "Detected \(hexString(for: normalized))", color: normalized, isDetected: true))
+            choices.append(TextColorChoice(name: L10n.format("readingCanvas.textColorChoice.detected.name", hexString(for: normalized)), color: normalized, isDetected: true))
         }
 
         appendDetected(initialColor)
@@ -3837,10 +3861,7 @@ final class NoteEditorViewController: NSViewController {
             didRestoreOriginalStyle: didRestoreOriginalStyle
         )
         if formattingDiffersFromSource {
-            viewModel?.showEditMessage(
-                "Edited text formatting does not match nearby document text. Use Match before Done to copy the nearby format.",
-                isError: false
-            )
+            viewModel?.showEditMessage(L10n.string("status.textEdit.formatMismatch"), isError: false)
         }
         removeFromSuperview()
         // See the comment in `cancel()`: restores a stable first responder so the document
@@ -3928,7 +3949,7 @@ final class NoteEditorViewController: NSViewController {
         guard !didFinish else { return }
         let viewModel = viewModel
         guard viewModel?.isReaderMode != true else {
-            viewModel?.showEditMessage("Reader Mode keeps signing locked. Turn it off to place signatures.", isError: false)
+            viewModel?.showEditMessage(L10n.string("status.readerMode.blockedSignaturePlacement"), isError: false)
             refocusEditor()
             return
         }

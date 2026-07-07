@@ -1,0 +1,20 @@
+---
+interface Props {
+	variant?: 'tip' | 'note' | 'warning' | 'danger' | 'whentouse';
+	label?: string;
+}
+const { variant = 'note', label } = Astro.props;
+const defaultLabels: Record<string, string> = {
+	tip: 'Tip',
+	note: 'Note',
+	warning: 'Warning',
+	danger: 'Danger',
+	whentouse: 'When to use this',
+};
+const shownLabel = label ?? defaultLabels[variant];
+---
+
+<div class={`of-callout of-callout-${variant}`}>
+	{shownLabel && <span class="of-callout-label">{shownLabel}</span>}
+	<slot />
+</div>

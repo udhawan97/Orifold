@@ -1,0 +1,22 @@
+---
+interface Props {
+	src?: string;
+	alt: string;
+	caption?: string;
+}
+const { src, alt, caption } = Astro.props;
+const isPlaceholder = !src;
+---
+
+<figure class="of-figure">
+	{
+		isPlaceholder ? (
+			<div class="of-figure-placeholder" role="img" aria-label={alt}>
+				{alt}
+			</div>
+		) : (
+			<img src={src} alt={alt} loading="lazy" />
+		)
+	}
+	{caption && <figcaption>{caption}</figcaption>}
+</figure>

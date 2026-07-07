@@ -246,6 +246,62 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(hit?.id, block.id)
         XCTAssertGreaterThan(block.fontSize, 6)
         XCTAssertNotEqual(block.confidence, .low)
+        XCTAssertEqual(block.editability, .direct)
+        XCTAssertEqual(block.textSource, .pdfiumGlyphs)
+    }
+
+    /// Regression test for the root-cause "blank white box" bug: when PDFium can't be used
+    /// at all (simulated here by passing empty `data`, the same path `analyze()` takes when
+    /// PDFium extracts zero glyphs), the PDFKit fallback used to return a single whole-page
+    /// `.low`-confidence block that `hitTest` silently excluded — so a click on perfectly
+    /// visible text fell straight through to an empty insertion box. It must now return
+    /// hittable, line-level `.replace` blocks instead.
+    func testPDFKitFallbackProducesHittableLineLevelBlocksWhenPDFiumIsUnavailable() throws {
+        let pdf = makePDF(pageTexts: ["First reservation line\nSecond guest detail line"])
+        let engine = PDFTextAnalysisEngine()
+        let page = try XCTUnwrap(pdf.page(at: 0))
+
+        let analysis = engine.analyze(data: Data(), pageIndex: 0, pageRefID: UUID(), fallbackPage: page)
+
+        XCTAssertFalse(analysis.blocks.isEmpty, "PDFKit fallback should still detect line-level text")
+        XCTAssertTrue(analysis.blocks.allSatisfy { $0.editability == .replace })
+        XCTAssertTrue(analysis.blocks.allSatisfy { $0.textSource == .pdfKitString })
+        XCTAssertTrue(analysis.blocks.allSatisfy { $0.confidence != .low })
+
+        let firstLineBlock = try XCTUnwrap(analysis.blocks.first { $0.text.contains("First reservation") })
+        let hit = engine.hitTest(CGPoint(x: firstLineBlock.bounds.midX, y: firstLineBlock.bounds.midY), in: analysis)
+        XCTAssertEqual(hit?.id, firstLineBlock.id, "A click on visible fallback text must resolve to that line, not fall through to a blank box")
+
+        let secondLineBlock = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Second guest detail") })
+        XCTAssertNotEqual(firstLineBlock.id, secondLineBlock.id, "Each visual line should be its own hittable block, not one whole-page block")
+    }
+
+    func testEditableTextBlockOnFlattenedScannedPageIsExplicitOverlayNotSilentBlankBox() throws {
+        let fixture = try makeMemberWithScannedPDF(name: "ScannedFallback")
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let pageBounds = page.bounds(for: .cropBox)
+
+        let target = try XCTUnwrap(viewModel.editableTextBlock(
+            at: CGPoint(x: pageBounds.midX, y: pageBounds.midY),
+            on: page,
+            in: viewModel.combinedPDF
+        ))
+
+        // No text layer exists at all on a scanned/flattened page, so there's nothing to
+        // prefill — but the block must still be explicitly tagged `.overlayOnly` rather than
+        // a plain, unlabelled `.insertion`, so the UI can tell the user why (see
+        // `announceEditability` in ReadingCanvas) instead of silently behaving like an
+        // ordinary blank-page insertion.
+        XCTAssertEqual(target.block.editability, .overlayOnly)
+        XCTAssertEqual(target.block.text, "")
     }
 
     func testPDFTextAnalysisMergesWrappedBulletIntoOneEditableBlock() throws {
@@ -5496,6 +5552,149 @@ final class WorkspaceViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedPageRefIDs, [second.refs[0].id])
     }
 
+    // MARK: - Rename document
+
+    func testRenameDocumentUpdatesDisplayNameAndUndoRedoRoundTrips() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Invoice", pageTexts: ["one"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+
+        viewModel.renameDocument(fixture.member, to: "March Invoice")
+
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "March Invoice")
+        XCTAssertEqual(viewModel.document.workspace.documents.first?.displayName, "March Invoice")
+
+        undoManager.undo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "Invoice")
+
+        undoManager.redo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "March Invoice")
+    }
+
+    /// Regression test for two bugs found in code review: (1) `registerRenameUndo` must
+    /// isolate each rename into its own undo group (`UndoManager.groupsByEvent` defaults
+    /// to true, so two renames committed with no run-loop turn between them — as happens
+    /// here, and as the caller can trigger by pressing Return on two quick renames —
+    /// would otherwise collapse into a single undo step); (2) `renameDocument` must read
+    /// the live current name rather than trusting the caller's `member` snapshot, which
+    /// this test deliberately keeps stale (always passing the original `fixture.member`)
+    /// to prove the fix doesn't depend on the caller re-fetching an up-to-date value.
+    func testConsecutiveRenamesEachUndoAndRedoIndependently() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "A", pageTexts: ["one"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+
+        viewModel.renameDocument(fixture.member, to: "B")
+        viewModel.renameDocument(fixture.member, to: "C")
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "C")
+
+        undoManager.undo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "B")
+
+        undoManager.undo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "A")
+
+        undoManager.redo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "B")
+
+        undoManager.redo()
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "C")
+    }
+
+    func testRenameDocumentTrimsWhitespace() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Invoice", pageTexts: ["one"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+
+        viewModel.renameDocument(fixture.member, to: "  Trimmed Name  ")
+
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "Trimmed Name")
+    }
+
+    func testRenameDocumentRejectsEmptyOrUnchangedName() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Invoice", pageTexts: ["one"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document)
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+
+        viewModel.renameDocument(fixture.member, to: "   ")
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "Invoice")
+
+        viewModel.renameDocument(fixture.member, to: "Invoice")
+        XCTAssertEqual(viewModel.memberDocuments.first?.displayName, "Invoice")
+        XCTAssertFalse(undoManager.canUndo)
+    }
+
+    func testCommentCountForMemberSumsAcrossAllItsPages() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Anchored", pageTexts: ["one", "two"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        document.workspace.comments = [
+            WorkspaceComment(
+                body: "First page note",
+                anchor: WorkspaceCommentAnchor(pageRefID: fixture.refs[0].id, rect: .zero, kind: .text, snippet: nil)
+            ),
+            WorkspaceComment(
+                body: "Second page note",
+                anchor: WorkspaceCommentAnchor(pageRefID: fixture.refs[1].id, rect: .zero, kind: .text, snippet: nil)
+            ),
+        ]
+        let viewModel = WorkspaceViewModel(document: document)
+
+        XCTAssertEqual(viewModel.commentCount(for: fixture.member), 2)
+    }
+
+    /// `pdfNoteComments` is memoized (revision-keyed) for performance. This guards the
+    /// specific gap that memoization could introduce: removing a document whose only
+    /// PDF-native sticky note has no anchored `WorkspaceComment` doesn't bump
+    /// `commentRevision` (see `clearCommentAnchors`'s `didChange` guard), so the cache
+    /// must also invalidate on `rebuild()`'s `structureRevision` bump, not just on
+    /// `commentRevision` changes.
+    func testPDFNoteCommentsCacheInvalidatesWhenDocumentWithStickyNoteIsRemoved() throws {
+        let document = WorkspaceDocument()
+        let fixture = try makeMemberWithPDF(name: "Notes", pageTexts: ["Sticky note target"])
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        let page = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
+        let annotation = try XCTUnwrap(viewModel.addNote(at: CGPoint(x: 120, y: 120), on: page))
+        annotation.contents = "Orphaned sticky note"
+        annotation.setValue(false, forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey)
+
+        // Warm the cache before the removal — this is the read that must not be
+        // trusted stale afterward.
+        XCTAssertEqual(viewModel.pdfNoteComments.count, 1)
+        XCTAssertEqual(viewModel.commentCount(for: fixture.member), 1)
+
+        viewModel.removeDocument(fixture.member)
+
+        XCTAssertTrue(viewModel.pdfNoteComments.isEmpty)
+        XCTAssertEqual(viewModel.totalCommentCount, 0)
+    }
+
     // MARK: - Empty workspace after deleting the last document
 
     func testRemovingLastDocumentClearsSelectionAndMarksWorkspaceEmpty() throws {
@@ -7391,6 +7590,33 @@ private func makeMemberWithPDF(
     member.pageRefs = refs.map(\.id)
     let pdfData = try pdf.dataRepresentation().unwrap()
     return (member, refs, pdfData)
+}
+
+/// A page with visible ink but no extractable text layer at all — neither PDFium nor
+/// PDFKit can produce any text blocks for it, matching `PDFOCRService.isLikelyScannedPage`.
+private func makeMemberWithScannedPDF(
+    name: String
+) throws -> (member: MemberDocument, refs: [PageRef], pdfData: Data) {
+    let view = ScannedFixturePageView(frame: CGRect(x: 0, y: 0, width: 612, height: 792))
+    let pdf = try XCTUnwrap(PDFDocument(data: view.dataWithPDF(inside: view.bounds)))
+    var member = MemberDocument(displayName: name, sourcePDFRef: "\(name).pdf")
+    let refs = (0..<pdf.pageCount).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+    member.pageRefs = refs.map(\.id)
+    let pdfData = try pdf.dataRepresentation().unwrap()
+    return (member, refs, pdfData)
+}
+
+private final class ScannedFixturePageView: NSView {
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        bounds.fill()
+        NSColor(calibratedWhite: 0.85, alpha: 1).setFill()
+        NSBezierPath(rect: CGRect(x: 100, y: 160, width: 400, height: 300)).fill()
+        NSColor(calibratedWhite: 0.3, alpha: 1).setFill()
+        NSBezierPath(ovalIn: CGRect(x: 240, y: 260, width: 100, height: 100)).fill()
+    }
 }
 
 private func makeFormMemberWithPDF(

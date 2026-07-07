@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" width="220" height="220" role="img" aria-label="Ori the origami cat: a front-facing seated paper cat with wide triangular ears that twitch, whisker creases, and a curled tail that sways slowly">
+  <title>Orifold — Ori the origami cat, ears twitching and curled tail swaying</title>
+  <defs>
+    <linearGradient id="catTileG" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2b4566"/><stop offset="1" stop-color="#75bfd4"/></linearGradient>
+    <radialGradient id="catMoonG" cx="0.71" cy="0.30" r="0.20"><stop offset="0" stop-color="rgba(219,242,247,0.26)"/><stop offset="1" stop-color="rgba(179,230,242,0)"/></radialGradient>
+    <radialGradient id="catTileGlow" cx="0.82" cy="0.2" r="0.75"><stop offset="0" stop-color="rgba(128,209,219,0.22)"/><stop offset="1" stop-color="rgba(128,209,219,0)"/></radialGradient>
+    <radialGradient id="catContactG"><stop offset="0" stop-color="rgba(0,0,0,0.20)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient>
+    <filter id="catSoft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="1" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.22"/></filter>
+
+    <!-- Cool slate paper tones, matching the in-app cat palette. -->
+    <linearGradient id="catHeadLit" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#f4f6fc"/><stop offset="1" stop-color="#c9d0e0"/></linearGradient>
+    <linearGradient id="catHeadShade" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#b3bccf"/><stop offset="1" stop-color="#8b93ab"/></linearGradient>
+    <linearGradient id="catEarLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3e8f2"/><stop offset="1" stop-color="#b2bbd1"/></linearGradient>
+    <linearGradient id="catEarShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a4adc2"/><stop offset="1" stop-color="#7d86a3"/></linearGradient>
+    <linearGradient id="catInnerEar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd6de"/><stop offset="1" stop-color="#e79cae"/></linearGradient>
+    <linearGradient id="catBodyLit" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#dde3ef"/><stop offset="1" stop-color="#b0b9d0"/></linearGradient>
+    <linearGradient id="catBodyShade" x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stop-color="#a6afc4"/><stop offset="1" stop-color="#78819e"/></linearGradient>
+    <linearGradient id="catChest" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfcfe"/><stop offset="1" stop-color="#d5dbe9"/></linearGradient>
+    <linearGradient id="catTailLit" x1="0" y1="0" x2="1" y2="0.3"><stop offset="0" stop-color="#dfe4f0"/><stop offset="1" stop-color="#aeb7ce"/></linearGradient>
+    <linearGradient id="catTailShade" x1="0" y1="1" x2="0.6" y2="0"><stop offset="0" stop-color="#9aa3bb"/><stop offset="1" stop-color="#6f7996"/></linearGradient>
+  </defs>
+
+  <clipPath id="catTileClip"><rect width="340" height="340" rx="75"/></clipPath>
+  <g clip-path="url(#catTileClip)">
+    <rect width="340" height="340" fill="url(#catTileG)"/>
+    <rect width="340" height="340" fill="url(#catMoonG)"/>
+    <rect width="340" height="340" fill="url(#catTileGlow)"/>
+    <rect x="19" y="19" width="303" height="303" rx="56" fill="none" stroke="rgba(255,255,255,0.06)"/>
+    <rect x="37" y="37" width="265" height="265" rx="37" fill="none" stroke="rgba(255,255,255,0.06)"/>
+
+    <ellipse cx="170" cy="285" rx="64" ry="11" fill="url(#catContactG)"/>
+
+    <g filter="url(#catSoft)">
+      <!-- Tail — hooks around the right side from behind, dark tip raised; sways in a
+           slow, smooth curl (nothing like a dog wag), pivoting at its root. -->
+      <g transform="rotate(0 204 269)">
+        <animateTransform attributeName="transform" type="rotate" values="-7 204 269;7 204 269;-7 204 269" keyTimes="0;0.5;1" dur="3.4s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
+        <polygon points="192.1,273.7 255.0,265.2 210.1,246.8" fill="url(#catTailLit)"/>
+        <polygon points="210.1,246.8 255.0,265.2 249.6,214.2" fill="url(#catTailShade)"/>
+        <polygon points="243.4,221.7 260.4,211.5 244.8,190.4" fill="#5c6785"/>
+      </g>
+
+      <!-- Body — compact seated bell: shadowed left, lit right, bright chest kite,
+           two front paws. -->
+      <polygon points="170,185.3 170,277.1 126.5,270.3 145.5,190.4" fill="url(#catBodyShade)"/>
+      <polygon points="170,185.3 194.5,190.4 213.5,270.3 170,277.1" fill="url(#catBodyLit)"/>
+      <polygon points="170,190.4 184.3,244.8 170,268.6 155.7,244.8" fill="url(#catChest)"/>
+      <polygon points="150.3,263.5 169.3,262.5 169.3,278.1 148.2,278.1" fill="url(#catBodyLit)"/>
+      <polygon points="170.7,262.5 189.7,263.5 191.8,278.1 170.7,278.1" fill="url(#catChest)"/>
+
+      <!-- Ears — wide triangular cat ears rooted on the crown, tips splayed slightly
+           outward; they twitch in quick, sharp flicks around the crown center. -->
+      <g transform="rotate(0 170 112)">
+        <animateTransform attributeName="transform" type="rotate" values="0 170 112;0 170 112;-8 170 112;6 170 112;0 170 112;0 170 112" keyTimes="0;0.6;0.7;0.8;0.9;1" dur="3.2s" repeatCount="indefinite" calcMode="spline" keySplines="0.3 0 0.15 1;0.3 0 0.15 1;0.3 0 0.15 1;0.3 0 0.15 1;0.3 0 0.15 1"/>
+        <polygon points="136.7,126.5 131.2,62.6 162.5,104.0" fill="url(#catEarLit)"/>
+        <polygon points="140.8,119.7 135.3,78.2 156.4,104.0" fill="url(#catInnerEar)"/>
+        <polygon points="177.5,104.0 208.8,62.6 203.3,126.5" fill="url(#catEarShade)"/>
+        <polygon points="183.6,104.0 204.7,78.2 199.2,119.7" fill="url(#catInnerEar)" opacity="0.9"/>
+      </g>
+
+      <!-- Head — a wide rounded diamond with cheek corners, split on a center keel. -->
+      <polygon points="170,97.9 170,186.3 138.7,170.7 123.1,138.7" fill="url(#catHeadShade)"/>
+      <polygon points="170,97.9 216.9,138.7 201.3,170.7 170,186.3" fill="url(#catHeadLit)"/>
+      <line x1="170" y1="97.9" x2="170" y2="186.3" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+
+      <!-- Eyes — two dark almonds with catchlights. -->
+      <polygon points="141.1,138.7 159.1,135.3 157.1,146.9" fill="#232733"/>
+      <polygon points="180.9,135.3 198.9,138.7 182.9,146.9" fill="#232733"/>
+      <polygon points="146.9,138.4 152.0,137.4 150.6,141.1" fill="#ffffff" opacity="0.9"/>
+      <polygon points="186.7,137.4 191.8,138.4 188.0,141.1" fill="#ffffff" opacity="0.9"/>
+
+      <!-- Whiskers — thin bright fold accents fanning off the muzzle. -->
+      <line x1="153.7" y1="160.5" x2="126.5" y2="155.7" stroke="rgba(255,255,255,0.38)" stroke-width="1"/>
+      <line x1="153.7" y1="167.3" x2="127.8" y2="170.7" stroke="rgba(255,255,255,0.38)" stroke-width="1"/>
+      <line x1="186.3" y1="160.5" x2="213.5" y2="155.7" stroke="rgba(255,255,255,0.38)" stroke-width="1"/>
+      <line x1="186.3" y1="167.3" x2="212.2" y2="170.7" stroke="rgba(255,255,255,0.38)" stroke-width="1"/>
+
+      <!-- Muzzle + tiny pink nose. -->
+      <polygon points="157.8,156.4 182.2,156.4 170,174.1" fill="#fafbfe"/>
+      <polygon points="163.9,156.4 176.1,156.4 170,164.9" fill="url(#catInnerEar)"/>
+    </g>
+  </g>
+</svg>

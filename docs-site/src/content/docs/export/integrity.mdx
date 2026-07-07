@@ -1,0 +1,18 @@
+---
+title: Export integrity checks
+description: Every PDF Orifold exports passes a structural check before it reaches disk.
+keywords: [export failed, structural check, corrupted export, validation]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+Every exported PDF passes a qpdf structural check before it's written to disk. This catches malformed output before it ever reaches you, rather than leaving you to discover a broken file later.
+
+<Callout variant="note">
+	If this check fails, export stops and Orifold reports the problem instead of writing a bad file — see [Export & save problems](/Orifold/help/troubleshooting/export/) for what the message means and what to do next.
+</Callout>
+
+## Related
+
+- [Export & save](/Orifold/export/export-save/)
+- [Compress a PDF](/Orifold/export/compress/)
