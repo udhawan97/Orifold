@@ -740,6 +740,26 @@ struct PDFViewRepresentable: NSViewRepresentable {
             notePopover = nil
         }
 
+        private static let textEditPrivacyNoticeShownDefaultsKey = "readingCanvas.textEditPrivacyNotice.shown"
+
+        /// Editing text here only redraws the page's visual appearance (see
+        /// `PDFEditedPageRenderer`) — the original page content is re-embedded wholesale
+        /// underneath the erase patch and new text, so the "removed" wording can still be
+        /// recovered from the exported PDF via search, copy/paste, or accessibility tools.
+        /// Surface that once, the first time anyone actually opens the inline editor,
+        /// rather than silently letting a user assume edited-out text is gone for good.
+        private func maybeShowTextEditPrivacyNotice() {
+            let defaults = UserDefaults.standard
+            guard !defaults.bool(forKey: Self.textEditPrivacyNoticeShownDefaultsKey) else { return }
+            defaults.set(true, forKey: Self.textEditPrivacyNoticeShownDefaultsKey)
+
+            let alert = NSAlert()
+            alert.messageText = L10n.string("textEdit.privacyNotice.title")
+            alert.informativeText = L10n.string("textEdit.privacyNotice.message")
+            alert.addButton(withTitle: L10n.string("guidePopover.gotIt.button"))
+            alert.runModal()
+        }
+
         private func showInlineTextEditor(
             for block: EditableTextBlock,
             pageRef: PageRef,
@@ -750,6 +770,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             // Callers are expected to finish (commit or cancel) any previously open editor
             // before calling this — see the `.editText` handleClick case.
             assert(inlineEditor == nil, "a previous inline editor should already be finished")
+            maybeShowTextEditPrivacyNotice()
             let isExistingEdit = viewModel.hasInlineTextEditOperation(pageRefID: pageRef.id, sourceBlockID: block.id)
             let editor = InlineTextEditorOverlay(
                 frame: pdfView.bounds,
