@@ -2,6 +2,7 @@
 
 **Status:** Planning only. Not implemented. Hand this document to Sonnet for execution.
 **Date:** 2026-07-07 · **Baseline audited:** v0.8.1 — the shipped Astro Starlight docs site in `docs-site/` (deployed to `https://udhawan97.github.io/Orifold/`), `release.yml` (zip-only), the live GitHub releases (`release-v0.8.1` with a single `Orifold.zip` asset; rolling `Orifold-latest`), the one-line installer, and the Homebrew cask.
+**Revision 2 (same day):** re-audited against main after the toolbar redesign (`37ae9b6`) and the docs Media wiring (`aed19d2`) landed. Corrections: **every existing app screenshot now shows the removed pre-redesign toolbar** — the §2.1 capture session recaptures all of them, and §10 gains a post-toolbar docs pass; the "0 network calls" privacy stat was wrong (the shipped trusted-timestamp feature makes opt-in TSA requests — §3.5/§8b copy rescoped); the shipped artifact's version actually comes from the committed `Orifold/Resources/Info.plist`, not `project.yml` (§5.3.1/§7 corrected); `docs.yml` already has `workflow_dispatch` (§5.4); the "Translate" guides-row item had no docs page to link (§3.3); "verifiable in Adobe" overclaimed for the self-signed default (§3.4).
 **Quality bar:** Apple-like restraint — typography-led, spacious, high-contrast, one message per band. Simple but not basic; intentional, refined, trustworthy.
 **End-state contract:** `git tag vX.Y.Z && git push --tags` → **zero further manual steps** → the site shows the new version with a working Apple Silicon `.dmg` download, honest Gatekeeper UX, and a clear phased auto-update path.
 
@@ -91,10 +92,12 @@ Concretely: delete `docs-site/src/content/docs/index.mdx` from the Starlight con
 
 ## 2. Blocking pre-work (before any landing code)
 
-1. **Capture session** (decides whether the page looks premium at all):
-   - **Hero proof shot:** dark mode, current version, **2× resolution (2400×1504 minimum)**. Content requirements: 6–8 mixed files visible in the sidebar (several PDFs, a PNG screenshot, a scanned form, and one file named `final_final_revised_ACTUAL.pdf` — the brand joke, in pixels), a believable document body with **no self-referential or placeholder text**, a real document title (e.g. "Lease packet — 12 Maple St"). Caption stays honest: "Real capture, v0.8.2, dark mode."
-   - Below-fold trio (`annotate-markup-tools`, `night-mode-comparison`, `reader-mode-toggle`): existing 1200×752 captures are acceptable at ~340px display width via the `<Picture>` pipeline; recapture at 2× only if soft on a Retina spot-check.
-   - Update `docs/assets/MEDIA_MANIFEST.md` with the new assets and the 2×-for-hero rule.
+1. **Capture session** (decides whether the page looks premium at all). **Every existing app capture is content-stale, not just resolution-stale:** all six real PNGs predate the toolbar redesign (`37ae9b6`) and show the removed dense toolbar. The new toolbar is: leading single Add-files button · thinned highlight-led markup capsule (underline/strikeout/eraser behind a disclosure) · trailing Undo·Redo│Search·Share·Inspector·**More** popover (reader mode, comfort, outline, page ops, …); Reader Mode also moved to the View menu (⌘⇧R). Capture on a post-`37ae9b6` build:
+   - **Hero proof shot (new):** dark mode, current version, **2× resolution (2400×1504 minimum)**. Content requirements: 6–8 mixed files visible in the sidebar (several PDFs, a PNG screenshot, a scanned form, and one file named `final_final_revised_ACTUAL.pdf` — the brand joke, in pixels), a believable document body with **no self-referential or placeholder text**, a real document title (e.g. "Lease packet — 12 Maple St"). Caption stays honest: "Real capture, v0.8.2, dark mode."
+   - **Below-fold trio (recapture, redefine content):** `annotate-markup-tools` (new thinned capsule + its disclosure popover), `night-mode-comparison` (Document Comfort now lives inside the More popover — capture the popover open or the split comparison without the retired toolbar button), `reader-mode-toggle` (the toolbar toggle no longer exists — capture the More-popover switch or the View-menu path instead). Capture at 2× while at it.
+   - **`the-orifold-window-annotated.png` (recapture):** used by `get-started/the-window.mdx`; shows the old toolbar and the placeholder-text document.
+   - `first-workspace-empty-state.png` shows no toolbar and stays valid.
+   - Update `docs/assets/MEDIA_MANIFEST.md` with the new assets and the 2×-for-hero rule, **building on the Media/MP4 wiring that landed in `aed19d2`**; while in there, reconcile its "1600×1000 recommended" window-size spec with the actual capture standard chosen for this session, and fix the reader-mode-toggle row description ("toolbar tucked away" doesn't match the asset).
 2. **Gatekeeper dialog verification (blocking for all download copy).** Download the real ad-hoc-signed asset in Safari on clean macOS 14 and macOS 15 machines/VMs; record exact dialogs and escape paths. Expected: macOS 14 = right-click → Open works; macOS 15 = "Apple could not verify…" then Settings → Privacy & Security → Open Anyway → password. If the observed verdict is instead **"damaged and can't be opened"** (seen on some 15.1+ non-validly-signed binaries), the coaching copy must lead with the installer as the primary path and keep `xattr -cr` in troubleshooting only. **Decide from evidence, not hope.**
 3. **Crane SVG diet.** `docs-site/src/assets/orifold-crane-fold.svg` is 155KB raw / **83KB gzipped** with 65 `repeatCount="indefinite"` SMIL animations + blur filters. svgo + coordinate-precision pass targeted at ≤96px render; convert to a single finite play-through ending `fill="freeze"` on the completed crane. **Hard sub-budget: ≤25KB gzipped** — if unreachable, ship a static crane mark on the landing and keep the animation docs-only (pre-decided; no renegotiation at build time). Produce a companion static final-frame SVG for reduced-motion.
 4. **Starlight route prototype.** Verify custom `index.astro` + deleted splash coexist cleanly: route precedence, 404 page, sitemap, canonical URLs, and the `/docs` redirect under the `/Orifold` base path.
@@ -144,19 +147,20 @@ One continuous `--of-canvas` ground. **No alternating band backgrounds.** Separa
 5. **Sanitize** — "A file that carries nothing you didn't intend to send."
 6. **Fill & flatten forms** — "Finished paperwork, no third-party e-sign service."
 
-Signatures are deliberately **not** a card (next band). Stamps/Bates/find-replace live in a slim `popular.json`-driven guides row beneath the grid: "More jobs: Combine · Stamps & Bates · Protect · Translate →". Card hover: existing 120ms token behavior only.
+Signatures are deliberately **not** a card (next band). Stamps/Bates/find-replace live in a slim `popular.json`-driven guides row beneath the grid: "More jobs: Combine · Stamps & Bates · Protect · Sign →". Note: today's `popular.json` has no Stamps & Bates entry — add one pointing at `annotate/stamps/` during the PR-2 rewrite. (An earlier draft listed "Translate" here; no such docs page exists — the app switches its own UI language, it doesn't translate documents. Dropped.) Card hover: existing 120ms token behavior only.
 
 ### 3.4 Signatures — full-width single-feature band (the undersold flagship)
 
 - H2: "A drawn mark is a picture. A digital signature is math."
-- Two short columns: what it does (PAdES cryptographic signatures, Keychain and .p12 identities, trusted timestamps, verifiable in Adobe) and why it matters (one honest line on the difference between an image of a signature and a tamper-evident seal). One real capture or the signing-flow illustration with the honest-caption pattern.
+- Two short columns: what it does (PAdES cryptographic signatures, Keychain and .p12 identities, optional trusted timestamps) and why it matters (one honest line on the difference between an image of a signature and a tamper-evident seal). Verification claim uses the docs' own wording — "verifies as intact in Adobe and any PAdES-aware viewer" — **not** a flat "verifiable in Adobe": with the zero-setup self-signed default, Acrobat reports the signer's identity as unknown until manually trusted (`fill-sign/signatures.mdx:62`); the trusted-identity indicator needs a CA-issued ID. One real capture or the signing-flow illustration with the honest-caption pattern.
 - CTA link: "How signing works →" (docs).
 
 ### 3.5 Privacy & trust — one consolidated statement (say it once, well)
 
 - H2: "Everything happens on your Mac. The cloud was not consulted."
-- Stat-styled facts, inline SVG glyphs, **app-scoped wording**:
-  - **0** — "network calls the app makes. Zero telemetry — there isn't even a server to send it to." *(flips via `site.json.appNetworkCheck` when Phase-1 update check ships: "**1** kind of network request the app can make — asking GitHub for the latest version number, and only if you turn it on.")*
+- Stat-styled facts, inline SVG glyphs, **app-scoped wording**. ⚠️ Corrected in Revision 2: a flat "0 network calls" is **false** — the shipped signing flow contains a real TSA client (`Orifold/Signing/Timestamp/TimestampClient.swift`) that makes opt-in RFC-3161 requests when the user asks for a trusted timestamp, and §3.4 advertises exactly that feature. Copy scopes the claim to telemetry:
+  - **0** — "telemetry, analytics, accounts. There isn't even a server to send them to. The only thing Orifold ever asks the network for: a trusted timestamp, when you request one while signing." *(flips via `site.json.appNetworkCheck` when the Phase-1 update check ships: adds "…and the latest version number — only if you turn that on.")*
+  - **Blocking verification before this copy is final:** the entitlements file has no `com.apple.security.network.client`, so the sandboxed release build may be silently blocking TSA requests today — i.e. the timestamp feature may be broken in shipped builds. Test timestamped signing in a sandboxed build; if broken, PR-4's entitlement addition is what fixes it (note this in the PR-4 description), and until then §3.4 must not promise timestamps.
   - **3** sandbox entitlements — "app-sandbox, the files you pick, and remembering the access you gave. That's the whole list." *(flips to 4 with the same flag, same tag as the app change)*
   - **503** tests gate every release · **Free forever, MIT** — the old TrustStrip content lands here; `TrustStrip.astro` itself stays docs-only, untouched.
 - One honest clause, small text: "This page asks GitHub for the latest version number so the button below is always current. The app never does."
@@ -241,7 +245,7 @@ Version lives in the tag; the URL never changes. `Orifold-latest` gains `prerele
 
 Tagged-release path, in order:
 
-1. **Derive version from tag (CI-enforced):** normalize the tag (strip `release-`/`v`), export `ORIFOLD_MARKETING_VERSION`; the packaging step (extend `install-mac.sh`'s existing PlistBuddy block) sets `CFBundleShortVersionString` from it and `CFBundleVersion` from the run number. **The tag is the single source of truth for shipped artifacts.** `scripts/bump-version.sh` remains a courtesy for dev/source builds (updates `project.yml`; prints the tag command).
+1. **Derive version from tag (CI-enforced):** normalize the tag (strip `release-`/`v`), export `ORIFOLD_MARKETING_VERSION`; the packaging step extends `install-mac.sh`'s existing `write_info_plist()` (`scripts/install-mac.sh:416`) to `Set` `CFBundleShortVersionString` from it and `CFBundleVersion` from the run number. **Important (Revision 2):** the shipped zip's version does **not** come from `project.yml` — `write_info_plist()` copies the committed `Orifold/Resources/Info.plist` verbatim (which carries `0.8.1`/`8`); `project.yml` only feeds xcodegen/Xcode builds. The PlistBuddy step must therefore override the copied plist's version keys. **The tag is the single source of truth for shipped artifacts.** `scripts/bump-version.sh` is a **new** courtesy script for dev/source builds — it must update **both** `project.yml` and `Orifold/Resources/Info.plist` (two committed version sources today), and prints the tag command.
 2. Build + test as today → package zip → **make dmg** (`scripts/make-dmg.sh`).
 3. **Atomic publish:** create the release `draft: true` → upload `Orifold.zip` + `Orifold.dmg` → `gh release edit <tag> --draft=false --latest`. The release only becomes `latest` with assets attached — no publish-window 404 for the button, the installer, or the site build.
 4. **Pin the cask (~15 lines):** `shasum -a 256 Orifold.zip`; sed `Casks/orifold.rb` to `version 'X.Y.Z'`, real `sha256`, versioned `releases/download/vX.Y.Z/Orifold.zip` URL; commit+push to main with the default token, wrapped in a `git pull --rebase` retry ×3 (this repo has concurrent sessions). Brew users get real upgrades and checksums for the first time.
@@ -249,11 +253,11 @@ Tagged-release path, in order:
 
 Rolling `Orifold-latest` path: gains `prerelease: true`, retitled "Development build from latest `main` — not the release channel," keeps zip **and** dmg (retry-wrapped; every-push execution is the canary that keeps release day boring; demote dmg to tagged-only if flakiness persists — documented fallback).
 
-Also in this PR: `depends_on arch: :arm64` in `Casks/orifold.rb`; `uname -m` guard in `install-mac.sh`'s prebuilt path (non-arm64 → refuse with a clear message). **No backfill `workflow_dispatch` for old tags** — dispatching an old tag checks out a commit that predates `make-dmg.sh`; the only way `releases/latest` gets a dmg is shipping `v0.8.2` from post-PR-1 main.
+Also in this PR: `depends_on arch: :arm64` in `Casks/orifold.rb`; `uname -m` guard in `install-mac.sh`'s prebuilt path (non-arm64 → refuse with a clear message); add `paths-ignore: [docs-site/**, docs/**]` to the release workflow's `main`-push trigger (today every docs-only push burns a full ~15-min macOS app build for an unchanged `Orifold-latest`; tag triggers unaffected). **No backfill `workflow_dispatch` for old tags** — dispatching an old tag checks out a commit that predates `make-dmg.sh`; the only way `releases/latest` gets a dmg is shipping `v0.8.2` from post-PR-1 main.
 
 ### 5.4 Docs workflow changes (`.github/workflows/docs.yml` — outline)
 
-- Keep the existing push-path trigger; **add `workflow_dispatch`** (the target of step 5 above) and a **daily `schedule:` cron** — belt-and-braces that re-bakes truth at most 24h late no matter which event misfired.
+- Keep the existing push-path trigger; `workflow_dispatch` **already exists** in `docs.yml` (Revision 2 correction — the step-5 dispatch works against today's file with no trigger change). Add only a **daily `schedule:` cron** — belt-and-braces that re-bakes truth at most 24h late no matter which event misfired.
 - Build env gets `GITHUB_TOKEN` so the build-time release fetch is never rate-limited.
 - **Post-deploy smoke step:** curl the live page and grep for the tag fetched from `releases/latest`; `curl -sIL …/releases/latest/download/Orifold.dmg` and assert the **final** response is 200 (whole redirect chain, per §5.1). Failure = red X + notification instead of silent drift.
 
@@ -288,7 +292,9 @@ Also in this PR: `depends_on arch: :arm64` in `Casks/orifold.rb`; `uname -m` gua
 - **Canonical source: GitHub release metadata at build time** (`release.ts`) → hero chip, download chip (size from the dmg asset specifically), footer version/date/link, and a **build-time "Latest release" banner at the top of `releases.mdx`** ("Latest: v0.9.0 — 2026-07-XX · full notes on GitHub") so the hand-written release essays become historical entries that can never make "What's New" lie.
 - **`stats.json` loses its `version` key.** `Stat.astro` resolves `version` from `release.ts` (offline fallback: last-known value).
 - Version normalization (strip `release-`/`v`, dotted-numeric compare) lives once in `scripts/lib/version.sh` and once in the app's `UpdateChecker`, with a shared test-vector list.
-- README: replace the static `release-v0.8.1` badge with the self-updating `img.shields.io/github/v/release/udhawan97/Orifold` endpoint; de-version the prose; add a release-workflow grep guard that fails if the previous version string survives outside changelog history.
+- README: replace the static `release-v0.8.1` badge (`README.md:30`) with the self-updating `img.shields.io/github/v/release/udhawan97/Orifold` endpoint; de-version the prose at `README.md:34` and `README.md:337`; add a release-workflow grep guard that fails if the previous version string survives outside changelog history.
+- The committed `Orifold/Resources/Info.plist` is the second hand-maintained version source (see §5.3.1) — `bump-version.sh` owns it; CI overrides it from the tag either way.
+- The hero sub-line's verbatim source is `docs-site/src/content/docs/index.mdx:23` — copy it into the landing **before** §10 deletes that file. README deliberately keeps its own two-line variant; don't "sync" it.
 
 ---
 
@@ -302,8 +308,8 @@ Fully covered by §5. Zero manual steps by construction; daily cron + post-deplo
 
 **Phase 1 — now (ad-hoc era): check-only, consent-first.** *(The sandbox forbids in-process download-and-swap: no network entitlement exists today; sandboxed apps can't strip quarantine or replace their own running bundle.)*
 
-- Add `com.apple.security.network.client` (entitlement count → **4**; §3.5 stat copy + `settings/privacy.mdx` flip in the **same tag** — enforced by the `appNetworkCheck` flag existing in `site.json` from day one with both copy states written).
-- `UpdateChecker`: GET `releases/latest` with ETag caching, normalize tag, compare to `CFBundleShortVersionString`. Surfaces: menu **"Check for Updates…"** (always explicit) + Settings toggle **"Check automatically (weekly)" — default OFF**. Copy: "Asks GitHub for the latest version number. Your files are never involved. This is the only network request Orifold can make."
+- Add `com.apple.security.network.client` (entitlement count → **4**; §3.5 stat copy + `settings/privacy.mdx` flip in the **same tag** — enforced by the `appNetworkCheck` flag existing in `site.json` from day one with both copy states written). **Side effect worth stating in the PR (Revision 2):** the sandbox currently has no network entitlement, yet the shipped signing flow contains a TSA timestamp client — adding this entitlement likely *fixes* trusted timestamps in sandboxed release builds (verify per §3.5).
+- `UpdateChecker`: GET `releases/latest` with ETag caching, normalize tag, compare to `CFBundleShortVersionString`. Surfaces: menu **"Check for Updates…"** (always explicit) + Settings toggle **"Check automatically (weekly)" — default OFF**. Copy: "Asks GitHub for the latest version number. Your files are never involved." (Not "the only network request Orifold can make" — trusted-timestamp signing also uses the network, opt-in.)
 - Update available → sheet: release-notes link + **"Open download page"** (website `#download`) + **"Run the installer"** (NSWorkspace-opens the existing `Install or Update Orifold.command` in Terminal — LaunchServices-legal; the script runs unsandboxed and already solved quit/replace/verify).
 - **Install-location reconciliation** (dmg introduces `/Applications`; installer prefers `~/Applications`): small `install-mac.sh` change — if an existing `Orifold.app` is found in `/Applications`, replace it **in place** instead of sweeping it into `~/Applications`, so dmg users' Dock icons and Open-With bindings survive updates. The sweep remains only when no prior install exists.
 
@@ -369,8 +375,10 @@ tokens.css, theme.css, TrustStrip.astro (docs-only), Hero/Footer overrides (docs
 - [ ] `developers/release-gate.mdx`: dmg smoke (`hdiutil attach` → launch → verify), throwaway-tag acceptance test, signed-era pre-flip checklist.
 - [ ] `settings/privacy.mdx` + §3.5 stats: flip with PR-4, same tag.
 - [ ] `releases.mdx`: banner wiring; note in the ritual that the essays are curated history.
+- [ ] **Post-toolbar docs pass (new in Revision 2):** the toolbar redesign (`37ae9b6`) made four docs pages the landing links into factually wrong — `reading/reader-mode.mdx` ("Click Reader Mode in the toolbar" → now View menu ⌘⇧R / More popover), `reading/night-mode.mdx` ("Click Document Comfort in the toolbar" → now inside More), `get-started/the-window.mdx` (describes retired toolbar layout + uses the stale annotated capture), `annotate/markup.mdx` (underline/strikeout now behind the capsule's disclosure popover). Rewrite alongside the §2.1 recaptures.
 - [ ] `docs/DOCS_PREMIUM_MAKEOVER_PLAN.md`: status → "Substantially shipped (91491d8)"; homepage story + fold-animation deliverable now owned by the landing page.
-- [ ] `docs/assets/MEDIA_MANIFEST.md`: new hero capture, 2×-for-hero rule, dieted crane + static variants, fold-moment SVG, pet finite-loop variants.
+- [ ] `docs/TOOLBAR_REDESIGN_PLAN.md`: shipped in `37ae9b6` (note: `ToolbarMoreMenu` landed inside `ContentView.swift`, not as the planned new file) — add a shipped header or delete per the Smart-Text-Edit precedent.
+- [ ] `docs/assets/MEDIA_MANIFEST.md`: new hero capture, 2×-for-hero rule, dieted crane + static variants, fold-moment SVG, pet finite-loop variants; build on the `aed19d2` Media/MP4 sections; reconcile the 1600×1000 spec with the chosen capture standard.
 - [ ] Pagefind check: "install" / "download" / "combine" surface post-`index.mdx`-deletion; keywords on `workflows.mdx` if not.
 
 ---
@@ -387,6 +395,8 @@ tokens.css, theme.css, TrustStrip.astro (docs-only), Hero/Footer overrides (docs
 8. **EdDSA key loss (Phase 2)** — generate once, GitHub secret + offline copy; documented in `build-release.mdx` before Sparkle ships; keys are rotatable but never removable.
 9. **Rate limits on shared IPs** — the enhancer is confirm-or-upgrade-only with ETag caching; the build-time state is canonical; the no-JS path is fully correct by construction.
 10. **Publish-window 404 on the stable URL** — closed by atomic draft→upload→publish; the runtime guard covers the residual case.
+11. **TSA timestamps possibly broken in shipped sandboxed builds** (no `network.client` entitlement exists, but the signing flow ships a TSA client) — verify before finalizing any privacy or signature copy (§3.5); if broken, PR-4's entitlement is the fix and §3.4 must soften the timestamp claim until it ships.
+12. **Screenshots must be captured on a post-toolbar-redesign build** — any capture showing the pre-`37ae9b6` toolbar is an instant credibility bug on a page whose caption says "real capture."
 
 ---
 
