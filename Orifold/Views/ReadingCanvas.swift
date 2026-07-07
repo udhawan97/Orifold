@@ -3579,7 +3579,10 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func apply(format: PDFTextEditFormat, markStyleChange: Bool, applyGeometry: Bool) {
-        let previousStyle = (editorFontFamily, documentFontSize, editorTextColor, editorAlignment, editorUnderline, editorFontTraits)
+        let previousStyle = (
+            editorFontFamily, documentFontSize, editorTextColor,
+            editorAlignment, editorUnderline, editorFontTraits
+        )
         documentFontSize = format.fontSize > 0 ? format.fontSize : originalFontSize
         let sourceFont = NSFont(name: format.fontName, size: documentFontSize) ?? .systemFont(ofSize: documentFontSize)
         editorFontFamily = Self.editingFamilyName(for: sourceFont, fallback: format.fontName)

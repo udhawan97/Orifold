@@ -1180,7 +1180,9 @@ final class PDFTextAnalysisEngine {
         // other scripts (CJK occupies nearly the full em, Arabic/Indic have their own
         // vertical anatomy) keep the conservative full-span model.
         if let lineText {
-            let scalars = lineText.unicodeScalars.filter { CharacterSet.letters.contains($0) || CharacterSet.decimalDigits.contains($0) }
+            let scalars = lineText.unicodeScalars.filter {
+                CharacterSet.letters.contains($0) || CharacterSet.decimalDigits.contains($0)
+            }
             let isClassifiableLatin = !scalars.isEmpty && scalars.allSatisfy { $0.isASCII }
             if isClassifiableLatin {
                 extentClass.hasCapsOrDigits = scalars.contains { capsOrDigits.contains($0) }
