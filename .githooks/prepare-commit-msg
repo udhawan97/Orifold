@@ -10,6 +10,10 @@ merge|squash)
     ;;
 esac
 
+if [ -n "${CLAUDECODE:-}" ]; then
+    exit 0
+fi
+
 trailer="Co-authored-by: OpenAI Codex <codex@openai.com>"
 
 if grep -Fqx "$trailer" "$message_file"; then
