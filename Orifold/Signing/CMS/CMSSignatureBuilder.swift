@@ -163,12 +163,21 @@ enum CMSSignatureBuilder {
     }
 }
 
-enum CMSSignatureBuilderError: Error, Equatable {
+enum CMSSignatureBuilderError: Error, Equatable, LocalizedError {
     case emptyCertificate
     case malformedDER
     case malformedCertificate
     case invalidObjectIdentifier(String)
     case unsupportedSigningAlgorithm(SignatureAlgorithm)
+
+    /// Without `LocalizedError`, `error.localizedDescription` at this error's generic
+    /// "could not sign the PDF" catch site falls back to a useless generic Cocoa string
+    /// instead of anything a user could act on. Every case here traces back to the same
+    /// underlying, user-actionable cause -- the certificate data itself can't be used --
+    /// so they share one plain-English message rather than exposing DER/ASN.1 jargon.
+    var errorDescription: String? {
+        L10n.string("error.cmsSignatureBuilder.certificateUnusable")
+    }
 }
 
 private struct SigningIdentityCMSAdapter: CMSSigningIdentity {

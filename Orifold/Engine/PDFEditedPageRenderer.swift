@@ -45,7 +45,7 @@ enum PDFEditedPageRenderer {
         drawPageBackground(from: page, unrotatedPage: unrotatedPage, mediaBox: mediaBox, in: context)
 
         for operation in operations {
-            let eraseBounds = eraseBounds(for: operation)
+            let eraseBounds = eraseBounds(for: operation, on: page)
             for sourceBounds in eraseBounds {
                 drawErasePatch(for: sourceBounds, on: page, in: context)
             }
@@ -95,12 +95,32 @@ enum PDFEditedPageRenderer {
         context.drawPDFPage(pageRef)
     }
 
-    static func eraseBounds(for operation: PDFTextEditOperation) -> [CGRect] {
+    static func eraseBounds(for operation: PDFTextEditOperation, on page: PDFPage? = nil) -> [CGRect] {
         // Inserting brand-new text has nothing to erase; patching would stamp an opaque
         // rectangle over whatever background art sits under the insertion point.
         guard !operation.isInsertion else { return [] }
-        let sourceBounds = (operation.sourceLineBounds.isEmpty ? [operation.sourceBounds] : operation.sourceLineBounds)
+        var sourceBounds = (operation.sourceLineBounds.isEmpty ? [operation.sourceBounds] : operation.sourceLineBounds)
             .map { $0.standardized }
+        // A source rect dramatically taller than the ORIGINAL text's own font size is not a
+        // real single line/paragraph — it's almost certainly the last-resort whole-page
+        // fallback block (`wholePageFallbackBlock`, whose geometry is explicitly untrusted
+        // at line granularity and spans nearly the entire crop box). Erasing it verbatim
+        // would stamp an opaque patch over almost the whole page. Drop only the implausible
+        // entries rather than the whole array — a genuine multi-line paragraph where one
+        // line's bounds came out oversized would otherwise lose erase coverage for its OTHER,
+        // perfectly normal lines too. Only fall back to the edited box itself when nothing
+        // plausible is left (the actual whole-page-fallback case, which reports a single rect).
+        //
+        // Deliberately measured against `originalFormat.fontSize` (the SOURCE text's own
+        // original size, captured once at creation) rather than `operation.fontSize` (the
+        // REPLACEMENT's current size) or `editedBounds` (the replacement's current box):
+        // shrinking a large original heading down to a much smaller replacement font would
+        // otherwise shrink the plausibility ceiling right along with it, wrongly discarding
+        // the genuinely tall original source line and leaving its ink unerased underneath —
+        // reintroducing the exact ghost-text bug this guard exists to prevent.
+        let plausibleMaxHeight = max(operation.originalFormat.fontSize * 6, operation.editedBounds.standardized.height * 4, 96)
+        let plausibleSourceBounds = sourceBounds.filter { $0.height <= plausibleMaxHeight }
+        sourceBounds = plausibleSourceBounds.isEmpty ? [operation.editedBounds.standardized] : plausibleSourceBounds
         // Automatic width/height growth is only layout help for the replacement text.
         // It should not stamp a background-colored rectangle over nearby content. Only
         // explicit geometry changes — a manual drag/resize, or Match/Copy/Restore Style
@@ -113,7 +133,15 @@ enum PDFEditedPageRenderer {
             operation.didApplyMatchedGeometry else {
             return sourceBounds
         }
-        return sourceBounds + [operation.editedBounds]
+        let destination = operation.editedBounds.standardized
+        // A destination box that already sits on blank paper needs no cover patch — only
+        // add it to the erase list when it's actually hiding something under the new
+        // location. When the page isn't available (e.g. existing unit tests exercising
+        // this in isolation), keep the previous, conservative always-erase behavior.
+        if let page, regionIsBlankBackground(destination, on: page) {
+            return sourceBounds
+        }
+        return sourceBounds + [destination]
     }
 
     private static func drawErasePatch(for sourceBounds: CGRect, on page: PDFPage, in context: CGContext) {
@@ -128,6 +156,16 @@ enum PDFEditedPageRenderer {
 
     private static func drawReplacement(_ operation: PDFTextEditOperation, in context: CGContext) {
         context.saveGState()
+        // The page background drawn just before this (`drawPageBackground`) replays the
+        // ORIGINAL page's own content stream via `drawPDFPage`/`PDFPage.draw`. When that
+        // page contains ANY invisible (`Tr 3`) text anywhere — the ordinary OCR-layer-under-
+        // a-scan pattern — CoreGraphics' current text-drawing-mode state was observed (via a
+        // hand-built repro) to leak forward into this context past that draw call, silently
+        // making every subsequent replacement on the page invisible too, even for edits that
+        // have nothing to do with the hidden text. `saveGState`/`restoreGState` alone doesn't
+        // protect against this. Force it back to normal fill before every replacement so a
+        // scanned+OCR page's edits can never render as invisible ghost text with no error.
+        context.setTextDrawingMode(.fill)
         let layout = ReplacementTextLayout(operation: operation)
         context.textMatrix = .identity
         layout.draw(in: context, bounds: operation.editedBounds)
@@ -363,7 +401,7 @@ enum PDFEditedPageRenderer {
         return Double(lightSamples) / Double(totalSamples) >= 0.7
     }
 
-    private static func sampledBackgroundColor(near sourceBounds: CGRect, on page: PDFPage) -> CGColor? {
+    static func sampledBackgroundColor(near sourceBounds: CGRect, on page: PDFPage) -> CGColor? {
         let pageBounds = page.bounds(for: .mediaBox)
         let sampleRect = sourceBounds.standardized.insetBy(dx: -2, dy: -2).intersection(pageBounds)
         guard sampleRect.width > 0, sampleRect.height > 0, !sampleRect.isNull else {

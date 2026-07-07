@@ -222,9 +222,9 @@ extension CGFloat {
     /// Minimum inset from the window edges.
     static let gamiEdgeInset: CGFloat = 16
     /// At-rest chip container size (icon + padding), workspace presentation.
-    static let gamiChipCompact: CGFloat = 56
+    static let gamiChipCompact: CGFloat = 64
     /// Hover-expanded chip container size, workspace presentation.
-    static let gamiChipHover: CGFloat = 88
+    static let gamiChipHover: CGFloat = 96
     /// Chip container size in cramped/small-window mode.
     static let gamiChipCramped: CGFloat = 44
 }

@@ -55,6 +55,63 @@ private func FPDFText_GetFontInfo(
 @_silgen_name("FPDFText_GetFontWeight")
 private func FPDFText_GetFontWeight(_ textPage: OpaquePointer?, _ index: Int32) -> Int32
 
+@_silgen_name("FPDFText_GetCharAngle")
+private func FPDFText_GetCharAngle(_ textPage: OpaquePointer?, _ index: Int32) -> Float
+
+/// Layout-compatible with PDFium's `FS_MATRIX` (six packed floats, `a b c d e f`, matching
+/// `CGAffineTransform`'s `a b c d tx ty`).
+private struct FSMatrix {
+    var a: Float = 0
+    var b: Float = 0
+    var c: Float = 0
+    var d: Float = 0
+    var e: Float = 0
+    var f: Float = 0
+}
+
+@_silgen_name("FPDFText_GetMatrix")
+private func FPDFText_GetMatrix(_ textPage: OpaquePointer?, _ index: Int32, _ matrix: UnsafeMutablePointer<FSMatrix>?) -> Int32
+
+@_silgen_name("FPDFText_GetStrokeColor")
+private func FPDFText_GetStrokeColor(
+    _ textPage: OpaquePointer?,
+    _ index: Int32,
+    _ r: UnsafeMutablePointer<UInt32>?,
+    _ g: UnsafeMutablePointer<UInt32>?,
+    _ b: UnsafeMutablePointer<UInt32>?,
+    _ a: UnsafeMutablePointer<UInt32>?
+) -> Int32
+
+@_silgen_name("FPDFText_IsGenerated")
+private func FPDFText_IsGenerated(_ textPage: OpaquePointer?, _ index: Int32) -> Int32
+
+@_silgen_name("FPDFPage_CountObjects")
+private func FPDFPage_CountObjects(_ page: OpaquePointer?) -> Int32
+
+@_silgen_name("FPDFPage_GetObject")
+private func FPDFPage_GetObject(_ page: OpaquePointer?, _ index: Int32) -> OpaquePointer?
+
+@_silgen_name("FPDFPageObj_GetType")
+private func FPDFPageObj_GetType(_ pageObject: OpaquePointer?) -> Int32
+
+@_silgen_name("FPDFPageObj_GetBounds")
+private func FPDFPageObj_GetBounds(
+    _ pageObject: OpaquePointer?,
+    _ left: UnsafeMutablePointer<Float>?,
+    _ bottom: UnsafeMutablePointer<Float>?,
+    _ right: UnsafeMutablePointer<Float>?,
+    _ top: UnsafeMutablePointer<Float>?
+) -> Int32
+
+@_silgen_name("FPDFTextObj_GetTextRenderMode")
+private func FPDFTextObj_GetTextRenderMode(_ textObject: OpaquePointer?) -> Int32
+
+/// PDFium's `FPDF_PAGEOBJ_TEXT` page-object type constant.
+private let kPDFPageObjectTypeText: Int32 = 1
+
+/// PDFium's `FPDF_TEXTRENDERMODE_INVISIBLE` (PDF spec `Tr 3`) constant.
+private let kPDFTextRenderModeInvisible: Int32 = 3
+
 /// PDF font-descriptor `/Flags` bit for an italic/oblique face (bit 7, value 64). Set even
 /// when the embedded font's PostScript name carries no "Italic"/"Oblique" token, so it is
 /// the only reliable slant signal for many documents.
@@ -84,6 +141,64 @@ final class PDFTextAnalysisEngine {
         /// True when the embedded font descriptor's italic flag is set, even if the font
         /// name has no "Italic"/"Oblique" token.
         var isItalic: Bool
+        /// This glyph's own content-stream rotation in degrees, derived from
+        /// `FPDFText_GetCharAngle` (radians). nil when PDFium can't report an angle for this
+        /// glyph — never assume 0 in that case, since 0 is also a legitimate reading for
+        /// upright text.
+        var angleDegrees: CGFloat?
+        /// This glyph's full text-rendering matrix, when PDFium can report one.
+        var transform: PDFTextTransform?
+        var strokeColor: CodableColor?
+        /// True when PDFium synthesized this glyph (e.g. a missing/unmappable glyph filled
+        /// in) rather than reading it from the document's own embedded font.
+        var isGenerated: Bool
+        /// The PDF render mode (`Tr`) of whichever page object this glyph's bounds best
+        /// match, resolved via `renderModeRegions`. nil when no page-object region could be
+        /// matched (e.g. a degenerate/zero-size glyph with no usable bounds).
+        var renderMode: Int32?
+    }
+
+    /// One text page-object's declared bounds and PDF render mode (`Tr`), used to look up
+    /// which render mode applies to a given glyph. PDFium's char-level text API (used for
+    /// everything else in this file) has no render-mode accessor of its own — only the
+    /// page-object API does — so this is a separate pass matched back to glyphs by bounds.
+    private struct RenderModeRegion {
+        var bounds: CGRect
+        var mode: Int32
+    }
+
+    private func renderModeRegions(page: OpaquePointer?) -> [RenderModeRegion] {
+        let count = FPDFPage_CountObjects(page)
+        guard count > 0 else { return [] }
+        var regions: [RenderModeRegion] = []
+        regions.reserveCapacity(Int(count))
+        for index in 0..<count {
+            guard let object = FPDFPage_GetObject(page, index),
+                  FPDFPageObj_GetType(object) == kPDFPageObjectTypeText else { continue }
+            var left: Float = 0
+            var bottom: Float = 0
+            var right: Float = 0
+            var top: Float = 0
+            guard FPDFPageObj_GetBounds(object, &left, &bottom, &right, &top) != 0,
+                  right > left, top > bottom else { continue }
+            let mode = FPDFTextObj_GetTextRenderMode(object)
+            regions.append(RenderModeRegion(
+                bounds: CGRect(x: CGFloat(left), y: CGFloat(bottom), width: CGFloat(right - left), height: CGFloat(top - bottom)),
+                mode: mode
+            ))
+        }
+        return regions
+    }
+
+    /// The render mode of whichever region's bounds most tightly contain `bounds`'s center —
+    /// "most tightly" (smallest matching region) so a small glyph inside a larger overlapping
+    /// text object resolves to its own object's mode rather than an unrelated bigger one.
+    private func renderMode(for bounds: CGRect, in regions: [RenderModeRegion]) -> Int32? {
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        return regions
+            .filter { $0.bounds.insetBy(dx: -0.5, dy: -0.5).contains(center) }
+            .min { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height }?
+            .mode
     }
 
     func analyze(data: Data, pageIndex: Int, pageRefID: UUID? = nil, fallbackPage: PDFPage? = nil) -> PDFTextPageAnalysis {
@@ -142,6 +257,7 @@ final class PDFTextAnalysisEngine {
             let count = Int(FPDFText_CountChars(textPage))
             guard count > 0 else { return PDFTextPageAnalysis(pageRefID: pageRefID, blocks: []) }
 
+            let regions = renderModeRegions(page: page)
             var samples: [CharacterSample] = []
             samples.reserveCapacity(count)
             for index in 0..<count {
@@ -160,6 +276,14 @@ final class PDFTextAnalysisEngine {
                 let reportedFontSize: CGFloat? = size.isFinite && size >= 4 ? CGFloat(size) : nil
                 let descriptor = fontDescriptor(textPage: textPage, index: index)
                 let rawWeight = FPDFText_GetFontWeight(textPage, Int32(index))
+                let rawAngle = FPDFText_GetCharAngle(textPage, Int32(index))
+                let angleDegrees: CGFloat? = rawAngle.isFinite ? CGFloat(rawAngle) * 180 / .pi : nil
+                var fsMatrix = FSMatrix()
+                let hasMatrix = FPDFText_GetMatrix(textPage, Int32(index), &fsMatrix) != 0
+                let transform: PDFTextTransform? = hasMatrix
+                    ? PDFTextTransform(a: CGFloat(fsMatrix.a), b: CGFloat(fsMatrix.b), c: CGFloat(fsMatrix.c), d: CGFloat(fsMatrix.d), e: CGFloat(fsMatrix.e), f: CGFloat(fsMatrix.f))
+                    : nil
+                let isGenerated = FPDFText_IsGenerated(textPage, Int32(index)) == 1
                 samples.append(CharacterSample(
                     scalar: scalar,
                     bounds: bounds,
@@ -167,7 +291,12 @@ final class PDFTextAnalysisEngine {
                     color: color,
                     rawFontName: descriptor.name,
                     fontWeight: rawWeight > 0 ? Int(rawWeight) : nil,
-                    isItalic: descriptor.isItalic
+                    isItalic: descriptor.isItalic,
+                    angleDegrees: angleDegrees,
+                    transform: transform,
+                    strokeColor: strokeColor(textPage: textPage, index: index),
+                    isGenerated: isGenerated,
+                    renderMode: bounds.flatMap { renderMode(for: $0, in: regions) }
                 ))
             }
 
@@ -331,6 +460,22 @@ final class PDFTextAnalysisEngine {
         )
     }
 
+    private func strokeColor(textPage: OpaquePointer?, index: Int) -> CodableColor? {
+        var r: UInt32 = 0
+        var g: UInt32 = 0
+        var b: UInt32 = 0
+        var a: UInt32 = 255
+        guard FPDFText_GetStrokeColor(textPage, Int32(index), &r, &g, &b, &a) != 0 else {
+            return nil
+        }
+        return CodableColor(
+            red: CGFloat(r) / 255,
+            green: CGFloat(g) / 255,
+            blue: CGFloat(b) / 255,
+            alpha: CGFloat(a) / 255
+        )
+    }
+
     private func blocksFromSamples(_ samples: [CharacterSample], pageRefID: UUID?, confidence: PDFTextEditConfidence, sourcePage: PDFPage?) -> [EditableTextBlock] {
         var lines: [[CharacterSample]] = []
         for sample in samples {
@@ -372,8 +517,81 @@ final class PDFTextAnalysisEngine {
             ?? unionBounds(lineBlocks.map(\.bounds))?.insetBy(dx: -24, dy: -24)
             ?? .zero
         let merged = mergeWrappedLines(assignColumnBounds(to: lineBlocks, pageBounds: pageBounds))
-        return tightenColumnsToParagraphMargins(merged)
+        return inferAlignment(tightenColumnsToParagraphMargins(merged))
             .sorted { $0.bounds.minY > $1.bounds.minY }
+    }
+
+    /// Best-effort paragraph alignment inferred purely from geometry — PDFium reports no
+    /// paragraph-alignment attribute directly, and this only ever replaces a silent `nil`
+    /// (which every consumer already coalesces to `.left`), so a missed detection is
+    /// invisible while a wrong one would visibly move text on Format Painter apply.
+    ///
+    /// Deliberately does NOT compare a block's lines against its OWN `columnBounds`:
+    /// `assignColumnBounds` always pins a column's left edge to that same block's own
+    /// `bounds.minX` (see `assignColumnBounds`, `leftEdge = max(pageBounds.minX + 8,
+    /// block.bounds.minX)`), so every block — including a visibly centered or right-aligned
+    /// isolated heading with no same-row neighbor — would trivially measure as flush-left
+    /// against its own column and centered/right alignment could never be detected. Instead,
+    /// judge every block's lines against the PAGE's typical left/right text margins.
+    ///
+    /// That reference is the MEDIAN left/right extent across all detected blocks, not the
+    /// min/max: a single outlier block (a page number, footer, or watermark sitting
+    /// unusually far left or right) would otherwise silently drag the "typical" margin for
+    /// every OTHER block on the page — a page number at the gutter could make ordinary
+    /// left-aligned body text measure as far from the (wrongly narrow) left margin as it is
+    /// from the right one, misreading it as centered or right-aligned. The median is
+    /// resistant to exactly one such outlier. A median needs enough samples to mean
+    /// anything, though — on a page with only a couple of detected blocks it degenerates back
+    /// to "one block's own edge," so skip inference entirely below that threshold and leave
+    /// alignment at the safe, uninferred `.left` default rather than guess from too little
+    /// data.
+    private func inferAlignment(_ blocks: [EditableTextBlock]) -> [EditableTextBlock] {
+        guard blocks.count >= 3 else { return blocks }
+        let sortedLefts = blocks.map(\.bounds.minX).sorted()
+        let sortedRights = blocks.map(\.bounds.maxX).sorted()
+        let typicalLeft = sortedLefts[sortedLefts.count / 2]
+        let typicalRight = sortedRights[sortedRights.count / 2]
+        return blocks.map { block in
+            guard !block.lines.isEmpty else { return block }
+            var updated = block
+            updated.alignment = inferredAlignment(for: block.lines, typicalLeft: typicalLeft, typicalRight: typicalRight)
+            return updated
+        }
+    }
+
+    private func inferredAlignment(for lines: [PDFTextLine], typicalLeft: CGFloat, typicalRight: CGFloat) -> CodableTextAlignment {
+        // Proportional to typical glyph sidebearing rather than a fixed pixel count, so it
+        // scales sensibly across the wide range of detected font sizes.
+        let tolerance: CGFloat = 4
+        var leftFlushCount = 0
+        var rightFlushCount = 0
+        var centeredCount = 0
+        for line in lines {
+            let bounds = line.bounds.standardized
+            let leftMargin = bounds.minX - typicalLeft
+            let rightMargin = typicalRight - bounds.maxX
+            let isLeftFlush = leftMargin <= tolerance
+            let isRightFlush = rightMargin <= tolerance
+            if isLeftFlush, isRightFlush {
+                // Fills the typical margins edge to edge — not diagnostic either way.
+                continue
+            } else if isRightFlush {
+                rightFlushCount += 1
+            } else if isLeftFlush {
+                leftFlushCount += 1
+            } else if abs(leftMargin - rightMargin) <= tolerance * 2 {
+                centeredCount += 1
+            }
+        }
+        let total = leftFlushCount + rightFlushCount + centeredCount
+        guard total > 0 else { return .left }
+        if rightFlushCount * 2 > total, rightFlushCount >= leftFlushCount {
+            return .right
+        }
+        if centeredCount * 2 > total {
+            return .center
+        }
+        return .left
     }
 
     /// After wrapped lines are merged into paragraphs, pull each full-width body
@@ -468,15 +686,24 @@ final class PDFTextAnalysisEngine {
             Self.resolveFontPostScriptName(from: $0, weightHint: weightHint, italicHint: italicHint)
         } ?? Self.resolveFontPostScriptName(from: "Helvetica", weightHint: weightHint, italicHint: italicHint)
         let fontSize = resolveLineFontSize(sorted, lineBounds: bounds, resolvedFontName: fontName)
+        let rotationDegrees = dominantAngle(among: inkSamples) ?? 0
+        let transform = dominantTransform(among: inkSamples)
+        let strokeColor = dominantStrokeColor(among: inkSamples)
+        let hasSyntheticGlyphs = inkSamples.contains(where: \.isGenerated)
+        let pageRotation = sourcePage?.rotation ?? 0
+        let editability = editability(for: inkSamples, color: color)
         let run = PDFTextRun(
             text: text,
             bounds: bounds,
             fontName: fontName,
             fontSize: fontSize,
             textColor: color,
-            rotation: 0,
+            rotation: rotationDegrees,
             baseline: bounds.minY,
-            confidence: confidence
+            confidence: confidence,
+            strokeColor: strokeColor,
+            transform: transform,
+            hasSyntheticGlyphs: hasSyntheticGlyphs
         )
         let line = PDFTextLine(text: text, bounds: bounds, runs: [run], confidence: confidence)
         return EditableTextBlock(
@@ -488,12 +715,35 @@ final class PDFTextAnalysisEngine {
             fontName: fontName,
             fontSize: fontSize,
             textColor: color,
-            rotation: 0,
+            rotation: rotationDegrees,
+            pageRotation: pageRotation,
             baseline: bounds.minY,
             confidence: confidence,
-            editability: .direct,
-            textSource: .pdfiumGlyphs
+            editability: editability,
+            textSource: .pdfiumGlyphs,
+            strokeColor: strokeColor,
+            transform: transform,
+            hasSyntheticGlyphs: hasSyntheticGlyphs
         )
+    }
+
+    /// A near-zero fill alpha below this threshold is treated as effectively invisible ink —
+    /// loose enough to catch anti-aliasing/rounding noise in a genuinely-transparent fill
+    /// without misclassifying merely-light (but intentionally visible) text.
+    private static let lowVisibilityAlphaThreshold: CGFloat = 0.05
+
+    /// `.hiddenOCRLayer` takes priority over `.lowVisibility` when a run somehow qualifies as
+    /// both — an explicit invisible render mode is a stronger, more specific signal than an
+    /// incidental near-zero fill alpha reading.
+    private func editability(for inkSamples: [CharacterSample], color: CodableColor) -> PDFTextEditability {
+        let invisibleCount = inkSamples.filter { $0.renderMode == kPDFTextRenderModeInvisible }.count
+        if !inkSamples.isEmpty, invisibleCount * 2 > inkSamples.count {
+            return .hiddenOCRLayer
+        }
+        if color.alpha < Self.lowVisibilityAlphaThreshold {
+            return .lowVisibility
+        }
+        return .direct
     }
 
     /// A line/segment can open with a differently-styled run (a hyperlink, an inline code
@@ -548,6 +798,42 @@ final class PDFTextAnalysisEngine {
         return italicCount * 2 > samples.count
     }
 
+    /// Median reported rotation across the line's ink glyphs, in degrees. Uses the same
+    /// "median, not first-glyph" reasoning as `dominantFontWeight`: a run's glyphs should
+    /// all share one content-stream rotation, but any single glyph's angle reading can be
+    /// noisy right at the seam between two runs on the same line.
+    private func dominantAngle(among samples: [CharacterSample]) -> CGFloat? {
+        let angles = samples.compactMap(\.angleDegrees).sorted()
+        guard !angles.isEmpty else { return nil }
+        return angles[angles.count / 2]
+    }
+
+    /// The transform belonging to whichever glyph's angle reading is closest to the
+    /// already-chosen `dominantAngle`, so the returned matrix is consistent with the
+    /// rotation this block actually reports rather than an arbitrary glyph's.
+    private func dominantTransform(among samples: [CharacterSample]) -> PDFTextTransform? {
+        guard let targetAngle = dominantAngle(among: samples) else {
+            return samples.first(where: { $0.transform != nil })?.transform
+        }
+        return samples
+            .filter { $0.transform != nil && $0.angleDegrees != nil }
+            .min { abs($0.angleDegrees! - targetAngle) < abs($1.angleDegrees! - targetAngle) }?
+            .transform
+    }
+
+    /// Same majority-vote reasoning as `dominantColor`, applied to stroke color.
+    private func dominantStrokeColor(among samples: [CharacterSample]) -> CodableColor? {
+        let strokeColors = samples.compactMap(\.strokeColor)
+        guard !strokeColors.isEmpty else { return nil }
+        var counts: [String: (count: Int, color: CodableColor)] = [:]
+        for color in strokeColors {
+            let key = colorBucketKey(color)
+            counts[key, default: (0, color)].count += 1
+            counts[key]?.color = color
+        }
+        return counts.values.max { $0.count < $1.count }?.color
+    }
+
     /// Runs when PDFium extracted zero usable glyph boxes for the page (unusual encodings,
     /// CID fonts PDFium can't box, some malformed content streams) but `page.string` proves
     /// PDFKit itself can still see a text layer. Rather than returning one whole-page,
@@ -576,21 +862,30 @@ final class PDFTextAnalysisEngine {
                 .replacingOccurrences(of: "\n", with: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return nil }
-            let bounds = selection.bounds(for: page)
-            guard bounds.width > 2, bounds.height > 2 else { return nil }
+            let rawBounds = selection.bounds(for: page)
+            guard rawBounds.width > 2, rawBounds.height > 2 else { return nil }
             let fontName = "Helvetica"
-            let estimatedSize = effectiveFontSize(fromInkHeight: bounds.height, fontName: fontName)
+            let estimatedSize = effectiveFontSize(fromInkHeight: rawBounds.height, fontName: fontName)
             return EditableTextBlock(
                 pageRefID: pageRefID,
                 text: text,
-                bounds: bounds.insetBy(dx: -2, dy: -2),
-                lines: [],
+                bounds: rawBounds.insetBy(dx: -2, dy: -2),
+                // Each fallback block is exactly one PDFKit line selection, so its own
+                // (tighter, un-inset) selection rect is the true erase geometry — using it
+                // here instead of leaving `lines` empty stops `PDFEditedPageRenderer`'s
+                // erase patch from falling back to the wider hit-test-tolerance `bounds`
+                // above (which carries an extra -2pt allowance not needed for erasing).
+                lines: [PDFTextLine(text: text, bounds: rawBounds, runs: [], confidence: .medium)],
                 columnBounds: columnBounds,
                 fontName: fontName,
                 fontSize: estimatedSize > 0 ? estimatedSize : 12,
                 textColor: .documentText,
-                rotation: CGFloat(page.rotation),
-                baseline: bounds.minY,
+                // No per-glyph rotation signal exists on this fallback path — `rotation`
+                // stays 0, and the page's own `/Rotate` is recorded separately via
+                // `pageRotation` so the two are never conflated (see `EditableTextBlock`).
+                rotation: 0,
+                pageRotation: page.rotation,
+                baseline: rawBounds.minY,
                 confidence: .medium,
                 editability: .replace,
                 textSource: .pdfKitString
@@ -618,7 +913,8 @@ final class PDFTextAnalysisEngine {
             fontName: "Helvetica",
             fontSize: 12,
             textColor: .documentText,
-            rotation: CGFloat(page.rotation),
+            rotation: 0,
+            pageRotation: page.rotation,
             baseline: cropBox.maxY - 48,
             confidence: .medium,
             editability: .overlayOnly,

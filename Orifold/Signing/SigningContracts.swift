@@ -12,7 +12,7 @@ import PDFKit
 // modules are built out. Do NOT change these signatures without updating the spec
 // and the tests together.
 
-enum SigningError: Error, Equatable {
+enum SigningError: Error, Equatable, LocalizedError {
     case notImplemented
     case invalidPDF
     case contentsPlaceholderNotFound
@@ -33,6 +33,35 @@ enum SigningError: Error, Equatable {
     /// exported after it expired, producing a PDF that looks successfully signed but
     /// whose certificate no reader will consider currently valid.
     case identityExpired
+
+    /// Every call site that switches on `SigningError` already handles the common cases
+    /// (`.cancelled`, `.notImplemented`, `.missingIdentity`, `.unsupportedPDFStructure`)
+    /// with their own dedicated message; this covers those PLUS the cases that fall through
+    /// to a generic `default:` branch there (`.invalidPDF`, the placeholder-reservation
+    /// cases, `.timestampUnavailable`, `.identityExpired`) -- without `LocalizedError`
+    /// conformance, that fallback's `error.localizedDescription` produced a useless generic
+    /// Cocoa string for exactly the cases most likely to actually happen to a user (an
+    /// expired certificate, an unreachable timestamp server).
+    var errorDescription: String? {
+        switch self {
+        case .notImplemented:
+            return L10n.string("error.export.signingNotAvailable")
+        case .invalidPDF:
+            return L10n.string("error.signing.invalidPDF")
+        case .contentsPlaceholderNotFound, .contentsPlaceholderTooSmall, .byteRangePlaceholderNotFound:
+            return L10n.string("error.signing.placeholderReservationFailed")
+        case .missingIdentity:
+            return L10n.string("error.export.chooseSigningIdentity")
+        case .timestampUnavailable:
+            return L10n.string("error.signing.timestampUnavailable")
+        case .unsupportedPDFStructure:
+            return L10n.string("error.export.unsupportedPDFStructure")
+        case .cancelled:
+            return L10n.string("status.sign.cancelled")
+        case .identityExpired:
+            return L10n.string("error.signing.identityExpired")
+        }
+    }
 }
 
 // MARK: - Module D contracts (PDF incremental signer)

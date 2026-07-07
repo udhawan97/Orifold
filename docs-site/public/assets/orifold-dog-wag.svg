@@ -5,19 +5,46 @@
     <radialGradient id="dogMoonG" cx="0.71" cy="0.30" r="0.20"><stop offset="0" stop-color="rgba(219,242,247,0.26)"/><stop offset="1" stop-color="rgba(179,230,242,0)"/></radialGradient>
     <radialGradient id="dogTileGlow" cx="0.82" cy="0.2" r="0.75"><stop offset="0" stop-color="rgba(128,209,219,0.22)"/><stop offset="1" stop-color="rgba(128,209,219,0)"/></radialGradient>
     <radialGradient id="dogContactG"><stop offset="0" stop-color="rgba(0,0,0,0.20)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient>
+    <radialGradient id="dogNoseG" cx="0.35" cy="0.3" r="0.9"><stop offset="0" stop-color="#5a4335"/><stop offset="1" stop-color="#17100c"/></radialGradient>
     <filter id="dogSoft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="1" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.22"/></filter>
 
-    <!-- Bernedoodle paper tones: warm near-black ears/saddle/tail, cream blaze/chest/muzzle, matching the in-app palette. -->
-    <linearGradient id="dogHeadLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#413830"/><stop offset="1" stop-color="#221c18"/></linearGradient>
-    <linearGradient id="dogHeadShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#241e19"/><stop offset="1" stop-color="#120f0c"/></linearGradient>
-    <linearGradient id="dogEarLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a322b"/><stop offset="1" stop-color="#1c1713"/></linearGradient>
-    <linearGradient id="dogEarShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1713"/><stop offset="1" stop-color="#0d0b09"/></linearGradient>
-    <linearGradient id="dogBodyLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#413830"/><stop offset="1" stop-color="#221c18"/></linearGradient>
-    <linearGradient id="dogBodyShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#241e19"/><stop offset="1" stop-color="#100d0a"/></linearGradient>
-    <linearGradient id="dogTailLit" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#413830"/><stop offset="1" stop-color="#2a231d"/></linearGradient>
+    <!-- Bernedoodle paper tones: warm near-black ears/saddle/tail, cream blaze/chest/muzzle,
+         matching the in-app palette. Three-stop ramps so each facet carries a visible
+         mid-tone roll, the way real paper curves through light. -->
+    <linearGradient id="dogHeadLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#463c33"/><stop offset="0.45" stop-color="#2b241e"/><stop offset="1" stop-color="#1d1814"/></linearGradient>
+    <linearGradient id="dogHeadShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#262019"/><stop offset="0.55" stop-color="#171310"/><stop offset="1" stop-color="#0e0b09"/></linearGradient>
+    <linearGradient id="dogEarLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3e352d"/><stop offset="0.5" stop-color="#241e18"/><stop offset="1" stop-color="#171310"/></linearGradient>
+    <linearGradient id="dogEarShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e1914"/><stop offset="0.5" stop-color="#141110"/><stop offset="1" stop-color="#0b0908"/></linearGradient>
+    <linearGradient id="dogBodyLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#463c33"/><stop offset="0.5" stop-color="#2b241e"/><stop offset="1" stop-color="#1d1815"/></linearGradient>
+    <linearGradient id="dogBodyShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#262019"/><stop offset="0.55" stop-color="#151210"/><stop offset="1" stop-color="#0d0a08"/></linearGradient>
+    <linearGradient id="dogTailLit" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#443a31"/><stop offset="0.5" stop-color="#2e2620"/><stop offset="1" stop-color="#241d18"/></linearGradient>
     <linearGradient id="dogTailShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#241e19"/><stop offset="1" stop-color="#100d0a"/></linearGradient>
-    <linearGradient id="dogCreamLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#ecdfc4"/></linearGradient>
-    <linearGradient id="dogCreamShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8dcc2"/><stop offset="1" stop-color="#cabb9a"/></linearGradient>
+    <linearGradient id="dogCreamLit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffdf6"/><stop offset="0.45" stop-color="#f4e9d2"/><stop offset="1" stop-color="#e6d8b9"/></linearGradient>
+    <linearGradient id="dogCreamShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecdfc4"/><stop offset="0.5" stop-color="#d9c9a6"/><stop offset="1" stop-color="#c3b291"/></linearGradient>
+
+    <!-- Paper tooth — fractal-noise speckle at a few percent alpha, the grain of
+         handmade washi. White grain reads on the near-black paper; a dark twin
+         is clipped to the cream patches where white would vanish. -->
+    <filter id="dogGrainLight" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.05 0"/></filter>
+    <filter id="dogGrainDark" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="13" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0"/></filter>
+    <!-- Static silhouette (tail excluded — it animates; grain must not float over it). -->
+    <clipPath id="dogFigureClip">
+      <polygon points="150,96 112,64 122,150 158,140"/>
+      <polygon points="104,236 160,268 152,286 96,262"/>
+      <polygon points="96,262 126,272 122,286 92,280"/>
+      <polygon points="160,180 160,270 100,240"/>
+      <polygon points="160,180 200,260 160,270"/>
+      <polygon points="170,110 170,195 135,150"/>
+      <polygon points="170,110 205,150 170,195"/>
+      <polygon points="150,96 116,72 128,146 155,136"/>
+    </clipPath>
+    <clipPath id="dogCreamClip">
+      <polygon points="163,120 182,132 176,178 158,163"/>
+      <polygon points="196,128 240,158 198,158"/>
+      <polygon points="198,158 240,158 206,178"/>
+      <polygon points="168,187 188,230 163,255"/>
+      <polygon points="168,258 205,256 200,272 168,272"/>
+    </clipPath>
   </defs>
 
   <clipPath id="dogTileClip"><rect width="340" height="340" rx="75"/></clipPath>
@@ -28,41 +55,107 @@
     <rect x="19" y="19" width="303" height="303" rx="56" fill="none" stroke="rgba(255,255,255,0.06)"/>
     <rect x="37" y="37" width="265" height="265" rx="37" fill="none" stroke="rgba(255,255,255,0.06)"/>
 
-    <ellipse cx="150" cy="278" rx="72" ry="13" fill="url(#dogContactG)"/>
+    <ellipse cx="150" cy="280" rx="78" ry="13" fill="url(#dogContactG)"/>
+    <ellipse cx="152" cy="278" rx="46" ry="8" fill="rgba(0,0,0,0.16)"/>
 
     <g filter="url(#dogSoft)">
       <!-- Far (near-camera) ear — a large floppy trapezoid draping behind the head. -->
       <polygon points="150,96 112,64 122,150 158,140" fill="url(#dogEarShade)"/>
-      <!-- Tail — wagging group, pivoting at its base near the haunch; cream-tipped. -->
+      <!-- Far-ear fold crease. -->
+      <line x1="118" y1="72" x2="128" y2="146" stroke="rgba(255,240,220,0.08)" stroke-width="1"/>
+
+      <!-- Tail — wagging group, pivoting at its base near the haunch; three folds
+           to a two-facet cream tip so the plume reads layered, not flat. -->
       <g transform="rotate(0 128 236)">
         <animateTransform attributeName="transform" type="rotate" values="-12 128 236;12 128 236;-12 128 236" keyTimes="0;0.5;1" dur="1.3s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
         <polygon points="128,236 68,188 140,218" fill="url(#dogTailLit)"/>
         <polygon points="128,236 140,218 150,236" fill="url(#dogTailShade)"/>
-        <polygon points="68,188 88,198 80,213" fill="url(#dogCreamLit)"/>
+        <!-- Underside fold of the plume, tucked along the lower edge. -->
+        <polygon points="98,206 68,188 88,198 116,218" fill="url(#dogTailShade)" opacity="0.85"/>
+        <!-- Median fold crease along the plume. -->
+        <line x1="128" y1="230" x2="76" y2="194" stroke="rgba(255,240,220,0.10)" stroke-width="1"/>
+        <!-- Cream tip, folded in two facets: lit face + turned-under shade. -->
+        <polygon points="68,188 86,196 74,205" fill="url(#dogCreamLit)"/>
+        <polygon points="74,205 86,196 80,213" fill="url(#dogCreamShade)"/>
       </g>
+
+      <!-- Hind haunch — a lower fold behind the seated body, giving the pose weight. -->
+      <polygon points="104,236 160,268 152,286 96,262" fill="url(#dogBodyShade)"/>
+      <!-- Rear paw — a small cream tab peeking from under the haunch. -->
+      <polygon points="96,262 126,272 122,286 92,280" fill="url(#dogCreamShade)"/>
+
       <!-- Body / seated haunch (black saddle) -->
       <polygon points="160,180 160,270 100,240" fill="url(#dogBodyShade)"/>
       <polygon points="160,180 200,260 160,270" fill="url(#dogBodyLit)"/>
+      <!-- Saddle keel crease — the fold line between shaded and lit body panels. -->
+      <line x1="160" y1="184" x2="160" y2="266" stroke="rgba(255,240,220,0.12)" stroke-width="1"/>
+
       <!-- Chest tuft — the cream blaze continuing down the front. -->
       <polygon points="168,187 188,230 163,255" fill="url(#dogCreamLit)"/>
       <polygon points="168,258 205,256 200,272 168,272" fill="url(#dogCreamLit)"/>
+      <!-- Toe creases on the front paw. -->
+      <line x1="180" y1="262" x2="180" y2="271" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+      <line x1="191" y1="261" x2="191" y2="271" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+
+      <!-- Occlusion — soft shadow where the head sits over the chest. -->
+      <polygon points="158,188 180,194 170,210 154,200" fill="#000000" opacity="0.16"/>
+
       <!-- Head (black, split shade/lit) -->
       <polygon points="170,110 170,195 135,150" fill="url(#dogHeadShade)"/>
       <polygon points="170,110 205,150 170,195" fill="url(#dogHeadLit)"/>
+      <!-- Occlusion — the near ear's drape shadowing the side of the head. -->
+      <polygon points="150,100 158,140 146,144 140,108" fill="#000000" opacity="0.22"/>
+
       <!-- Blaze — the cream stripe down the center of the face into the muzzle. -->
       <polygon points="163,120 182,132 176,178 158,163" fill="url(#dogCreamLit)"/>
-      <!-- Eye, set on the blaze -->
-      <polygon points="176,140 194,146 177,158" fill="#2e241d"/>
-      <polygon points="179,142 185,144 180,148" fill="#ffffff" opacity="0.85"/>
+      <!-- Blaze fold edges — faint creases where cream meets black at the fold. -->
+      <line x1="163" y1="121" x2="159" y2="162" stroke="rgba(0,0,0,0.14)" stroke-width="1"/>
+      <line x1="182" y1="133" x2="176" y2="177" stroke="rgba(0,0,0,0.14)" stroke-width="1"/>
+
+      <!-- Eye — a warm iris glint inside the dark almond, a doubled catchlight, and
+           lid/brow creases so the gaze reads soft, not beady. -->
+      <line x1="174.5" y1="138.6" x2="195.5" y2="145.6" stroke="rgba(0,0,0,0.35)" stroke-width="1.4"/>
+      <polygon points="176,140 194,146 177,158" fill="#241c16"/>
+      <polygon points="180,144.5 189,147.5 181,153" fill="#6b4a33" opacity="0.85"/>
+      <polygon points="178.5,141.5 186,143.8 179.8,149" fill="#ffffff" opacity="0.9"/>
+      <polygon points="183,151 185.4,151.8 183.6,153.8" fill="#ffffff" opacity="0.45"/>
+      <line x1="173" y1="134" x2="190" y2="139" stroke="rgba(255,240,220,0.14)" stroke-width="1"/>
+
       <!-- Muzzle — short and rounded, cream -->
       <polygon points="196,128 240,158 198,158" fill="url(#dogCreamLit)"/>
       <polygon points="198,158 240,158 206,178" fill="url(#dogCreamShade)"/>
-      <!-- Nose -->
-      <polygon points="233,152 249,158 234,168" fill="#3a2a22"/>
-      <polygon points="236,154 243,156 238,160" fill="#ffffff" opacity="0.5"/>
+      <!-- Muzzle ridge crease. -->
+      <line x1="199" y1="157" x2="238" y2="158" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+
+      <!-- Nose — a rounded gradient button with a moist top highlight and a shaded underside. -->
+      <polygon points="233,152 249,158 234,168" fill="url(#dogNoseG)"/>
+      <polygon points="236,154 243,156.5 237.5,160" fill="#ffffff" opacity="0.55"/>
+      <polygon points="240,162 246.5,160 242,165.5" fill="#000000" opacity="0.30"/>
+
       <!-- Near ear — the larger floppy trapezoid draping over the cheek on the left. -->
       <polygon points="150,96 116,72 128,146 155,136" fill="url(#dogEarLit)"/>
       <polygon points="150,100 128,90 134,138 152,132" fill="url(#dogEarShade)" opacity="0.7"/>
+      <!-- Ear-tip fold-back — the paper flips at the bottom, showing its warm underside. -->
+      <polygon points="128,146 152,138 146,152 132,156" fill="#4a382c" opacity="0.9"/>
+      <!-- Near-ear fold crease. -->
+      <line x1="122" y1="80" x2="132" y2="142" stroke="rgba(255,240,220,0.10)" stroke-width="1"/>
+
+      <!-- Specular sheen — the cool sky light of the tile catching the head's lit facet. -->
+      <polygon points="172,116 196,142 174,160" fill="rgba(160,215,235,0.10)"/>
+
+      <!-- Edge lighting — thin cool strokes tracing the fold edges that face the light. -->
+      <polyline points="170,110 205,150 170,195" fill="none" stroke="rgba(150,210,230,0.30)" stroke-width="1.4" stroke-linejoin="round"/>
+      <line x1="160" y1="180" x2="200" y2="260" stroke="rgba(150,210,230,0.18)" stroke-width="1.2"/>
+      <line x1="196" y1="128" x2="240" y2="158" stroke="rgba(255,250,235,0.55)" stroke-width="1"/>
+      <line x1="116" y1="72" x2="150" y2="96" stroke="rgba(150,210,230,0.22)" stroke-width="1.2"/>
+
+      <!-- Warm bounce — reflected cream light from the muzzle grazing the dark chest. -->
+      <polygon points="172,196 196,192 186,212 170,210" fill="rgba(236,216,180,0.10)"/>
     </g>
+
+    <!-- Paper grain overlays, clipped to the still parts of the figure (outside the
+         drop-shadow group so the noise never casts its own shadow). -->
+    <g clip-path="url(#dogFigureClip)"><rect x="80" y="56" width="180" height="236" filter="url(#dogGrainLight)"/></g>
+    <g clip-path="url(#dogCreamClip)"><rect x="150" y="110" width="110" height="170" filter="url(#dogGrainDark)"/></g>
   </g>
 </svg>

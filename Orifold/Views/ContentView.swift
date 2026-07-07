@@ -452,8 +452,12 @@ struct ContentView: View {
             }
             .disabled(undoManager?.canRedo != true)
 
-            Divider()
-                .padding(.horizontal, 2)
+            // A bare `Divider()` placed directly in a `ToolbarItemGroup` (outside any
+            // HStack/VStack) has no layout context to infer its axis from and can render as
+            // a stray horizontal dash occupying its own toolbar-item slot — the reported
+            // "-" control eating toolbar space. `ToolbarVerticalDivider` (shared with the
+            // center capsule's `groupDivider`) is unambiguous regardless of ambient layout.
+            ToolbarVerticalDivider(height: 18, horizontalPadding: 4)
 
             ToolbarIconButton(
                 labelKey: "toolbar.readerMode.label",
@@ -585,6 +589,10 @@ struct ContentView: View {
             }
 
             ShortcutsCheatSheetButton(isPresented: $isShowingShortcutsCheatSheet, autoShow: true)
+                .buttonStyle(.plain)
+                .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
+                .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
+                .contentShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
                 .acceptsImportDrops { providers in
                     handleDrop(providers: providers)
                 }
@@ -1753,10 +1761,7 @@ private struct AnnotationToolPicker: View {
     }
 
     private var groupDivider: some View {
-        Rectangle()
-            .fill(Color.dsSeparator)
-            .frame(width: 1, height: 16)
-            .padding(.horizontal, 6)
+        ToolbarVerticalDivider()
     }
 
     @ViewBuilder
@@ -1817,6 +1822,13 @@ private struct AnnotationToolPicker: View {
     }
 
     private func select(_ tool: AnnotationTool) {
+        // A copied-but-unused Format Painter style should never silently linger past an
+        // explicit switch away from Edit Text — the user leaving the tool is a clear signal
+        // they're done with that copy, so it doesn't surprise-apply to some unrelated
+        // editor opened much later.
+        if tool != .editText {
+            viewModel.disarmFormatPainter()
+        }
         guard !viewModel.isReaderMode || tool.isReaderModeAllowed else {
             viewModel.currentTool = tool
             return
@@ -1897,14 +1909,37 @@ private struct ToolButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background {
-                if isHovered && !isSelected {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(hoverFill)
-                }
+                // Always present (never conditionally inserted/removed) so hovering only
+                // animates this layer's OWN opacity in place. A view that's inserted and
+                // removed briefly renders under SwiftUI's default transition, which can
+                // paint past the button's bounds mid-animation — clipping below guards
+                // against that regardless, but avoiding the insertion/removal entirely is
+                // the more robust fix.
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(hoverFill)
+                    .opacity(isHovered && !isSelected ? 1 : 0)
             }
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovered)
+    }
+}
+
+/// A thin, deliberately-sized vertical rule for separating logical toolbar groups — shared
+/// by the center annotation-tool capsule and the trailing icon cluster. Never a bare
+/// `Divider()`: outside an HStack/VStack a `Divider()` has no layout axis to infer from and
+/// can render as a stray horizontal dash consuming its own toolbar-item slot instead of a
+/// vertical rule.
+private struct ToolbarVerticalDivider: View {
+    var height: CGFloat = 16
+    var horizontalPadding: CGFloat = 6
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.dsSeparator)
+            .frame(width: 1, height: height)
+            .padding(.horizontal, horizontalPadding)
     }
 }
 
@@ -1942,10 +1977,14 @@ private struct ToolbarIconButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                if isActive {
-                    RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous)
-                        .fill(Color.dsAccent)
-                }
+                // Always present, never conditionally inserted/removed — flipping `isActive`
+                // (e.g. toggling the eyeglasses comfort popover under an animated
+                // `withTransaction`) animates only this layer's own opacity in place, so the
+                // fill can never be caught mid-insertion rendering past the button's rounded
+                // shape. `.clipShape` below is the hard guarantee regardless.
+                RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous)
+                    .fill(Color.dsAccent)
+                    .opacity(isActive ? 1 : 0)
                 Label(labelKey, systemImage: systemImage)
                     .labelStyle(.iconOnly)
                     .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
@@ -1953,6 +1992,7 @@ private struct ToolbarIconButton: View {
                     .foregroundStyle(isActive ? Color.dsSurface : Color.dsTextSecondary)
             }
             .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
+            .clipShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
         }
         .buttonStyle(ToolButtonStyle(isHovered: isHovered, isSelected: isActive, reduceMotion: shouldReduceMotion))

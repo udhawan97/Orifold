@@ -669,6 +669,10 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 viewModel.showEditMessage(L10n.string("readingCanvas.textEdit.chip.reconstructed"), isError: false)
             case .overlayOnly:
                 viewModel.showEditMessage(L10n.string("readingCanvas.textEdit.chip.scannedPage"), isError: false)
+            case .hiddenOCRLayer:
+                viewModel.showEditMessage(L10n.string("readingCanvas.textEdit.chip.hiddenOCRLayer"), isError: false)
+            case .lowVisibility:
+                viewModel.showEditMessage(L10n.string("readingCanvas.textEdit.chip.lowVisibility"), isError: false)
             case .direct, .insertion:
                 break
             }
@@ -740,6 +744,26 @@ struct PDFViewRepresentable: NSViewRepresentable {
             notePopover = nil
         }
 
+        private static let textEditPrivacyNoticeShownDefaultsKey = "readingCanvas.textEditPrivacyNotice.shown"
+
+        /// Editing text here only redraws the page's visual appearance (see
+        /// `PDFEditedPageRenderer`) — the original page content is re-embedded wholesale
+        /// underneath the erase patch and new text, so the "removed" wording can still be
+        /// recovered from the exported PDF via search, copy/paste, or accessibility tools.
+        /// Surface that once, the first time anyone actually opens the inline editor,
+        /// rather than silently letting a user assume edited-out text is gone for good.
+        private func maybeShowTextEditPrivacyNotice() {
+            let defaults = UserDefaults.standard
+            guard !defaults.bool(forKey: Self.textEditPrivacyNoticeShownDefaultsKey) else { return }
+            defaults.set(true, forKey: Self.textEditPrivacyNoticeShownDefaultsKey)
+
+            let alert = NSAlert()
+            alert.messageText = L10n.string("textEdit.privacyNotice.title")
+            alert.informativeText = L10n.string("textEdit.privacyNotice.message")
+            alert.addButton(withTitle: L10n.string("guidePopover.gotIt.button"))
+            alert.runModal()
+        }
+
         private func showInlineTextEditor(
             for block: EditableTextBlock,
             pageRef: PageRef,
@@ -750,6 +774,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             // Callers are expected to finish (commit or cancel) any previously open editor
             // before calling this — see the `.editText` handleClick case.
             assert(inlineEditor == nil, "a previous inline editor should already be finished")
+            maybeShowTextEditPrivacyNotice()
             let isExistingEdit = viewModel.hasInlineTextEditOperation(pageRefID: pageRef.id, sourceBlockID: block.id)
             let editor = InlineTextEditorOverlay(
                 frame: pdfView.bounds,
@@ -2452,6 +2477,35 @@ final class NoteEditorViewController: NSViewController {
         var isDetected: Bool
     }
 
+    /// Mirrors `PDFTextEditOperation.isInsertion` (empty source text AND no detected lines):
+    /// a brand-new spot has nothing underneath to hide, so the live editor should show no
+    /// patch at all rather than a colored placeholder rectangle.
+    private var isInsertionBlock: Bool {
+        block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && block.lines.isEmpty
+    }
+
+    /// Sampled once when the editor opens (the source text doesn't move under an open
+    /// editor, so re-sampling on every layout pass would be wasted work): the real page
+    /// background behind the text being edited, so the live "erase preview" reads as the
+    /// actual paper/tint color instead of a stark, unconditional white rectangle. Falls
+    /// back to white only when sampling genuinely can't read the page.
+    private lazy var livePatchColor: NSColor = {
+        guard let page, !isInsertionBlock else { return .clear }
+        let sampleRect = (unionOfLineBounds ?? block.bounds).standardized
+        guard let cgColor = PDFEditedPageRenderer.sampledBackgroundColor(near: sampleRect, on: page) else {
+            return .white
+        }
+        return NSColor(cgColor: cgColor) ?? .white
+    }()
+
+    /// `nil` when there are no detected lines (falls back to the whole-block bounds at the
+    /// call site) rather than force-indexing `block.lines[0]`, so this stays safe to call
+    /// even if a future caller forgets to gate on `block.lines.isEmpty` first.
+    private var unionOfLineBounds: CGRect? {
+        guard let first = block.lines.first else { return nil }
+        return block.lines.dropFirst().reduce(first.bounds) { $0.union($1.bounds) }
+    }
+
     init(
         frame: CGRect,
         viewModel: WorkspaceViewModel,
@@ -2582,8 +2636,15 @@ final class NoteEditorViewController: NSViewController {
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
 
+        // A transparent-by-default edit surface: `patchView` shows the real sampled page
+        // background (nothing at all for a brand-new insertion) rather than an opaque white
+        // sheet, so the live editor reads as "your text replacing this text in place," not
+        // a floating white box. The text view itself draws no background of its own — it
+        // sits directly on top of `patchView` in the same live-preview color the committed
+        // erase patch will actually use (see `PDFEditedPageRenderer.sampledBackgroundColor`).
         patchView.wantsLayer = true
-        patchView.layer?.backgroundColor = NSColor.white.cgColor
+        patchView.layer?.backgroundColor = livePatchColor.cgColor
+        patchView.isHidden = isInsertionBlock
         addSubview(patchView)
 
         textView.delegate = self
@@ -2592,8 +2653,7 @@ final class NoteEditorViewController: NSViewController {
         textView.isEditable = true
         textView.isSelectable = true
         textView.allowsUndo = true
-        textView.drawsBackground = true
-        textView.backgroundColor = NSColor.white.withAlphaComponent(0.98)
+        textView.drawsBackground = false
         textView.textColor = editorTextColor
         textView.insertionPointColor = .dsAccentNS
         textView.textContainerInset = NSSize(width: 3, height: 2)
@@ -2616,6 +2676,21 @@ final class NoteEditorViewController: NSViewController {
         }
         textView.onRedoShortcut = { [weak self] in
             self?.performEditorRedo()
+        }
+        textView.onCopyStyleShortcut = { [weak self] in
+            self?.copyNearbyFormat()
+        }
+        textView.onPasteStyleShortcut = { [weak self] in
+            self?.applyCopiedFormat()
+        }
+        textView.onBoldShortcut = { [weak self] in
+            self?.toggleBoldViaShortcut()
+        }
+        textView.onItalicShortcut = { [weak self] in
+            self?.toggleItalicViaShortcut()
+        }
+        textView.onUnderlineShortcut = { [weak self] in
+            self?.toggleUnderlineViaShortcut()
         }
         moveHandle.onDrag = { [weak self] delta in
             self?.moveEditor(by: delta)
@@ -2992,7 +3067,6 @@ final class NoteEditorViewController: NSViewController {
 
     private func layoutEditor() {
         guard let pdfView, let page else { return }
-        let originalSourceRect = pdfView.convert(block.bounds, from: page)
         var editorPageBounds = effectivePageBoundsForLayout
         if let manualEditorPageOrigin {
             editorPageBounds.origin = manualEditorPageOrigin
@@ -3004,7 +3078,12 @@ final class NoteEditorViewController: NSViewController {
             editorPageBounds.size.height = manualEditorPageHeight
         }
         let sourceRect = pdfView.convert(editorPageBounds, from: page)
-        let minWidth: CGFloat = block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 180 : 156
+        // Non-empty text only needs a floor wide enough to comfortably hold a short word or
+        // two before the real (usually wider) detected/preferred width takes over below —
+        // the previous 156pt floor visibly over-widened short single-word replacements like
+        // a resume heading. Insertions keep a slightly larger floor since there's no
+        // existing text width to anchor to.
+        let minWidth: CGFloat = block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 180 : 96
         let editorWidth: CGFloat
         if let manualEditorPageWidth {
             let manualPageRect = CGRect(
@@ -3029,7 +3108,12 @@ final class NoteEditorViewController: NSViewController {
             height: editorHeight
         )
         editorTopY = editorRect.maxY
-        patchView.frame = originalSourceRect.insetBy(dx: -2, dy: -2)
+        // The live erase-preview patch always exactly matches the editable text box (not a
+        // separately-computed, over-sized rect anchored to the original detection bounds),
+        // so there is never a gap where raw page content peeks through around the edges,
+        // and never a stray extra margin of sampled-background color beyond what the text
+        // box itself occupies.
+        patchView.frame = editorRect
         textView.frame = editorRect
         updateTextContainerWidth()
         setToolbarFrame(toolbarFrame(near: editorRect))
@@ -3065,6 +3149,7 @@ final class NoteEditorViewController: NSViewController {
         }
         frame.origin.y = editorTopY - frame.height
         textView.frame = frame
+        patchView.frame = frame
         setToolbarFrame(toolbarFrame(near: frame))
         positionEditorChrome(for: frame)
     }
@@ -3131,7 +3216,7 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private var visualMinimumEditorWidth: CGFloat {
-        block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 180 : 156
+        block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 180 : 96
     }
 
     private var detectedTextColumnWidth: CGFloat {
@@ -3308,6 +3393,24 @@ final class NoteEditorViewController: NSViewController {
         refocusEditor()
     }
 
+    // ⌘B/⌘I/⌘U drive the same buttons a click would: flip the button's own toggle state
+    // first (the button-driven path above reads it), then reuse the exact same handler so
+    // keyboard and mouse stay in lockstep with one source of truth.
+    private func toggleBoldViaShortcut() {
+        boldButton.state = boldButton.state == .on ? .off : .on
+        toggleBold()
+    }
+
+    private func toggleItalicViaShortcut() {
+        italicButton.state = italicButton.state == .on ? .off : .on
+        toggleItalic()
+    }
+
+    private func toggleUnderlineViaShortcut() {
+        underlineButton.state = underlineButton.state == .on ? .off : .on
+        toggleUnderline()
+    }
+
     @objc private func changeAlignment(_ sender: NSSegmentedControl) {
         didChangeStyle = true
         switch sender.selectedSegment {
@@ -3329,19 +3432,33 @@ final class NoteEditorViewController: NSViewController {
     }
 
     @objc private func matchNearbyFormat() {
-        applySourceFormat(markStyleChange: true)
+        // "Match Nearby Format" intentionally also adopts the nearby paragraph's own
+        // bounds/column (its whole purpose is lining this edit up with that paragraph),
+        // unlike Copy/Paste Style below.
+        applySourceFormat(markStyleChange: true, applyGeometry: true)
         viewModel?.showEditMessage(L10n.string("status.textEdit.matchedNearbyFormat"), severity: .success)
         refocusEditor()
     }
 
-    private func applySourceFormat(markStyleChange: Bool) {
-        apply(format: sourceFormat, markStyleChange: markStyleChange)
+    private func applySourceFormat(markStyleChange: Bool, applyGeometry: Bool) {
+        apply(format: sourceFormat, markStyleChange: markStyleChange, applyGeometry: applyGeometry)
     }
 
     @objc private func copyNearbyFormat() {
-        viewModel?.copiedInlineTextFormat = sourceFormat
+        // Capture what's actually visible right now (including any style changes already
+        // made in this session), not the frozen pre-edit `sourceFormat` — otherwise
+        // restyling a heading and then copying it would silently transfer the OLD style.
+        viewModel?.copiedInlineTextFormat = currentFormat
         viewModel?.isInlineTextFormatPainterArmed = true
-        viewModel?.showEditMessage(L10n.string("status.textEdit.copiedNearbyFormat"), severity: .success)
+        // Option-click pins the painter (Word's double-click-to-lock equivalent): it stays
+        // armed and keeps re-applying to every subsequently opened editor instead of
+        // disarming after the first paste.
+        let isPinned = NSApp.currentEvent?.modifierFlags.contains(.option) ?? false
+        viewModel?.isFormatPainterPinned = isPinned
+        viewModel?.showEditMessage(
+            L10n.string(isPinned ? "status.textEdit.copiedNearbyFormatPinned" : "status.textEdit.copiedNearbyFormat"),
+            severity: .success
+        )
         refocusEditor()
     }
 
@@ -3351,8 +3468,14 @@ final class NoteEditorViewController: NSViewController {
             refocusEditor()
             return
         }
-        apply(format: format, markStyleChange: true)
-        viewModel?.isInlineTextFormatPainterArmed = false
+        // Format Painter pastes STYLE ONLY — never the copied source's position/width/
+        // column. Adopting foreign geometry here was the reported "copy format moved and
+        // covered nearby content" bug: it silently set `didApplyMatchedGeometry`, which
+        // makes the renderer erase the whole destination box on commit.
+        apply(format: format, markStyleChange: true, applyGeometry: false)
+        if viewModel?.isFormatPainterPinned != true {
+            viewModel?.isInlineTextFormatPainterArmed = false
+        }
         viewModel?.showEditMessage(L10n.string("status.textEdit.pastedStyle"), severity: .success)
         refocusEditor()
     }
@@ -3361,15 +3484,27 @@ final class NoteEditorViewController: NSViewController {
         guard let viewModel,
               viewModel.isInlineTextFormatPainterArmed,
               let format = viewModel.copiedInlineTextFormat else { return }
-        apply(format: format, markStyleChange: true)
-        viewModel.isInlineTextFormatPainterArmed = false
+        apply(format: format, markStyleChange: true, applyGeometry: false)
+        if !viewModel.isFormatPainterPinned {
+            viewModel.isInlineTextFormatPainterArmed = false
+        }
         viewModel.showEditMessage(L10n.string("status.textEdit.pastedStyleOntoEdit"), severity: .success)
     }
 
     @objc private func restoreOriginalFormat() {
-        applySourceFormat(markStyleChange: false)
+        // Restoring THIS block's own original format/position is always safe to restore
+        // in full — unlike Paste Style, there is no foreign paragraph's geometry involved.
+        applySourceFormat(markStyleChange: false, applyGeometry: true)
         didChangeStyle = false
         didRestoreOriginalStyle = true
+        // Deliberately does NOT call the shared `disarmFormatPainter()`: Restore is a
+        // per-block action with no inherent connection to Format Painter, and a pinned copy
+        // may have been armed from a DIFFERENT, already-closed editor and is still pending a
+        // paste elsewhere — wiping `copiedInlineTextFormat`/`isFormatPainterPinned` here would
+        // silently discard that unrelated, not-yet-used copy just because the user reverted
+        // an unrelated style tweak in THIS editor. Only clear this editor's own armed flag if
+        // IT happens to be the one currently armed (Copy Style was clicked in this same
+        // session) — never a pin/copy that belongs to another block.
         viewModel?.isInlineTextFormatPainterArmed = false
         viewModel?.showEditMessage(L10n.string("status.textEdit.restoredOriginal"), severity: .success)
         refocusEditor()
@@ -3387,7 +3522,7 @@ final class NoteEditorViewController: NSViewController {
         )
     }
 
-    private func apply(format: PDFTextEditFormat, markStyleChange: Bool) {
+    private func apply(format: PDFTextEditFormat, markStyleChange: Bool, applyGeometry: Bool) {
         documentFontSize = format.fontSize > 0 ? format.fontSize : originalFontSize
         let sourceFont = NSFont(name: format.fontName, size: documentFontSize) ?? .systemFont(ofSize: documentFontSize)
         editorFontFamily = Self.editingFamilyName(for: sourceFont, fallback: format.fontName)
@@ -3395,7 +3530,9 @@ final class NoteEditorViewController: NSViewController {
         editorTextColor = format.textColor.nsColor
         editorAlignment = format.alignment.nsTextAlignment
         editorUnderline = format.underline
-        applyParagraphGeometry(from: format)
+        if applyGeometry {
+            applyParagraphGeometry(from: format)
+        }
         if markStyleChange {
             didChangeStyle = true
             didRestoreOriginalStyle = false
@@ -3968,6 +4105,11 @@ final class InlineEditableTextView: NSTextView {
     var onEscape: (() -> Void)?
     var onUndoShortcut: (() -> Void)?
     var onRedoShortcut: (() -> Void)?
+    var onCopyStyleShortcut: (() -> Void)?
+    var onPasteStyleShortcut: (() -> Void)?
+    var onBoldShortcut: (() -> Void)?
+    var onItalicShortcut: (() -> Void)?
+    var onUnderlineShortcut: (() -> Void)?
     private var isMoving = false
     private var lastPoint: CGPoint?
 
@@ -4025,8 +4167,30 @@ final class InlineEditableTextView: NSTextView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.charactersIgnoringModifiers?.lowercased() == "z",
-           !event.modifierFlags.intersection([.command, .control]).isEmpty {
+        let key = event.charactersIgnoringModifiers?.lowercased()
+        let hasCommand = event.modifierFlags.contains(.command)
+        let hasShift = event.modifierFlags.contains(.shift)
+        let hasOptionOrControl = !event.modifierFlags.intersection([.option, .control]).isEmpty
+        if hasCommand, hasShift, !hasOptionOrControl {
+            // Format Painter's Word-style shortcuts. Distinct from the plain ⌘C/⌘V the
+            // system already handles for ordinary text copy/paste, so there is no clash.
+            switch key {
+            case "c": onCopyStyleShortcut?(); return
+            case "v": onPasteStyleShortcut?(); return
+            default: break
+            }
+        }
+        if hasCommand, !hasShift, !hasOptionOrControl {
+            // The bold/italic/underline buttons' tooltips have long advertised these
+            // chords; wire them so the shortcut is real rather than a dead promise.
+            switch key {
+            case "b": onBoldShortcut?(); return
+            case "i": onItalicShortcut?(); return
+            case "u": onUnderlineShortcut?(); return
+            default: break
+            }
+        }
+        if key == "z", !event.modifierFlags.intersection([.command, .control]).isEmpty {
             // ⌘⇧Z redoes, ⌘Z undoes — matching TextEdit/Word. Previously any "z" with a
             // command/control modifier (including the redo chord) routed to undo, so redo
             // was impossible inside the editor.

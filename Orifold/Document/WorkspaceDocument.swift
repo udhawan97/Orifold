@@ -179,14 +179,24 @@ final class WorkspaceDocument: ReferenceFileDocument {
             filename: filename,
             baseURL: nil
         )
-        try importPDFDocument(imported.pdfDocument, filename: filename, sourcePayload: imported.sourcePayload)
+        try importPDFDocument(
+            imported.pdfDocument,
+            filename: filename,
+            sourcePayload: imported.sourcePayload,
+            originalPDFData: imported.originalPDFData
+        )
     }
 
-    private func importPDFDocument(_ pdf: PDFDocument, filename: String, sourcePayload: SourceDocumentPayload?) throws {
+    private func importPDFDocument(
+        _ pdf: PDFDocument,
+        filename: String,
+        sourcePayload: SourceDocumentPayload?,
+        originalPDFData: Data? = nil
+    ) throws {
         guard !pdf.isLocked else {
             throw DocumentImportConverter.ConversionError.passwordProtected
         }
-        let metadata = Self.metadata(from: pdf)
+        let (metadata, didStripAnnotations) = Self.metadata(from: pdf)
         if let editableWorkspace = metadata.editableWorkspace,
            !metadata.editableMemberPDFData.isEmpty {
             workspace = editableWorkspace
@@ -194,7 +204,13 @@ final class WorkspaceDocument: ReferenceFileDocument {
             sourcePayloads = metadata.sourcePayloads
             return
         }
-        guard let pdfData = PDFSerializer.data(from: pdf) else {
+        // If `metadata(from:)` stripped baked Orifold annotations, the on-disk `originalPDFData`
+        // still contains them and is now stale relative to the cleaned in-memory `pdf`.
+        // Force a re-serialization of the cleaned document (originalPDFData: nil) so those
+        // annotations don't resurface — this only affects Orifold's own exported PDFs, which
+        // were re-serialized at export anyway, never fresh third-party imports.
+        let preferredOriginal = didStripAnnotations ? nil : originalPDFData
+        guard let pdfData = PDFImportNormalizer.normalizedData(originalPDFData: preferredOriginal, renderedPDF: pdf) else {
             throw DocumentImportConverter.ConversionError.renderingFailed
         }
 
@@ -257,15 +273,15 @@ final class WorkspaceDocument: ReferenceFileDocument {
         guard !visualPlacements.isEmpty else {
             let formData = try Self.applyFormExportAdditions(to: pdfData, workspace: snapshot.workspace, options: options)
             let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
-            let commentData = Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace) ?? decoratedData
-            return Self.embedMetadata(
+            let commentData = try Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace)
+            return try Self.embedMetadata(
                 in: commentData,
                 workspace: snapshot.workspace,
                 sourcePayloads: sourcePayloads,
                 editableWorkspace: editableWorkspace,
                 editableMemberPDFData: editableMemberPDFData,
                 omittingComments: omitsCommentMetadata
-            ) ?? commentData
+            )
         }
 
         do {
@@ -274,27 +290,27 @@ final class WorkspaceDocument: ReferenceFileDocument {
             }
             let formData = try Self.applyFormExportAdditions(to: bakedData, workspace: snapshot.workspace, options: options)
             let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
-            let commentData = Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace) ?? decoratedData
-            return Self.embedMetadata(
+            let commentData = try Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace)
+            return try Self.embedMetadata(
                 in: commentData,
                 workspace: snapshot.workspace,
                 sourcePayloads: sourcePayloads,
                 editableWorkspace: editableWorkspace,
                 editableMemberPDFData: editableMemberPDFData,
                 omittingComments: omitsCommentMetadata
-            ) ?? commentData
+            )
         } catch SigningError.notImplemented {
             let formData = try Self.applyFormExportAdditions(to: pdfData, workspace: snapshot.workspace, options: options)
             let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
-            let commentData = Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace) ?? decoratedData
-            return Self.embedMetadata(
+            let commentData = try Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace)
+            return try Self.embedMetadata(
                 in: commentData,
                 workspace: snapshot.workspace,
                 sourcePayloads: sourcePayloads,
                 editableWorkspace: editableWorkspace,
                 editableMemberPDFData: editableMemberPDFData,
                 omittingComments: omitsCommentMetadata
-            ) ?? commentData
+            )
         } catch {
             throw error
         }
@@ -381,7 +397,11 @@ final class WorkspaceDocument: ReferenceFileDocument {
         var isResolved: Bool
     }
 
-    private static func applyCommentExportAdditions(to data: Data, workspace: Workspace) -> Data? {
+    /// Bakes workspace comments (and any pre-existing PDF sticky notes) into a summary
+    /// page and per-anchor annotations. Throws rather than silently discarding the
+    /// comments on a `PDFSerializer` failure -- an export that silently drops the user's
+    /// own notes with no warning is worse than one that fails loudly and lets them retry.
+    private static func applyCommentExportAdditions(to data: Data, workspace: Workspace) throws -> Data {
         guard !workspace.signatures.contains(where: { $0.isCryptographic }),
               let pdf = PDFDocument(data: data) else {
             return data
@@ -422,7 +442,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
             pdf.insert(summaryPage, at: pdf.pageCount)
         }
 
-        return PDFSerializer.data(from: pdf)
+        guard let result = PDFSerializer.data(from: pdf) else {
+            throw PDFKitEngine.ExportAssemblyError.metadataEmbedFailed
+        }
+        return result
     }
 
     private static func existingPDFNoteSummaryItems(from pdf: PDFDocument) -> [PDFCommentSummaryItem] {
@@ -527,14 +550,23 @@ final class WorkspaceDocument: ReferenceFileDocument {
         }
     }
 
-    private static func metadata(from pdf: PDFDocument) -> OrifoldMetadata {
+    /// Extracts embedded Orifold metadata (workspace comments / source payloads / editable
+    /// workspace) from a freshly-loaded PDF and, as a side effect, **removes** the baked
+    /// annotations that carry it — both the invisible metadata annotation and the visible
+    /// baked comment notes. `didStripAnnotations` reports whether anything was removed: when
+    /// true the in-memory `pdf` no longer matches its on-disk bytes, so the caller must
+    /// re-serialize the cleaned document rather than persist the (stale) original bytes,
+    /// otherwise the stripped comment notes resurface as duplicate PDF sticky notes.
+    private static func metadata(from pdf: PDFDocument) -> (metadata: OrifoldMetadata, didStripAnnotations: Bool) {
         var metadata = OrifoldMetadata()
+        var didStripAnnotations = false
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
             for annotation in Array(page.annotations) {
                 if annotation.value(forAnnotationKey: bakedWorkspaceCommentAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: legacyBakedWorkspaceCommentAnnotationKey) != nil {
                     page.removeAnnotation(annotation)
+                    didStripAnnotations = true
                     continue
                 }
                 guard let rawValue = annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) as? String ??
@@ -548,24 +580,34 @@ final class WorkspaceDocument: ReferenceFileDocument {
                     metadata = decoded
                 }
                 page.removeAnnotation(annotation)
+                didStripAnnotations = true
             }
         }
-        return metadata
+        return (metadata, didStripAnnotations)
     }
 
+    /// Embeds Orifold's own round-trip metadata (comments, source payloads, editable
+    /// workspace state) as an invisible annotation. Throws rather than silently falling
+    /// back to pre-removal `data` on a `PDFSerializer` failure -- that fallback would
+    /// silently resurrect metadata `removeMetadataAnnotations` just stripped (stale
+    /// comments reappearing) or silently drop everything this export was meant to embed.
     private static func embedMetadata(in data: Data,
                                       workspace: Workspace,
                                       sourcePayloads: [UUID: SourceDocumentPayload],
                                       editableWorkspace: Workspace? = nil,
                                       editableMemberPDFData: [UUID: Data] = [:],
-                                      omittingComments: Bool = false) -> Data? {
+                                      omittingComments: Bool = false) throws -> Data {
         guard let pdf = PDFDocument(data: data) else {
             return data
         }
         let removedExistingMetadata = removeMetadataAnnotations(from: pdf)
         let comments = omittingComments ? [] : workspace.comments
         guard !comments.isEmpty || !sourcePayloads.isEmpty || editableWorkspace != nil || !editableMemberPDFData.isEmpty else {
-            return removedExistingMetadata ? PDFSerializer.data(from: pdf) : data
+            guard removedExistingMetadata else { return data }
+            guard let result = PDFSerializer.data(from: pdf) else {
+                throw PDFKitEngine.ExportAssemblyError.metadataEmbedFailed
+            }
+            return result
         }
         guard let metadataData = try? JSONEncoder().encode(OrifoldMetadata(
             comments: comments,
@@ -574,7 +616,11 @@ final class WorkspaceDocument: ReferenceFileDocument {
             editableMemberPDFData: editableMemberPDFData
         )),
               let metadataString = String(data: metadataData, encoding: .utf8) else {
-            return removedExistingMetadata ? PDFSerializer.data(from: pdf) : data
+            guard removedExistingMetadata else { return data }
+            guard let result = PDFSerializer.data(from: pdf) else {
+                throw PDFKitEngine.ExportAssemblyError.metadataEmbedFailed
+            }
+            return result
         }
         guard let firstPage = pdf.page(at: 0) else { return data }
         let annotation = PDFAnnotation(
@@ -587,7 +633,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
         annotation.contents = nil
         annotation.setValue(metadataString, forAnnotationKey: workspaceCommentsAnnotationKey)
         firstPage.addAnnotation(annotation)
-        return PDFSerializer.data(from: pdf)
+        guard let result = PDFSerializer.data(from: pdf) else {
+            throw PDFKitEngine.ExportAssemblyError.metadataEmbedFailed
+        }
+        return result
     }
 
     @discardableResult

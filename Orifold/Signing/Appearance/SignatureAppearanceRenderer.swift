@@ -5,11 +5,27 @@ import Foundation
 import ImageIO
 import PDFKit
 
-enum SignatureAppearanceError: Error, Equatable {
+enum SignatureAppearanceError: Error, Equatable, LocalizedError {
     case emptyText
     case invalidSize
     case imageEncodingFailed
     case invalidImageData
+
+    /// Without `LocalizedError`, `error.localizedDescription` at this error's generic catch
+    /// site (WorkspaceViewModel's signature-appearance preparation) falls back to a useless
+    /// generic Cocoa string instead of anything a user could act on.
+    var errorDescription: String? {
+        switch self {
+        case .emptyText:
+            return L10n.string("error.signatureAppearance.emptyText")
+        case .invalidSize:
+            return L10n.string("error.signatureAppearance.invalidSize")
+        case .imageEncodingFailed:
+            return L10n.string("error.signatureAppearance.imageEncodingFailed")
+        case .invalidImageData:
+            return L10n.string("error.signatureAppearance.invalidImageData")
+        }
+    }
 }
 
 struct SignatureAppearanceDescriptor {

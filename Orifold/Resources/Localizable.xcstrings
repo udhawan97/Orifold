@@ -7791,6 +7791,47 @@
         }
       }
     },
+    "error.export.metadataEmbedFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn't finish preparing this export — your notes or comments may not have been included. Try exporting again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo terminar de preparar esta exportación; es posible que tus notas o comentarios no se hayan incluido. Intenta exportar de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu terminer de préparer cette exportation ; vos notes ou commentaires n’ont peut-être pas été inclus. Réessayez d’exporter."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold इस एक्सपोर्ट को पूरी तरह तैयार नहीं कर सका — हो सकता है आपके नोट्स या टिप्पणियाँ शामिल न हुई हों। कृपया दोबारा एक्सपोर्ट करने का प्रयास करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはこの書き出しの準備を完了できませんでした — メモやコメントが含まれていない可能性があります。もう一度書き出しをお試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 未能完成此次导出的准备工作——您的备注或评论可能未被包含在内。请重新尝试导出。"
+          }
+        }
+      }
+    },
     "error.export.noPagesToExport": {
       "extractionState": "manual",
       "localizations": {
@@ -9103,6 +9144,170 @@
         }
       }
     },
+    "error.signing.invalidPDF": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This PDF's structure isn't one Orifold can add a digital signature to. Try flattening or re-exporting the PDF first, then sign it again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La estructura de este PDF no permite que Orifold le añada una firma digital. Prueba a aplanarlo o exportarlo de nuevo y luego fírmalo otra vez."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La structure de ce PDF ne permet pas à Orifold d'y ajouter une signature numérique. Essayez d'aplatir ou de réexporter le PDF, puis signez-le à nouveau."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस PDF की संरचना ऐसी नहीं है कि Orifold इसमें डिजिटल हस्ताक्षर जोड़ सके। पहले PDF को फ़्लैटन या दोबारा एक्सपोर्ट करें, फिर से हस्ताक्षर करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このPDFの構造にはOrifoldでデジタル署名を追加できません。まずPDFをフラット化するか再書き出ししてから、もう一度署名してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 PDF 的结构不支持 Orifold 添加数字签名。请先展平或重新导出该 PDF，然后再次签署。"
+          }
+        }
+      }
+    },
+    "error.signing.placeholderReservationFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn't reserve space for the signature in this PDF. Try flattening or re-exporting the PDF first, then sign it again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo reservar espacio para la firma en este PDF. Prueba a aplanarlo o exportarlo de nuevo y luego fírmalo otra vez."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n'a pas pu réserver d'espace pour la signature dans ce PDF. Essayez d'aplatir ou de réexporter le PDF, puis signez-le à nouveau."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold इस PDF में हस्ताक्षर के लिए जगह आरक्षित नहीं कर सका। पहले PDF को फ़्लैटन या दोबारा एक्सपोर्ट करें, फिर से हस्ताक्षर करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはこの PDF内に署名用の領域を確保できませんでした。まずPDFをフラット化するか再書き出ししてから、もう一度署名してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法在此 PDF 中为签名预留空间。请先展平或重新导出该 PDF，然后再次签署。"
+          }
+        }
+      }
+    },
+    "error.signing.timestampUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn't reach the timestamp server. Check your internet connection, or turn off timestamping and sign again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo conectarse al servidor de sellado de tiempo. Comprueba tu conexión a internet o desactiva el sellado de tiempo y firma de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n'a pas pu joindre le serveur d'horodatage. Vérifiez votre connexion internet, ou désactivez l'horodatage et signez à nouveau."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold टाइमस्टैंप सर्वर तक नहीं पहुँच सका। अपना इंटरनेट कनेक्शन जाँचें, या टाइमस्टैंपिंग बंद करके फिर से हस्ताक्षर करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはタイムスタンプサーバーに接続できませんでした。インターネット接続を確認するか、タイムスタンプをオフにしてもう一度署名してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法连接到时间戳服务器。请检查您的网络连接，或关闭时间戳后重新签署。"
+          }
+        }
+      }
+    },
+    "error.signing.identityExpired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This certificate has expired and can no longer be used to sign. Choose a different certificate, or renew this one."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este certificado ha caducado y ya no se puede usar para firmar. Elige otro certificado o renueva este."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce certificat a expiré et ne peut plus être utilisé pour signer. Choisissez un autre certificat ou renouvelez celui-ci."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस प्रमाणपत्र की अवधि समाप्त हो गई है और अब इसका उपयोग हस्ताक्षर के लिए नहीं किया जा सकता। कोई दूसरा प्रमाणपत्र चुनें, या इसे नवीनीकृत करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この証明書は有効期限が切れており、署名には使用できません。別の証明書を選ぶか、この証明書を更新してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该证书已过期，无法再用于签名。请选择其他证书，或续订此证书。"
+          }
+        }
+      }
+    },
     "error.signingIdentity.invalidCertificateData": {
       "extractionState": "manual",
       "localizations": {
@@ -9345,6 +9550,416 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法创建自签名证书。"
+          }
+        }
+      }
+    },
+    "error.signingIdentity.wrongPassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That password isn't correct for this file. Check it and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esa contraseña no es correcta para este archivo. Revísala e inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce mot de passe n'est pas correct pour ce fichier. Vérifiez-le et réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वह पासवर्ड इस फ़ाइल के लिए सही नहीं है। इसे जाँचें और फिर से प्रयास करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そのパスワードはこのファイルには正しくありません。確認してもう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该密码对此文件不正确。请检查后重试。"
+          }
+        }
+      }
+    },
+    "error.signingIdentity.userCancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The operation was cancelled."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se canceló la operación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'opération a été annulée."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कार्रवाई रद्द कर दी गई थी।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作はキャンセルされました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作已取消。"
+          }
+        }
+      }
+    },
+    "error.signingIdentity.itemNotFoundInKeychain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn't find that certificate in Keychain Access. It may have been removed — try re-adding it or choosing a different certificate."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo encontrar ese certificado en Acceso a Llaveros. Es posible que se haya eliminado; intenta volver a añadirlo o elige otro certificado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n'a pas trouvé ce certificat dans le Trousseau d'accès. Il a peut-être été supprimé — essayez de le rajouter ou choisissez un autre certificat."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold को Keychain Access में वह प्रमाणपत्र नहीं मिला। हो सकता है इसे हटा दिया गया हो — इसे फिर से जोड़ने का प्रयास करें या कोई दूसरा प्रमाणपत्र चुनें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはそのキーチェーンアクセスに証明書を見つけられませんでした。削除された可能性があります — 再度追加するか、別の証明書を選択してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 在钥匙串访问中找不到该证书。它可能已被移除——请尝试重新添加，或选择其他证书。"
+          }
+        }
+      }
+    },
+    "error.signingIdentity.alreadyInKeychain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That certificate is already in Keychain Access."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese certificado ya está en Acceso a Llaveros."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce certificat se trouve déjà dans le Trousseau d'accès."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वह प्रमाणपत्र पहले से ही Keychain Access में मौजूद है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その証明書はすでにキーチェーンアクセスに存在します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该证书已存在于钥匙串访问中。"
+          }
+        }
+      }
+    },
+    "error.signingIdentity.keychainLocked": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keychain Access needs to be unlocked before Orifold can use this certificate. Unlock your keychain and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es necesario desbloquear Acceso a Llaveros antes de que Orifold pueda usar este certificado. Desbloquea tu llavero e inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le Trousseau d'accès doit être déverrouillé avant qu'Orifold puisse utiliser ce certificat. Déverrouillez votre trousseau et réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold इस प्रमाणपत्र का उपयोग करे उससे पहले Keychain Access को अनलॉक करना ज़रूरी है। अपनी कीचेन अनलॉक करें और फिर से प्रयास करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldがこの証明書を使用する前に、キーチェーンアクセスのロックを解除する必要があります。キーチェーンのロックを解除してもう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 使用此证书前需要先解锁钥匙串访问。请解锁您的钥匙串后重试。"
+          }
+        }
+      }
+    },
+    "error.signatureAppearance.emptyText": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type a name before creating a signature."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe un nombre antes de crear una firma."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez un nom avant de créer une signature."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हस्ताक्षर बनाने से पहले एक नाम टाइप करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "署名を作成する前に名前を入力してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建签名前请先输入姓名。"
+          }
+        }
+      }
+    },
+    "error.signatureAppearance.invalidSize": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn't create a signature at that size. Try a different size or a shorter name."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo crear una firma con ese tamaño. Prueba con un tamaño diferente o un nombre más corto."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n'a pas pu créer de signature à cette taille. Essayez une autre taille ou un nom plus court."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold उस आकार में हस्ताक्षर नहीं बना सका। एक अलग आकार या छोटा नाम आज़माएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはそのサイズで署名を作成できませんでした。別のサイズにするか、名前を短くしてお試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法以该尺寸创建签名。请尝试其他尺寸或缩短姓名。"
+          }
+        }
+      }
+    },
+    "error.signatureAppearance.imageEncodingFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn't turn that signature into an image. Try again, or choose a different signature style."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo convertir esa firma en una imagen. Inténtalo de nuevo o elige otro estilo de firma."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n'a pas pu convertir cette signature en image. Réessayez ou choisissez un autre style de signature."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold उस हस्ताक्षर को इमेज में नहीं बदल सका। फिर से प्रयास करें, या कोई दूसरी हस्ताक्षर शैली चुनें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはその署名を画像に変換できませんでした。もう一度お試しになるか、別の署名スタイルを選んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法将该签名转换为图像。请重试，或选择其他签名样式。"
+          }
+        }
+      }
+    },
+    "error.signatureAppearance.invalidImageData": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That signature image couldn't be read. Try drawing or uploading it again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer esa imagen de firma. Intenta dibujarla o cargarla de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette image de signature n'a pas pu être lue. Essayez de la redessiner ou de la retélécharger."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वह हस्ताक्षर इमेज पढ़ी नहीं जा सकी। इसे फिर से बनाएं या अपलोड करने का प्रयास करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その署名画像を読み込めませんでした。もう一度描画するかアップロードしてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取该签名图像。请重新绘制或上传。"
+          }
+        }
+      }
+    },
+    "error.cmsSignatureBuilder.certificateUnusable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This certificate couldn't be used to sign — it may be corrupted or in an unsupported format. Try a different certificate."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este certificado no se pudo usar para firmar; puede estar dañado o tener un formato no compatible. Prueba con otro certificado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce certificat n'a pas pu être utilisé pour signer — il est peut-être corrompu ou dans un format non pris en charge. Essayez un autre certificat."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस प्रमाणपत्र का उपयोग हस्ताक्षर करने के लिए नहीं किया जा सका — यह क्षतिग्रस्त हो सकता है या असमर्थित फ़ॉर्मेट में हो सकता है। कोई दूसरा प्रमाणपत्र आज़माएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この証明書は署名に使用できませんでした — 破損しているか、サポートされていない形式である可能性があります。別の証明書をお試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该证书无法用于签名——可能已损坏或格式不受支持。请尝试其他证书。"
           }
         }
       }
@@ -19769,37 +20384,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copy the nearby PDF text's style so you can paste it onto another text edit."
+            "value": "Copy the nearby PDF text's style so you can paste it onto another text edit. (⇧⌘C)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copiar el estilo del texto cercano del PDF para pegarlo en otra edición de texto."
+            "value": "Copiar el estilo del texto cercano del PDF para pegarlo en otra edición de texto. (⇧⌘C)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copier le style du texte PDF voisin pour le coller sur une autre modification de texte."
+            "value": "Copier le style du texte PDF voisin pour le coller sur une autre modification de texte. (⇧⌘C)"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आस-पास के PDF टेक्स्ट की स्टाइल कॉपी करें ताकि आप उसे किसी और टेक्स्ट संपादन पर पेस्ट कर सकें।"
+            "value": "आस-पास के PDF टेक्स्ट की स्टाइल कॉपी करें ताकि आप उसे किसी और टेक्स्ट संपादन पर पेस्ट कर सकें। (⇧⌘C)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "近くのPDFテキストのスタイルをコピーして、別のテキスト編集に貼り付けられるようにします。"
+            "value": "近くのPDFテキストのスタイルをコピーして、別のテキスト編集に貼り付けられるようにします。(⇧⌘C)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "拷贝附近 PDF 文本的样式，以便粘贴到其他文本编辑中。"
+            "value": "拷贝附近 PDF 文本的样式，以便粘贴到其他文本编辑中。(⇧⌘C)"
           }
         }
       }
@@ -20425,37 +21040,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paste the previously copied style onto this edit."
+            "value": "Paste the previously copied style onto this edit. (⇧⌘V)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pegar en esta edición el estilo copiado anteriormente."
+            "value": "Pegar en esta edición el estilo copiado anteriormente. (⇧⌘V)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Coller le style précédemment copié sur cette modification."
+            "value": "Coller le style précédemment copié sur cette modification. (⇧⌘V)"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "पहले कॉपी की गई स्टाइल इस संपादन पर पेस्ट करें।"
+            "value": "पहले कॉपी की गई स्टाइल इस संपादन पर पेस्ट करें। (⇧⌘V)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "以前コピーしたスタイルをこの編集に貼り付けます。"
+            "value": "以前コピーしたスタイルをこの編集に貼り付けます。(⇧⌘V)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "将先前拷贝的样式粘贴到此编辑中。"
+            "value": "将先前拷贝的样式粘贴到此编辑中。(⇧⌘V)"
           }
         }
       }
@@ -27266,6 +27881,47 @@
         }
       }
     },
+    "status.textEdit.copiedNearbyFormatPinned": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied nearby PDF text style — pinned. Click any text edit to paste it; click Copy again to unpin."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo de texto del PDF cercano copiado y fijado. Haz clic en cualquier edición de texto para pegarlo; vuelve a pulsar Copiar para desactivarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style de texte PDF voisin copié et épinglé. Cliquez sur n'importe quelle modification de texte pour le coller ; cliquez de nouveau sur Copier pour désépingler."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नज़दीकी PDF टेक्स्ट स्टाइल कॉपी करके पिन कर दी गई। इसे पेस्ट करने के लिए किसी भी टेक्स्ट एडिट पर क्लिक करें; अनपिन करने के लिए फिर से कॉपी दबाएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近くのPDFテキストのスタイルをコピーして固定しました。任意のテキスト編集をクリックすると貼り付けられます。固定を解除するには、もう一度「コピー」を押してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已复制并固定附近PDF文本的样式。点击任意文本编辑即可粘贴;再次点击“复制”可取消固定。"
+          }
+        }
+      }
+    },
     "status.textEdit.copyFormatFirst": {
       "extractionState": "manual",
       "localizations": {
@@ -30870,6 +31526,88 @@
           "stringUnit": {
             "state": "translated",
             "value": "将文件夹添加到工作区…"
+          }
+        }
+      }
+    },
+    "readingCanvas.textEdit.chip.hiddenOCRLayer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hidden text layer — invisible in the original document"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capa de texto oculta: invisible en el documento original"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calque de texte caché — invisible dans le document original"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "छिपी हुई टेक्स्ट परत — मूल दस्तावेज़ में अदृश्य"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "非表示のテキストレイヤー — 元のドキュメントでは見えません"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏文本层 — 在原始文档中不可见"
+          }
+        }
+      }
+    },
+    "readingCanvas.textEdit.chip.lowVisibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low-visibility text — nearly invisible in the original document"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto de baja visibilidad: casi invisible en el documento original"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texte à faible visibilité — presque invisible dans le document original"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कम-दृश्यता वाला टेक्स्ट — मूल दस्तावेज़ में लगभग अदृश्य"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "視認性の低いテキスト — 元のドキュメントではほぼ見えません"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "低可见度文本 — 在原始文档中几乎不可见"
           }
         }
       }
@@ -39562,6 +40300,88 @@
           "stringUnit": {
             "state": "translated",
             "value": "知道了"
+          }
+        }
+      }
+    },
+    "textEdit.privacyNotice.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited text may still be recoverable"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El texto editado aún puede recuperarse"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le texte modifié peut encore être récupéré"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संशोधित टेक्स्ट अब भी पुनर्प्राप्त किया जा सकता है"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集したテキストは復元できる場合があります"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已编辑的文本仍可能被恢复"
+          }
+        }
+      }
+    },
+    "textEdit.privacyNotice.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replacing text here changes how the page looks, but the original wording can sometimes still be found in the exported PDF — through search, copy-paste, or accessibility tools. For sensitive content, review the exported file carefully before sharing it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reemplazar texto aquí cambia el aspecto de la página, pero el texto original puede seguir encontrándose en el PDF exportado, mediante búsqueda, copiar y pegar, o herramientas de accesibilidad. Para contenido sensible, revisa con cuidado el archivo exportado antes de compartirlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacer du texte ici modifie l’apparence de la page, mais le texte d’origine peut parfois encore être retrouvé dans le PDF exporté, via la recherche, le copier-coller ou des outils d’accessibilité. Pour un contenu sensible, vérifiez attentivement le fichier exporté avant de le partager."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यहां टेक्स्ट बदलने से पेज का दिखना बदल जाता है, लेकिन कभी-कभी मूल शब्द निर्यात की गई PDF में खोज, कॉपी-पेस्ट, या सुलभता साधनों के ज़रिए मिल सकता है। संवेदनशील सामग्री के लिए, साझा करने से पहले निर्यात की गई फ़ाइल को ध्यान से जांचें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここでテキストを差し替えるとページの見た目は変わりますが、元の文言は検索やコピー、アクセシビリティツールなどを通じて、書き出した PDF に依然として残っている場合があります。機密性のある内容の場合は、共有する前に書き出したファイルをよく確認してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在此处替换文本只会改变页面的视觉效果，但在导出的 PDF 中，原文有时仍可通过搜索、复制粘贴或辅助功能工具找到。对于敏感内容，请在共享导出文件前仔细检查。"
           }
         }
       }

@@ -250,6 +250,30 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(block.textSource, .pdfiumGlyphs)
     }
 
+    /// Alignment inference must judge a block against the PAGE's typical margins, not its
+    /// own self-referential column bounds (`assignColumnBounds` always pins a column's left
+    /// edge to that same block's own `bounds.minX`, so comparing a block to its own column
+    /// can never detect anything but flush-left). An isolated right-aligned heading with no
+    /// same-row neighbor — exactly the "AI & Data"/"Cloud & DevOps" resume-heading shape —
+    /// must still be detected correctly against the body text's shared left/right margins.
+    func testPDFTextAnalysisDetectsIsolatedRightAlignedHeadingAgainstPageMargins() throws {
+        let view = AlignmentFixturePageView(
+            frame: CGRect(x: 0, y: 0, width: 612, height: 792),
+            bodyText: "Left aligned body copy establishing the page margin",
+            headingText: "Right Aligned Heading",
+            headingAlignment: .right
+        )
+        let pdf = try XCTUnwrap(PDFDocument(data: view.dataWithPDF(inside: view.bounds)))
+        let data = try pdf.dataRepresentation().unwrap()
+        let engine = PDFTextAnalysisEngine()
+        let page = try XCTUnwrap(pdf.page(at: 0))
+
+        let analysis = engine.analyze(data: data, pageIndex: 0, pageRefID: UUID(), fallbackPage: page)
+        let heading = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Right Aligned") })
+
+        XCTAssertEqual(heading.alignment, .right)
+    }
+
     /// Regression test for the root-cause "blank white box" bug: when PDFium can't be used
     /// at all (simulated here by passing empty `data`, the same path `analyze()` takes when
     /// PDFium extracts zero glyphs), the PDFKit fallback used to return a single whole-page
@@ -2065,6 +2089,126 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         XCTAssertEqual(PDFEditedPageRenderer.eraseBounds(for: operation), [sourceBounds, matchedDestination])
     }
 
+    /// `wholePageFallbackBlock` (PDFTextAnalysisEngine's last-resort, `.overlayOnly` block
+    /// for pages PDFKit can't segment into lines) reports non-empty text over bounds that
+    /// span nearly the entire crop box. Committing an edit on it must never erase almost
+    /// the whole page — clamp to the region actually being replaced instead.
+    func testEraseBoundsClampsImplausiblyTallSourceForWholePageFallbackBlock() throws {
+        let hugeSourceBounds = CGRect(x: 48, y: 48, width: 516, height: 696)
+        let editedBounds = CGRect(x: 72, y: 700, width: 120, height: 16)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: hugeSourceBounds,
+            editedBounds: editedBounds,
+            replacementText: "Replacement",
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .documentText,
+            alignment: .left
+        )
+
+        XCTAssertEqual(
+            PDFEditedPageRenderer.eraseBounds(for: operation),
+            [editedBounds],
+            "an implausibly tall source rect (the whole-page fallback block) must never erase nearly the entire page"
+        )
+    }
+
+    /// The plausibility ceiling must be measured against the ORIGINAL text's own font size,
+    /// not the replacement's. Shrinking a large heading (e.g. a 96pt title) down to small
+    /// replacement text (e.g. 8pt) shrinks `editedBounds`/`operation.fontSize` right along
+    /// with it — if the ceiling were based on those instead of `originalFormat.fontSize`, the
+    /// genuinely tall (but real) original source line would be wrongly discarded as
+    /// "implausible," leaving the old large heading's ink unerased underneath the new small
+    /// replacement (the exact ghost-text bug this guard exists to prevent).
+    func testEraseBoundsKeepsGenuineTallSourceWhenLargeHeadingIsShrunkToSmallReplacement() throws {
+        let tallSourceLine = CGRect(x: 72, y: 650, width: 400, height: 120)
+        let smallEditedBounds = CGRect(x: 72, y: 700, width: 60, height: 12)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: tallSourceLine,
+            sourceLineBounds: [tallSourceLine],
+            editedBounds: smallEditedBounds,
+            replacementText: "small",
+            fontName: "Helvetica",
+            fontSize: 8,
+            textColor: .documentText,
+            alignment: .left,
+            originalFormat: PDFTextEditFormat(
+                fontName: "Helvetica-Bold",
+                fontSize: 96,
+                textColor: .documentText,
+                alignment: .left
+            )
+        )
+
+        XCTAssertEqual(
+            PDFEditedPageRenderer.eraseBounds(for: operation),
+            [tallSourceLine],
+            "the genuinely tall original heading's source line must still be erased after shrinking the replacement to small text"
+        )
+    }
+
+    /// The implausible-height clamp must drop only the offending line(s), not the whole
+    /// `sourceLineBounds` array. A genuine multi-line paragraph edit where one line's bounds
+    /// came out oversized (e.g. a merge glitch) must still erase its other, perfectly normal
+    /// lines — collapsing everything down to just `editedBounds` would under-erase the rest
+    /// of a real paragraph, which is the opposite of what the whole-page-fallback guard is
+    /// meant to protect against.
+    func testEraseBoundsDropsOnlyTheImplausibleLineNotTheWholeArray() throws {
+        let normalLine1 = CGRect(x: 72, y: 700, width: 200, height: 16)
+        let implausibleLine = CGRect(x: 72, y: 680, width: 200, height: 300)
+        let normalLine2 = CGRect(x: 72, y: 660, width: 200, height: 16)
+        let editedBounds = CGRect(x: 72, y: 660, width: 200, height: 56)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: CGRect(x: 72, y: 660, width: 200, height: 56),
+            sourceLineBounds: [normalLine1, implausibleLine, normalLine2],
+            editedBounds: editedBounds,
+            replacementText: "Replacement paragraph",
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .documentText,
+            alignment: .left
+        )
+
+        XCTAssertEqual(
+            PDFEditedPageRenderer.eraseBounds(for: operation),
+            [normalLine1, normalLine2],
+            "the two normal lines must still be erased even though a sibling line's bounds were implausible"
+        )
+    }
+
+    /// A destination box that already sits on blank paper needs no cover patch — only add
+    /// it to the erase list when it's actually hiding something under the new location.
+    func testEraseBoundsSkipsDestinationWhenItSitsOnBlankBackground() throws {
+        let pdf = makePDF(pageTexts: ["Some text up top"])
+        let page = try XCTUnwrap(pdf.page(at: 0))
+        let sourceBounds = CGRect(x: 72, y: 686, width: 42, height: 18)
+        let blankDestination = CGRect(x: 400, y: 100, width: 120, height: 18)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: sourceBounds,
+            editedBounds: blankDestination,
+            replacementText: "Replacement",
+            fontName: "Helvetica",
+            fontSize: 14,
+            textColor: .documentText,
+            alignment: .left,
+            didApplyMatchedGeometry: true
+        )
+
+        XCTAssertEqual(
+            PDFEditedPageRenderer.eraseBounds(for: operation, on: page),
+            [sourceBounds],
+            "a destination that already sits on blank paper needs no cover patch"
+        )
+    }
+
     func testMeasuredBoundsGrowsDownwardFromAFixedTopEdge() throws {
         // The live inline editor grows downward from a fixed top as typed text wraps
         // (InlineTextEditorOverlay.resizeTextViewHeight pins editorTopY and drops the
@@ -3348,58 +3492,117 @@ final class InlineTextEditPlacementTests: XCTestCase {
         }
     }
 
-    func testInlineEditorCopyThenApplyUsesNearbyOriginalFormat() throws {
-        let pageRef = PageRef(memberDocId: UUID(), sourcePageIndex: 0)
-        let editedBlock = EditableTextBlock(
+    /// Format Painter's Copy Style must behave like Word's: it captures whatever is
+    /// CURRENTLY VISIBLE in the editor being copied from (not a stale pre-edit "original"),
+    /// and Paste Style applies font/size/color/alignment ONLY — it must never move or
+    /// resize the target box to the source's position/column. Adopting the source's
+    /// geometry was the reported "copying formatting covered nearby content" bug: it
+    /// silently marked `didApplyMatchedGeometry`, which makes the renderer erase the whole
+    /// destination box on commit. "Match Nearby Format" (a separate button, unaffected by
+    /// this test) is the one place geometry adoption is still intentional.
+    func testInlineEditorCopyCapturesLiveStyleAndPasteNeverMovesTarget() throws {
+        let pdf = makePDF(pageTexts: ["Cloud & DevOps", "AI & Data"])
+        let fixture = try makeMemberFixture(name: "FormatPainter", pdf: pdf)
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let pageRef = fixture.refs[0]
+        let basePage = try XCTUnwrap(PDFDocument(data: fixture.pdfData)?.page(at: 0))
+
+        let sourceBlock = EditableTextBlock(
             pageRefID: pageRef.id,
-            text: "Edited text",
-            bounds: CGRect(x: 96, y: 620, width: 260, height: 28),
+            text: "Cloud & DevOps",
+            bounds: CGRect(x: 300, y: 620, width: 260, height: 28),
             lines: [],
-            columnBounds: CGRect(x: 96, y: 0, width: 260, height: 792),
+            columnBounds: CGRect(x: 300, y: 0, width: 260, height: 792),
             fontName: "Courier-Bold",
             fontSize: 18,
             textColor: .init(nsColor: .systemRed),
             alignment: .right,
+            underline: true,
             rotation: 0,
             baseline: 620,
             confidence: .high
         )
-        let nearbyColumn = CGRect(x: 72, y: 0, width: 430, height: 792)
-        let nearbyBounds = CGRect(x: 72, y: 650, width: 360, height: 16)
-        let nearbyFormat = PDFTextEditFormat(
+        let targetBlock = EditableTextBlock(
+            pageRefID: pageRef.id,
+            text: "AI & Data",
+            bounds: CGRect(x: 72, y: 400, width: 90, height: 16),
+            lines: [],
+            columnBounds: CGRect(x: 72, y: 0, width: 300, height: 792),
             fontName: "Helvetica",
             fontSize: 10,
             textColor: .documentText,
             alignment: .left,
-            bounds: nearbyBounds,
-            columnBounds: nearbyColumn
+            rotation: 0,
+            baseline: 400,
+            confidence: .high
         )
-        let fixture = try makeInlineEditorFixture(
-            text: editedBlock.text,
+
+        let pdfView = OrifoldPDFView(frame: CGRect(x: 0, y: 0, width: 900, height: 1000))
+        pdfView.document = PDFDocument(data: fixture.pdfData)
+        pdfView.autoScales = false
+        pdfView.scaleFactor = 1
+        pdfView.layoutDocumentView()
+
+        let sourceOverlay = InlineTextEditorOverlay(
+            frame: pdfView.bounds,
+            viewModel: viewModel,
+            pdfView: pdfView,
+            page: basePage,
             pageRef: pageRef,
-            block: editedBlock,
-            sourceFormat: nearbyFormat,
-            pdfViewFrame: CGRect(x: 0, y: 0, width: 1400, height: 1000)
-        )
-        let textView = try XCTUnwrap(findSubview(in: fixture.overlay) { (_: NSTextView) in true })
-        let copy = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.copyNearbyFormat"))
-        let apply = try XCTUnwrap(inlineEditorButton(in: fixture.overlay, identifier: "inlineEditor.applyCopiedFormat"))
-        let done = try XCTUnwrap(findSubview(in: fixture.overlay) { (button: NSButton) in
-            button.title == "Done"
-        })
+            block: sourceBlock,
+            sourceFormat: PDFTextEditFormat(block: sourceBlock)
+        ) { _ in }
+        pdfView.addSubview(sourceOverlay)
+        sourceOverlay.layoutSubtreeIfNeeded()
+        let copyButton = try XCTUnwrap(inlineEditorButton(in: sourceOverlay, identifier: "inlineEditor.copyNearbyFormat"))
+        copyButton.performClick(nil)
+        XCTAssertTrue(viewModel.isInlineTextFormatPainterArmed, "Copy should arm the format painter")
+        // Captures what's actually visible in the source editor right now, not some other
+        // "nearby original" style.
+        XCTAssertEqual(viewModel.copiedInlineTextFormat?.fontName, "Courier-Bold")
+        XCTAssertEqual(viewModel.copiedInlineTextFormat?.fontSize ?? -1, 18, accuracy: 0.01)
+        XCTAssertEqual(viewModel.copiedInlineTextFormat?.alignment, .right)
+        XCTAssertEqual(viewModel.copiedInlineTextFormat?.underline, true)
+        sourceOverlay.cancel()
 
-        textView.string = "Replacement text"
-        copy.performClick(nil)
-        XCTAssertEqual(fixture.viewModel.copiedInlineTextFormat, nearbyFormat)
-        apply.performClick(nil)
-        done.performClick(nil)
+        var committedTarget: InlineTextEditorOverlay.EditResult?
+        let targetOverlay = InlineTextEditorOverlay(
+            frame: pdfView.bounds,
+            viewModel: viewModel,
+            pdfView: pdfView,
+            page: basePage,
+            pageRef: pageRef,
+            block: targetBlock,
+            sourceFormat: PDFTextEditFormat(block: targetBlock)
+        ) { completion in
+            if case .commit(let edit) = completion { committedTarget = edit }
+        }
+        pdfView.addSubview(targetOverlay)
+        targetOverlay.layoutSubtreeIfNeeded()
+        // Re-arm explicitly (defensive against auto-apply-on-open already having consumed
+        // it) and click "Paste style" via the real button, matching the described repro.
+        viewModel.copiedInlineTextFormat = PDFTextEditFormat(block: sourceBlock)
+        viewModel.isInlineTextFormatPainterArmed = true
+        let pasteButton = try XCTUnwrap(inlineEditorButton(in: targetOverlay, identifier: "inlineEditor.applyCopiedFormat"))
+        pasteButton.performClick(nil)
+        let doneButton = try XCTUnwrap(findSubview(in: targetOverlay) { (button: NSButton) in button.title == "Done" })
+        doneButton.performClick(nil)
 
-        let committed = try XCTUnwrap(fixture.committedEdit())
-        XCTAssertEqual(committed.fontName, "Helvetica")
-        XCTAssertEqual(committed.fontSize, 10, accuracy: 0.01)
-        XCTAssertEqual(committed.alignment, .left)
-        XCTAssertEqual(committed.editedBounds.minX, nearbyBounds.minX, accuracy: 0.01)
-        XCTAssertEqual(committed.editedBounds.width, nearbyBounds.width, accuracy: 0.01)
+        let edit = try XCTUnwrap(committedTarget)
+        XCTAssertEqual(edit.text, targetBlock.text, "text content must remain completely unchanged")
+        XCTAssertEqual(edit.fontName, "Courier-Bold", "style must transfer from the copied source")
+        XCTAssertEqual(edit.fontSize, 18, accuracy: 0.01)
+        XCTAssertEqual(edit.alignment, .right)
+        XCTAssertTrue(edit.underline)
+        XCTAssertFalse(edit.didApplyMatchedGeometry, "Paste Style must never adopt the copied source's geometry")
+        // The box may still auto-grow to fit the much larger pasted font (legitimate,
+        // orthogonal layout help) — what must NOT happen is jumping to the copied source's
+        // column position far across the page.
+        XCTAssertEqual(edit.editedBounds.minX, targetBlock.bounds.minX, accuracy: 0.01, "target box must stay at its own position, not jump to the copied source's column")
     }
 
     /// End-to-end: copy a MUCH larger font (48pt) from one block, open a DIFFERENT
@@ -8155,6 +8358,52 @@ private final class SolidColorTextFixturePageView: NSView {
     }
 }
 
+/// A left-aligned "body" line establishing the page's typical left/right margins, plus a
+/// second, vertically well-separated line drawn with an explicit paragraph alignment — used
+/// to test that alignment inference judges the second line against the page's shared
+/// margins rather than against its own (self-referential) column bounds.
+/// Two left-aligned "body" lines (so the page has enough blocks for a median-based typical
+/// margin to mean something — `inferAlignment` skips inference below 3 detected blocks)
+/// plus a third, vertically well-separated line drawn with an explicit paragraph alignment.
+private final class AlignmentFixturePageView: NSView {
+    private let bodyText: String
+    private let headingText: String
+    private let headingAlignment: NSTextAlignment
+
+    override var isFlipped: Bool { true }
+
+    init(frame: CGRect, bodyText: String, headingText: String, headingAlignment: NSTextAlignment) {
+        self.bodyText = bodyText
+        self.headingText = headingText
+        self.headingAlignment = headingAlignment
+        super.init(frame: frame)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.setFill()
+        bounds.fill()
+        let bodyAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 16),
+            .foregroundColor: NSColor.black
+        ]
+        NSString(string: bodyText).draw(in: CGRect(x: 72, y: 72, width: 468, height: 40), withAttributes: bodyAttributes)
+        NSString(string: bodyText).draw(in: CGRect(x: 72, y: 140, width: 468, height: 40), withAttributes: bodyAttributes)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = headingAlignment
+        let headingRect = CGRect(x: 72, y: 220, width: 468, height: 40)
+        NSString(string: headingText).draw(
+            in: headingRect,
+            withAttributes: [
+                .font: NSFont.systemFont(ofSize: 16),
+                .foregroundColor: NSColor.black,
+                .paragraphStyle: paragraph
+            ]
+        )
+    }
+}
+
 /// The SAME text drawn twice, well separated vertically (top of page, bottom of page) so
 /// they never merge into one editable block — used to test disambiguating edits to
 /// distinct occurrences of identical repeated text.
@@ -8607,6 +8856,33 @@ final class PetBuddyTests: XCTestCase {
         XCTAssertNotNil(buddy.currentMessage)
         XCTAssertTrue(PetLines.inspiration.contains(buddy.currentMessage ?? ""))
         XCTAssertNotNil(buddy.lastInspirationAt)
+    }
+
+    @MainActor
+    func testFirstUseTipIsNotSwallowedByTheThrottle() {
+        // A first-use tip is a one-shot educational moment: `markSeen` spends it
+        // unconditionally, so if the 45s throttle also blocked it, the tip would
+        // be lost forever instead of merely delayed.
+        let buddy = PetBuddy.shared
+        let oldSeenEvents = buddy.seenEvents
+
+        defer {
+            buddy.hush()
+            buddy.lastShownAt = nil
+            buddy.recentLines = []
+            buddy.seenEvents = oldSeenEvents
+        }
+
+        buddy.enable()
+        buddy.hush()
+        buddy.seenEvents.remove("rotate")
+        buddy.lastShownAt = Date()  // simulate a bubble that just showed
+        buddy.recentLines = []
+
+        buddy.trigger(.rotate)
+
+        XCTAssertTrue(buddy.isBubbleVisible, "a feature's first-ever firing must not be eaten by the inter-message throttle")
+        XCTAssertNotNil(buddy.currentMessage)
     }
 
     func testHoverTipDelayDiffersBySpecies() {

@@ -308,6 +308,10 @@ final class WorkspaceViewModel {
     var editingStatus: EditingStatus? = nil
     var copiedInlineTextFormat: PDFTextEditFormat? = nil
     var isInlineTextFormatPainterArmed = false
+    /// True once the user has pinned Format Painter (⌥-click Copy Style) so it stays armed
+    /// and re-applies to every subsequently opened editor, instead of disarming after one
+    /// paste — mirrors Word's double-click-to-lock Format Painter behavior.
+    var isFormatPainterPinned = false
     var operationProgress = WorkspaceOperationProgress()
     var formSummary = PDFFormSummary()
     var highlightFormFields = false
@@ -940,7 +944,7 @@ final class WorkspaceViewModel {
             enqueuePasswordImport(pdf: pdf, url: url)
             return
         }
-        attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload)
+        attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload, originalPDFData: imported.originalPDFData)
     }
 
     @discardableResult
@@ -952,7 +956,13 @@ final class WorkspaceViewModel {
             enqueuePasswordImport(pdf: pdf, url: url, insertingAfter: targetPageRefID)
             return nil
         }
-        return attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload, insertingAfter: targetPageRefID)
+        return attachPDF(
+            pdf,
+            from: url,
+            sourcePayload: imported.sourcePayload,
+            insertingAfter: targetPageRefID,
+            originalPDFData: imported.originalPDFData
+        )
     }
 
     func unlock(pdf: PDFDocument, password: String, url: URL) -> Bool {
@@ -1001,10 +1011,18 @@ final class WorkspaceViewModel {
     private func attachPDF(_ pdf: PDFDocument,
                            from url: URL,
                            sourcePayload: SourceDocumentPayload? = nil,
-                           insertingAfter targetPageRefID: UUID? = nil) -> MemberDocument? {
+                           insertingAfter targetPageRefID: UUID? = nil,
+                           originalPDFData: Data? = nil) -> MemberDocument? {
         sanitizeInkAnnotations(in: pdf)
 
-        guard let data = PDFSerializer.data(from: pdf) else {
+        // The normalizer's structural agreement gate uses its own PDFium validation
+        // internally (the default), intentionally decoupled from `processingEngine` — that
+        // engine drives `smokeValidatePDFData`/`lastProcessingValidation` and may be a test
+        // double, whereas the trust gate must reflect the real renderer.
+        guard let data = PDFImportNormalizer.normalizedData(
+            originalPDFData: originalPDFData,
+            renderedPDF: pdf
+        ) else {
             importError = ImportError(
                 fileName: url.lastPathComponent,
                 message: L10n.string("error.import.preparePDFForSaving")
@@ -1842,9 +1860,17 @@ final class WorkspaceViewModel {
     /// the next unrelated edit the user opens would be more surprising than helpful right
     /// after rolling the document back or forward. Format-painter state armed BEFORE the
     /// undo/redo is no longer meaningfully tied to what the user is looking at afterward.
-    private func disarmFormatPainter() {
-        guard isInlineTextFormatPainterArmed else { return }
+    /// Also called when the user switches tools away from Edit Text (`AnnotationToolPicker
+    /// .select`) or explicitly restores a block's original format — not `private` so those
+    /// call sites can reach it. Deliberately NOT called when an editor is merely cancelled/
+    /// Escaped: Copy Style is only reachable from inside an editor, so "Copy in A, Cancel A
+    /// without committing, then open B to Paste" is the normal, expected way to move a style
+    /// between two blocks — disarming on that cancel would wipe the just-copied style before
+    /// it ever reaches B.
+    func disarmFormatPainter() {
+        guard isInlineTextFormatPainterArmed || isFormatPainterPinned else { return }
         isInlineTextFormatPainterArmed = false
+        isFormatPainterPinned = false
         copiedInlineTextFormat = nil
     }
 
@@ -2367,6 +2393,7 @@ final class WorkspaceViewModel {
                 alignment: reopenedAlignment,
                 underline: reopenedUnderline,
                 rotation: 0,
+                pageRotation: page.rotation,
                 baseline: syntheticBounds.minY,
                 confidence: .high
             )
@@ -2456,7 +2483,8 @@ final class WorkspaceViewModel {
             fontSize: nearbyStyle?.fontSize ?? 14,
             textColor: nearbyStyle?.textColor ?? .documentText,
             alignment: nearbyStyle?.alignment,
-            rotation: CGFloat(page.rotation),
+            rotation: 0,
+            pageRotation: page.rotation,
             baseline: bounds.minY,
             confidence: .medium,
             editability: isOnFlattenedPage ? .overlayOnly : .insertion,
@@ -3527,7 +3555,7 @@ final class WorkspaceViewModel {
             exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
             return
         } catch {
-            exportError = ExportError(message: String(localized: "Orifold could not prepare the signing identity: \(error.localizedDescription)", locale: L10n.currentLocale))
+            exportError = ExportError(message: String(localized: "Orifold couldn’t prepare the signing identity. \(error.localizedDescription)", locale: L10n.currentLocale))
             return
         }
         // Review found nothing in the actual signing path ever checked this — a placement
@@ -3584,7 +3612,7 @@ final class WorkspaceViewModel {
                 bounds: placement.rect
             )
         } catch {
-            exportError = ExportError(message: String(localized: "Orifold could not prepare the visible signature appearance: \(error.localizedDescription)", locale: L10n.currentLocale))
+            exportError = ExportError(message: String(localized: "Orifold couldn’t prepare the visible signature. \(error.localizedDescription)", locale: L10n.currentLocale))
             return
         }
 
@@ -3716,7 +3744,7 @@ final class WorkspaceViewModel {
                     case SigningError.unsupportedPDFStructure:
                         self.exportError = ExportError(message: L10n.string("error.export.unsupportedPDFStructure"))
                     default:
-                        self.exportError = ExportError(message: String(localized: "Orifold could not sign the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
+                        self.exportError = ExportError(message: String(localized: "Orifold couldn’t sign the PDF. \(error.localizedDescription)", locale: L10n.currentLocale))
                     }
                 }
             }
@@ -4118,7 +4146,7 @@ final class WorkspaceViewModel {
             } else if let validationError = error as? PDFExportValidationError {
                 exportError = ExportError(message: validationError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold could not save the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
+                exportError = ExportError(message: String(localized: "Orifold couldn’t save the PDF. \(error.localizedDescription) Check that the destination still exists and that you have permission to write there, then try again.", locale: L10n.currentLocale))
             }
             return false
         }
@@ -4662,7 +4690,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold could not export page images: \(error.localizedDescription)", locale: L10n.currentLocale))
+                exportError = ExportError(message: String(localized: "Orifold couldn’t export page images. \(error.localizedDescription) Check that the destination folder exists and has free space, then try again.", locale: L10n.currentLocale))
             }
             return false
         }
@@ -4685,7 +4713,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold could not write the \(format.menuTitle) export: \(error.localizedDescription)", locale: L10n.currentLocale))
+                exportError = ExportError(message: String(localized: "Orifold couldn’t write the \(format.menuTitle) export. \(error.localizedDescription) Check that the destination folder exists and has free space, then try again.", locale: L10n.currentLocale))
             }
             return false
         }
@@ -5264,7 +5292,7 @@ final class WorkspaceViewModel {
         case let error as PDFKitEngine.ExportAssemblyError:
             return error.localizedDescription
         default:
-            return String(localized: "Orifold could not create the \(format.menuTitle) export: \(error.localizedDescription)", locale: L10n.currentLocale)
+            return String(localized: "Orifold couldn’t create the \(format.menuTitle) export. \(error.localizedDescription)", locale: L10n.currentLocale)
         }
     }
 
@@ -5980,7 +6008,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold could not export the selected pages: \(error.localizedDescription)", locale: L10n.currentLocale))
+                exportError = ExportError(message: String(localized: "Orifold couldn’t export the selected pages. \(error.localizedDescription)", locale: L10n.currentLocale))
             }
         }
     }
