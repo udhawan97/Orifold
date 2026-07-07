@@ -3612,12 +3612,32 @@ final class WorkspaceViewModel {
                 let outcome = SigningOutcomeBox()
                 let signedData = try PDFIncrementalSigner().sign(pdf: pdfData, field: field, appearance: appearance) { byteRangeBytes in
                     if timestampRequested {
+                        // Guarded by `activeSigningID == operationID` (not just fired
+                        // unconditionally) — otherwise this fire-and-forget update can land
+                        // AFTER the operation has already been cancelled/finished (or after
+                        // an unrelated, newer operation has started), resurrecting stale
+                        // "Requesting trusted timestamp…" text. Matches the same guard
+                        // already used at the OCR/compression progress callbacks elsewhere
+                        // in this file.
                         Task { @MainActor in
+                            guard self.activeSigningID == operationID, self.operationProgress.isActive else { return }
                             self.operationProgress.update(fraction: 0.5, detail: L10n.string("signProgress.timestamping"))
                         }
                         return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity) { signatureValue in
                             do {
-                                let token = try Self.fetchTimestampSynchronously(for: signatureValue, preferring: preferredTSA).cmsTimeStampToken
+                                let token = try Self.fetchTimestampSynchronously(
+                                    for: signatureValue,
+                                    preferring: preferredTSA,
+                                    onAttempt: { option in
+                                        Task { @MainActor in
+                                            guard self.activeSigningID == operationID, self.operationProgress.isActive else { return }
+                                            self.operationProgress.update(
+                                                fraction: 0.5,
+                                                detail: L10n.format("signProgress.timestampingWithProvider", option.displayName)
+                                            )
+                                        }
+                                    }
+                                ).cmsTimeStampToken
                                 outcome.timestampWasApplied = true
                                 return token
                             } catch SigningError.cancelled {
@@ -3696,7 +3716,8 @@ final class WorkspaceViewModel {
 
     private static func fetchTimestampSynchronously(
         for signatureValue: Data,
-        preferring preferredTSA: TimestampAuthorityOption = .freeTSA
+        preferring preferredTSA: TimestampAuthorityOption = .freeTSA,
+        onAttempt: (@Sendable (TimestampAuthorityOption) -> Void)? = nil
     ) throws -> TimeStampToken {
         let semaphore = DispatchSemaphore(value: 0)
         final class TimestampBox {
@@ -3707,7 +3728,11 @@ final class WorkspaceViewModel {
         let fetchTask = Task.detached {
             do {
                 box.result = .success(
-                    try await TimestampAuthorityFallbackChain.fetchTimestamp(for: signatureValue, preferring: preferredTSA)
+                    try await TimestampAuthorityFallbackChain.fetchTimestamp(
+                        for: signatureValue,
+                        preferring: preferredTSA,
+                        onAttempt: onAttempt
+                    )
                 )
             } catch {
                 box.result = .failure(error)

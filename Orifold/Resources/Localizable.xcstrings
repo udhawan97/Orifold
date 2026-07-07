@@ -38458,6 +38458,47 @@
           }
         }
       }
+    },
+    "signProgress.timestampingWithProvider": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requesting timestamp from %@…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solicitando marca de tiempo de %@…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demande d'horodatage auprès de %@…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ से टाइमस्टैंप का अनुरोध हो रहा है…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@からタイムスタンプを要求しています…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在向 %@ 请求时间戳…"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

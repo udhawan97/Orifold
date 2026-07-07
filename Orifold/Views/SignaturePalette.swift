@@ -11,7 +11,10 @@ struct SignaturePalette: View {
 
     @State private var selectedMode: SignaturePaletteMode = .type
     @State private var typedName: String = SignaturePalette.defaultSignerName
-    @State private var typedFontStyle: TypedSignatureFontStyle = .snellRoundhand
+    // Persisted (not plain @State): without this, the font choice silently reset to
+    // "Classic Script" every time the palette reopened or the app relaunched, even though
+    // the user had just picked something else — a real, if minor, UX gap found in review.
+    @AppStorage("signaturePalette.typedFontStyle") private var typedFontStyle: TypedSignatureFontStyle = .snellRoundhand
     @State private var initials: String = SignaturePalette.defaultInitials(from: SignaturePalette.defaultSignerName)
     @State private var drawnSignatureData: Data?
     @State private var drawClearTrigger = 0
