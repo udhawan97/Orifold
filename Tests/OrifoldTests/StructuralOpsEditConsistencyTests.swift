@@ -46,8 +46,41 @@ final class StructuralOpsEditConsistencyTests: XCTestCase {
         return WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
     }
 
+    /// Reading-order text of the member's `pageIndex`, extracted via PDFium re-analysis
+    /// (`PDFTextAnalysisEngine`), NOT PDFKit's `.attributedString`/`.string`. PDFKit's
+    /// CoreText-based extraction scrambles/undercounts characters on regenerated (edited)
+    /// pages under CI's older Xcode 16.4 PDFKit — the exact toolchain quirk documented in
+    /// [[ci-xcode164-pdfkit-string-extraction-quirk]] — which made these assertions pass
+    /// locally (Xcode 26.6) but fail on CI. PDFium extraction is run-preserving and
+    /// reliable on both. Blocks are joined in reading order with spaces so the multi-word
+    /// tokens the assertions check for read back contiguously.
     private func pageText(_ viewModel: WorkspaceViewModel, pageIndex: Int) -> String {
-        viewModel.loadedPDFs.first?.1.page(at: pageIndex)?.attributedString?.string ?? ""
+        // Serialize the LIVE loadedPDFs member document, not `document.memberPDFData` —
+        // in-place structural ops (duplicatePages, movePage) mutate the live PDFDocument
+        // but don't necessarily re-serialize memberPDFData, so the latter can lag behind
+        // the true page layout (e.g. missing a just-inserted duplicate).
+        guard let pdf = viewModel.loadedPDFs.first?.1 else { return "" }
+        return pageText(fromLivePDF: pdf, pageIndex: pageIndex)
+    }
+
+    /// Reading-order text of `pageIndex` in the CURRENT bytes of `pdf`, joined with spaces.
+    private func pageText(fromLivePDF pdf: PDFDocument, pageIndex: Int) -> String {
+        guard let data = pdf.dataRepresentation() else { return "" }
+        return pageText(fromMemberData: data, pageIndex: pageIndex)
+    }
+
+    /// Reading-order text of `pageIndex` in `data`, joined with spaces.
+    private func pageText(fromMemberData data: Data, pageIndex: Int) -> String {
+        guard let page = PDFDocument(data: data)?.page(at: pageIndex) else { return "" }
+        let ordered = PDFTextAnalysisEngine()
+            .analyze(data: data, pageIndex: pageIndex, pageRefID: UUID(), fallbackPage: page)
+            .blocks
+            .sorted { lhs, rhs in
+                let ly = lhs.bounds.standardized.midY, ry = rhs.bounds.standardized.midY
+                if abs(ly - ry) > max(lhs.bounds.height, rhs.bounds.height) { return ly > ry }
+                return lhs.bounds.standardized.midX < rhs.bounds.standardized.midX
+            }
+        return ordered.map(\.text).joined(separator: " ")
     }
 
     @discardableResult
@@ -202,7 +235,7 @@ final class StructuralOpsEditConsistencyTests: XCTestCase {
         let localIdx = try XCTUnwrap(memberB?.pageRefs.firstIndex(of: movedRef.id))
         let pdfB = try XCTUnwrap(viewModel.loadedPDFs.first(where: { $0.0.id == memberB?.id })?.1)
         let movedPage = try XCTUnwrap(pdfB.page(at: localIdx))
-        XCTAssertTrue((movedPage.attributedString?.string ?? "").contains("MemberA moving page"))
+        XCTAssertTrue(pageText(fromLivePDF: pdfB, pageIndex: localIdx).contains("MemberA moving page"))
 
         let click = CGPoint(x: 140, y: 792 - 66)
         let target = try XCTUnwrap(viewModel.editableTextBlock(at: click, on: movedPage, in: viewModel.combinedPDF))
@@ -218,9 +251,8 @@ final class StructuralOpsEditConsistencyTests: XCTestCase {
             textColor: .black,
             alignment: .left
         ))
-        let after = pdfB.page(at: localIdx)?.attributedString?.string
-            ?? viewModel.loadedPDFs.first(where: { $0.0.id == memberB?.id })?.1.page(at: localIdx)?.attributedString?.string
-            ?? ""
+        let livePdfB = try XCTUnwrap(viewModel.loadedPDFs.first(where: { $0.0.id == memberB?.id })?.1)
+        let after = pageText(fromLivePDF: livePdfB, pageIndex: localIdx)
         XCTAssertTrue(after.contains("MemberA moved and edited"), "edit lands on the moved page")
         XCTAssertFalse(after.contains("MemberB"), "the moved page's content must not be replaced by a target-member page")
     }
