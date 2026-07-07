@@ -366,6 +366,93 @@ final class PDFIncrementalSignerStructureTests: XCTestCase {
         XCTAssertGreaterThan(placeholderHexDigits, 32_768,
                              "a large estimated DER size must widen the placeholder beyond the default floor")
     }
+
+    /// Builds a minimal PDF whose most recent cross-reference section is a modern
+    /// cross-reference STREAM object (`/Type /XRef`) rather than a classic `xref` table —
+    /// what most non-Orifold tools (Ghostscript, mutool, recent Adobe output) now emit.
+    /// `startxref` points at an `N 0 obj` header, not the literal `xref` keyword.
+    private func xrefStreamPDFData() -> Data {
+        var body = "%PDF-1.5\n"
+        body += "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+        body += "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+        body += "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>\nendobj\n"
+        let xrefStreamOffset = body.utf8.count
+        body += "4 0 obj\n<< /Type /XRef /Size 5 /Root 1 0 R /W [1 2 1] /Length 4 >>\nstream\n\u{0}\u{0}\u{0}\u{0}\nendstream\nendobj\n"
+        body += "startxref\n\(xrefStreamOffset)\n%%EOF\n"
+        return Data(body.utf8)
+    }
+
+    func testSigningRefusesAPDFWhoseLastCrossReferenceSectionIsAnXRefStream() throws {
+        let field = SignatureFieldSpec(pageIndex: 0, rect: CGRect(x: 40, y: 60, width: 180, height: 50), signerName: "Signer")
+        XCTAssertThrowsError(
+            try PDFIncrementalSigner().sign(pdf: xrefStreamPDFData(), field: field, appearance: nil) { _ in
+                Data([0x30, 0x03, 0x02, 0x01, 0x00])
+            }
+        ) { error in
+            XCTAssertEqual(error as? SigningError, .unsupportedPDFStructure,
+                           "an xref-stream-only PDF must be refused, not silently corrupted with a classic-xref incremental update")
+        }
+    }
+
+    func testSigningStillAcceptsAClassicXrefTablePDF() throws {
+        // Sanity companion to the refusal test above: the ordinary PDFKit-produced fixture
+        // used throughout this file must still sign successfully (classic xref table).
+        let original = try onePagePDFData()
+        let field = SignatureFieldSpec(pageIndex: 0, rect: CGRect(x: 40, y: 60, width: 180, height: 50), signerName: "Signer")
+        let signed = try PDFIncrementalSigner().sign(pdf: original, field: field, appearance: nil) { _ in
+            Data([0x30, 0x03, 0x02, 0x01, 0x00])
+        }
+        XCTAssertNotNil(PDFDocument(data: signed))
+    }
+}
+
+final class SignatureSelfCheckTests: XCTestCase {
+    private func onePagePDFData() throws -> Data {
+        let bounds = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let page = PDFPage()
+        page.setBounds(bounds, for: .mediaBox)
+        let doc = PDFDocument()
+        doc.insert(page, at: 0)
+        return try XCTUnwrap(doc.dataRepresentation())
+    }
+
+    func testSelfCheckPassesForARealSignedDocument() throws {
+        let original = try onePagePDFData()
+        let field = SignatureFieldSpec(pageIndex: 0, rect: CGRect(x: 40, y: 60, width: 180, height: 50), signerName: "Signer")
+        let signed = try PDFIncrementalSigner().sign(pdf: original, field: field, appearance: nil) { _ in
+            Data([0x30, 0x03, 0x02, 0x01, 0x00])
+        }
+
+        let result = SignatureSelfCheck.verify(signedPDF: signed)
+        XCTAssertTrue(result.coversWholeDocument,
+                     "a genuine incremental-update signature must cover the whole exported file")
+        let byteRange = try XCTUnwrap(result.byteRange)
+        XCTAssertEqual(byteRange.count, 4)
+        XCTAssertEqual(byteRange[0], 0)
+        XCTAssertEqual(byteRange[2] + byteRange[3], signed.count)
+    }
+
+    func testSelfCheckFailsWhenTrailingBytesWereAppendedAfterSigning() throws {
+        // Simulates a corrupted/appended-to export: the /ByteRange still claims the
+        // ORIGINAL file length, but the file on disk is now longer — exactly the case a
+        // post-export self-check exists to catch.
+        let original = try onePagePDFData()
+        let field = SignatureFieldSpec(pageIndex: 0, rect: CGRect(x: 40, y: 60, width: 180, height: 50), signerName: "Signer")
+        var signed = try PDFIncrementalSigner().sign(pdf: original, field: field, appearance: nil) { _ in
+            Data([0x30, 0x03, 0x02, 0x01, 0x00])
+        }
+        signed.append(Data("not part of the signed range".utf8))
+
+        let result = SignatureSelfCheck.verify(signedPDF: signed)
+        XCTAssertFalse(result.coversWholeDocument,
+                       "appending bytes after the signed ByteRange must be detected, not silently accepted")
+    }
+
+    func testSelfCheckFailsGracefullyWithNoByteRange() {
+        let result = SignatureSelfCheck.verify(signedPDF: Data("%PDF-1.4\nnot a signed document".utf8))
+        XCTAssertFalse(result.coversWholeDocument)
+        XCTAssertNil(result.byteRange)
+    }
 }
 
 // MARK: - Module E: the export-survival bug (currently reproduces as data loss)

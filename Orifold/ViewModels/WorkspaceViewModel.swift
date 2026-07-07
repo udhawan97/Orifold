@@ -86,6 +86,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
     case stamp     = "seal"
 
     var id: String { rawValue }
+
     var label: String {
         switch self {
         case .none:      return L10n.string("annotationTool.none.label")
@@ -284,6 +285,8 @@ final class WorkspaceViewModel {
     var searchQuery = ""
     var searchResults: [PDFSelection] = []
     var searchResultIndex: Int = -1
+    var isReplaceRevealed = false
+    var replaceText = ""
     var pendingSignatureData: Data? = nil
     var pendingSignatureOptions: PendingSignaturePlacementOptions? = nil
     var pendingStampOptions: PendingStampPlacementOptions? = nil
@@ -350,6 +353,8 @@ final class WorkspaceViewModel {
         !isImporting && activeCompressionTask == nil && activeOCRTask == nil && !loadedPDFs.isEmpty
     }
 
+    var isSigningInProgress: Bool { activeSigningTask != nil }
+
     /// True once there's genuinely nothing to export or save — zero documents,
     /// zero pages, and no active selection. Export/save flows should treat this
     /// as a no-op rather than routing into the PDF assembly pipeline, which
@@ -370,6 +375,9 @@ final class WorkspaceViewModel {
     @ObservationIgnored private var activeCompressionTask: Task<Void, Never>?
     @ObservationIgnored private var activeCompressionCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeCompressionID: UUID?
+    @ObservationIgnored private var activeSigningTask: Task<Void, Never>?
+    @ObservationIgnored private var activeSigningCancellation: OperationCancellationToken?
+    @ObservationIgnored private var activeSigningID: UUID?
     @ObservationIgnored private var activeImportTask: Task<Void, Never>?
     @ObservationIgnored private var activeImportCancellation: OperationCancellationToken?
     @ObservationIgnored private var pendingPasswordImports: [PendingPasswordImport] = []
@@ -766,6 +774,8 @@ final class WorkspaceViewModel {
         activeCompressionTask?.cancel()
         activeOCRCancellation?.cancel()
         activeOCRTask?.cancel()
+        activeSigningCancellation?.cancel()
+        activeSigningTask?.cancel()
     }
 
     private func importProgressDetail(currentIndex: Int, totalCount: Int, fileName: String? = nil) -> String {
@@ -1765,6 +1775,10 @@ final class WorkspaceViewModel {
             editingStatus = .warning("Finish making this document searchable before making more changes.")
             return false
         }
+        guard activeSigningTask == nil else {
+            editingStatus = .warning(L10n.string("status.sign.finishBeforeMoreChanges"))
+            return false
+        }
         return true
     }
 
@@ -2251,6 +2265,14 @@ final class WorkspaceViewModel {
     func pageRefsForCurrentSelection(including ref: PageRef) -> [PageRef] {
         let selectedIDs = selectedPageRefIDs.isEmpty ? [ref.id] : selectedPageRefIDs.union([ref.id])
         return document.workspace.pageOrder.filter { selectedIDs.contains($0.id) }
+    }
+
+    /// Page refs for the sidebar's current selection, used by toolbar-level page actions
+    /// (the overflow menu) that don't have a specific right-clicked thumbnail to anchor to.
+    var currentSelectionPageRefs: [PageRef] {
+        guard let id = selectedPageRefID,
+              let ref = document.workspace.pageOrder.first(where: { $0.id == id }) else { return [] }
+        return pageRefsForCurrentSelection(including: ref)
     }
 
     func combinedPageIndex(for ref: PageRef) -> Int? {
@@ -3477,7 +3499,7 @@ final class WorkspaceViewModel {
     }
 
     @MainActor
-    func signAndExportCryptographicPDF(timestampRequested: Bool) {
+    func signAndExportCryptographicPDF(timestampRequested: Bool, preferredTSA: TimestampAuthorityOption = .freeTSA) {
         guard canPerformSigningAction() else { return }
         guard let placement = document.workspace.signatures.last(where: { $0.isCryptographic }) else {
             showEditMessage(L10n.string("status.sign.placeCertificateFirst"), isError: true)
@@ -3553,38 +3575,118 @@ final class WorkspaceViewModel {
             return
         }
 
-        do {
-            var timestampWasApplied = false
-            var timestampFallbackMessage: String?
-            let signedData = try PDFIncrementalSigner().sign(pdf: pdfData, field: field, appearance: appearance) { byteRangeBytes in
-                if timestampRequested {
-                    return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity) { signatureValue in
-                        do {
-                            let token = try Self.fetchTimestampSynchronously(for: signatureValue).cmsTimeStampToken
-                            timestampWasApplied = true
-                            return token
-                        } catch {
-                            timestampFallbackMessage = L10n.string("status.sign.timestampUnavailable")
-                            return nil
+        operationProgress.start(
+            title: L10n.string("signProgress.title"),
+            detail: L10n.string("signProgress.signing"),
+            isCancellable: true
+        )
+        let cancellation = OperationCancellationToken()
+        let operationID = UUID()
+        activeSigningCancellation = cancellation
+        activeSigningID = operationID
+
+        // The heavy work below (byte-range math, CMS build, optional TSA round-trip, file
+        // write, verify) is unchanged from before — it's the SAME already pdfsig-verified
+        // call chain, just moved off the main thread so the UI can show progress and the
+        // window doesn't freeze while, e.g., a slow timestamp authority responds.
+        //
+        // `Task.detached` (not plain `Task { }`) — an unstructured `Task { }` created inside
+        // an `@MainActor` function inherits MainActor isolation, which would run this whole
+        // synchronous sign/CMS/hash pipeline right back on the main thread and defeat the
+        // entire point of moving it off of it. `.detached` runs on the global concurrent
+        // executor unconditionally.
+        activeSigningTask = Task.detached { [weak self, pdfData, field, appearance, identity, timestampRequested, preferredTSA, targetURL, placementID = placement.id, cancellation, operationID] in
+            guard let self else { return }
+            do {
+                if cancellation.isCancelled || Task.isCancelled { throw SigningError.cancelled }
+
+                // A reference-type box, not two loose captured `var`s — mutated from within
+                // the CMS builder's synchronous nested closures (called sequentially, never
+                // truly concurrently, but the compiler can't prove that across a closure
+                // typed to cross a Sendable boundary), matching the same idiom already used
+                // by `fetchTimestampSynchronously`'s `TimestampBox` just below.
+                final class SigningOutcomeBox: @unchecked Sendable {
+                    var timestampWasApplied = false
+                    var timestampFallbackMessage: String?
+                }
+                let outcome = SigningOutcomeBox()
+                let signedData = try PDFIncrementalSigner().sign(pdf: pdfData, field: field, appearance: appearance) { byteRangeBytes in
+                    if timestampRequested {
+                        Task { @MainActor in
+                            self.operationProgress.update(fraction: 0.5, detail: L10n.string("signProgress.timestamping"))
+                        }
+                        return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity) { signatureValue in
+                            do {
+                                let token = try Self.fetchTimestampSynchronously(for: signatureValue, preferring: preferredTSA).cmsTimeStampToken
+                                outcome.timestampWasApplied = true
+                                return token
+                            } catch SigningError.cancelled {
+                                // Must propagate, not fall back — otherwise cancelling
+                                // during a hung TSA request would silently continue signing
+                                // (just without a timestamp) instead of actually stopping.
+                                throw SigningError.cancelled
+                            } catch {
+                                outcome.timestampFallbackMessage = L10n.string("status.sign.timestampUnavailable")
+                                return nil
+                            }
                         }
                     }
+                    return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity, timestamp: nil)
                 }
-                return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity, timestamp: nil)
+
+                if cancellation.isCancelled || Task.isCancelled { throw SigningError.cancelled }
+                await MainActor.run {
+                    self.operationProgress.update(fraction: 0.85, detail: L10n.string("signProgress.writing"))
+                }
+                try self.writeExportData(signedData, to: targetURL)
+
+                await MainActor.run {
+                    self.operationProgress.update(fraction: 0.95, detail: L10n.string("signProgress.verifying"))
+                }
+                try self.verifyExportedFile(at: targetURL)
+                // A local, best-effort self-check (not a substitute for opening the file in
+                // a real PDF reader) confirming the /ByteRange we just wrote covers the
+                // entire exported file, so "signed successfully" isn't just "a file exists."
+                let selfCheck = SignatureSelfCheck.verify(signedPDF: signedData)
+                let selfCheckNote = selfCheck.coversWholeDocument
+                    ? L10n.string("signSelfCheck.wholeDocumentVerified")
+                    : L10n.string("signSelfCheck.coverageWarning")
+
+                await MainActor.run {
+                    guard self.activeSigningID == operationID else { return }
+                    self.operationProgress.finish()
+                    self.activeSigningTask = nil
+                    self.activeSigningCancellation = nil
+                    self.activeSigningID = nil
+                    if let index = self.document.workspace.signatures.firstIndex(where: { $0.id == placementID }) {
+                        self.document.workspace.signatures[index].timestampApplied = outcome.timestampWasApplied
+                    }
+                    let note = [outcome.timestampFallbackMessage, selfCheckNote].compactMap { $0 }.joined(separator: " ")
+                    self.finalizeSuccessfulExport(url: targetURL, format: .pdf, note: note)
+                }
+            } catch {
+                await MainActor.run {
+                    guard self.activeSigningID == operationID else { return }
+                    self.operationProgress.finish()
+                    self.activeSigningTask = nil
+                    self.activeSigningCancellation = nil
+                    self.activeSigningID = nil
+                    switch error {
+                    case let writeError as ExportWriteError:
+                        self.exportError = ExportError(message: writeError.userMessage)
+                    case SigningError.cancelled:
+                        self.editingStatus = .warning(L10n.string("status.sign.cancelled"))
+                    case SigningError.notImplemented:
+                        self.exportError = ExportError(message: L10n.string("error.export.signingNotAvailable"))
+                    case SigningError.missingIdentity:
+                        self.exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
+                    case SigningError.unsupportedPDFStructure:
+                        self.exportError = ExportError(message: L10n.string("error.export.unsupportedPDFStructure"))
+                    default:
+                        self.exportError = ExportError(message: String(localized: "Orifold could not sign the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
+                    }
+                }
             }
-            try writeExportData(signedData, to: targetURL)
-            try verifyExportedFile(at: targetURL)
-            if let index = document.workspace.signatures.firstIndex(where: { $0.id == placement.id }) {
-                document.workspace.signatures[index].timestampApplied = timestampWasApplied
-            }
-            finalizeSuccessfulExport(url: targetURL, format: .pdf, note: timestampFallbackMessage)
-        } catch let writeError as ExportWriteError {
-            exportError = ExportError(message: writeError.userMessage)
-        } catch SigningError.notImplemented {
-            exportError = ExportError(message: L10n.string("error.export.signingNotAvailable"))
-        } catch SigningError.missingIdentity {
-            exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
-        } catch {
-            exportError = ExportError(message: String(localized: "Orifold could not sign the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
         }
     }
 
@@ -3592,23 +3694,42 @@ final class WorkspaceViewModel {
         document.workspace.pageOrder.firstIndex { $0.id == placement.pageRefId }
     }
 
-    private static func fetchTimestampSynchronously(for signatureValue: Data) throws -> TimeStampToken {
+    private static func fetchTimestampSynchronously(
+        for signatureValue: Data,
+        preferring preferredTSA: TimestampAuthorityOption = .freeTSA
+    ) throws -> TimeStampToken {
         let semaphore = DispatchSemaphore(value: 0)
         final class TimestampBox {
             var result: Result<TimeStampToken, Error>?
         }
         let box = TimestampBox()
 
-        Task.detached {
+        let fetchTask = Task.detached {
             do {
-                box.result = .success(try await TimestampClient().fetchTimestamp(for: signatureValue))
+                box.result = .success(
+                    try await TimestampAuthorityFallbackChain.fetchTimestamp(for: signatureValue, preferring: preferredTSA)
+                )
             } catch {
                 box.result = .failure(error)
             }
             semaphore.signal()
         }
 
-        semaphore.wait()
+        // Poll instead of an unconditional `semaphore.wait()` — the enclosing signing
+        // operation may be cancelled while up to 4 TSA endpoints are being tried in
+        // sequence (each with its own network timeout), and an unconditional wait would
+        // make the "Cancel" button in the progress UI do nothing until that whole chain
+        // finally times out on its own. `Task.isCancelled` here reflects the OUTER
+        // `Task.detached` this function is called from (task-local cancellation state is
+        // visible across synchronous call frames within the same executing task), so
+        // cancelling the signing task actually interrupts a hung timestamp request.
+        while semaphore.wait(timeout: .now() + 0.2) == .timedOut {
+            if Task.isCancelled {
+                fetchTask.cancel()
+                throw SigningError.cancelled
+            }
+        }
+
         switch box.result {
         case .success(let token):
             return token
@@ -3779,6 +3900,68 @@ final class WorkspaceViewModel {
     private func jumpToSearchResult(_ index: Int) {
         guard index >= 0, index < searchResults.count else { return }
         NotificationCenter.default.post(name: .orifoldJumpToSelection, object: searchResults[index])
+    }
+
+    // MARK: - Find & Replace
+
+    /// Comments whose body contains the current search query — the only content Find &
+    /// Replace can safely rewrite. PDF page text (`searchResults`) stays find-only: rewriting
+    /// PDF content streams needs the full text-edit engine behind the "Edit Text" tool, which
+    /// operates on a single interactively-clicked block at a time. Reusing it blind for a
+    /// batch Replace All risks silently mangling layout, so that stays out of scope here —
+    /// only content Orifold fully owns (comment text) is safe to rewrite in bulk.
+    var replaceableCommentMatches: [WorkspaceComment] {
+        guard !searchQuery.isEmpty else { return [] }
+        return document.workspace.comments.filter {
+            $0.body.range(of: searchQuery, options: .caseInsensitive) != nil
+        }
+    }
+
+    /// Replaces every occurrence of `searchQuery` in a single comment's body with
+    /// `replaceText`, advancing past each replacement's own text so a replacement that
+    /// itself contains the search query (e.g. "cat" → "cats") can't loop or re-match.
+    private func replacingAllOccurrences(of query: String, with replacement: String, in text: String) -> String {
+        guard !query.isEmpty else { return text }
+        var result = ""
+        var searchRange = text.startIndex..<text.endIndex
+        while let range = text.range(of: query, options: .caseInsensitive, range: searchRange) {
+            result += text[searchRange.lowerBound..<range.lowerBound]
+            result += replacement
+            searchRange = range.upperBound..<text.endIndex
+        }
+        result += text[searchRange]
+        return result
+    }
+
+    /// Replaces every match of `searchQuery` in `comment`'s body with `replaceText` and
+    /// commits it through the existing comment-edit path, so undo naming and the
+    /// modified-document flag behave exactly like a manual comment edit.
+    func replaceMatches(in comment: WorkspaceComment) {
+        guard !searchQuery.isEmpty else { return }
+        let updated = replacingAllOccurrences(of: searchQuery, with: replaceText, in: comment.body)
+        guard updated != comment.body else { return }
+        updateCommentBody(comment, body: updated)
+    }
+
+    /// Replaces every match across every editable comment in one atomic undo step.
+    /// Returns the number of comments actually changed, for the confirmation/result UI.
+    @discardableResult
+    func replaceAllCommentMatches() -> Int {
+        let matches = replaceableCommentMatches
+        guard !matches.isEmpty, !searchQuery.isEmpty else { return 0 }
+        var changedCount = 0
+        registerIsolatedUndo {
+            for comment in matches {
+                let updated = replacingAllOccurrences(of: searchQuery, with: replaceText, in: comment.body)
+                guard updated != comment.body else { continue }
+                updateCommentBody(comment, body: updated)
+                changedCount += 1
+            }
+            if changedCount > 0 {
+                undoManager?.setActionName(L10n.string("undo.replaceText"))
+            }
+        }
+        return changedCount
     }
 
     // MARK: - Zoom

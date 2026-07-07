@@ -179,9 +179,12 @@ struct ContentView: View {
     @State private var isShowingExportSheet = false
     @State private var isWorkspaceDropTargeted = false
     @State private var isNavigationDropTargeted = false
+    @State private var isConfirmingOverflowDelete = false
     @State private var isShowingDocumentComfortPopover = false
     @State private var isShowingShortcutsCheatSheet = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @AppStorage("orifoldAppAppearanceMode") private var persistedAppAppearanceMode = AppAppearanceMode.system.rawValue
     @AppStorage("orifoldDocumentComfortSettings") private var persistedDocumentComfortSettingsData = Data()
     @Environment(\.undoManager) private var undoManager
@@ -395,25 +398,23 @@ struct ContentView: View {
     private var mainToolbar: some ToolbarContent {
         // Leading: add source files
         ToolbarItem(placement: .navigation) {
-            Button { openFiles() } label: {
-                Label("toolbar.addFiles.label", systemImage: "plus.circle")
+            ToolbarIconButton(labelKey: "toolbar.addFiles.label", systemImage: "plus.circle", helpKey: "toolbar.addFiles.help") {
+                openFiles()
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("toolbar.addFiles.help")
             .keyboardShortcut("o", modifiers: [.command, .shift])
         }
 
         // Header navigation: keep document structure near the title.
         ToolbarItem(placement: .navigation) {
-            Button { showTOC.toggle() } label: {
-                Label("toolbar.contents.label", systemImage: "list.bullet.rectangle.portrait")
+            ToolbarIconButton(labelKey: "toolbar.contents.label", systemImage: "list.bullet.rectangle.portrait", helpKey: "toolbar.contents.help") {
+                showTOC.toggle()
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("toolbar.contents.help")
             .keyboardShortcut("1", modifiers: [.command, .option])
         }
 
@@ -425,30 +426,55 @@ struct ContentView: View {
                 }
         }
 
-        // Trailing: search, document actions, view controls, help
+        // Trailing: undo/redo, search, document actions, view controls, overflow.
+        // The leading padding on Undo gives the group deliberate breathing room from
+        // the center capsule instead of the two clusters crowding each other; every
+        // icon in this group renders through ToolbarIconButton/ToolbarMenuIconLabelStyle
+        // so it matches the capsule's scale, weight, and hit area exactly.
         ToolbarItemGroup(placement: .primaryAction) {
-            Button {
+            ToolbarIconButton(labelKey: "toolbar.undo.label", systemImage: "arrow.uturn.backward", helpKey: "toolbar.undo.help") {
+                viewModel.performUndoCommand()
+            }
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
+            .disabled(undoManager?.canUndo != true)
+            .padding(.leading, 8)
+
+            ToolbarIconButton(labelKey: "toolbar.redo.label", systemImage: "arrow.uturn.forward", helpKey: "toolbar.redo.help") {
+                viewModel.performRedoCommand()
+            }
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
+            .disabled(undoManager?.canRedo != true)
+
+            Divider()
+                .padding(.horizontal, 2)
+
+            ToolbarIconButton(
+                labelKey: "toolbar.readerMode.label",
+                systemImage: viewModel.isReaderMode ? "book.fill" : "book",
+                helpKey: viewModel.isReaderMode ? "toolbar.readerMode.exit.help" : "toolbar.readerMode.enter.help",
+                isActive: viewModel.isReaderMode
+            ) {
                 viewModel.isReaderMode.toggle()
                 if viewModel.isReaderMode {
                     inspectorTab = .comments
                     showInspector = true
                 }
-            } label: {
-                Label("toolbar.readerMode.label", systemImage: viewModel.isReaderMode ? "book.fill" : "book")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help(viewModel.isReaderMode ? "toolbar.readerMode.exit.help" : "toolbar.readerMode.enter.help")
             .keyboardShortcut("r", modifiers: [.command, .shift])
 
-            Button { viewModel.isShowingSearch.toggle() } label: {
-                Label("toolbar.search.label", systemImage: "magnifyingglass")
+            ToolbarIconButton(labelKey: "toolbar.search.label", systemImage: "magnifyingglass", helpKey: "toolbar.search.help") {
+                viewModel.isShowingSearch.toggle()
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("toolbar.search.help")
             .keyboardShortcut("f", modifiers: .command)
 
             Menu {
@@ -461,6 +487,7 @@ struct ContentView: View {
                 }
             } label: {
                 Label("toolbar.export.label", systemImage: "square.and.arrow.up")
+                    .labelStyle(ToolbarMenuIconLabelStyle())
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
@@ -468,25 +495,30 @@ struct ContentView: View {
             .help("toolbar.export.help")
             .keyboardShortcut("e", modifiers: .command)
 
-            Button { showInspector.toggle() } label: {
-                Label("toolbar.inspector.label", systemImage: "sidebar.right")
+            ToolbarIconButton(
+                labelKey: "toolbar.inspector.label",
+                systemImage: "sidebar.right",
+                helpKey: "toolbar.inspector.help",
+                isActive: showInspector
+            ) {
+                showInspector.toggle()
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("toolbar.inspector.help")
             .keyboardShortcut("i", modifiers: [.command, .option])
 
-            Button {
+            ToolbarIconButton(
+                labelKey: "toolbar.documentComfort.label",
+                systemImage: "eyeglasses",
+                helpKey: "toolbar.documentComfort.help",
+                isActive: !viewModel.documentComfortSettings.isAtDefault
+            ) {
                 isShowingDocumentComfortPopover.toggle()
-            } label: {
-                Label("toolbar.documentComfort.label", systemImage: "eyeglasses")
             }
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .foregroundStyle(viewModel.documentComfortSettings.isAtDefault ? Color.dsTextPrimary : Color.dsAccent)
-            .help("toolbar.documentComfort.help")
             .accessibilityLabel(Text("toolbar.documentComfort.accessibilityLabel"))
             .popover(isPresented: $isShowingDocumentComfortPopover, arrowEdge: .top) {
                 DocumentComfortPopover(viewModel: viewModel)
@@ -495,12 +527,70 @@ struct ContentView: View {
                     .environment(\.locale, languageManager.effectiveLocale)
             }
 
+            Menu {
+                Menu("more.pages.submenu") {
+                    let selection = viewModel.currentSelectionPageRefs
+                    if selection.isEmpty {
+                        Text("more.pages.noSelection")
+                    } else {
+                        Button("more.pages.rotateLeft") {
+                            viewModel.rotatePages(selection, by: -90)
+                        }
+                        Button("more.pages.rotateRight") {
+                            viewModel.rotatePages(selection, by: 90)
+                        }
+                        Button("more.pages.duplicate") {
+                            viewModel.duplicatePages(selection)
+                        }
+                        Divider()
+                        Button("more.pages.delete", role: .destructive) {
+                            isConfirmingOverflowDelete = true
+                        }
+                    }
+                }
+                Divider()
+                Button("more.print") {
+                    NotificationCenter.default.post(name: .orifoldPrint, object: nil)
+                }
+                Divider()
+                Button("more.settings") { openSettings() }
+                Button("more.about") { openWindow(id: "about-orifold") }
+            } label: {
+                Label("toolbar.more.label", systemImage: "ellipsis.circle")
+                    .labelStyle(ToolbarMenuIconLabelStyle())
+            }
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
+            .help("toolbar.more.help")
+            .confirmationDialog(
+                "sidebar.deletePages.confirmation.title",
+                isPresented: $isConfirmingOverflowDelete,
+                titleVisibility: .visible
+            ) {
+                Button("sidebar.deletePages.confirmation.delete", role: .destructive) {
+                    viewModel.deletePages(viewModel.currentSelectionPageRefs)
+                }
+                Button("sidebar.deletePages.confirmation.cancel", role: .cancel) {}
+            } message: {
+                let count = viewModel.currentSelectionPageRefs.count
+                if count == 1 {
+                    Text("sidebar.deletePages.confirmation.messageSingular")
+                } else {
+                    Text(L10n.format("sidebar.removePages.confirmation.plural", count))
+                }
+            }
+
             ShortcutsCheatSheetButton(isPresented: $isShowingShortcutsCheatSheet, autoShow: true)
                 .acceptsImportDrops { providers in
                     handleDrop(providers: providers)
                 }
 
             GuideButton(autoShow: true)
+                .buttonStyle(.plain)
+                .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
+                .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
+                .contentShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
                 .acceptsImportDrops { providers in
                     handleDrop(providers: providers)
                 }
@@ -1556,7 +1646,18 @@ private struct AnnotationToolPicker: View {
     }
 
     var body: some View {
-        HStack(spacing: 2) {
+        // At full width the capsule shows every tool; when the window can't fit it,
+        // ViewThatFits falls back to a single menu button rather than letting the whole
+        // tool picker silently disappear (the previous behavior when a lone .principal
+        // toolbar item didn't fit: it just vanished with no way to reach any tool).
+        ViewThatFits(in: .horizontal) {
+            capsule
+            compactToolMenu
+        }
+    }
+
+    private var capsule: some View {
+        HStack(spacing: 4) {
             ForEach(visibleToolGroups.indices, id: \.self) { groupIndex in
                 if groupIndex > 0 {
                     groupDivider
@@ -1572,14 +1673,15 @@ private struct AnnotationToolPicker: View {
                     .transition(shouldReduceMotion ? .identity : .scale(scale: 0.85).combined(with: .opacity))
             }
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(
             Capsule()
                 .strokeBorder(Color.dsSeparator, lineWidth: 1)
         )
         .shadow(color: Color.dsTextPrimary.opacity(0.10), radius: 8, x: 0, y: 2)
+        .fixedSize()
         .animation(shouldReduceMotion ? nil : .spring(response: 0.31, dampingFraction: 0.79), value: viewModel.currentTool)
         .overlayPreferenceValue(ToolBoundsKey.self) { anchors in
             GeometryReader { proxy in
@@ -1617,11 +1719,37 @@ private struct AnnotationToolPicker: View {
         }
     }
 
+    /// Narrow-width fallback: every tool stays reachable through one menu button whose own
+    /// icon always shows the currently active tool, so "the active mode is always obvious"
+    /// holds even when there's no room for the full capsule.
+    private var compactToolMenu: some View {
+        Menu {
+            ForEach(visibleToolGroups.indices, id: \.self) { groupIndex in
+                ForEach(visibleToolGroups[groupIndex]) { tool in
+                    Button {
+                        select(tool)
+                    } label: {
+                        Label(tool.label, systemImage: tool.iconName)
+                    }
+                }
+                if groupIndex < visibleToolGroups.count - 1 {
+                    Divider()
+                }
+            }
+        } label: {
+            Label(viewModel.currentTool.label, systemImage: viewModel.currentTool.iconName)
+                .labelStyle(.iconOnly)
+                .font(.system(size: 14, weight: .semibold))
+        }
+        .frame(width: 28, height: 28)
+        .help(viewModel.currentTool.label)
+    }
+
     private var groupDivider: some View {
         Rectangle()
             .fill(Color.dsSeparator)
             .frame(width: 1, height: 16)
-            .padding(.horizontal, 5)
+            .padding(.horizontal, 6)
     }
 
     @ViewBuilder
@@ -1770,6 +1898,72 @@ private struct ToolButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovered)
+    }
+}
+
+/// Standard icon size/weight/hit-area shared by every plain toolbar icon button —
+/// the leading, trailing, and center-capsule tool icons all render at this scale so
+/// the nav bar reads as one design system instead of native-toolbar-default icons
+/// (bigger, inconsistently spaced) mixed with the custom capsule's smaller glyphs.
+private enum ToolbarIconMetrics {
+    static let symbolSize: CGFloat = 14
+    static let symbolWeight: Font.Weight = .semibold
+    static let hitSize: CGFloat = 28
+    static let cornerRadius: CGFloat = 7
+}
+
+/// A toolbar action button styled identically to the center annotation-tool capsule's
+/// buttons: same hit area, icon scale, hover fill, press scale, and — when `isActive`
+/// is set for a persistent-mode toggle (reader mode, inspector, night mode) — the same
+/// filled-pill "selected" treatment used for the active annotation tool, rather than a
+/// `.tint()` approximation.
+private struct ToolbarIconButton: View {
+    var labelKey: LocalizedStringKey
+    var systemImage: String
+    var helpKey: LocalizedStringKey
+    var isActive: Bool = false
+    var action: () -> Void
+
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                if isActive {
+                    RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous)
+                        .fill(Color.dsAccent)
+                }
+                Label(labelKey, systemImage: systemImage)
+                    .labelStyle(.iconOnly)
+                    .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(isActive ? Color.dsSurface : Color.dsTextSecondary)
+            }
+            .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
+            .contentShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
+        }
+        .buttonStyle(ToolButtonStyle(isHovered: isHovered, isSelected: isActive, reduceMotion: shouldReduceMotion))
+        .opacity(isEnabled ? 1 : 0.35)
+        .onHover { isHovered = $0 }
+        .help(helpKey)
+    }
+}
+
+/// Icon-only label style for `Menu`-based toolbar buttons (Export, More) so their
+/// glyph matches `ToolbarIconButton`'s scale — the disclosure chevron is left to the
+/// system, since that's the expected affordance for "this opens a menu".
+private struct ToolbarMenuIconLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.icon
+            .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
+            .symbolRenderingMode(.monochrome)
+            .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
     }
 }
 

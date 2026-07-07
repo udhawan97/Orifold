@@ -52,6 +52,7 @@
 		6F5541B26B2DB975C39AB31B /* PDFTextEditingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25C80ECC46A5DFBE04BEC503 /* PDFTextEditingModels.swift */; };
 		7344BC0C4A0D7F78202BD928 /* DocumentComfortSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 028C0B2009643AE40F91C654 /* DocumentComfortSettings.swift */; };
 		7599C2E975D393EA20D2FA69 /* PDFSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9224708EB7D2E14889CE70DD /* PDFSmokeTests.swift */; };
+		7CD5EBE525B76390B0B5F46E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67111D76700765A6BF5F41B /* SettingsView.swift */; };
 		7D15A5DADAC698BED688D415 /* PDFSerializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF484D9AFAB5E2501794A81D /* PDFSerializer.swift */; };
 		7D6801E3556E6E8527CD0CEF /* FolderImportOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9C91D6D2AFE88185E49589 /* FolderImportOrchestratorTests.swift */; };
 		8164A5219C9A5E3017CD5FBF /* PasswordPromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12772EF49E3A2300AD720F50 /* PasswordPromptView.swift */; };
@@ -217,6 +218,7 @@
 		E3B051321CC974DE14719728 /* QPDFServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QPDFServiceTests.swift; sourceTree = "<group>"; };
 		E857EC112A731E150BE0DAE9 /* PetBuddy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetBuddy.swift; sourceTree = "<group>"; };
 		EDDD646A0A8A5E95AD82CDBE /* CMSSignatureBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CMSSignatureBuilderTests.swift; sourceTree = "<group>"; };
+		F67111D76700765A6BF5F41B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F9FC86F73FD6BED822903F81 /* SecurityScopedAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityScopedAccess.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -367,6 +369,7 @@
 				C846DAA7BCB4A5EB1BB0FC40 /* ReadingCanvas.swift */,
 				5AAAA68888643ADCB4FA96CD /* RecentFilesSection.swift */,
 				CE19646B7355EF84BB6495A8 /* SearchView.swift */,
+				F67111D76700765A6BF5F41B /* SettingsView.swift */,
 				0F9E00DDE55F7DBE48F02468 /* ShortcutsCheatSheet.swift */,
 				6DDB67FD16EC13CE58E4E669 /* SidebarView.swift */,
 				519E6740BB5DA39B1A04A069 /* SignatureDrawingCanvas.swift */,
@@ -698,6 +701,7 @@
 				CE20252F5493120637310D60 /* SearchView.swift in Sources */,
 				5AC8403C4B11EB7EC8227B7F /* SecurityScopedAccess.swift in Sources */,
 				63A494D722D8D19B605A593F /* SelfSignedSigningIdentityProvider.swift in Sources */,
+				7CD5EBE525B76390B0B5F46E /* SettingsView.swift in Sources */,
 				F409D4CA53574DA50939A0A2 /* ShortcutRegistry.swift in Sources */,
 				0D45898DDF30F158C98B2693 /* ShortcutsCheatSheet.swift in Sources */,
 				1AF37B8DE1DEAA1A0E738B8C /* SidebarView.swift in Sources */,
