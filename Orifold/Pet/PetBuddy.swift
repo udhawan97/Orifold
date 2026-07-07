@@ -371,7 +371,10 @@ enum PetBuddyHook {
     var lastFeedbackAt: Date?
     var lastInspirationAt: Date?
     @ObservationIgnored var dismissWorkItem: DispatchWorkItem?
-    @ObservationIgnored private var seenEvents: Set<String> = []
+    // Internal (not private) so tests can reset it directly — `PetBuddy.shared`
+    // is a per-process singleton, and once an event has been marked seen there is
+    // no way to simulate "first use" again without direct access.
+    @ObservationIgnored var seenEvents: Set<String> = []
     @ObservationIgnored private var pendingDeferredEvent: PetEvent?
     @ObservationIgnored private var pendingDeferredExpiry: Date?
 
@@ -411,7 +414,11 @@ enum PetBuddyHook {
 
         guard tipsEnabled else { return }
 
-        if let lastShownAt, now.timeIntervalSince(lastShownAt) < minInterval, event != .warning {
+        // A first-use tip is a one-shot educational moment — `markSeen` above has
+        // already spent it, so letting the throttle eat it here would lose it
+        // forever instead of just delaying it. Warnings are exempt for the same
+        // "don't silently drop something important" reason.
+        if let lastShownAt, now.timeIntervalSince(lastShownAt) < minInterval, event != .warning, !isFirstUse {
             return
         }
 

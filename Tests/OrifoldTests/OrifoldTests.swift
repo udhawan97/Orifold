@@ -8609,6 +8609,33 @@ final class PetBuddyTests: XCTestCase {
         XCTAssertNotNil(buddy.lastInspirationAt)
     }
 
+    @MainActor
+    func testFirstUseTipIsNotSwallowedByTheThrottle() {
+        // A first-use tip is a one-shot educational moment: `markSeen` spends it
+        // unconditionally, so if the 45s throttle also blocked it, the tip would
+        // be lost forever instead of merely delayed.
+        let buddy = PetBuddy.shared
+        let oldSeenEvents = buddy.seenEvents
+
+        defer {
+            buddy.hush()
+            buddy.lastShownAt = nil
+            buddy.recentLines = []
+            buddy.seenEvents = oldSeenEvents
+        }
+
+        buddy.enable()
+        buddy.hush()
+        buddy.seenEvents.remove("rotate")
+        buddy.lastShownAt = Date()  // simulate a bubble that just showed
+        buddy.recentLines = []
+
+        buddy.trigger(.rotate)
+
+        XCTAssertTrue(buddy.isBubbleVisible, "a feature's first-ever firing must not be eaten by the inter-message throttle")
+        XCTAssertNotNil(buddy.currentMessage)
+    }
+
     func testHoverTipDelayDiffersBySpecies() {
         // Ori notices before she speaks — her pause is longer than Gami's.
         XCTAssertLessThan(PetSpecies.dog.hoverTipDelay, PetSpecies.cat.hoverTipDelay)
