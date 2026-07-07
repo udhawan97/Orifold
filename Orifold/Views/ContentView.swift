@@ -506,7 +506,8 @@ struct ContentView: View {
                 labelKey: "toolbar.inspector.label",
                 systemImage: "sidebar.right",
                 helpKey: "toolbar.inspector.help",
-                isActive: showInspector
+                isActive: showInspector,
+                iconInset: 2
             ) {
                 showInspector.toggle()
             }
@@ -519,7 +520,8 @@ struct ContentView: View {
                 labelKey: "toolbar.documentComfort.label",
                 systemImage: "eyeglasses",
                 helpKey: "toolbar.documentComfort.help",
-                isActive: !viewModel.documentComfortSettings.isAtDefault
+                isActive: !viewModel.documentComfortSettings.isAtDefault,
+                iconInset: 2
             ) {
                 isShowingDocumentComfortPopover.toggle()
             }
@@ -1964,6 +1966,11 @@ private struct ToolbarIconButton: View {
     var systemImage: String
     var helpKey: LocalizedStringKey
     var isActive: Bool = false
+    /// Extra inset between the glyph and the hit-area edge, for symbols (e.g. wide
+    /// two-lobed shapes like "sidebar.right" or "eyeglasses") that otherwise draw
+    /// close enough to the frame edge that the active-state fill looks like it
+    /// bleeds past the glyph instead of framing it.
+    var iconInset: CGFloat = 0
     var action: () -> Void
 
     @State private var isHovered = false
@@ -1990,6 +1997,7 @@ private struct ToolbarIconButton: View {
                     .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
                     .symbolRenderingMode(.monochrome)
                     .foregroundStyle(isActive ? Color.dsSurface : Color.dsTextSecondary)
+                    .padding(iconInset)
             }
             .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
             .clipShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
