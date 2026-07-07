@@ -1,0 +1,65 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<title>Orifold - origami crane</title>
+<defs>
+<clipPath id="a-clip"><rect x="6" y="6" width="1012" height="1012" rx="226"/></clipPath>
+<linearGradient id="a-tile" x1="0" y1="1" x2="1" y2="0">
+<stop offset="0" stop-color="#22344e"/>
+<stop offset="0.5" stop-color="#3f6e8e"/>
+<stop offset="1" stop-color="#79c2d6"/>
+</linearGradient>
+<radialGradient id="a-sheen" cx="0.82" cy="0.14" r="0.7">
+<stop offset="0" stop-color="#e2f5fa" stop-opacity="0.28"/>
+<stop offset="1" stop-color="#e2f5fa" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="a-wing" x1="0" y1="0" x2="0.65" y2="1">
+<stop offset="0" stop-color="#fffdf9"/>
+<stop offset="1" stop-color="#f1ebdf"/>
+</linearGradient>
+<radialGradient id="a-occ" cx="0.5" cy="0.5" r="0.5">
+<stop offset="0" stop-color="#16283f" stop-opacity="0.26"/>
+<stop offset="1" stop-color="#16283f" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="a-shadow" cx="0.5" cy="0.5" r="0.5">
+<stop offset="0" stop-color="#122036" stop-opacity="0.32"/>
+<stop offset="1" stop-color="#122036" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="a-body" x1="0" y1="0" x2="0.8" y2="1">
+<stop offset="0" stop-color="#fbf6ec"/>
+<stop offset="1" stop-color="#ece5d7"/>
+</linearGradient>
+<linearGradient id="a-red" x1="0" y1="0" x2="0.4" y2="1">
+<stop offset="0" stop-color="#e63d38"/>
+<stop offset="1" stop-color="#9c1f22"/>
+</linearGradient>
+</defs>
+<g clip-path="url(#a-clip)">
+<rect x="6" y="6" width="1012" height="1012" fill="url(#a-tile)"/>
+<rect x="6" y="6" width="1012" height="1012" fill="url(#a-sheen)"/>
+<rect x="58" y="58" width="908" height="908" rx="180" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="4"/>
+<g transform="translate(14,-8)">
+<ellipse cx="480" cy="790" rx="270" ry="72" fill="url(#a-shadow)"/>
+<path d="M545,520 L672,148 L610,540 Z" fill="#a3b0c0"/>
+<path d="M610,540 L672,148 L700,585 Z" fill="#c6cfd9"/>
+<path d="M666,162 L613,528" stroke="#eef3f7" stroke-opacity="0.4" stroke-width="3" stroke-linecap="round" fill="none"/>
+<path d="M330,640 L182,806 L400,694 Z" fill="#e6e1d6"/>
+<path d="M400,694 L182,806 L470,748 Z" fill="#c3cbd6"/>
+<path d="M326,644 L196,790" stroke="#ffffff" stroke-opacity="0.3" stroke-width="3" stroke-linecap="round" fill="none"/>
+<path d="M330,640 L520,498 L700,585 Z" fill="url(#a-body)"/>
+<path d="M330,640 L700,585 L520,762 Z" fill="#d7dde5"/>
+<ellipse cx="545" cy="560" rx="120" ry="80" fill="url(#a-occ)"/>
+<path d="M430,600 L225,205 L512,551 Z" fill="#efe9dd"/>
+<path d="M512,551 L225,205 L585,520 Z" fill="url(#a-wing)"/>
+<path d="M233,216 L575,517" stroke="#ffffff" stroke-opacity="0.75" stroke-width="5" stroke-linecap="round" fill="none"/>
+<path d="M233,214 L508,547" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+<path d="M338,634 L520,502 L692,582" stroke="#ffffff" stroke-opacity="0.5" stroke-width="4" stroke-linecap="round" fill="none"/>
+<path d="M609,589 L779,322 L795,332 L635,605 Z" fill="#fbf5eb"/>
+<path d="M635,605 L795,332 L811,342 L661,621 Z" fill="#e5e0d5"/>
+<path d="M640,601 L792,336" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round" fill="none"/>
+<path d="M848,288 L922,312 L845,323 Z" fill="#e7e0d3"/>
+<path d="M763,312 L799,247 L809,366 Z" fill="#fdf8f0"/>
+<path d="M799,247 L865,297 L809,366 Z" fill="#d8dee6"/>
+<path d="M785,272 L799,247 L821,264 L803,281 Z" fill="url(#a-red)"/>
+<circle cx="823" cy="301" r="7" fill="#171a24" fill-opacity="0.85"/>
+</g>
+</g>
+</svg>

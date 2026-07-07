@@ -1,0 +1,13 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<title>Orifold - origami crane</title>
+<defs>
+<clipPath id="s-clip"><rect x="6" y="6" width="1012" height="1012" rx="226"/></clipPath>
+</defs>
+<g clip-path="url(#s-clip)">
+<rect x="6" y="6" width="1012" height="1012" fill="#2b4769"/>
+<circle cx="672" cy="330" r="252" fill="#e0413a"/>
+<path fill="#fcf8ef" d="M932 284 L840 310 L630 512 L540 668 L388 560 L196 282 L216 254 L420 452 L428 132 L498 328 L586 164 L632 448 L846 232 Z"/>
+<path fill="#fcf8ef" d="M632 516 L846 240 L872 296 L656 546 Z"/>
+<path fill="#ddd6c8" d="M630 512 L540 668 L400 556 Z"/>
+</g>
+</svg>
