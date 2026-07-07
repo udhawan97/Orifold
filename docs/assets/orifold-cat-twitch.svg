@@ -5,6 +5,7 @@
     <radialGradient id="catMoonG" cx="0.71" cy="0.30" r="0.20"><stop offset="0" stop-color="rgba(219,242,247,0.26)"/><stop offset="1" stop-color="rgba(179,230,242,0)"/></radialGradient>
     <radialGradient id="catTileGlow" cx="0.82" cy="0.2" r="0.75"><stop offset="0" stop-color="rgba(128,209,219,0.22)"/><stop offset="1" stop-color="rgba(128,209,219,0)"/></radialGradient>
     <radialGradient id="catContactG"><stop offset="0" stop-color="rgba(0,0,0,0.20)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient>
+    <radialGradient id="catIris" cx="0.4" cy="0.35" r="0.9"><stop offset="0" stop-color="#8fb4d4"/><stop offset="0.6" stop-color="#5d80a4"/><stop offset="1" stop-color="#3c5878"/></radialGradient>
     <filter id="catSoft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="1" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.22"/></filter>
 
     <!-- Siberian paper tones: a richer, warmer silver-blue base plus a deeper smoke
@@ -52,6 +53,7 @@
     <rect x="37" y="37" width="265" height="265" rx="37" fill="none" stroke="rgba(255,255,255,0.06)"/>
 
     <ellipse cx="170" cy="290" rx="70" ry="11" fill="url(#catContactG)"/>
+    <ellipse cx="170" cy="288" rx="44" ry="7" fill="rgba(0,0,0,0.15)"/>
 
     <g filter="url(#catSoft)">
       <!-- Tail — a long layered plume that wraps around the front of her seated
@@ -105,11 +107,12 @@
         <polygon points="183.6,104.0 204.7,78.2 199.2,119.7" fill="url(#catInnerEar)" opacity="0.9"/>
         <line x1="201" y1="116" x2="206.5" y2="70" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
         <polygon points="208.8,62.6 218.0,49.4 201.1,57.8" fill="url(#catCream)"/>
+        <!-- Lynx-tuft inner folds — a second facet at each tip so the tufts read plush. -->
+        <polygon points="129,59 124,52.5 133.5,56.5" fill="url(#catCreamShade)" opacity="0.85"/>
+        <polygon points="211,59 216,52.5 206.5,56.5" fill="url(#catCreamShade)" opacity="0.85"/>
+        <!-- Rim light on the far ear's outer edge. -->
+        <line x1="208.8" y1="62.6" x2="203.3" y2="126.5" stroke="rgba(255,255,255,0.40)" stroke-width="1"/>
       </g>
-
-      <!-- Occlusion — ear bases shadowing the crown. -->
-      <polygon points="142,118 160,104 152,124" fill="#000000" opacity="0.16"/>
-      <polygon points="198,118 180,104 188,124" fill="#000000" opacity="0.16"/>
 
       <!-- Head — a wide rounded diamond with cheek corners, split on a center keel,
            under a darker smoke mask leaving a cream blaze between the brows. -->
@@ -119,6 +122,10 @@
       <polygon points="170,97.9 216.9,138.7 194.0,120.0" fill="url(#catSmoke)" opacity="0.85"/>
       <polygon points="159.5,132.0 170,109.0 180.5,132.0 170,140.0" fill="url(#catCream)"/>
       <line x1="170" y1="97.9" x2="170" y2="186.3" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
+      <!-- Occlusion — ear bases shadowing the crown (painted over the mask so the
+           shadow actually lands on the head). -->
+      <polygon points="142,118 160,104 152,124" fill="#000000" opacity="0.16"/>
+      <polygon points="198,118 180,104 188,124" fill="#000000" opacity="0.16"/>
 
       <!-- Ruff — a layered cream collar framing the jaw and flowing into the chest:
            a shaded inner layer under the jaw, the bright outer quads, and serrated
@@ -134,22 +141,40 @@
       <line x1="112" y1="152" x2="122" y2="184" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
       <line x1="228" y1="152" x2="218" y2="184" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
 
-      <!-- Eyes — two dark almonds, outer corners tilted up for a calm, knowing gaze,
-           each lifted by a catchlight. -->
+      <!-- Eyes — slate-blue Siberian irises inside the dark almonds, vertical pupil
+           slivers, doubled catchlights, and lash creases: calm, knowing, unmistakably hers. -->
+      <line x1="136.5" y1="134.3" x2="160.5" y2="134.1" stroke="rgba(35,39,51,0.5)" stroke-width="1.4"/>
+      <line x1="179.5" y1="134.1" x2="203.5" y2="134.3" stroke="rgba(35,39,51,0.5)" stroke-width="1.4"/>
       <polygon points="138.0,135.5 159.1,135.3 157.1,146.9" fill="#232733"/>
       <polygon points="180.9,135.3 202.0,135.5 182.9,146.9" fill="#232733"/>
-      <polygon points="146.9,138.4 152.0,137.4 150.6,141.1" fill="#ffffff" opacity="0.9"/>
-      <polygon points="186.7,137.4 191.8,138.4 188.0,141.1" fill="#ffffff" opacity="0.9"/>
+      <polygon points="146,136.6 154.5,136.3 153.8,142.6 150.2,142.2" fill="url(#catIris)"/>
+      <polygon points="194,136.6 185.5,136.3 186.2,142.6 189.8,142.2" fill="url(#catIris)"/>
+      <polygon points="149.6,136.8 151.4,136.7 151.0,142.0 150.0,141.9" fill="#10141d"/>
+      <polygon points="190.4,136.7 188.6,136.8 189.0,141.9 190.0,142.0" fill="#10141d"/>
+      <polygon points="146.9,138.4 152.0,137.4 150.6,141.1" fill="#ffffff" opacity="0.92"/>
+      <polygon points="186.7,137.4 191.8,138.4 188.0,141.1" fill="#ffffff" opacity="0.92"/>
+      <polygon points="152.6,140.8 154.0,140.5 153.2,142.2" fill="#ffffff" opacity="0.45"/>
+      <polygon points="187.4,140.5 186.0,140.8 186.8,142.2" fill="#ffffff" opacity="0.45"/>
+      <!-- Brow creases on the smoke mask. -->
+      <line x1="140" y1="129" x2="156" y2="127" stroke="rgba(255,255,255,0.20)" stroke-width="1"/>
+      <line x1="184" y1="127" x2="200" y2="129" stroke="rgba(255,255,255,0.20)" stroke-width="1"/>
 
-      <!-- Whiskers — thin bright fold accents fanning off the muzzle. -->
+      <!-- Whiskers — three per cheek, varied length and weight, each with a faint
+           dark under-line so they lift off the paper. -->
+      <line x1="153.7" y1="161.7" x2="126.5" y2="156.9" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+      <line x1="186.3" y1="161.7" x2="213.5" y2="156.9" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
       <line x1="153.7" y1="160.5" x2="126.5" y2="155.7" stroke="rgba(255,255,255,0.38)" stroke-width="1"/>
+      <line x1="153.7" y1="163.9" x2="124.9" y2="163.2" stroke="rgba(255,255,255,0.28)" stroke-width="1"/>
       <line x1="153.7" y1="167.3" x2="127.8" y2="170.7" stroke="rgba(255,255,255,0.38)" stroke-width="1"/>
       <line x1="186.3" y1="160.5" x2="213.5" y2="155.7" stroke="rgba(255,255,255,0.38)" stroke-width="1"/>
+      <line x1="186.3" y1="163.9" x2="215.1" y2="163.2" stroke="rgba(255,255,255,0.28)" stroke-width="1"/>
       <line x1="186.3" y1="167.3" x2="212.2" y2="170.7" stroke="rgba(255,255,255,0.38)" stroke-width="1"/>
 
-      <!-- Muzzle + tiny pink nose, cream. -->
+      <!-- Muzzle + tiny pink nose, cream, with a moist highlight and a philtrum crease. -->
       <polygon points="157.8,156.4 182.2,156.4 170,174.1" fill="url(#catCream)"/>
       <polygon points="163.9,156.4 176.1,156.4 170,164.9" fill="url(#catInnerEar)"/>
+      <polygon points="166.5,157.2 170.5,157.2 168.2,159.6" fill="#ffffff" opacity="0.6"/>
+      <line x1="170" y1="161.5" x2="170" y2="164.4" stroke="rgba(120,40,60,0.4)" stroke-width="1"/>
 
       <!-- Specular sheen — the cool sky light of the tile catching the head's lit facet. -->
       <polygon points="176,106 206,134 180,150" fill="rgba(255,255,255,0.10)"/>

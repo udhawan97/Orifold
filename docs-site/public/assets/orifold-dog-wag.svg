@@ -5,6 +5,7 @@
     <radialGradient id="dogMoonG" cx="0.71" cy="0.30" r="0.20"><stop offset="0" stop-color="rgba(219,242,247,0.26)"/><stop offset="1" stop-color="rgba(179,230,242,0)"/></radialGradient>
     <radialGradient id="dogTileGlow" cx="0.82" cy="0.2" r="0.75"><stop offset="0" stop-color="rgba(128,209,219,0.22)"/><stop offset="1" stop-color="rgba(128,209,219,0)"/></radialGradient>
     <radialGradient id="dogContactG"><stop offset="0" stop-color="rgba(0,0,0,0.20)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient>
+    <radialGradient id="dogNoseG" cx="0.35" cy="0.3" r="0.9"><stop offset="0" stop-color="#5a4335"/><stop offset="1" stop-color="#17100c"/></radialGradient>
     <filter id="dogSoft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="1" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.22"/></filter>
 
     <!-- Bernedoodle paper tones: warm near-black ears/saddle/tail, cream blaze/chest/muzzle,
@@ -55,6 +56,7 @@
     <rect x="37" y="37" width="265" height="265" rx="37" fill="none" stroke="rgba(255,255,255,0.06)"/>
 
     <ellipse cx="150" cy="280" rx="78" ry="13" fill="url(#dogContactG)"/>
+    <ellipse cx="152" cy="278" rx="46" ry="8" fill="rgba(0,0,0,0.16)"/>
 
     <g filter="url(#dogSoft)">
       <!-- Far (near-camera) ear — a large floppy trapezoid draping behind the head. -->
@@ -110,9 +112,14 @@
       <line x1="163" y1="121" x2="159" y2="162" stroke="rgba(0,0,0,0.14)" stroke-width="1"/>
       <line x1="182" y1="133" x2="176" y2="177" stroke="rgba(0,0,0,0.14)" stroke-width="1"/>
 
-      <!-- Eye, set on the blaze -->
-      <polygon points="176,140 194,146 177,158" fill="#2e241d"/>
-      <polygon points="179,142 185,144 180,148" fill="#ffffff" opacity="0.85"/>
+      <!-- Eye — a warm iris glint inside the dark almond, a doubled catchlight, and
+           lid/brow creases so the gaze reads soft, not beady. -->
+      <line x1="174.5" y1="138.6" x2="195.5" y2="145.6" stroke="rgba(0,0,0,0.35)" stroke-width="1.4"/>
+      <polygon points="176,140 194,146 177,158" fill="#241c16"/>
+      <polygon points="180,144.5 189,147.5 181,153" fill="#6b4a33" opacity="0.85"/>
+      <polygon points="178.5,141.5 186,143.8 179.8,149" fill="#ffffff" opacity="0.9"/>
+      <polygon points="183,151 185.4,151.8 183.6,153.8" fill="#ffffff" opacity="0.45"/>
+      <line x1="173" y1="134" x2="190" y2="139" stroke="rgba(255,240,220,0.14)" stroke-width="1"/>
 
       <!-- Muzzle — short and rounded, cream -->
       <polygon points="196,128 240,158 198,158" fill="url(#dogCreamLit)"/>
@@ -120,9 +127,10 @@
       <!-- Muzzle ridge crease. -->
       <line x1="199" y1="157" x2="238" y2="158" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
 
-      <!-- Nose -->
-      <polygon points="233,152 249,158 234,168" fill="#3a2a22"/>
-      <polygon points="236,154 243,156 238,160" fill="#ffffff" opacity="0.5"/>
+      <!-- Nose — a rounded gradient button with a moist top highlight and a shaded underside. -->
+      <polygon points="233,152 249,158 234,168" fill="url(#dogNoseG)"/>
+      <polygon points="236,154 243,156.5 237.5,160" fill="#ffffff" opacity="0.55"/>
+      <polygon points="240,162 246.5,160 242,165.5" fill="#000000" opacity="0.30"/>
 
       <!-- Near ear — the larger floppy trapezoid draping over the cheek on the left. -->
       <polygon points="150,96 116,72 128,146 155,136" fill="url(#dogEarLit)"/>
@@ -139,6 +147,10 @@
       <polyline points="170,110 205,150 170,195" fill="none" stroke="rgba(150,210,230,0.30)" stroke-width="1.4" stroke-linejoin="round"/>
       <line x1="160" y1="180" x2="200" y2="260" stroke="rgba(150,210,230,0.18)" stroke-width="1.2"/>
       <line x1="196" y1="128" x2="240" y2="158" stroke="rgba(255,250,235,0.55)" stroke-width="1"/>
+      <line x1="116" y1="72" x2="150" y2="96" stroke="rgba(150,210,230,0.22)" stroke-width="1.2"/>
+
+      <!-- Warm bounce — reflected cream light from the muzzle grazing the dark chest. -->
+      <polygon points="172,196 196,192 186,212 170,210" fill="rgba(236,216,180,0.10)"/>
     </g>
 
     <!-- Paper grain overlays, clipped to the still parts of the figure (outside the
