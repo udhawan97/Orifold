@@ -105,6 +105,14 @@ enum DocumentImportConverter {
     struct ImportedDocument {
         var pdfDocument: PDFDocument
         var sourcePayload: SourceDocumentPayload?
+        /// Exact PDF bytes that produced `pdfDocument`, set only when the source was
+        /// already a PDF file (raw bytes, or qpdf-repaired bytes if PDFKit needed repair
+        /// to open it). `nil` when the document was synthesized from HTML/image/text/RTFD
+        /// — those have no faithful original byte stream. Import prefers these bytes (after
+        /// a qpdf hardening pass, see `PDFImportNormalizer`) over re-serializing through
+        /// PDFKit, whose rebuild can destroy an intact text layer (e.g. Chrome/Skia
+        /// print-to-PDF Type 3 fonts).
+        var originalPDFData: Data?
     }
 
     enum ConversionError: Error {
@@ -268,6 +276,10 @@ enum DocumentImportConverter {
 
         if detectedType.conforms(to: .pdf) {
             var document = PDFDocument(data: data)
+            // The exact bytes that produced `document`, threaded to the importer so it can
+            // preserve this PDF's real object graph (and text layer) instead of a lossy
+            // PDFKit re-serialization. See `PDFImportNormalizer`.
+            var sourceBytes: Data? = data
             if document == nil {
                 // PDFKit gave up; qpdf's recovery scans for objects by brute
                 // force and can often rebuild a valid document from a broken
@@ -275,6 +287,7 @@ enum DocumentImportConverter {
                 // PDFKit won't tolerate.
                 if let repaired = QPDFService.repaired(data) {
                     document = PDFDocument(data: repaired)
+                    sourceBytes = repaired
                 }
             }
             guard let document else { throw ConversionError.unreadableDocument }
@@ -284,7 +297,14 @@ enum DocumentImportConverter {
             // non-empty encrypted PDF. Defer the empty check until after the
             // password prompt unlocks it.
             guard document.isLocked || document.pageCount > 0 else { throw ConversionError.emptyDocument }
-            return ImportedDocument(pdfDocument: document, sourcePayload: nil)
+            // Encrypted PDFs keep the serialize-from-PDFDocument path (originalPDFData nil):
+            // their on-disk bytes are ciphertext qpdf/PDFium can't harden or agreement-check
+            // without the password, and unlocking already forces a re-encode.
+            return ImportedDocument(
+                pdfDocument: document,
+                sourcePayload: nil,
+                originalPDFData: document.isLocked ? nil : sourceBytes
+            )
         }
         if detectedType.conforms(to: .orifoldSVG) {
             return ImportedDocument(pdfDocument: try renderImage(data, title: filename), sourcePayload: nil)

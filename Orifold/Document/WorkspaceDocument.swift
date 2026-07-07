@@ -179,14 +179,24 @@ final class WorkspaceDocument: ReferenceFileDocument {
             filename: filename,
             baseURL: nil
         )
-        try importPDFDocument(imported.pdfDocument, filename: filename, sourcePayload: imported.sourcePayload)
+        try importPDFDocument(
+            imported.pdfDocument,
+            filename: filename,
+            sourcePayload: imported.sourcePayload,
+            originalPDFData: imported.originalPDFData
+        )
     }
 
-    private func importPDFDocument(_ pdf: PDFDocument, filename: String, sourcePayload: SourceDocumentPayload?) throws {
+    private func importPDFDocument(
+        _ pdf: PDFDocument,
+        filename: String,
+        sourcePayload: SourceDocumentPayload?,
+        originalPDFData: Data? = nil
+    ) throws {
         guard !pdf.isLocked else {
             throw DocumentImportConverter.ConversionError.passwordProtected
         }
-        let metadata = Self.metadata(from: pdf)
+        let (metadata, didStripAnnotations) = Self.metadata(from: pdf)
         if let editableWorkspace = metadata.editableWorkspace,
            !metadata.editableMemberPDFData.isEmpty {
             workspace = editableWorkspace
@@ -194,7 +204,13 @@ final class WorkspaceDocument: ReferenceFileDocument {
             sourcePayloads = metadata.sourcePayloads
             return
         }
-        guard let pdfData = PDFSerializer.data(from: pdf) else {
+        // If `metadata(from:)` stripped baked Orifold annotations, the on-disk `originalPDFData`
+        // still contains them and is now stale relative to the cleaned in-memory `pdf`.
+        // Force a re-serialization of the cleaned document (originalPDFData: nil) so those
+        // annotations don't resurface — this only affects Orifold's own exported PDFs, which
+        // were re-serialized at export anyway, never fresh third-party imports.
+        let preferredOriginal = didStripAnnotations ? nil : originalPDFData
+        guard let pdfData = PDFImportNormalizer.normalizedData(originalPDFData: preferredOriginal, renderedPDF: pdf) else {
             throw DocumentImportConverter.ConversionError.renderingFailed
         }
 
@@ -527,14 +543,23 @@ final class WorkspaceDocument: ReferenceFileDocument {
         }
     }
 
-    private static func metadata(from pdf: PDFDocument) -> OrifoldMetadata {
+    /// Extracts embedded Orifold metadata (workspace comments / source payloads / editable
+    /// workspace) from a freshly-loaded PDF and, as a side effect, **removes** the baked
+    /// annotations that carry it — both the invisible metadata annotation and the visible
+    /// baked comment notes. `didStripAnnotations` reports whether anything was removed: when
+    /// true the in-memory `pdf` no longer matches its on-disk bytes, so the caller must
+    /// re-serialize the cleaned document rather than persist the (stale) original bytes,
+    /// otherwise the stripped comment notes resurface as duplicate PDF sticky notes.
+    private static func metadata(from pdf: PDFDocument) -> (metadata: OrifoldMetadata, didStripAnnotations: Bool) {
         var metadata = OrifoldMetadata()
+        var didStripAnnotations = false
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
             for annotation in Array(page.annotations) {
                 if annotation.value(forAnnotationKey: bakedWorkspaceCommentAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: legacyBakedWorkspaceCommentAnnotationKey) != nil {
                     page.removeAnnotation(annotation)
+                    didStripAnnotations = true
                     continue
                 }
                 guard let rawValue = annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) as? String ??
@@ -548,9 +573,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
                     metadata = decoded
                 }
                 page.removeAnnotation(annotation)
+                didStripAnnotations = true
             }
         }
-        return metadata
+        return (metadata, didStripAnnotations)
     }
 
     private static func embedMetadata(in data: Data,

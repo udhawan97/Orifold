@@ -940,7 +940,7 @@ final class WorkspaceViewModel {
             enqueuePasswordImport(pdf: pdf, url: url)
             return
         }
-        attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload)
+        attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload, originalPDFData: imported.originalPDFData)
     }
 
     @discardableResult
@@ -952,7 +952,13 @@ final class WorkspaceViewModel {
             enqueuePasswordImport(pdf: pdf, url: url, insertingAfter: targetPageRefID)
             return nil
         }
-        return attachPDF(pdf, from: url, sourcePayload: imported.sourcePayload, insertingAfter: targetPageRefID)
+        return attachPDF(
+            pdf,
+            from: url,
+            sourcePayload: imported.sourcePayload,
+            insertingAfter: targetPageRefID,
+            originalPDFData: imported.originalPDFData
+        )
     }
 
     func unlock(pdf: PDFDocument, password: String, url: URL) -> Bool {
@@ -1001,10 +1007,18 @@ final class WorkspaceViewModel {
     private func attachPDF(_ pdf: PDFDocument,
                            from url: URL,
                            sourcePayload: SourceDocumentPayload? = nil,
-                           insertingAfter targetPageRefID: UUID? = nil) -> MemberDocument? {
+                           insertingAfter targetPageRefID: UUID? = nil,
+                           originalPDFData: Data? = nil) -> MemberDocument? {
         sanitizeInkAnnotations(in: pdf)
 
-        guard let data = PDFSerializer.data(from: pdf) else {
+        // The normalizer's structural agreement gate uses its own PDFium validation
+        // internally (the default), intentionally decoupled from `processingEngine` — that
+        // engine drives `smokeValidatePDFData`/`lastProcessingValidation` and may be a test
+        // double, whereas the trust gate must reflect the real renderer.
+        guard let data = PDFImportNormalizer.normalizedData(
+            originalPDFData: originalPDFData,
+            renderedPDF: pdf
+        ) else {
             importError = ImportError(
                 fileName: url.lastPathComponent,
                 message: L10n.string("error.import.preparePDFForSaving")
