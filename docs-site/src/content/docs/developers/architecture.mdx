@@ -5,10 +5,12 @@ keywords: [architecture, how it works, swiftui, technical overview]
 ---
 
 import Figure from '../../../components/Figure.astro';
+import Details from '../../../components/Details.astro';
+import Stat from '../../../components/Stat.astro';
 
-Orifold follows a unidirectional flow: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts.
+Orifold follows a unidirectional flow: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts. Nothing crosses a network.
 
-<Figure src="/Orifold/assets/orifold-v3-architecture-diagram.svg" alt="Orifold architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts inside a local-only boundary, guarded by a release gate" />
+<Figure src="/Orifold/assets/orifold-architecture-diagram.svg" alt="Orifold architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts inside a local-only boundary, guarded by a release gate" />
 
 ## Layers
 
@@ -16,7 +18,8 @@ Orifold follows a unidirectional flow: SwiftUI views send intents to one observa
 | --- | --- |
 | SwiftUI app | Document window, sidebar, canvas, annotation toolbar, search, inspector, password prompts, export controls, empty-state Recently Viewed shelf, language switcher |
 | Workspace state | Imported documents, page order, undo snapshots, comments, tags, signatures, form summaries, decorations, recent-file history |
-| PDF services | PDFKit composition, PDFium image compression, qpdf repair/AES-256/sanitize/structural validation, Vision OCR, form flattening, decoration baking, signing helpers |
+| PDF services | PDFKit composition, PDFium image compression / validation / glyph geometry, qpdf repair/AES-256/sanitize/structural validation, Vision OCR, form flattening, decoration baking |
+| Signing | CMS/PAdES signature construction, PKCS#12 · Keychain · self-signed identities, certificate trust evaluation, RFC-3161 timestamping |
 | Local storage | Saved PDF data, workspace metadata, source payloads, comments, signatures, page edit state |
 | Release tooling | One-line installer, package builder, Desktop update launcher, uninstaller, GitHub Actions release asset, validation tests |
 
@@ -24,26 +27,45 @@ Orifold follows a unidirectional flow: SwiftUI views send intents to one observa
 
 ```text
 Orifold/
-  App/             App entry point and command wiring
+  App/             App entry point, command wiring, keyboard-shortcut registry
   DesignSystem/    Shared visual tokens and styling
   Document/        macOS document package read/write support
   Engine/          PDF loading, repair, conversion, OCR, compression, encryption, sanitize, forms, export, Recently Viewed store
-  Models/          Workspace, page, annotation, comment, export, decoration, and recent-file models
+  Models/          Workspace, page, annotation, comment, export, decoration, comfort, and recent-file models
   Pet/             Gami & Ori, the in-app companions, plus hint bubble/placement logic
   Resources/       App metadata, entitlements, assets, Localizable.xcstrings (6 languages)
-  Signing/         Signing identities, CMS construction, timestamping, verification
+  Signing/         Digital-ID providers, CMS construction, timestamping, trust evaluation, appearance
   ViewModels/      Workspace state, document operations, search, export, undo
   Views/           SwiftUI interface components
 Packages/          Vendored binary engines — PDFiumBinary, QPDFBinary (universal static libs)
 Tests/             Test suites run in the release gate
 ```
 
+<Details summary="The staged export pipeline runs in a fixed order, and validation gates the write">
+
+Export is a sequence, not a single call: **flatten** annotations and form answers → **bake** decorations (stamps, watermarks, Bates labels, page numbers) → **compress** (optional image downsampling + lossless qpdf repack) → **sanitize** (optional strip of auto-run actions, JavaScript, embedded files, metadata) → **encrypt** (optional AES-256) → **structural validation**. The final qpdf structural check gates the write: if the artifact isn't sound, it never reaches disk. This ordering is deliberate — flattening before decoration burn-in means nothing can be silently edited after the fact.
+
+</Details>
+
+<Details summary="Import goes through a text-layer-preserving normalizer, not a plain re-serialize">
+
+PDFKit's `dataRepresentation` re-serialization drops certain text layers (Type3 / Skia-drawn glyphs), which historically caused edits to "land on top" of invisible original text. Import instead runs through a qpdf-preserving normalizer so the real text layer survives into the workspace, and text-edit geometry is measured from PDFium's actual glyph transforms rather than re-derived. See the [Developer FAQ](/Orifold/developers/faq/) for the full story.
+
+</Details>
+
+<Details summary="Engines sit behind protocol seams, so they're swappable and testable">
+
+Each engine is reached through a protocol (`PDFProcessingEngine`, signing contracts, and so on) rather than called directly. That seam is why the compression backend can be swapped, why signing can be driven by a test harness with a self-signed identity, and why the suite can exercise the pipeline without the real binaries in every path.
+
+</Details>
+
 ## By the numbers
 
-Swift 5.9+, 100% SwiftUI. 61 source files, roughly 29,000 lines, 354 tests gating every release.
+Swift 5.9+, 100% SwiftUI. <Stat name="files" /> source files, roughly <Stat name="loc" /> lines, <Stat name="tests" /> tests gating every release, <Stat name="languages" /> languages, <Stat name="entitlements" /> sandbox entitlements.
 
 ## Related
 
 - [The engines](/Orifold/developers/engines/)
 - [Testing & the release gate](/Orifold/developers/release-gate/)
 - [Build from source](/Orifold/developers/build/)
+- [Developer FAQ](/Orifold/developers/faq/)

@@ -1,38 +1,86 @@
 ---
 title: Sign documents
-description: Draw a signature, place it on a PDF, and export it — entirely on your Mac.
-keywords: [sign pdf, signature, e-sign, draw signature]
+description: Draw, type, or place initials for a visual signature — or apply a verifiable cryptographic digital signature, entirely on your Mac.
+keywords: [sign pdf, signature, e-sign, draw signature, digital signature, pades, certificate, digital id]
 ---
 
 import Callout from '../../../components/Callout.astro';
+import Details from '../../../components/Details.astro';
 import Figure from '../../../components/Figure.astro';
+import PetTip from '../../../components/PetTip.astro';
 
 <Callout variant="whentouse">
-	You need to sign a PDF and send back a finished copy.
+	You need to sign a PDF and send back a finished copy — either a quick visual mark or a verifiable digital signature.
 </Callout>
 
-## Steps
+Orifold has two kinds of signing, and they answer different needs. Open the **Signatures** palette and pick the method that matches what your recipient actually requires.
 
-1. Select the signature tool from the annotation toolbar.
-2. Draw your signature with your cursor or trackpad.
-3. Place it on the page and resize it as needed.
+## Which one do I need?
+
+| | Visual signature | Digital signature |
+| --- | --- | --- |
+| **Palette methods** | Draw · Type · Initials | Digital |
+| **What it is** | A picture of your signature placed on the page | A cryptographic signature bound to the file with a certificate |
+| **Proves the file is unchanged?** | No | Yes — any edit after signing breaks it |
+| **Proves who signed?** | No | Yes, if the certificate is trusted |
+| **Good for** | Approvals, internal forms, "sign here" lines | Contracts, filings, anything requiring verification |
+
+<PetTip who="ori">
+	Pick deliberately. A drawn mark is a picture; a digital signature is math. Sending the first where the second is required is the most common signing mistake.
+</PetTip>
+
+## Add a visual signature (Draw, Type, or Initials)
+
+1. Open the **Signatures** palette from the annotation toolbar.
+2. Choose **Draw** (trackpad or cursor), **Type** (styled from your name), or **Initials**.
+3. Place the mark on the page and resize it as needed.
 4. Export the signed PDF.
 
-<Figure src="/Orifold/assets/gifs/sign-document-workflow.svg" alt="Three steps of signing: draw a signature, place and resize it on the signature line, then export the signed PDF." caption="Drawing, placing, and exporting a signature — entirely on your Mac." />
+<Figure src="/Orifold/assets/gifs/sign-document-workflow.svg" alt="Three steps of signing: draw a signature, place and resize it on the signature line, then export the signed PDF." caption="Drawing, placing, and exporting a visual signature — entirely on your Mac." />
 
 <Callout variant="tip">
-	No e-sign service, no upload — your signature is drawn and placed entirely on your Mac and never touches a server.
+	No e-sign service, no upload — your mark is drawn and placed entirely on your Mac and never touches a server.
 </Callout>
 
 <Callout variant="note">
-	A drawn signature in Orifold is a visual mark, not a cryptographic digital signature. For documents that require a verifiable digital signature (some legal and government filings), check what your recipient actually requires.
+	A drawn, typed, or initialed mark is a *visual* signature — a picture on the page. It doesn't cryptographically prove who signed or that the file is unchanged. When that proof matters, use a digital signature below.
 </Callout>
+
+## Apply a digital signature
+
+A digital signature binds a cryptographic proof to the file using a **Digital ID** (a certificate + private key). Orifold produces a standards-based PAdES signature and can add a trusted timestamp — all locally.
+
+1. Open the **Signatures** palette and choose **Digital**.
+2. Provide a Digital ID:
+   - **Import .p12 / CA-issued Digital ID** — a certificate file you already have.
+   - **Choose Keychain Digital ID** — an identity already in your macOS Keychain.
+   - **Generate self-signed ID** — created on the spot, no cost (see the caveat below).
+3. Optionally enable a **timestamp** so the signature records a trusted time.
+4. Click **Sign & Export…** and choose where to save.
+
+<Callout variant="note">
+	**Self-signed IDs show as "identity not verified" in other viewers.** The signature is cryptographically valid and the document is fully protected, but because no certificate authority vouches for a self-signed ID, viewers like Adobe Acrobat report "the signer's identity is unknown" until you (or your recipient) manually trust it. For signatures others must verify automatically, use a CA-issued Digital ID. See **Getting a Digital ID** in the palette.
+</Callout>
+
+<Details summary="What Orifold produces, technically">
+
+Orifold writes an **append-only incremental update** with a detached CMS signature over a correct `ByteRange` — the original bytes are never rewritten, so a valid signature means the whole document is intact.
+
+- **Standard:** PAdES (`ETSI.CAdES.detached`), SHA-256.
+- **With a timestamp:** PAdES B-T — an RFC-3161 token is requested from a TSA (a free default, or your chosen provider) and embedded. If the TSA is unreachable, export continues as PAdES B-B and warns you.
+- **Verified with:** `pdfsig` (poppler) and `openssl asn1parse` report *Signature is Valid* and *Total document signed*.
+- **Out of scope today:** long-term validation (LTV / OCSP / CRL embedding).
+
+For the engineering detail, see the [Developer FAQ](/Orifold/developers/faq/) and [the engines](/Orifold/developers/engines/).
+
+</Details>
 
 ## What you should see
 
-The signature appears on the page exactly where you placed it, and travels with the PDF once exported.
+A visual mark appears exactly where you placed it and travels with the exported PDF. A digital signature produces a signed file that verifies as intact in any PAdES-aware viewer — with a trusted-identity indicator if your Digital ID is CA-issued.
 
 ## Related
 
 - [Fill PDF forms](/Orifold/fill-sign/forms/)
+- [Reset & lock form answers](/Orifold/fill-sign/lock-forms/)
 - [Export & save](/Orifold/export/export-save/)

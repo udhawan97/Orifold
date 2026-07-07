@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Gami, the origami Bernedoodle companion">
+  <title>Gami — origami Bernedoodle</title>
+  <defs>
+    <filter id="gami-sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0.4" dy="1.1" stdDeviation="1.2" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
+    <linearGradient id="gami-g0" gradientUnits="userSpaceOnUse" x1="64.0" y1="33.0" x2="58.0" y2="56.0"><stop offset="0" stop-color="#2b2626"/><stop offset="1" stop-color="#211e1f"/></linearGradient>
+    <linearGradient id="gami-g1" gradientUnits="userSpaceOnUse" x1="38.5" y1="63.0" x2="22.0" y2="51.0"><stop offset="0" stop-color="#272223"/><stop offset="1" stop-color="#1e1b1c"/></linearGradient>
+    <linearGradient id="gami-g2" gradientUnits="userSpaceOnUse" x1="41.5" y1="69.5" x2="34.5" y2="69.0"><stop offset="0" stop-color="#231f20"/><stop offset="1" stop-color="#1d1a1c"/></linearGradient>
+    <linearGradient id="gami-g3" gradientUnits="userSpaceOnUse" x1="27.0" y1="53.0" x2="22.0" y2="51.0"><stop offset="0" stop-color="#fefaef"/><stop offset="1" stop-color="#f6f2e6"/></linearGradient>
+    <linearGradient id="gami-g4" gradientUnits="userSpaceOnUse" x1="27.0" y1="53.0" x2="25.8" y2="59.8"><stop offset="0" stop-color="#efeadf"/><stop offset="1" stop-color="#e4e0d4"/></linearGradient>
+    <linearGradient id="gami-g5" gradientUnits="userSpaceOnUse" x1="45.0" y1="52.0" x2="28.5" y2="74.5"><stop offset="0" stop-color="#262122"/><stop offset="1" stop-color="#1d1a1c"/></linearGradient>
+    <linearGradient id="gami-g6" gradientUnits="userSpaceOnUse" x1="45.0" y1="52.0" x2="56.5" y2="82.5"><stop offset="0" stop-color="#2b2626"/><stop offset="1" stop-color="#211e1f"/></linearGradient>
+    <linearGradient id="gami-g7" gradientUnits="userSpaceOnUse" x1="30.0" y1="81.5" x2="29.5" y2="84.2"><stop offset="0" stop-color="#f7f3e8"/><stop offset="1" stop-color="#ece7db"/></linearGradient>
+    <linearGradient id="gami-g8" gradientUnits="userSpaceOnUse" x1="47.5" y1="54.0" x2="46.0" y2="76.8"><stop offset="0" stop-color="#fefbef"/><stop offset="1" stop-color="#f4f0e4"/></linearGradient>
+    <linearGradient id="gami-g9" gradientUnits="userSpaceOnUse" x1="47.5" y1="80.5" x2="47.5" y2="85.0"><stop offset="0" stop-color="#fdf9ee"/><stop offset="1" stop-color="#f4f0e4"/></linearGradient>
+    <linearGradient id="gami-g10" gradientUnits="userSpaceOnUse" x1="46.0" y1="23.5" x2="32.0" y2="39.5"><stop offset="0" stop-color="#282424"/><stop offset="1" stop-color="#201c1e"/></linearGradient>
+    <linearGradient id="gami-g11" gradientUnits="userSpaceOnUse" x1="46.0" y1="23.5" x2="47.0" y2="54.5"><stop offset="0" stop-color="#2f2a2a"/><stop offset="1" stop-color="#252122"/></linearGradient>
+    <linearGradient id="gami-g12" gradientUnits="userSpaceOnUse" x1="47.8" y1="30.0" x2="52.0" y2="50.0"><stop offset="0" stop-color="#fefaef"/><stop offset="1" stop-color="#f5f1e5"/></linearGradient>
+    <linearGradient id="gami-g13" gradientUnits="userSpaceOnUse" x1="53.0" y1="37.2" x2="53.6" y2="41.2"><stop offset="0" stop-color="#201d1e"/><stop offset="1" stop-color="#1b181a"/></linearGradient>
+    <linearGradient id="gami-g14" gradientUnits="userSpaceOnUse" x1="53.6" y1="37.8" x2="53.9" y2="39.4"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fcfdfe"/></linearGradient>
+    <linearGradient id="gami-g15" gradientUnits="userSpaceOnUse" x1="64.5" y1="48.0" x2="52.0" y2="48.0"><stop offset="0" stop-color="#fefbef"/><stop offset="1" stop-color="#f7f3e7"/></linearGradient>
+    <linearGradient id="gami-g16" gradientUnits="userSpaceOnUse" x1="64.5" y1="48.0" x2="56.0" y2="52.5"><stop offset="0" stop-color="#faf6ea"/><stop offset="1" stop-color="#f1ede1"/></linearGradient>
+    <linearGradient id="gami-g17" gradientUnits="userSpaceOnUse" x1="64.8" y1="46.4" x2="64.2" y2="50.6"><stop offset="0" stop-color="#513d37"/><stop offset="1" stop-color="#332724"/></linearGradient>
+    <linearGradient id="gami-g18" gradientUnits="userSpaceOnUse" x1="41.0" y1="24.0" x2="28.0" y2="50.0"><stop offset="0" stop-color="#292425"/><stop offset="1" stop-color="#201c1e"/></linearGradient>
+    <linearGradient id="gami-g19" gradientUnits="userSpaceOnUse" x1="40.8" y1="28.8" x2="31.2" y2="47.0"><stop offset="0" stop-color="#242021"/><stop offset="1" stop-color="#1d1a1c"/></linearGradient>
+    <linearGradient id="gami-g20" gradientUnits="userSpaceOnUse" x1="31.2" y1="47.0" x2="30.0" y2="50.0"><stop offset="0" stop-color="#a37454"/><stop offset="1" stop-color="#8e6348"/></linearGradient>
+  </defs>
+  <g filter="url(#gami-sh)">
+    <polygon points="54.5,25.5 64.0,33.0 61.2,56.0 54.8,50.0" fill="url(#gami-g0)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="34.5,69.0 22.0,51.0 38.5,63.0" fill="url(#gami-g1)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="34.5,69.0 38.5,63.0 41.5,69.5" fill="url(#gami-g2)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="22.0,51.0 27.0,53.0 24.0,56.0" fill="url(#gami-g3)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="24.0,56.0 27.0,53.0 25.8,59.8" fill="url(#gami-g4)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="45.0,52.0 45.0,84.5 28.5,74.5" fill="url(#gami-g5)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="45.0,52.0 56.5,82.5 45.0,84.5" fill="url(#gami-g6)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="30.0,81.5 36.0,82.5 35.0,84.8 29.5,84.2" fill="url(#gami-g7)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="47.5,54.0 52.8,71.0 46.0,76.8" fill="url(#gami-g8)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="47.5,80.5 58.0,81.6 56.5,85.0 47.5,85.0" fill="url(#gami-g9)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="46.0,23.5 47.0,54.5 32.0,39.5" fill="url(#gami-g10)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="46.0,23.5 61.0,40.0 47.0,54.5" fill="url(#gami-g11)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="47.8,30.0 54.0,34.0 52.0,50.0 46.8,48.0" fill="url(#gami-g12)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="53.0,37.2 56.8,38.4 53.6,41.2 51.4,39.6" fill="url(#gami-g13)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="53.6,37.8 55.0,38.3 53.9,39.4" fill="url(#gami-g14)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="52.0,42.0 64.5,48.0 52.2,48.0" fill="url(#gami-g15)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="52.2,48.0 64.5,48.0 56.0,52.5" fill="url(#gami-g16)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="63.0,46.2 66.5,47.2 67.2,49.2 63.6,50.8" fill="url(#gami-g17)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="41.0,24.0 28.0,50.0 45.5,43.0" fill="url(#gami-g18)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="40.8,28.8 31.2,47.0 44.2,41.8" fill="url(#gami-g19)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="28.4,47.8 31.2,47.0 30.0,50.0" fill="url(#gami-g20)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+  </g>
+</svg>

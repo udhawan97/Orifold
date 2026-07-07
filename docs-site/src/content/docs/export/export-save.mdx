@@ -6,6 +6,7 @@ keywords: [export, save, download, where did my export go, where is my file, pri
 
 import Kbd from '../../../components/Kbd.astro';
 import Callout from '../../../components/Callout.astro';
+import PetTip from '../../../components/PetTip.astro';
 import CardGrid from '../../../components/CardGrid.astro';
 import Card from '../../../components/Card.astro';
 import Figure from '../../../components/Figure.astro';
@@ -27,8 +28,12 @@ import Figure from '../../../components/Figure.astro';
 Exactly where you chose in the save panel — there's no hidden folder or upload step. If you're not sure where you saved it, check the location shown in the save dialog before you clicked Save, or search Spotlight for the filename.
 
 <Callout variant="note">
-	Every exported PDF passes a structural integrity check before it reaches disk. If export fails, see [Export & save problems](/Orifold/help/troubleshooting/export/).
+	**Why it matters:** every exported PDF passes a structural integrity check before it reaches disk — a broken file never gets written. If export fails, see [Export & save problems](/Orifold/help/troubleshooting/export/).
 </Callout>
+
+<PetTip who="gami">
+	Sharing a final copy? Gami suggests locking form answers and baking stamps at export, so nobody "accidentally" edits your finished document.
+</PetTip>
 
 ## What you should see
 

@@ -102,8 +102,8 @@ export default defineConfig({
 					label: 'Read Comfortably',
 					items: [
 						{ label: 'Reader Mode', slug: 'reading/reader-mode' },
-						{ label: 'Night Mode & Document Comfort', slug: 'reading/night-mode' },
-						{ label: 'Search inside your workspace', slug: 'reading/search' },
+						{ label: 'Document Comfort', slug: 'reading/night-mode' },
+						{ label: 'Search & replace', slug: 'reading/search' },
 					],
 				},
 				{
@@ -111,6 +111,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Change the app language', slug: 'settings/language' },
 						{ label: 'Keyboard shortcuts', slug: 'settings/shortcuts' },
+						{ label: 'Accessibility', slug: 'settings/accessibility' },
 						{ label: 'Privacy & local-first design', slug: 'settings/privacy' },
 					],
 				},
@@ -128,6 +129,7 @@ export default defineConfig({
 					label: 'Release Notes',
 					items: [
 						{ label: "What's new", slug: 'releases' },
+						{ label: 'v7', slug: 'releases/v7' },
 						{ label: 'v6', slug: 'releases/v6' },
 						{ label: 'v5', slug: 'releases/v5' },
 						{ label: 'v4', slug: 'releases/v4' },
@@ -137,12 +139,16 @@ export default defineConfig({
 				{
 					label: 'Developers',
 					items: [
+						{ label: 'Start here', slug: 'developers/start-here' },
 						{ label: 'Why Orifold?', slug: 'developers/why-orifold' },
 						{ label: 'Architecture overview', slug: 'developers/architecture' },
-						{ label: 'Build from source', slug: 'developers/build' },
 						{ label: 'The engines', slug: 'developers/engines' },
+						{ label: 'Build from source', slug: 'developers/build' },
+						{ label: 'Build & release', slug: 'developers/build-release' },
 						{ label: 'Localization guide', slug: 'developers/localization' },
 						{ label: 'Testing & the release gate', slug: 'developers/release-gate' },
+						{ label: 'Developer FAQ', slug: 'developers/faq' },
+						{ label: 'Roadmap & non-goals', slug: 'developers/roadmap' },
 						{ label: 'Contributing', slug: 'developers/contributing' },
 					],
 				},

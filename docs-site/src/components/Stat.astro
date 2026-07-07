@@ -1,0 +1,16 @@
+---
+/**
+ * Renders a single field from src/data/stats.json as text.
+ * Single source of truth for release numbers — no hardcoded stats in prose.
+ * Usage: <Stat name="tests" /> · <Stat name="version" />
+ */
+import stats from '../data/stats.json';
+
+interface Props {
+	name: keyof typeof stats;
+}
+const { name } = Astro.props;
+const value = stats[name];
+---
+
+<span class="of-stat">{value}</span>

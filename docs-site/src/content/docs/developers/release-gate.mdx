@@ -4,7 +4,9 @@ description: The full command list that must pass before an Orifold release ship
 keywords: [testing, release gate, ci, quality]
 ---
 
-Every release runs the same gate — 354 tests, plus a manual pass.
+import Stat from '../../../components/Stat.astro';
+
+Every release runs the same gate — <Stat name="tests" /> tests, plus a manual pass.
 
 ```zsh
 plutil -lint Orifold/Resources/Info.plist

@@ -16,8 +16,8 @@ Not currently — Orifold is a native macOS app requiring macOS 14 or later.
 **Can I recover a lost password on a protected PDF?**
 No. Orifold uses real AES-256 encryption; there's no backdoor or recovery path. Store your password somewhere safe.
 
-**Is a drawn signature in Orifold legally binding?**
-It's a visual signature mark, not a cryptographic digital signature. Check what your specific recipient or use case requires before relying on it for legal filings.
+**Can Orifold apply a real digital signature, or just a drawn mark?**
+Both. Draw, Type, or Initials place a *visual* mark; the **Digital** method applies a verifiable cryptographic signature (standards-based PAdES, SHA-256, optional trusted timestamp) using a Digital ID from a `.p12` file, your Keychain, or a self-signed ID — all on your Mac. A self-signed ID shows as "identity not verified" in other viewers until trusted; use a CA-issued ID when recipients must verify automatically. See [Sign documents](/Orifold/fill-sign/signatures/).
 
 **How do I turn off Gami or Ori's tips, or hide them completely?**
 Click the companion chip and choose **Hide Gami Tips** to keep it visible but quiet, or use **Show Orifold Buddy** in the app menu to hide it entirely. See [Meet Gami & Ori](/Orifold/get-started/companion/).

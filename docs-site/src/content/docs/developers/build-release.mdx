@@ -1,0 +1,64 @@
+---
+title: Build & release
+description: How an Orifold release is cut — CI gates, the prebuilt zip, and the honest signing/notarization story.
+keywords: [release, ci, cd, github actions, notarization, codesign, distribution]
+---
+
+import Details from '../../../components/Details.astro';
+import Callout from '../../../components/Callout.astro';
+
+Releases are tag-driven and built by GitHub Actions. Local builds live in [Build from source](/Orifold/developers/build/); this page is how a shipped release actually happens.
+
+## Continuous integration
+
+Every push and PR to `main` runs the **CI** workflow on `macos-15` / Xcode 16.4:
+
+1. Validate property lists (`plutil -lint`).
+2. Check installer script syntax (`zsh -n`).
+3. SwiftLint.
+4. `swift build`.
+5. `swift test --filter PDFSmokeTests` (fast PDF load/export sanity).
+6. `swift test` (full suite).
+7. `xcodebuild build` then `xcodebuild test` (Xcode-side, `CODE_SIGNING_ALLOWED=NO`).
+
+Two more workflows guard quality: **CodeQL** (scheduled Swift analysis) and **Dependency Review** (fails a PR on moderate-or-higher advisories in dependency changes).
+
+## Cutting a release
+
+The **Release** workflow triggers on a `v*` or `release-v*` tag (or manual dispatch):
+
+1. Build the distributable via `./scripts/install-mac.sh --package-only --package Orifold.zip`.
+2. Upload the zip as a workflow artifact.
+3. Publish it to a tagged GitHub Release and update the rolling "latest" release.
+
+The one-line installer and Homebrew cask both pull `Orifold.zip` from that latest release.
+
+<Callout variant="note">
+	**Signing & notarization, honestly.** Release builds are ad-hoc signed and *not* notarized by default, so macOS shows an "unidentified developer" prompt on first open — the installer and cask clear the download quarantine to smooth this. If the Developer ID secrets are configured, the same workflow imports the certificate and produces a properly signed (and optionally notarized) build instead.
+</Callout>
+
+<Details summary="The Developer ID secrets the workflow looks for">
+
+When these repository secrets are present, the release job imports the certificate into a temporary keychain and signs with it:
+
+`ORIFOLD_DEVELOPER_ID_CERTIFICATE_BASE64`, `ORIFOLD_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `ORIFOLD_SIGNING_IDENTITY`, `ORIFOLD_APPLE_ID`, `ORIFOLD_APPLE_TEAM_ID`, `ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD`.
+
+The identical path works locally — set the same variables and run the `--package-only` command to produce a signed/notarized zip on your own machine.
+
+</Details>
+
+## The full release gate
+
+Before shipping, the same command list in [Testing & the release gate](/Orifold/developers/release-gate/) must pass, plus a manual pass through the user workflow (import, search, annotate, forms, OCR, stamps, compression, protected export, update, uninstall).
+
+## Where the logs are
+
+- `.build/install.log` — build output from a source build.
+- `~/.orifold/prebuilt-install.log` — the prebuilt install attempt.
+- CI: the uploaded `Orifold-xcresults` bundle on the workflow run.
+
+## Related
+
+- [Build from source](/Orifold/developers/build/)
+- [Testing & the release gate](/Orifold/developers/release-gate/)
+- [Roadmap & non-goals](/Orifold/developers/roadmap/)

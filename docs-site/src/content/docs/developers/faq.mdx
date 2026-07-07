@@ -1,0 +1,101 @@
+---
+title: Developer FAQ
+description: How Orifold works under the hood — rendering, text editing, signing, import/export, testing, and the parts to handle with care.
+keywords: [developer faq, how it works, rendering, text editing, signing, testing, riskiest parts]
+---
+
+import Details from '../../../components/Details.astro';
+import PetTip from '../../../components/PetTip.astro';
+import Stat from '../../../components/Stat.astro';
+
+Short answers first; open a section for depth.
+
+## How does Orifold render PDFs?
+
+PDFKit owns display and composition (`PDFView`, `PDFDocument`, `PDFPage`, selection, search, print). PDFium is a secondary engine for image-level work, import validation, and glyph geometry.
+
+<Details summary="Why two rendering engines instead of one">
+PDFKit is the native, best-supported path for showing and composing pages. PDFium is reached only where PDFKit is the wrong tool: downsampling embedded images during compression, a non-blocking validation smoke check on import, and reporting the actual affine transforms of text glyphs for in-place editing. PDFium never blocks an import PDFKit is willing to open.
+</Details>
+
+## How does text editing work?
+
+Detected text is edited in place using PDFium's real glyph geometry, then re-composed. Scans have no text layer, so they need [OCR](/Orifold/edit/ocr/) first.
+
+<Details summary="The 'edit lands on top' history and how it was fixed">
+PDFKit's `dataRepresentation` re-serialization drops some text layers (Type3 / Skia-drawn glyphs). Before the fix, an edit could be placed over invisible surviving original text. Import now runs through a qpdf-preserving normalizer so the real text layer is retained, and edit placement is measured from PDFium's raw (unrotated) content-stream transforms rather than re-derived — which also fixed page-rotation vs. text-rotation conflation and a class of invisible/low-visibility text being leaked on export.
+</Details>
+
+## How are text boxes positioned and updated?
+
+New text boxes are anchored in page coordinates, dragged live, and committed to workspace state with undo snapshots — the same undo history as page edits.
+
+## How does format matching / copying work?
+
+Captured text attributes (font, size, style, color) are applied to a target selection; reset restores the originally detected formatting.
+
+## How are annotations handled?
+
+They live in a visual annotation layer while you work, and are **flattened** (burned in) during export so a finished file can't be silently un-annotated afterward.
+
+## How are signatures handled?
+
+Two separate systems. Draw / Type / Initials produce a *visual* mark on the annotation layer. **Digital** signing produces a cryptographic CMS/PAdES signature via an append-only incremental update.
+
+<Details summary="The signing pipeline, byte by byte">
+`Signing/` resolves a `SigningIdentity` (imported `.p12`, Keychain, or generated self-signed), then `PDFIncrementalSigner` → `CMSSignatureBuilder` writes a detached CMS signature over a correct `ByteRange` as an append-only incremental update — original bytes are never rewritten. Output is PAdES (`ETSI.CAdES.detached`), SHA-256, with the ESS signing-certificate-v2 signed attribute. With a timestamp requested, an RFC-3161 token from a TSA (free default or user-chosen) is embedded as PAdES B-T; if the TSA is unreachable, export continues as B-B and warns. Verified externally with `pdfsig` (*Signature is Valid*, *Total document signed*). Self-signed IDs are valid but show "identity not verified"; LTV (OCSP/CRL) is intentionally out of scope. If no identity resolves, signing fails closed with `missingIdentity`.
+</Details>
+
+## How does import/export work?
+
+Import repairs and normalizes via qpdf, then loads into the workspace (up to 50 files, folders included). Export is a staged pipeline: flatten → bake decorations → compress → sanitize → encrypt → **structural validation gates the write**.
+
+<Details summary="What happens if a stage fails">
+The final qpdf structural check is a gate, not a formality: an artifact that doesn't pass never reaches disk, and the export surfaces an error rather than writing a corrupt file. Optional stages (compress, sanitize, encrypt) are skipped cleanly when not requested.
+</Details>
+
+## How are keyboard shortcuts structured?
+
+A single descriptive registry (`App/ShortcutRegistry.swift`) is the source of truth for the cheat sheet and docs; the actual `.keyboardShortcut(…)` bindings live next to the controls they trigger and are kept in sync by hand. See [Keyboard shortcuts](/Orifold/settings/shortcuts/).
+
+## How does localization work?
+
+`Localizable.xcstrings`, 6 languages, with a test enforcing coverage.
+
+<Details summary="The SPM / CI gotcha worth knowing">
+`swift test` never compiles `.xcstrings` (only Xcode does), so string lookups can silently fall back during SwiftPM test runs. The fix is loading via `Bundle.module` with a JSON fallback path — without it, a batch of tests fail on CI while passing in Xcode. Separately, `PDFPage.string` interleaves/undercounts on CI's older SDK; use `.attributedString` or `PDFTextAnalysisEngine` in tests instead.
+</Details>
+
+## How is state managed?
+
+One observable view model. Views send intents; the view model mutates workspace state; engines behind protocol seams do the work. Unidirectional, no shared mutable singletons.
+
+## How should I test my changes?
+
+`swift test` locally (`--filter PDFSmokeTests` for a fast sanity check), then the full [release gate](/Orifold/developers/release-gate/) before shipping.
+
+## What are the riskiest parts of the app?
+
+The export pipeline, encryption/sanitize, the signing byte math, text-layer preservation, and the sandbox boundary.
+
+<PetTip who="ori">
+	Ori's note: break the export validation gate and nothing ships — including your feature. It fails closed by design. Read the pipeline before you feed it.
+</PetTip>
+
+## What should I never break?
+
+The export validation gate, the local-only boundary (no networking beyond user-initiated TSA requests), localization coverage across all 6 languages, and the minimal sandbox entitlement set.
+
+## How are releases created, and what CI runs?
+
+Tag-driven GitHub Actions build a prebuilt zip; CI runs plist/installer linting, SwiftLint, `swift build`, a PDF smoke test, `swift test`, and an Xcode build+test. See [Build & release](/Orifold/developers/build-release/).
+
+## How should new features be documented?
+
+Add a task page from the existing template, wire any media through `MEDIA_MANIFEST.md`, and regenerate `stats.json` if counts changed. See [Contributing](/Orifold/developers/contributing/).
+
+## Related
+
+- [Architecture overview](/Orifold/developers/architecture/)
+- [The engines](/Orifold/developers/engines/)
+- [Start here](/Orifold/developers/start-here/)

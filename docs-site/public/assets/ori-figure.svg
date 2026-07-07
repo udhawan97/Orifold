@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Ori, the origami Siberian companion">
+  <title>Ori — origami Siberian</title>
+  <defs>
+    <filter id="ori-sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0.4" dy="1.1" stdDeviation="1.2" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
+    <linearGradient id="ori-g0" gradientUnits="userSpaceOnUse" x1="64.8" y1="75.1" x2="61.8" y2="92.6"><stop offset="0" stop-color="#b4b9d0"/><stop offset="1" stop-color="#9fa6c0"/></linearGradient>
+    <linearGradient id="ori-g1" gradientUnits="userSpaceOnUse" x1="64.8" y1="75.1" x2="68.7" y2="82.1"><stop offset="0" stop-color="#5c6481"/><stop offset="1" stop-color="#515975"/></linearGradient>
+    <linearGradient id="ori-g2" gradientUnits="userSpaceOnUse" x1="58.2" y1="79.0" x2="48.0" y2="93.2"><stop offset="0" stop-color="#a6acc6"/><stop offset="1" stop-color="#939bb7"/></linearGradient>
+    <linearGradient id="ori-g3" gradientUnits="userSpaceOnUse" x1="48.5" y1="80.8" x2="35.3" y2="89.8"><stop offset="0" stop-color="#9aa1bd"/><stop offset="1" stop-color="#8a92b0"/></linearGradient>
+    <linearGradient id="ori-g4" gradientUnits="userSpaceOnUse" x1="34.1" y1="78.3" x2="27.2" y2="82.4"><stop offset="0" stop-color="#fefaef"/><stop offset="1" stop-color="#f4f0e4"/></linearGradient>
+    <linearGradient id="ori-g5" gradientUnits="userSpaceOnUse" x1="50.0" y1="54.5" x2="37.2" y2="79.5"><stop offset="0" stop-color="#adb3cb"/><stop offset="1" stop-color="#9aa1bd"/></linearGradient>
+    <linearGradient id="ori-g6" gradientUnits="userSpaceOnUse" x1="50.0" y1="54.5" x2="62.8" y2="79.5"><stop offset="0" stop-color="#cbcfe2"/><stop offset="1" stop-color="#b4b9d0"/></linearGradient>
+    <linearGradient id="ori-g7" gradientUnits="userSpaceOnUse" x1="50.0" y1="56.0" x2="50.0" y2="79.0"><stop offset="0" stop-color="#fefbef"/><stop offset="1" stop-color="#f5f1e5"/></linearGradient>
+    <linearGradient id="ori-g8" gradientUnits="userSpaceOnUse" x1="44.2" y1="77.5" x2="43.6" y2="81.8"><stop offset="0" stop-color="#fbf7eb"/><stop offset="1" stop-color="#f2eee2"/></linearGradient>
+    <linearGradient id="ori-g9" gradientUnits="userSpaceOnUse" x1="50.2" y1="77.2" x2="50.2" y2="81.8"><stop offset="0" stop-color="#fefbef"/><stop offset="1" stop-color="#f6f2e6"/></linearGradient>
+    <linearGradient id="ori-g10" gradientUnits="userSpaceOnUse" x1="38.6" y1="18.4" x2="40.2" y2="37.2"><stop offset="0" stop-color="#d0d4e6"/><stop offset="1" stop-color="#b4b9d0"/></linearGradient>
+    <linearGradient id="ori-g11" gradientUnits="userSpaceOnUse" x1="39.8" y1="23.0" x2="41.4" y2="35.2"><stop offset="0" stop-color="#f3c5cc"/><stop offset="1" stop-color="#ddaab5"/></linearGradient>
+    <linearGradient id="ori-g12" gradientUnits="userSpaceOnUse" x1="61.4" y1="18.4" x2="59.8" y2="37.2"><stop offset="0" stop-color="#b1b7cf"/><stop offset="1" stop-color="#9aa1bd"/></linearGradient>
+    <linearGradient id="ori-g13" gradientUnits="userSpaceOnUse" x1="60.2" y1="23.0" x2="58.6" y2="35.2"><stop offset="0" stop-color="#e2b0ba"/><stop offset="1" stop-color="#d29ba8"/></linearGradient>
+    <linearGradient id="ori-g14" gradientUnits="userSpaceOnUse" x1="37.2" y1="15.0" x2="40.2" y2="16.4"><stop offset="0" stop-color="#fdf9ee"/><stop offset="1" stop-color="#f5f1e5"/></linearGradient>
+    <linearGradient id="ori-g15" gradientUnits="userSpaceOnUse" x1="62.8" y1="15.0" x2="59.8" y2="16.4"><stop offset="0" stop-color="#fdf9ee"/><stop offset="1" stop-color="#f5f1e5"/></linearGradient>
+    <linearGradient id="ori-g16" gradientUnits="userSpaceOnUse" x1="50.0" y1="28.8" x2="39.5" y2="48.0"><stop offset="0" stop-color="#bbc0d6"/><stop offset="1" stop-color="#a6acc6"/></linearGradient>
+    <linearGradient id="ori-g17" gradientUnits="userSpaceOnUse" x1="50.0" y1="28.8" x2="60.5" y2="48.0"><stop offset="0" stop-color="#e0e3f2"/><stop offset="1" stop-color="#cbcfe2"/></linearGradient>
+    <linearGradient id="ori-g18" gradientUnits="userSpaceOnUse" x1="50.0" y1="28.8" x2="36.2" y2="40.8"><stop offset="0" stop-color="#6b7390"/><stop offset="1" stop-color="#58607d"/></linearGradient>
+    <linearGradient id="ori-g19" gradientUnits="userSpaceOnUse" x1="50.0" y1="28.8" x2="63.8" y2="40.8"><stop offset="0" stop-color="#6d7592"/><stop offset="1" stop-color="#5a627e"/></linearGradient>
+    <linearGradient id="ori-g20" gradientUnits="userSpaceOnUse" x1="50.0" y1="35.5" x2="50.0" y2="42.0"><stop offset="0" stop-color="#fefaef"/><stop offset="1" stop-color="#f6f2e6"/></linearGradient>
+    <linearGradient id="ori-g21" gradientUnits="userSpaceOnUse" x1="36.2" y1="41.5" x2="30.0" y2="50.0"><stop offset="0" stop-color="#fefaef"/><stop offset="1" stop-color="#f4f0e4"/></linearGradient>
+    <linearGradient id="ori-g22" gradientUnits="userSpaceOnUse" x1="63.8" y1="41.5" x2="70.0" y2="50.0"><stop offset="0" stop-color="#fffbf0"/><stop offset="1" stop-color="#f6f2e6"/></linearGradient>
+    <linearGradient id="ori-g23" gradientUnits="userSpaceOnUse" x1="40.8" y1="50.0" x2="36.5" y2="58.0"><stop offset="0" stop-color="#f2eee2"/><stop offset="1" stop-color="#e8e4d8"/></linearGradient>
+    <linearGradient id="ori-g24" gradientUnits="userSpaceOnUse" x1="59.2" y1="50.0" x2="63.5" y2="58.0"><stop offset="0" stop-color="#f4f0e4"/><stop offset="1" stop-color="#eae5d9"/></linearGradient>
+    <linearGradient id="ori-g25" gradientUnits="userSpaceOnUse" x1="32.0" y1="56.0" x2="33.5" y2="60.0"><stop offset="0" stop-color="#f0ebe0"/><stop offset="1" stop-color="#e6e1d5"/></linearGradient>
+    <linearGradient id="ori-g26" gradientUnits="userSpaceOnUse" x1="68.0" y1="56.0" x2="66.5" y2="60.0"><stop offset="0" stop-color="#f1ede1"/><stop offset="1" stop-color="#e7e2d6"/></linearGradient>
+    <linearGradient id="ori-g27" gradientUnits="userSpaceOnUse" x1="46.8" y1="39.8" x2="46.2" y2="43.2"><stop offset="0" stop-color="#313542"/><stop offset="1" stop-color="#20232e"/></linearGradient>
+    <linearGradient id="ori-g28" gradientUnits="userSpaceOnUse" x1="53.2" y1="39.8" x2="53.8" y2="43.2"><stop offset="0" stop-color="#313542"/><stop offset="1" stop-color="#20232e"/></linearGradient>
+    <linearGradient id="ori-g29" gradientUnits="userSpaceOnUse" x1="43.2" y1="40.7" x2="44.3" y2="41.5"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fcfdfe"/></linearGradient>
+    <linearGradient id="ori-g30" gradientUnits="userSpaceOnUse" x1="54.9" y1="40.4" x2="55.3" y2="41.5"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fcfdfe"/></linearGradient>
+    <linearGradient id="ori-g31" gradientUnits="userSpaceOnUse" x1="50.0" y1="46.0" x2="50.0" y2="51.2"><stop offset="0" stop-color="#fffbf0"/><stop offset="1" stop-color="#f8f4e8"/></linearGradient>
+    <linearGradient id="ori-g32" gradientUnits="userSpaceOnUse" x1="50.0" y1="46.0" x2="50.0" y2="48.5"><stop offset="0" stop-color="#eba0ab"/><stop offset="1" stop-color="#c9808f"/></linearGradient>
+  </defs>
+  <g filter="url(#ori-sh)">
+    <polygon points="64.8,75.1 58.2,79.0 61.8,92.6 68.7,82.1" fill="url(#ori-g0)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="64.8,75.1 68.7,82.1 66.0,80.0" fill="url(#ori-g1)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="58.2,79.0 48.5,80.8 48.0,93.2 61.8,92.6" fill="url(#ori-g2)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="48.5,80.8 39.0,80.0 35.3,89.8 48.0,93.2" fill="url(#ori-g3)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="39.0,80.0 34.1,78.3 27.2,82.4 35.3,89.8" fill="url(#ori-g4)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="50.0,54.5 50.0,81.5 37.2,79.5 42.8,56.0" fill="url(#ori-g5)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="50.0,54.5 57.2,56.0 62.8,79.5 50.0,81.5" fill="url(#ori-g6)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="50.0,56.0 54.2,72.0 50.0,79.0 45.8,72.0" fill="url(#ori-g7)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="44.2,77.5 49.8,77.2 49.8,81.8 43.6,81.8" fill="url(#ori-g8)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="50.2,77.2 55.8,77.5 56.4,81.8 50.2,81.8" fill="url(#ori-g9)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="40.2,37.2 38.6,18.4 47.8,30.6" fill="url(#ori-g10)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="41.4,35.2 39.8,23.0 46.0,30.6" fill="url(#ori-g11)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="52.2,30.6 61.4,18.4 59.8,37.2" fill="url(#ori-g12)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="54.0,30.6 60.2,23.0 58.6,35.2" fill="url(#ori-g13)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="38.6,18.4 37.2,15.0 40.2,16.4" fill="url(#ori-g14)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="61.4,18.4 62.8,15.0 59.8,16.4" fill="url(#ori-g15)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="50.0,28.8 50.0,54.8 40.8,50.2 36.2,40.8" fill="url(#ori-g16)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="50.0,28.8 63.8,40.8 59.2,50.2 50.0,54.8" fill="url(#ori-g17)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="50.0,28.8 36.2,40.8 43.0,36.0" fill="url(#ori-g18)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="50.0,28.8 63.8,40.8 57.0,36.0" fill="url(#ori-g19)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="47.2,40.0 50.0,35.5 52.8,40.0 50.0,42.0" fill="url(#ori-g20)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="36.2,41.5 40.8,50.0 36.5,58.0 30.0,50.0" fill="url(#ori-g21)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="63.8,41.5 59.2,50.0 63.5,58.0 70.0,50.0" fill="url(#ori-g22)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="40.8,50.0 36.5,58.0 39.5,56.0 42.0,52.0" fill="url(#ori-g23)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="59.2,50.0 63.5,58.0 60.5,56.0 58.0,52.0" fill="url(#ori-g24)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="32.0,56.0 36.5,58.0 33.5,60.0" fill="url(#ori-g25)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="68.0,56.0 63.5,58.0 66.5,60.0" fill="url(#ori-g26)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="40.8,39.6 46.8,39.8 46.2,43.2" fill="url(#ori-g27)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="53.2,39.8 59.2,39.6 53.8,43.2" fill="url(#ori-g28)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="43.2,40.7 44.7,40.4 44.3,41.5" fill="url(#ori-g29)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="54.9,40.4 56.4,40.7 55.3,41.5" fill="url(#ori-g30)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="46.4,46.0 53.6,46.0 50.0,51.2" fill="url(#ori-g31)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+    <polygon points="48.2,46.0 51.8,46.0 50.0,48.5" fill="url(#ori-g32)" stroke="#000" stroke-opacity="0.05" stroke-width="0.22"/>
+  </g>
+</svg>

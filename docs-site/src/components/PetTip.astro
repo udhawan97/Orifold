@@ -1,0 +1,31 @@
+---
+/**
+ * A documentation companion note. Gami (dog) for beginner/user encouragement,
+ * Ori (cat) for developer/edge-case precision. Built on callout styling.
+ *
+ * The mark is the real in-app companion figure (gami-figure.svg / ori-figure.svg),
+ * generated faithfully from the app's PaperFigure facet geometry. It's referenced
+ * via <img> (not inlined) so the two figures' gradient ids never collide when both
+ * appear on one page, and so it lazy-loads.
+ *
+ * Rules enforced by convention, not code (see the docs makeover plan):
+ *  - at most one per page, in normal document flow (never floating/fixed)
+ *  - Gami never on developer pages; Ori never on Get-Started pages
+ *  - the mark is decorative (aria-hidden); identity is carried by the label
+ */
+interface Props {
+	who: 'gami' | 'ori';
+}
+const { who } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const mark = who === 'gami' ? `${base}/assets/gami-figure.svg` : `${base}/assets/ori-figure.svg`;
+const label = who === 'gami' ? "Gami's tip" : "Ori's note";
+---
+
+<div class={`of-pettip of-pettip-${who}`} role="note" aria-label={label}>
+	<img class="of-pettip-mark" src={mark} alt="" aria-hidden="true" loading="lazy" width="48" height="48" />
+	<div class="of-pettip-body">
+		<span class="of-pettip-label">{label}</span>
+		<slot />
+	</div>
+</div>

@@ -1,0 +1,62 @@
+---
+title: Start here
+description: The developer front door — module map, read-first order, and what to touch carefully.
+keywords: [developers, contributing, module map, getting started, onboarding]
+---
+
+import PetTip from '../../../components/PetTip.astro';
+import Stat from '../../../components/Stat.astro';
+
+Orifold is a native macOS PDF workspace: Swift 5.9+, 100% SwiftUI, four local PDF engines plus a signing pipeline, <Stat name="tests" /> tests, zero network calls. This page orients you before you open the tree.
+
+## Read these first, in this order
+
+1. [What is Orifold?](/Orifold/get-started/what-is-orifold/) — the product in one screen.
+2. [Why Orifold?](/Orifold/developers/why-orifold/) — the trade-offs made on purpose.
+3. [Architecture overview](/Orifold/developers/architecture/) — the unidirectional flow and staged export pipeline.
+4. [The engines](/Orifold/developers/engines/) — PDFKit, PDFium, qpdf, Vision, and signing.
+5. [Build from source](/Orifold/developers/build/) — get it compiling.
+6. [Developer FAQ](/Orifold/developers/faq/) — the questions everyone asks.
+
+## Module map
+
+```text
+Orifold/
+  App/             Entry point, command wiring, keyboard-shortcut registry
+  DesignSystem/    Visual tokens and styling
+  Document/        macOS document package read/write
+  Engine/          Load, repair, convert, OCR, compress, encrypt, sanitize, forms, export, Recently Viewed
+  Models/          Workspace, page, annotation, comment, export, decoration, comfort, recent-file
+  Pet/             Gami & Ori companions + hint placement
+  Resources/       Metadata, entitlements, assets, Localizable.xcstrings (6 languages)
+  Signing/         Digital-ID providers, CMS/PAdES construction, timestamping, trust, appearance
+  ViewModels/      Workspace state, document ops, search, export, undo
+  Views/           SwiftUI interface
+Packages/          Vendored engines — PDFiumBinary, QPDFBinary (universal static libs)
+Tests/             The release-gate suites
+```
+
+## The risk map — touch these carefully
+
+| Area | Why it's sensitive |
+| --- | --- |
+| **Export pipeline** (`Engine/`, `ViewModels/`) | A staged sequence gated by a qpdf structural check. Break the order or the gate and exports silently lose data or fail to write. |
+| **Encryption & sanitize** | Real AES-256 and content-stripping. Bugs here are security bugs, not cosmetics. |
+| **Signing** (`Signing/`) | Byte-exact ByteRange/CMS construction. A one-byte offset error produces an invalid signature. |
+| **Text-layer preservation** | The import normalizer keeps text layers PDFKit would drop. Regressions bring back the "edit lands on top" bug. |
+| **The local-only boundary** | Only the two sandbox file entitlements plus app-scope bookmarks. Never add networking beyond user-initiated TSA timestamp requests. |
+| **Localization coverage** | A test enforces all 6 languages. New user-facing strings must land in `Localizable.xcstrings`. |
+
+<PetTip who="ori">
+	Ori's note: understand the export pipeline before you touch anything that feeds it. Its validation gate is the last line between a good file and a corrupt one — and it fails closed on purpose.
+</PetTip>
+
+## The onboarding promise
+
+If `swift test` passes on your machine, you're set up. That's the whole bar.
+
+## Related
+
+- [Testing & the release gate](/Orifold/developers/release-gate/)
+- [Build & release](/Orifold/developers/build-release/)
+- [Contributing](/Orifold/developers/contributing/)

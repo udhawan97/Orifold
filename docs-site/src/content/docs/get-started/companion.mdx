@@ -6,23 +6,36 @@ keywords: [gami, ori, companion, orifold guide, bernedoodle, siberian, dog, cat,
 
 import Figure from '../../../components/Figure.astro';
 import Callout from '../../../components/Callout.astro';
+import Details from '../../../components/Details.astro';
+import PetTip from '../../../components/PetTip.astro';
 
-Orifold ships with a small built-in companion that offers short, useful hints for moments that matter — exporting, saving, and anything that needs your attention. It's designed to stay out of your document's way: a small, quiet chip in the corner, with hints that keep a safe distance from your page and collapse to a small badge rather than crowd a busy window.
+Orifold ships with an optional companion that offers short, useful hints for the moments that matter — exporting, saving, and anything that needs your attention. It stays out of your way: a quiet chip in the corner, never on top of your page.
 
-<Figure src="/Orifold/assets/screenshots/companion-gami-ori.svg" alt="Gami the origami Bernedoodle and Ori the origami Siberian shown side by side in the corner of a workspace." caption="Gami (left) and Ori (right), the Orifold companions." />
+<div class="of-pet-pair">
+	<figure>
+		<img src="/Orifold/assets/gami-figure.svg" alt="Gami, the origami Bernedoodle companion — dark folded paper with a cream blaze and floppy ears." width="180" height="180" />
+		<figcaption><strong>Gami</strong> · the Bernedoodle</figcaption>
+	</figure>
+	<figure>
+		<img src="/Orifold/assets/ori-figure.svg" alt="Ori, the origami Siberian companion — slate folded paper with a cream ruff and tufted ears." width="180" height="180" />
+		<figcaption><strong>Ori</strong> · the Siberian</figcaption>
+	</figure>
+</div>
+
+<PetTip who="gami">
+	Gami here. I'm optional — helpful when you're new, one click to quiet when you're not. Pick whichever of us you like on first launch.
+</PetTip>
 
 ## Two very different personalities
 
-Pick **Gami · Orifold Guide** (an origami Bernedoodle — floppy black ears, a cream blaze and chest, a calm wag) or **Ori** (an origami Siberian — a plush cream ruff, tufted lynx-tip ears, a long tail that wraps composedly around her paws) on first launch. Switch anytime from the app menu or the companion's own popover.
+Choose on first launch, and switch anytime from the app menu or the companion's popover:
 
-## Seeing the detail
+- **Gami** (an origami Bernedoodle) is warm, playful, and encouraging. He moves toward you: *"Exporting? I can walk you through the options."*
+- **Ori** (an origami Siberian) is curious, clever, and charmingly bossy. She lets you come to her: *"Gami would chase the cursor. I prefer strategy."*
 
-Both companions are folded paper with real depth — layered tails, folded ears, a ruff you can see the layers of. On first launch, your companion shows off at full size for a few seconds so you can watch the fold before it settles into its corner; hover it any time afterward to bring that detail back. Reduce Motion skips the showcase and keeps the companion at its resting size throughout.
-
-They're siblings folded from the same sheet of paper — different mothers' patterns, same Origami — and their voices are deliberately opposite:
-
-- **Gami** is warm, playful, loyal, and encouraging. He moves toward you: *"Exporting? I can walk you through the options."*
-- **Ori** is curious, clever, elegant, calm, and charmingly bossy. She lets you come to her, noticing things before she comments on them: *"Gami would chase the cursor. I prefer strategy."*
+<Details summary="The origami detail: both are folded paper with real depth">
+	Gami has floppy black ears, a cream blaze and chest, and a calm wag; Ori has a plush cream ruff, tufted lynx-tip ears, and a long tail that wraps composedly around her paws. They're siblings folded from the same sheet of paper — different mothers' patterns, same origami. On first launch your companion shows off at full size for a few seconds so you can watch the fold before it settles into its corner; hover it any time afterward to bring that detail back. Reduce Motion skips the showcase and keeps the companion at its resting size throughout.
+</Details>
 
 ## What they help with
 

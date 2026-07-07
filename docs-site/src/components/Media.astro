@@ -1,0 +1,86 @@
+---
+/**
+ * Short, silent, looping product clip — the honest replacement for "GIF".
+ * Prefers <video> (MP4 + optional WebM) with a poster; falls back to the poster
+ * image alone; and when neither source exists yet, renders an honest capture-spec
+ * placeholder rather than pretending an illustration is a recording.
+ *
+ * Reduced motion: a tiny inline script pauses autoplay and shows the poster only
+ * when the reader prefers reduced motion. Off-screen clips don't autoplay
+ * (IntersectionObserver play/pause), so nothing decodes until it's visible.
+ *
+ * Usage:
+ *   <Media mp4="/Orifold/assets/gifs/edit-text.mp4" poster="…png"
+ *          alt="Click detected text, type, click away." caption="Click, type, done." />
+ *   <Media alt="…" caption="…" spec="4–6s · combine two docs → export" />  (placeholder)
+ */
+interface Props {
+	mp4?: string;
+	webm?: string;
+	poster?: string;
+	alt: string;
+	caption?: string;
+	spec?: string;
+}
+const { mp4, webm, poster, alt, caption, spec } = Astro.props;
+const hasVideo = Boolean(mp4 || webm);
+---
+
+<figure class="of-figure of-media">
+	{
+		hasVideo ? (
+			<video
+				class="of-media-video"
+				poster={poster}
+				muted
+				loop
+				playsinline
+				preload="none"
+				autoplay
+				aria-label={alt}
+			>
+				{webm && <source src={webm} type="video/webm" />}
+				{mp4 && <source src={mp4} type="video/mp4" />}
+			</video>
+		) : poster ? (
+			<img src={poster} alt={alt} loading="lazy" />
+		) : (
+			<div class="of-figure-placeholder" role="img" aria-label={alt}>
+				<span>
+					<strong>Clip pending capture.</strong>
+					<br />
+					{spec ?? alt}
+				</span>
+			</div>
+		)
+	}
+	{caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+{
+	hasVideo && (
+		<script is:inline>
+			(() => {
+				const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+				document.querySelectorAll('video.of-media-video').forEach((v) => {
+					if (reduce.matches) {
+						v.removeAttribute('autoplay');
+						v.pause();
+						return;
+					}
+					if (!('IntersectionObserver' in window)) return;
+					const io = new IntersectionObserver(
+						(entries) => {
+							for (const e of entries) {
+								if (e.isIntersecting) v.play().catch(() => {});
+								else v.pause();
+							}
+						},
+						{ threshold: 0.25 }
+					);
+					io.observe(v);
+				});
+			})();
+		</script>
+	)
+}

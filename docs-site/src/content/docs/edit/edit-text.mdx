@@ -6,6 +6,8 @@ keywords: [edit text, change text, fix typo, modify pdf text, edit pdf, how do I
 
 import Callout from '../../../components/Callout.astro';
 import Figure from '../../../components/Figure.astro';
+import Details from '../../../components/Details.astro';
+import PetTip from '../../../components/PetTip.astro';
 import CardGrid from '../../../components/CardGrid.astro';
 import Card from '../../../components/Card.astro';
 
@@ -29,9 +31,17 @@ import Card from '../../../components/Card.astro';
 	Complex layouts (multi-column text, text wrapped around images) may not detect cleanly. If a line won't activate for editing, try [adding a new text box](/Orifold/edit/text-boxes/) over it instead.
 </Callout>
 
+<PetTip who="ori">
+	Ori's note: a scan is a picture of text, not text. Run [OCR](/Orifold/edit/ocr/) first — then the recognized text activates for editing just like any other.
+</PetTip>
+
 ## What you should see
 
 The edited text renders in place on the page, in a font as close to the original as Orifold's engine can match.
+
+<Details summary="How editing keeps the original text layer intact">
+	Orifold measures where each glyph sits from PDFium's real transforms and imports through a text-layer-preserving normalizer, so an edit lands exactly on the text it replaces rather than on top of an invisible copy. The [Developer FAQ](/Orifold/developers/faq/) has the full "edit lands on top" history.
+</Details>
 
 <Callout variant="danger" label="Not redaction">
 	Editing text replaces what's drawn on the page — it does not cryptographically remove the original content from the PDF file. If you need to permanently destroy sensitive text (not just cover or replace it), don't rely on inline editing alone.

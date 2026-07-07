@@ -1,0 +1,43 @@
+---
+title: Roadmap & non-goals
+description: What's next for Orifold — and what it's deliberately choosing not to become.
+keywords: [roadmap, non-goals, future, redaction, compare, limitations]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+Orifold is in beta on the road to 1.0. Direction over dates — the list below is intent, not a schedule.
+
+## Now
+
+Hardening the flows that already ship — signing, the qpdf engine, the companions, localization, and the documentation you're reading.
+
+## Next
+
+- **True content redaction** — remove text and images, not just cover them.
+- **Side-by-side document compare.**
+- **Faster large-document navigation.**
+
+## Later
+
+- **Automated UI smoke tests** to complement the unit suite.
+- Broader OCR language coverage and export polish, as real use surfaces needs.
+
+## Non-goals
+
+Being explicit about scope is part of the trust. Orifold is **not** planning to add:
+
+- **Cloud sync or accounts.** The local-only boundary is the product, not a limitation to fix.
+- **Telemetry or analytics.** There's no server to send it to, and there won't be.
+- **Real-time collaborative review or co-editing.** That requires a cloud Orifold won't build.
+- **Windows or iPad versions.** It's a native macOS app; a rewrite for other platforms isn't planned.
+
+<Callout variant="note">
+	A non-goal isn't a "no forever" so much as a "not without changing what Orifold is." If a feature would require a server or an account, it's out of scope by design.
+</Callout>
+
+## Related
+
+- [Why Orifold?](/Orifold/developers/why-orifold/)
+- [Privacy & local-first design](/Orifold/settings/privacy/)
+- [Contributing](/Orifold/developers/contributing/)

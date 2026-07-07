@@ -1,18 +1,22 @@
 ---
 title: The engines
-description: Why Orifold uses four local PDF engines, and what each one is responsible for.
-keywords: [pdfkit, pdfium, qpdf, vision ocr, engines, dependencies]
+description: The local engines behind Orifold — PDFKit, PDFium, qpdf, Vision, and the signing pipeline — and what each one is responsible for.
+keywords: [pdfkit, pdfium, qpdf, vision ocr, signing, pades, engines, dependencies]
 ---
 
-Orifold composes four local engines behind protocol seams, each doing the job it's best at — none of them a remote service.
+Orifold composes several local engines behind protocol seams, each doing the job it's best at — none of them a remote service.
 
 ## PDFKit — composition
 
 Apple's native framework owns `PDFView`, `PDFDocument`, `PDFPage`, `PDFAnnotation`, selection, search, printing, and workspace page ownership. It's the UI and document engine everything else supports.
 
-## PDFium — validation
+## PDFium — image compression, validation & glyph geometry
 
-A supplemental local processing backend behind `PDFProcessingEngine`, used for a non-blocking validation smoke check during import. If PDFium is unavailable or rejects a file PDFKit can open, the PDFKit import path still proceeds — PDFium never blocks an import PDFKit is willing to handle. Vendored at `Packages/PDFiumBinary` as a prebuilt macOS/iOS XCFramework (MIT), built from Chromium's PDFium.
+A supplemental local backend behind `PDFProcessingEngine`, vendored at `Packages/PDFiumBinary` as a prebuilt XCFramework (MIT, built from Chromium's PDFium). It does three jobs:
+
+- **Image compression** — downsampling and re-encoding embedded images during a compression pass.
+- **Import validation** — a non-blocking smoke check; if PDFium is unavailable or rejects a file PDFKit can open, the PDFKit import path still proceeds. PDFium never blocks an import PDFKit is willing to handle.
+- **Glyph geometry** — reporting the raw affine transforms of text runs so in-place text editing lands in exactly the right place.
 
 ## qpdf — repair, encryption, sanitize, validation
 
@@ -27,6 +31,10 @@ Apache-2.0, statically linked, vendored as a universal `arm64`/`x86_64` library 
 ## Vision — OCR
 
 Apple's Vision framework recognizes text in scanned pages entirely on-device, writing it back as searchable text validated before it enters the workspace.
+
+## Signing — digital signatures
+
+Not a third-party engine but Orifold's own pipeline (`Signing/`): it resolves a Digital ID (imported `.p12`, Keychain, or self-signed), then constructs a detached CMS/PAdES signature (`ETSI.CAdES.detached`, SHA-256) as an append-only incremental update, optionally embedding an RFC-3161 timestamp from a TSA. Certificate trust and revocation are evaluated locally. See the [Developer FAQ](/Orifold/developers/faq/) for the byte-level detail.
 
 ## Related
 

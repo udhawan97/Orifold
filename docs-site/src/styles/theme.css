@@ -305,6 +305,159 @@ starlight-nav a[aria-current='page'],
 	margin-block: 2.5rem;
 }
 
+/* ---- Stat (inline number from stats.json) ---- */
+.of-stat {
+	font-variant-numeric: tabular-nums;
+	font-weight: 650;
+}
+
+/* ---- Details (collapsible deep-dive) ---- */
+.of-details {
+	position: relative;
+	border: 1px solid var(--of-separator);
+	border-radius: 8px;
+	background: var(--of-surface);
+	margin-block: 1rem;
+	overflow: hidden;
+}
+.of-details > summary {
+	cursor: pointer;
+	padding: 0.7rem 1rem;
+	font-weight: 600;
+	font-size: 0.92rem;
+	list-style: none;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.of-details > summary::-webkit-details-marker {
+	display: none;
+}
+.of-details > summary::before {
+	content: '▸';
+	color: var(--of-accent);
+	transition: transform 120ms ease;
+	transform: translateY(-1px);
+}
+.of-details[open] > summary::before {
+	transform: rotate(90deg);
+}
+.of-details > summary:hover {
+	color: var(--of-accent);
+}
+.of-details-body {
+	padding: 0 1rem 0.85rem 1.9rem;
+	font-size: 0.95rem;
+}
+.of-details-body > :first-child {
+	margin-top: 0;
+}
+
+/* ---- PetTip (Gami / Ori companion notes) ---- */
+.of-pettip {
+	position: relative;
+	display: flex;
+	gap: 0.7rem;
+	align-items: flex-start;
+	border-radius: 8px;
+	border-left: 3px solid var(--of-accent);
+	background: var(--of-accent-soft);
+	padding: 0.85rem 1rem;
+	margin-block: 1rem;
+	font-size: 0.95rem;
+}
+.of-pettip::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 10px;
+	height: 10px;
+	background: linear-gradient(135deg, transparent 50%, var(--of-fold-shade) 50%);
+}
+.of-pettip-mark {
+	flex: 0 0 auto;
+	width: 48px;
+	height: 48px;
+	display: block;
+	margin-top: 0.05rem;
+}
+.of-pettip-body > :first-child {
+	margin-top: 0;
+}
+.of-pettip-body > :last-child {
+	margin-bottom: 0;
+}
+.of-pettip-label {
+	display: block;
+	font-weight: 650;
+	font-size: 0.8rem;
+	color: var(--of-text-2);
+	margin-bottom: 0.15rem;
+}
+
+/* ---- Homepage columns (Who it's for / What's different) ---- */
+.of-columns {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 1.25rem 1.75rem;
+	margin-block: 1.5rem;
+}
+.of-columns h3 {
+	margin: 0 0 0.25rem;
+	font-size: 1rem;
+}
+.of-columns p {
+	margin: 0;
+	color: var(--of-text-2);
+	font-size: 0.92rem;
+}
+.of-diff {
+	border-left: 3px solid var(--of-accent);
+	padding-left: 0.9rem;
+}
+.of-diff strong {
+	color: var(--of-accent-bright);
+}
+
+/* ---- Companion figure pair (Gami & Ori) ---- */
+.of-pet-pair {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 1.5rem 2.5rem;
+	margin-block: 1.5rem;
+	padding: 1.25rem;
+	border: 1px solid var(--of-separator);
+	border-radius: 10px;
+	background: var(--of-card);
+}
+.of-pet-pair figure {
+	margin: 0;
+	text-align: center;
+}
+.of-pet-pair img {
+	width: 140px;
+	height: 140px;
+	display: block;
+	margin: 0 auto;
+}
+.of-pet-pair figcaption {
+	color: var(--of-text-2);
+	font-size: 0.85rem;
+	margin-top: 0.35rem;
+}
+
+/* ---- Media (video clip) ---- */
+.of-media .of-media-video {
+	display: block;
+	width: 100%;
+	border-radius: 6px;
+}
+.of-media .of-figure-placeholder {
+	line-height: 1.5;
+}
+
 /* Reduced motion: kill any animated SVG frames */
 @media (prefers-reduced-motion: reduce) {
 	.of-animate {

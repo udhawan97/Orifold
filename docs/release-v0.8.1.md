@@ -101,7 +101,7 @@ v0.8.1 is a hardening and documentation release: no headline feature, dozens of 
 ## Documentation
 
 - Built a full documentation site (`docs-site/`, Astro/Starlight) covering get-started, import, edit, annotate, fill & sign, export, reading, settings, developer, and release-notes pages — with in-app links to it from the Help menu and Quick Guide.
-- Replaced the documentation's screenshot/GIF placeholders with hand-illustrated, app-faithful SVGs.
+- Replaced 6 of the documentation's illustrated SVG placeholders with real screenshots of the running app (empty state, main window, annotation markup, Document Comfort, Reader Mode, language switcher); the remaining 8 GIF/screenshot slots stay as hand-illustrated, app-faithful SVGs pending capture (tracked in `docs/assets/MEDIA_MANIFEST.md`).
 - Rewrote the reading-comfort docs pages to match the shipped Document Comfort UI (they previously described an earlier, since-replaced preset scheme).
 - Corrected several design/plan documents (`docs/features/`, `docs/signing/`, `docs/DOCS_SITE_PLAN.md`) that still read "plan only, not implemented" for features that have since shipped.
 - README refreshed: version badge, a beta-status note explaining the v7 → v0.8.1 jump, and regenerated test/file/line counts.
@@ -110,8 +110,8 @@ v0.8.1 is a hardening and documentation release: no headline feature, dozens of 
 
 ## Known Limitations
 
-- The documentation's app screenshots are illustrated SVGs rather than photographic captures; a future release may add real captures per `docs/assets/MEDIA_MANIFEST.md`.
 - Automated end-to-end UI smoke testing (beyond the headless PDF smoke test added this cycle) remains on the roadmap.
+- The `ci.yml` full test-suite job is currently red on its pinned Xcode 16.4 toolchain: 3 of 503 tests fail, all at `PDFPage.string` (PDFKit text-extraction) assertions on pages built via `CGContext.drawPDFPage`, while the corresponding visual/save assertions in the same tests pass. This does not affect this release's build (`release.yml` doesn't run the suite) and is tracked as a follow-up rather than fixed blind without an Xcode 16.4 environment to verify against.
 
 ---
 

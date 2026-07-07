@@ -16,27 +16,63 @@ hero:
 import Card from '../../components/Card.astro';
 import CardGrid from '../../components/CardGrid.astro';
 import TrustStrip from '../../components/TrustStrip.astro';
+import Figure from '../../components/Figure.astro';
+import PetTip from '../../components/PetTip.astro';
 import HeroReducedMotion from '../../components/HeroReducedMotion.astro';
 
-Orifold is a free, open-source PDF workspace for macOS. Import up to 50 messy files, edit, sign, and export one polished document — without anything ever leaving your Mac.
+A free, open-source PDF workspace for macOS. Drop in up to 50 messy files — edit, sign, and export one polished document. Nothing ever leaves your Mac.
 
 <TrustStrip />
 
+<Figure src="/Orifold/assets/screenshots/the-orifold-window-annotated.png" alt="The Orifold window: sidebar of imported documents, the PDF canvas, the annotation toolbar, and the inspector." caption="The whole app in one window — sidebar, canvas, toolbar, inspector." />
+
 <hr class="of-crease" />
 
-## Start here
+## Many files in. One PDF out.
 
-<CardGrid>
-	<Card title="Install Orifold" href="get-started/install/" icon="⚡">
-		One line in Terminal, or Homebrew if you prefer. No Xcode, no account.
-	</Card>
-	<Card title="Your first workspace" href="get-started/first-workspace/" icon="🗂️">
-		The 5-minute tour: launch, import, arrange, export.
-	</Card>
-	<Card title="The Orifold window" href="get-started/the-window/" icon="🖼️">
-		Sidebar, canvas, toolbar, and inspector — what everything does.
-	</Card>
-</CardGrid>
+That "simple PDF task" is rarely one file — it's six PDFs, two screenshots, a Word doc, and a scanned form. Orifold takes all of it in, lets you finish it in one place, and hands back a single clean document.
+
+<Figure src="/Orifold/assets/orifold-workspace-diagram.svg" alt="Orifold product flow: import mixed files, edit and finish them in one local workspace, then export one clean file — everything runs on your Mac" />
+
+## Who it's for
+
+<div class="of-columns">
+	<div>
+		<h3>🖥️ Everyday Mac users</h3>
+		<p>Merge, sign, and clean up PDFs without a subscription or an upload.</p>
+	</div>
+	<div>
+		<h3>🔒 Privacy-minded people</h3>
+		<p>Legal, medical, and financial documents that must never touch a server.</p>
+	</div>
+	<div>
+		<h3>🏗️ Developers</h3>
+		<p>A native, MIT-licensed, multi-engine PDF app you can read end to end.</p>
+	</div>
+</div>
+
+## What makes it different
+
+<div class="of-columns">
+	<div class="of-diff">
+		<strong>Local-only</strong>
+		<p>Import, OCR, encryption, and export never touch a network.</p>
+	</div>
+	<div class="of-diff">
+		<strong>Merging isn't a step</strong>
+		<p>Arrange files in one workspace, then export once.</p>
+	</div>
+	<div class="of-diff">
+		<strong>Real protection</strong>
+		<p>AES-256, sanitize-for-sharing, and verifiable digital signatures.</p>
+	</div>
+	<div class="of-diff">
+		<strong>On-device OCR</strong>
+		<p>Vision makes scans searchable — no cloud round-trip.</p>
+	</div>
+</div>
+
+<hr class="of-crease" />
 
 ## Popular workflows
 
@@ -48,7 +84,7 @@ Orifold is a free, open-source PDF workspace for macOS. Import up to 50 messy fi
 		Click detected text and edit it in place.
 	</Card>
 	<Card title="Sign a document" href="fill-sign/signatures/" icon="🖋️">
-		Draw a signature, place it, export — nothing leaves your Mac.
+		A quick visual mark or a verifiable digital signature — locally.
 	</Card>
 	<Card title="Fill a form" href="fill-sign/forms/" icon="📝">
 		Detect fields, type answers, lock them before sharing.
@@ -59,30 +95,29 @@ Orifold is a free, open-source PDF workspace for macOS. Import up to 50 messy fi
 	<Card title="Password-protect a PDF" href="export/protect/" icon="🔒">
 		Real AES-256 encryption, verified after every export.
 	</Card>
-	<Card title="Make a scan searchable (OCR)" href="edit/ocr/" icon="🔍">
-		Local Vision OCR — ⌘F finally works on that scanned form.
-	</Card>
-	<Card title="Change the app language" href="settings/language/" icon="🌐">
-		6 languages, switchable from the landing screen.
-	</Card>
 </CardGrid>
+
+## Meet your guides
+
+Orifold ships with two optional companions — the same origami, different personalities. They show up in these docs, too.
+
+<PetTip who="gami">
+	New here? Gami keeps it simple — start with [Your first workspace](/Orifold/get-started/first-workspace/) and you'll know 80% of Orifold in five minutes.
+</PetTip>
+
+<PetTip who="ori">
+	Ori supervises the technical corners — architecture, edge cases, and the "don't break this" notes. [Meet them both →](/Orifold/get-started/companion/)
+</PetTip>
 
 <hr class="of-crease" />
 
-## Explore
+## For developers
+
+Native SwiftUI, four local PDF engines plus a signing pipeline, and a test-gated release. The architecture page is honest and readable end to end.
 
 <CardGrid>
-	<Card title="Troubleshooting" href="help/troubleshooting/" icon="🔧">
-		Fixes for installation, import, and export problems.
-	</Card>
-	<Card title="FAQ" href="help/faq/" icon="❓">
-		Quick answers to the questions we hear most.
-	</Card>
-	<Card title="What's new in v0.8.1" href="releases/" icon="🆕">
-		Release notes, latest first.
-	</Card>
-	<Card title="For developers" href="developers/why-orifold/" icon="🏗️">
-		Architecture, the engines, building from source, contributing.
+	<Card title="Start here (developers)" href="developers/start-here/" icon="🏗️">
+		Module map, read-first order, and what to touch carefully.
 	</Card>
 </CardGrid>
 

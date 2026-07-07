@@ -31,23 +31,7 @@
 
 <br>
 
-<sub>Orifold is in beta. <strong>v0.8.1</strong> marks the move to semantic versioning — the v1–v7 line continues here as focused polish, validation, and user-flow hardening on the road to 1.0.</sub>
-
-<br>
-<br>
-
-<sub>&nbsp;B&nbsp;U&nbsp;I&nbsp;L&nbsp;T&nbsp;&nbsp;W&nbsp;I&nbsp;T&nbsp;H&nbsp;</sub>
-
-<br>
-<br>
-
-<img alt="Swift" src="https://img.shields.io/badge/Swift_5.9-F05138?style=flat-square&logo=swift&logoColor=white">&nbsp;
-<img alt="SwiftUI" src="https://img.shields.io/badge/SwiftUI-0A84FF?style=flat-square&logo=swift&logoColor=white">&nbsp;
-<img alt="PDFKit" src="https://img.shields.io/badge/PDFKit-111111?style=flat-square&logo=apple&logoColor=white">&nbsp;
-<img alt="PDFium" src="https://img.shields.io/badge/PDFium-4285F4?style=flat-square&logo=googlechrome&logoColor=white">&nbsp;
-<img alt="qpdf" src="https://img.shields.io/badge/qpdf-6E56CF?style=flat-square&logoColor=white">&nbsp;
-<img alt="Vision OCR" src="https://img.shields.io/badge/Vision_OCR-111111?style=flat-square&logo=apple&logoColor=white">&nbsp;
-<img alt="App Sandbox" src="https://img.shields.io/badge/App_Sandbox-10B981?style=flat-square&logo=apple&logoColor=white">
+<sub>Orifold is in beta. <strong>v0.8.1</strong> marks the move to semantic versioning — the v1–v7 line continues here as focused polish, validation, and user-flow hardening on the road to 1.0. Built with Swift, SwiftUI, PDFKit, PDFium, qpdf, and Vision — see <a href="#%EF%B8%8F-under-the-hood">Under the Hood</a>.</sub>
 
 <br>
 <br>
@@ -83,8 +67,8 @@ The same fold that opens Orifold's logo blossoms into a small companion that liv
 <table align="center">
   <tr>
     <td align="center" width="240"><img src="docs/assets/orifold-crane-fold.svg" alt="Animated: a sheet of paper folds into an origami crane, then becomes the app icon" width="200"></td>
-    <td align="center" width="240"><img src="docs/assets/orifold-dog-wag.svg" alt="Animated: Gami the origami Bernedoodle, tail wagging" width="200"></td>
-    <td align="center" width="240"><img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Ori the origami Siberian, front-facing with a cream ruff, tufted ears that twitch, and a long tail that wraps around her paws and sways" width="200"></td>
+    <td align="center" width="240"><img src="docs/assets/gami-figure.svg" alt="Gami the origami Bernedoodle: dark folded paper with a cream blaze and floppy ears" width="180"></td>
+    <td align="center" width="240"><img src="docs/assets/ori-figure.svg" alt="Ori the origami Siberian: slate folded paper with a cream ruff, tufted lynx-tip ears, and a tail curling around her paws" width="180"></td>
   </tr>
   <tr>
     <td align="center"><strong>The Fold</strong><br><sub>The brand mark folds into a crane — a quiet red tancho crown its only splash of color.</sub></td>
@@ -146,13 +130,13 @@ Everything below runs on your Mac. The cloud was not consulted.
 | 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV — even corrupt files | One workspace instead of a folder of chaos; broken PDFs repaired on the way in |
 | 🗂️ | **Organize** — reorder, rotate, delete pages across documents | A clean packet from messy source files |
 | ✏️ | **Annotate & edit** — highlight, notes, ink, text boxes, edit PDF text in place | Reviewed documents without a print-sign-scan loop |
-| 🖋️ | **Sign & fill forms** — draw signatures, complete form fields, lock answers | Finished paperwork, no third-party e-sign service |
+| 🖋️ | **Sign & fill forms** — draw, type, or initial a visual signature *or* apply a verifiable digital signature (PAdES); complete form fields, lock answers | Finished paperwork, no third-party e-sign service |
 | 🔍 | **OCR scans** — local Vision OCR makes scanned pages searchable | ⌘F finally works on that thing your printer emailed you |
 | 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels | Packets and exhibits that look intentional |
 | 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
 | 🧼 | **Sanitize for sharing** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't intend to send |
 | 🔒 | **Protect & export** — real AES-256 password, or export DOCX, Markdown, HTML, PNG, JPEG | The format the next person actually needs, locked when it matters |
-| 📖 | **Read comfortably** — distraction-free Reader Mode, plus Night Mode with Gentle/Paper/Amber warmth presets | Long documents that don't fight your eyes or your focus |
+| 📖 | **Read comfortably** — distraction-free Reader Mode, plus Document Comfort with Default / Night / Eye Care / Focus presets and warmth, brightness, and contrast controls | Long documents that don't fight your eyes or your focus |
 | 🕘 | **Pick up where you left off** — a Recently Viewed shelf on the empty-state screen, with local thumbnails | One click back into the file you had open yesterday |
 | 🌐 | **Work in your language** — full UI in English, Spanish, French, Hindi, Simplified Chinese, and Japanese | An app that speaks your language, switchable from the landing screen |
 
@@ -166,13 +150,13 @@ Everything below runs on your Mac. The cloud was not consulted.
 
 | Area | What you can do |
 | --- | --- |
-| **Import** | Open PDFs, Word documents, HTML, Markdown, text, CSV, JSON, XML, and common image formats — up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
+| **Import** | Open PDFs, Word documents, HTML, Markdown, text, CSV, JSON, XML, and common image formats — up to 50 files per workspace, including whole folders; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
 | **Organize** | Reorder documents and pages, rotate, delete, add section banners, navigate from the sidebar |
-| **Read & search** | Native PDF canvas, page indicator, inspector, workspace-wide search, password unlock prompts, distraction-free Reader Mode, Night Mode with Gentle/Paper/Amber warmth-and-dimming presets |
+| **Read & search** | Native PDF canvas, page indicator, inspector, workspace-wide search with Find & Replace, password unlock prompts, distraction-free Reader Mode, Document Comfort presets (Default / Night / Eye Care / Focus) with warmth, brightness, and contrast controls |
 | **Recently viewed** | An empty-state shelf of the last files you opened, with locally cached page thumbnails — nothing about it ever leaves the machine |
 | **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text |
 | **Comments & metadata** | Workspace comments, tags, document details, inspector-visible annotation lists |
-| **Signatures** | Draw and place signatures, export signed PDFs locally |
+| **Signatures** | Draw, type, or initial a visual signature; or apply a verifiable cryptographic digital signature (PAdES, SHA-256, optional trusted timestamp) using a `.p12`, Keychain, or self-signed Digital ID — export signed PDFs locally |
 | **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
 | **Scans & OCR** | Local Vision OCR makes scans searchable; recognized text survives export |
 | **Stamps & decorations** | Watermarks, page numbers, Bates labels, movable stamps burned into exported PDFs |
@@ -205,10 +189,11 @@ Orifold is local-first by design — not as a setting, as an architecture.
 
 <br>
 
-The app enables exactly two entitlements:
+The app enables exactly three sandbox entitlements:
 
 - `com.apple.security.app-sandbox`
 - `com.apple.security.files.user-selected.read-write`
+- `com.apple.security.files.bookmarks.app-scope` (so Recently Viewed can reopen files you already granted access to)
 
 Practical guardrails include password prompts for protected PDFs, import size limits, local validation before and after compression or encryption, a qpdf structural check gating every export, an optional sanitize pass that strips auto-run actions and embedded JavaScript, form flattening before decoration burn-in, export error reporting for malformed PDFs or failed writes, and hidden Orifold comment metadata stripped before flat PDF export.
 </details>
@@ -254,7 +239,7 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/unin
 | **Codebase** | 79 Swift source files, ~36,000 lines |
 | **Tests** | 503 tests gating every release |
 | **Languages** | English, Spanish, French, Hindi, Simplified Chinese, Japanese — coverage enforced by a test |
-| **PDF engines** | PDFKit (composition) + PDFium (image compression) + qpdf (repair, AES-256, sanitize, structural validation) + Vision (OCR) |
+| **PDF engines** | PDFKit (composition) + PDFium (image compression, import validation, text-glyph geometry) + qpdf (repair, AES-256, sanitize, structural validation) + Vision (OCR) + a CMS/PAdES signing pipeline (digital signatures) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds the release zip; installer, Homebrew cask, and uninstaller ship from this repo |
 

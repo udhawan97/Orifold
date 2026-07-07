@@ -1,0 +1,19 @@
+---
+/**
+ * Styled collapsible deep-dive. The summary should state the takeaway so a
+ * reader who never opens it still learns something. Folded-corner motif to
+ * match cards and callouts.
+ * Usage: <Details summary="What 'detected text' means">…markdown…</Details>
+ */
+interface Props {
+	summary: string;
+}
+const { summary } = Astro.props;
+---
+
+<details class="of-details">
+	<summary>{summary}</summary>
+	<div class="of-details-body">
+		<slot />
+	</div>
+</details>
