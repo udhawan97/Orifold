@@ -247,16 +247,23 @@ enum TimestampResponseParser {
 /// throws the LAST error encountered (the caller's existing "timestamp unavailable,
 /// falling back to an unstamped signature" handling still applies).
 enum TimestampAuthorityFallbackChain {
+    /// `onAttempt` fires right before each TSA is tried, so a caller with a progress UI
+    /// can show which of up to 4 endpoints is currently being contacted — without it, a
+    /// user watching a "Requesting timestamp…" message that never changes while several
+    /// slow (not necessarily down) TSAs are tried in sequence has no way to tell the
+    /// operation apart from a genuine hang.
     static func fetchTimestamp(
         for signatureValue: Data,
         preferring preferred: TimestampAuthorityOption,
-        client: TimestampClient = TimestampClient()
+        client: TimestampClient = TimestampClient(),
+        onAttempt: (@Sendable (TimestampAuthorityOption) -> Void)? = nil
     ) async throws -> TimeStampToken {
         var order = [preferred]
         order.append(contentsOf: TimestampAuthorityOption.allCases.filter { $0 != preferred })
 
         var lastError: Error = TimestampClientError.invalidResponse("no timestamp authority configured")
         for option in order {
+            onAttempt?(option)
             do {
                 return try await client.fetchTimestamp(for: signatureValue, tsaURL: option.url)
             } catch {
