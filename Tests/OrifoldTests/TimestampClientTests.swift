@@ -154,6 +154,26 @@ final class TimestampAuthorityFallbackChainTests: XCTestCase {
         XCTAssertEqual(session.requestedURLsInOrder.count, TimestampAuthorityOption.allCases.count,
                        "must try every option in the chain before giving up")
     }
+
+    func testOnAttemptFiresForEveryOptionTriedInOrder() async {
+        let session = RoutingStubTimestampSession(responses: [:], defaultStatusCode: 503)
+        final class AttemptLog: @unchecked Sendable {
+            var options: [TimestampAuthorityOption] = []
+        }
+        let log = AttemptLog()
+
+        _ = try? await TimestampAuthorityFallbackChain.fetchTimestamp(
+            for: Data([0x01]),
+            preferring: .globalSign,
+            client: TimestampClient(session: session),
+            onAttempt: { log.options.append($0) }
+        )
+
+        // Lets a progress UI show which TSA is currently being contacted instead of
+        // freezing on one static message while several endpoints are tried in sequence.
+        XCTAssertEqual(log.options, [.globalSign, .freeTSA, .digiCert, .sectigo],
+                       "onAttempt must fire once per option, preferred first, in the exact order they're tried")
+    }
 }
 
 private final class RoutingStubTimestampSession: TimestampNetworking {
