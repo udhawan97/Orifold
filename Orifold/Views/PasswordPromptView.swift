@@ -10,6 +10,10 @@ struct PasswordPromptView: View {
     @State private var password = ""
     @State private var failed = false
     @Environment(\.dismiss) private var dismiss
+    // Passed into L10n.format() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(spacing: 20) {
@@ -17,7 +21,7 @@ struct PasswordPromptView: View {
                 .font(.system(size: 36))
                 .foregroundStyle(Color.dsTextSecondary)
 
-            Text(L10n.format("passwordPrompt.protectedFile", fileName))
+            Text(L10n.format("passwordPrompt.protectedFile", fileName, locale: locale))
                 .font(.dsHeadline())
                 .foregroundStyle(Color.dsTextPrimary)
 

@@ -98,7 +98,7 @@ private struct SidebarBrandMasthead: View {
                 iconSize: 38,
                 titleSize: 13,
                 subtitleSize: 10.5,
-                subtitle: L10n.string("sidebar.brandMasthead.subtitle")
+                subtitle: "sidebar.brandMasthead.subtitle"
             )
 
             ViewThatFits(in: .horizontal) {
@@ -161,6 +161,10 @@ struct MemberDocRow: View {
     var viewModel: WorkspaceViewModel
     @Binding var expandedDocs: Set<UUID>
     @State private var isHovered = false
+    // Passed into L10n.format()/L10n.string() below so this view's `body` actually
+    // reads it — SwiftUI only re-invokes `body` on a locale change for views that
+    // read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var isExpanded: Bool {
         get { expandedDocs.contains(member.id) }
@@ -192,8 +196,8 @@ struct MemberDocRow: View {
                         .foregroundStyle(Color.dsTextPrimary)
                         .lineLimit(1)
                     Text(member.pageRefs.count == 1
-                         ? L10n.format("sidebar.pageCount.one", member.pageRefs.count)
-                         : L10n.format("sidebar.pageCount.other", member.pageRefs.count))
+                         ? L10n.format("sidebar.pageCount.one", member.pageRefs.count, locale: locale)
+                         : L10n.format("sidebar.pageCount.other", member.pageRefs.count, locale: locale))
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
@@ -211,7 +215,7 @@ struct MemberDocRow: View {
                 .allowsHitTesting(isHovered)
                 .disabled(!viewModel.canRemoveDocuments)
                 .help("sidebar.removeDocument.help")
-                .accessibilityLabel(L10n.format("sidebar.removeMember.accessibilityLabel", member.displayName))
+                .accessibilityLabel(L10n.format("sidebar.removeMember.accessibilityLabel", member.displayName, locale: locale))
             }
             .padding(.vertical, 2)
             .contentShape(Rectangle())
@@ -352,6 +356,10 @@ struct ThumbnailCell: View {
     @State private var thumbnail: NSImage? = nil
     @State private var isHovered = false
     @State private var isConfirmingDelete = false
+    // Passed into L10n.format()/L10n.string() below so this view's `body` actually
+    // reads it — SwiftUI only re-invokes `body` on a locale change for views that
+    // read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private static let thumbSize = CGSize(width: 48, height: 64)
     private var isSelected: Bool {
@@ -393,7 +401,7 @@ struct ThumbnailCell: View {
                         .frame(minWidth: 15, minHeight: 15)
                         .background(Color.dsAccent, in: Circle())
                         .offset(x: 5, y: -5)
-                        .accessibilityLabel(L10n.format("sidebar.commentsOnPage.accessibilityLabel", commentCount))
+                        .accessibilityLabel(L10n.format("sidebar.commentsOnPage.accessibilityLabel", commentCount, locale: locale))
                 }
             }
             .shadow(color: .black.opacity(0.10), radius: 3, x: 0, y: 1)
@@ -401,21 +409,21 @@ struct ThumbnailCell: View {
             .contextMenu {
                 let selection = viewModel.pageRefsForCurrentSelection(including: pageRef)
                 let selectionLabel = selection.count == 1
-                    ? L10n.string("sidebar.selection.page")
-                    : L10n.format("sidebar.selection.pages", selection.count)
-                Button(L10n.format("sidebar.rotateCW", selectionLabel))  {
+                    ? L10n.string("sidebar.selection.page", locale: locale)
+                    : L10n.format("sidebar.selection.pages", selection.count, locale: locale)
+                Button(L10n.format("sidebar.rotateCW", selectionLabel, locale: locale))  {
                     viewModel.rotatePages(selection, by: 90)
                     thumbnail = nil
                 }
-                Button(L10n.format("sidebar.rotateCCW", selectionLabel)) {
+                Button(L10n.format("sidebar.rotateCCW", selectionLabel, locale: locale)) {
                     viewModel.rotatePages(selection, by: -90)
                     thumbnail = nil
                 }
-                Button(L10n.format("sidebar.duplicate", selectionLabel)) {
+                Button(L10n.format("sidebar.duplicate", selectionLabel, locale: locale)) {
                     viewModel.duplicatePages(selection)
                     thumbnail = nil
                 }
-                Button(L10n.format("sidebar.export", selectionLabel)) {
+                Button(L10n.format("sidebar.export", selectionLabel, locale: locale)) {
                     viewModel.exportPages(selection)
                 }
                 Divider()
@@ -423,13 +431,13 @@ struct ThumbnailCell: View {
                     openFiles(insertingAfter: pageRef)
                 }
                 Divider()
-                Button(L10n.format("sidebar.delete", selectionLabel), role: .destructive) {
+                Button(L10n.format("sidebar.delete", selectionLabel, locale: locale), role: .destructive) {
                     isConfirmingDelete = true
                 }
             }
 
             // Label
-            Text(L10n.format("sidebar.pageLabel.short", pageNumber))
+            Text(L10n.format("sidebar.pageLabel.short", pageNumber, locale: locale))
                 .font(.dsCaption())
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? Color.dsAccent : Color.dsTextSecondary)
@@ -490,7 +498,7 @@ struct ThumbnailCell: View {
             if count == 1 {
                 Text("sidebar.deletePages.confirmation.messageSingular")
             } else {
-                Text(L10n.format("sidebar.removePages.confirmation.plural", count))
+                Text(L10n.format("sidebar.removePages.confirmation.plural", count, locale: locale))
             }
         }
     }

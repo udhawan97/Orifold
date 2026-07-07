@@ -5,6 +5,10 @@ struct StampPalette: View {
 
     @State private var customText = "Reviewed"
     @State private var selectedSwatch: PageDecorationSwatch = .accent
+    // Passed into L10n.string()/L10n.format() below so this view's `body` actually
+    // reads it — SwiftUI only re-invokes `body` on a locale change for views that
+    // read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -16,12 +20,12 @@ struct StampPalette: View {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: .dsSM) {
                     ForEach(StampPreset.allCases) { preset in
                         Button {
-                            viewModel.beginStampPlacement(text: preset.title, swatch: preset.swatch)
+                            viewModel.beginStampPlacement(text: preset.title(locale: locale), swatch: preset.swatch)
                         } label: {
-                            StampPreviewLabel(title: preset.title, swatch: preset.swatch)
+                            StampPreviewLabel(title: preset.title(locale: locale), swatch: preset.swatch)
                         }
                         .buttonStyle(.plain)
-                        .help(L10n.format("stampPalette.place.help", preset.title.lowercased()))
+                        .help(L10n.format("stampPalette.place.help", preset.title(locale: locale).lowercased(), locale: locale))
                     }
                 }
 
@@ -44,7 +48,7 @@ struct StampPalette: View {
                                     }
                             }
                             .buttonStyle(.plain)
-                            .help(swatch.label)
+                            .help(swatch.label(locale: locale))
                         }
 
                         Spacer()
@@ -110,18 +114,18 @@ private enum StampPreset: CaseIterable, Identifiable {
 
     var id: Self { self }
 
-    var title: String {
+    func title(locale: Locale) -> String {
         switch self {
         case .approved:
-            return L10n.string("stampPreset.approved.title")
+            return L10n.string("stampPreset.approved.title", locale: locale)
         case .draft:
-            return L10n.string("stampPreset.draft.title")
+            return L10n.string("stampPreset.draft.title", locale: locale)
         case .confidential:
-            return L10n.string("stampPreset.confidential.title")
+            return L10n.string("stampPreset.confidential.title", locale: locale)
         case .final:
-            return L10n.string("stampPreset.final.title")
+            return L10n.string("stampPreset.final.title", locale: locale)
         case .void:
-            return L10n.string("stampPreset.void.title")
+            return L10n.string("stampPreset.void.title", locale: locale)
         }
     }
 
@@ -161,18 +165,19 @@ private extension PageDecorationSwatch {
         }
     }
 
-    var label: String {
+    // Reuses the same catalog keys as the identical swatch labels in InspectorView.swift.
+    func label(locale: Locale) -> String {
         switch self {
         case .accent:
-            return "Accent"
+            return L10n.string("inspector.colorSwatch.accent.label", locale: locale)
         case .sage:
-            return "Sage"
+            return L10n.string("inspector.colorSwatch.sage.label", locale: locale)
         case .coral:
-            return "Coral"
+            return L10n.string("inspector.colorSwatch.coral.label", locale: locale)
         case .tertiary:
-            return "Gray"
+            return L10n.string("inspector.colorSwatch.gray.label", locale: locale)
         case .lavender:
-            return "Lavender"
+            return L10n.string("inspector.colorSwatch.lavender.label", locale: locale)
         }
     }
 }

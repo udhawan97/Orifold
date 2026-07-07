@@ -30,14 +30,23 @@ enum L10n {
         return SupportedLanguage.resolvedLocale(for: language)
     }
 
-    static func string(_ key: String.LocalizationValue) -> String {
-        let resolved = String(localized: key, bundle: bundle, locale: currentLocale)
+    /// - Parameter locale: Pass a SwiftUI view's own `@Environment(\.locale)` here
+    ///   when calling from `body`. Beyond correctness, this makes the view's `body`
+    ///   actually *read* that environment value — SwiftUI only re-invokes `body` on
+    ///   an environment change for views that read it during the previous
+    ///   evaluation, so merely declaring `@Environment(\.locale)` without using it
+    ///   does not, by itself, make a view refresh when the language changes.
+    ///   Omit it only for non-SwiftUI contexts (error enums, PetBuddy messages),
+    ///   which fall back to reading the stored preference directly.
+    static func string(_ key: String.LocalizationValue, locale: Locale? = nil) -> String {
+        let resolvedLocale = locale ?? currentLocale
+        let resolved = String(localized: key, bundle: bundle, locale: resolvedLocale)
         #if SWIFT_PACKAGE
         // `swift build`/`swift test` copy Localizable.xcstrings byte-for-byte instead
         // of compiling it the way Xcode's build system does, so the lookup above always
         // misses and silently returns the raw key. Only reachable in that CLI build —
         // Xcode-built targets resolve via the catalog above and never touch this table.
-        if let rawKey = rawKeyText(key), resolved == rawKey, let fallback = rawCatalogFallback(for: rawKey) {
+        if let rawKey = rawKeyText(key), resolved == rawKey, let fallback = rawCatalogFallback(for: rawKey, locale: resolvedLocale) {
             return fallback
         }
         #endif
@@ -63,8 +72,8 @@ enum L10n {
     /// `Text("key \(arg)")` — the latter's runtime lookup key is a compiler-derived
     /// format string, not the literal source syntax, so a catalog entry authored with
     /// the literal `\(arg)` text never actually matches at lookup time.
-    static func format(_ key: String, _ args: CVarArg...) -> String {
-        String(format: string(String.LocalizationValue(key)), arguments: args)
+    static func format(_ key: String, _ args: CVarArg..., locale: Locale? = nil) -> String {
+        String(format: string(String.LocalizationValue(key), locale: locale), arguments: args)
     }
 
     #if SWIFT_PACKAGE
@@ -90,8 +99,8 @@ enum L10n {
         return table
     }()
 
-    private static func rawCatalogFallback(for key: String) -> String? {
-        rawCatalogFallbackTable["\(currentLocale.language.languageCode?.identifier ?? "en")|\(key)"]
+    private static func rawCatalogFallback(for key: String, locale: Locale) -> String? {
+        rawCatalogFallbackTable["\(locale.language.languageCode?.identifier ?? "en")|\(key)"]
             ?? rawCatalogFallbackTable["en|\(key)"]
     }
     #endif

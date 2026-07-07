@@ -4,6 +4,10 @@ import AppKit
 
 struct SignaturePalette: View {
     @Bindable var viewModel: WorkspaceViewModel
+    // Passed into L10n.string() (via `.title(locale:)`) below so this view's
+    // `body` actually reads it — SwiftUI only re-invokes `body` on a locale
+    // change for views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     @State private var selectedMode: SignaturePaletteMode = .type
     @State private var typedName: String = SignaturePalette.defaultSignerName
@@ -31,7 +35,7 @@ struct SignaturePalette: View {
             VStack(alignment: .leading, spacing: .dsLG) {
                 Picker("signaturePalette.mode.picker", selection: $selectedMode) {
                     ForEach(SignaturePaletteMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
+                        Text(mode.title(locale: locale)).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -51,7 +55,11 @@ struct SignaturePalette: View {
         .frame(width: 360)
         .background(Color.dsSurface)
         .sheet(isPresented: $isShowingGuide) {
+            // `.sheet`/`.popover` content on macOS doesn't inherit the
+            // `.environment(\.locale:)` override applied at the scene root — it
+            // resets to the system default — so it must be re-applied explicitly.
             CertificateGuideSheet()
+                .environment(\.locale, locale)
         }
     }
 
@@ -105,7 +113,7 @@ struct SignaturePalette: View {
             HStack(spacing: .dsSM) {
                 Picker("signaturePalette.digitalId.picker", selection: $selectedIdentity) {
                     ForEach(DigitalIdentityOption.allCases) { option in
-                        Text(option.title).tag(option)
+                        Text(option.title(locale: locale)).tag(option)
                     }
                 }
                 .pickerStyle(.menu)
@@ -122,6 +130,7 @@ struct SignaturePalette: View {
                     .help("signaturePalette.certificateTrustInfo.help")
                     .popover(isPresented: $isShowingTrustInfo, arrowEdge: .trailing) {
                         CertificateTrustPopover(isShowingGuide: $isShowingGuide)
+                            .environment(\.locale, locale)
                     }
                 }
             }
@@ -232,7 +241,7 @@ struct SignaturePalette: View {
             )
         } catch {
             viewModel.exportError = WorkspaceViewModel.ExportError(
-                message: L10n.string("Orifold could not prepare that signing identity: \(error.localizedDescription)")
+                message: L10n.format("error.signingIdentity.preparationFailed", error.localizedDescription)
             )
         }
     }
@@ -267,11 +276,11 @@ private enum SignaturePaletteMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(locale: Locale) -> String {
         switch self {
-        case .type: return L10n.string("signatureMethod.type.title")
-        case .initials: return L10n.string("signatureMethod.initials.title")
-        case .digital: return L10n.string("signatureMethod.digital.title")
+        case .type: return L10n.string("signatureMethod.type.title", locale: locale)
+        case .initials: return L10n.string("signatureMethod.initials.title", locale: locale)
+        case .digital: return L10n.string("signatureMethod.digital.title", locale: locale)
         }
     }
 }
@@ -283,11 +292,11 @@ private enum DigitalIdentityOption: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(locale: Locale) -> String {
         switch self {
-        case .importP12: return L10n.string("signatureMethod.importP12.title")
-        case .keychain: return L10n.string("signatureMethod.keychain.title")
-        case .selfSigned: return L10n.string("signatureMethod.selfSigned.title")
+        case .importP12: return L10n.string("signatureMethod.importP12.title", locale: locale)
+        case .keychain: return L10n.string("signatureMethod.keychain.title", locale: locale)
+        case .selfSigned: return L10n.string("signatureMethod.selfSigned.title", locale: locale)
         }
     }
 

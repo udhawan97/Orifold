@@ -17,6 +17,10 @@ struct AppIconMark: View {
 struct AppIconButton: View {
     var size: CGFloat = 24
     @State private var isPresented = false
+    // `.popover` content on macOS doesn't inherit the `.environment(\.locale:)`
+    // override applied at the scene root — it resets to the system default —
+    // so it must be re-applied explicitly to the presented content below.
+    @EnvironmentObject private var languageManager: LanguageManager
 
     var body: some View {
         Button { isPresented.toggle() } label: {
@@ -26,6 +30,8 @@ struct AppIconButton: View {
         .help("guide.aboutOrifold.help")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             AppAboutPopover()
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
         }
     }
 }
@@ -34,7 +40,10 @@ struct AppBrandLockup: View {
     var iconSize: CGFloat = 28
     var titleSize: CGFloat = 14
     var subtitleSize: CGFloat = 11
-    var subtitle: String? = L10n.string("appBrandLockup.subtitle.default")
+    // A `LocalizedStringKey`, not a resolved `String`: `Text` re-resolves it
+    // against the current environment locale on every render, so language
+    // switches take effect immediately without needing this view to re-run.
+    var subtitle: LocalizedStringKey? = "appBrandLockup.subtitle.default"
 
     var body: some View {
         HStack(spacing: .dsSM) {
@@ -152,6 +161,10 @@ struct GuideButton: View {
     @State private var isPresented = false
     @AppStorage("Orifold.hasSeenGuidePopover") private var hasSeenGuidePopover = false
     private let legacyHasSeenGuideKey = ["PDF", "old.hasSeenGuidePopover"].joined()
+    // `.popover` content on macOS doesn't inherit the `.environment(\.locale:)`
+    // override applied at the scene root — it resets to the system default —
+    // so it must be re-applied explicitly to the presented content below.
+    @EnvironmentObject private var languageManager: LanguageManager
 
     var body: some View {
         Button {
@@ -163,6 +176,8 @@ struct GuideButton: View {
         .help("guide.showQuickGuide.help")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             GuidePopover(isPresented: $isPresented)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
         }
         .onAppear {
             if UserDefaults.standard.bool(forKey: legacyHasSeenGuideKey) {
@@ -183,7 +198,7 @@ private struct GuidePopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: .dsLG) {
             VStack(alignment: .leading, spacing: .dsSM) {
-                AppBrandLockup(iconSize: 40, titleSize: 15, subtitle: L10n.string("guidePopover.subtitle"))
+                AppBrandLockup(iconSize: 40, titleSize: 15, subtitle: "guidePopover.subtitle")
                 Text("guidePopover.description")
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
@@ -216,7 +231,11 @@ private struct GuidePopover: View {
             }
         }
         .padding(.dsLG)
-        .frame(width: 430)
+        // Wider than the visual minimum an English-only layout would need: several
+        // translations (notably French/Spanish) run 30-60% longer than English for
+        // these descriptions, and the narrower width was forcing 5-6 line wraps —
+        // this reclaims real column width for every language, not just English.
+        .frame(width: 480)
         .background(PopoverAuroraBackground())
     }
 }
@@ -244,62 +263,30 @@ private struct PopoverAuroraBackground: View {
 }
 
 private struct GuideFeature: Identifiable {
-    var id: String { title }
+    var id: String { icon }
     var icon: String
-    var title: String
-    var detail: String
+    // Translation *keys*, not resolved strings: `Text` re-resolves a
+    // `LocalizedStringKey` against the current environment locale on every
+    // render, whereas a pre-resolved `String` (e.g. via `L10n.string()`) is
+    // frozen at whatever language was active when this array was built.
+    var titleKey: LocalizedStringKey
+    var detailKey: LocalizedStringKey
     var tint: Color
     var iconIsDark: Bool = false
 
-    static let all = [
-        GuideFeature(icon: "doc.badge.plus",
-                     title: L10n.string("guideFeature.import.title"),
-                     detail: L10n.string("guideFeature.import.detail"),
-                     tint: .dsAccent),
-        GuideFeature(icon: "square.stack.3d.down.right",
-                     title: L10n.string("guideFeature.assemble.title"),
-                     detail: L10n.string("guideFeature.assemble.detail"),
-                     tint: .dsAccentBright),
-        GuideFeature(icon: "text.cursor",
-                     title: L10n.string("guideFeature.editText.title"),
-                     detail: L10n.string("guideFeature.editText.detail"),
-                     tint: .dsAnnotationSky),
-        GuideFeature(icon: "highlighter",
-                     title: L10n.string("guideFeature.markUp.title"),
-                     detail: L10n.string("guideFeature.markUp.detail"),
-                     tint: .dsHighlightYellow, iconIsDark: true),
-        GuideFeature(icon: "bubble.left.and.text.bubble.right",
-                     title: L10n.string("guideFeature.review.title"),
-                     detail: L10n.string("guideFeature.review.detail"),
-                     tint: .dsAnnotationLavender),
-        GuideFeature(icon: "signature",
-                     title: L10n.string("guideFeature.sign.title"),
-                     detail: L10n.string("guideFeature.sign.detail"),
-                     tint: .dsSignatureAccent),
-        GuideFeature(icon: "seal",
-                     title: L10n.string("guideFeature.decorate.title"),
-                     detail: L10n.string("guideFeature.decorate.detail"),
-                     tint: .dsAnnotationCoral),
-        GuideFeature(icon: "checklist",
-                     title: L10n.string("guideFeature.forms.title"),
-                     detail: L10n.string("guideFeature.forms.detail"),
-                     tint: .dsAnnotationSage),
-        GuideFeature(icon: "doc.text.viewfinder",
-                     title: L10n.string("guideFeature.ocr.title"),
-                     detail: L10n.string("guideFeature.ocr.detail"),
-                     tint: .dsAccent),
-        GuideFeature(icon: "arrow.down.circle",
-                     title: L10n.string("guideFeature.compress.title"),
-                     detail: L10n.string("guideFeature.compress.detail"),
-                     tint: .dsAccentBright),
-        GuideFeature(icon: "lock.shield",
-                     title: L10n.string("guideFeature.protect.title"),
-                     detail: L10n.string("guideFeature.protect.detail"),
-                     tint: .dsGraphite),
-        GuideFeature(icon: "square.and.arrow.up",
-                     title: L10n.string("guideFeature.export.title"),
-                     detail: L10n.string("guideFeature.export.detail"),
-                     tint: .dsAnnotationSky)
+    static let all: [GuideFeature] = [
+        GuideFeature(icon: "doc.badge.plus", titleKey: "guideFeature.import.title", detailKey: "guideFeature.import.detail", tint: .dsAccent),
+        GuideFeature(icon: "square.stack.3d.down.right", titleKey: "guideFeature.assemble.title", detailKey: "guideFeature.assemble.detail", tint: .dsAccentBright),
+        GuideFeature(icon: "text.cursor", titleKey: "guideFeature.editText.title", detailKey: "guideFeature.editText.detail", tint: .dsAnnotationSky),
+        GuideFeature(icon: "highlighter", titleKey: "guideFeature.markUp.title", detailKey: "guideFeature.markUp.detail", tint: .dsHighlightYellow, iconIsDark: true),
+        GuideFeature(icon: "bubble.left.and.text.bubble.right", titleKey: "guideFeature.review.title", detailKey: "guideFeature.review.detail", tint: .dsAnnotationLavender),
+        GuideFeature(icon: "signature", titleKey: "guideFeature.sign.title", detailKey: "guideFeature.sign.detail", tint: .dsSignatureAccent),
+        GuideFeature(icon: "seal", titleKey: "guideFeature.decorate.title", detailKey: "guideFeature.decorate.detail", tint: .dsAnnotationCoral),
+        GuideFeature(icon: "checklist", titleKey: "guideFeature.forms.title", detailKey: "guideFeature.forms.detail", tint: .dsAnnotationSage),
+        GuideFeature(icon: "doc.text.viewfinder", titleKey: "guideFeature.ocr.title", detailKey: "guideFeature.ocr.detail", tint: .dsAccent),
+        GuideFeature(icon: "arrow.down.circle", titleKey: "guideFeature.compress.title", detailKey: "guideFeature.compress.detail", tint: .dsAccentBright),
+        GuideFeature(icon: "lock.shield", titleKey: "guideFeature.protect.title", detailKey: "guideFeature.protect.detail", tint: .dsGraphite),
+        GuideFeature(icon: "square.and.arrow.up", titleKey: "guideFeature.export.title", detailKey: "guideFeature.export.detail", tint: .dsAnnotationSky)
     ]
 }
 
@@ -325,6 +312,10 @@ private struct FeatureIconTile: View {
                 .shadow(color: .black.opacity(iconIsDark ? 0 : 0.18), radius: 1, x: 0, y: 0.5)
         }
         .frame(width: 26, height: 26)
+        // Flattens the two gradients + two shadows into a single cached bitmap.
+        // Without this, scrolling the guide grid recomposites all of that per
+        // tile on every frame — 12 tiles' worth — which is what caused the lag.
+        .drawingGroup()
         .shadow(color: tint.opacity(0.4), radius: 4, x: 0, y: 2)
     }
 }
@@ -333,21 +324,27 @@ private struct GuideFeatureTile: View {
     var feature: GuideFeature
 
     var body: some View {
-        HStack(alignment: .top, spacing: .dsSM) {
+        HStack(alignment: .top, spacing: .dsMD) {
             FeatureIconTile(systemName: feature.icon, tint: feature.tint, iconIsDark: feature.iconIsDark)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(feature.title)
+            VStack(alignment: .leading, spacing: .dsXS) {
+                Text(feature.titleKey)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
-                Text(feature.detail)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(feature.detailKey)
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
+                    .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
-        .padding(.dsSM)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(.dsMD)
+        // A floor, not a ceiling: short-text tiles (e.g. Chinese/Japanese, which run
+        // much shorter than Latin scripts) stay calm and don't look empty next to a
+        // longer-text neighbor in the same grid row, while tiles with genuinely more
+        // text (French/Spanish in particular) are still free to grow taller.
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 84, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
                 .fill(Color.dsCard.opacity(0.55))

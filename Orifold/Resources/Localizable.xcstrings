@@ -4687,13 +4687,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajusta el texto detectado del PDF o añade cuadros de texto nuevos directamente en la página."
+            "value": "Ajusta el texto detectado del PDF o añade cuadros de texto en la página."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajustez le texte détecté du PDF ou ajoutez de nouvelles zones de texte directement sur la page."
+            "value": "Ajustez le texte détecté du PDF ou ajoutez des zones de texte sur la page."
           }
         },
         "hi": {
@@ -4775,7 +4775,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Surlignez, soulignez, barrez, dessinez à l’encre, effacez des marques et ajoutez des notes."
+            "value": "Surlignez, soulignez, barrez, dessinez à l’encre, effacez et ajoutez des notes."
           }
         },
         "hi": {
@@ -4851,13 +4851,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Controla los comentarios del espacio de trabajo, notas ancladas, etiquetas, metadatos y resultados de búsqueda."
+            "value": "Controla comentarios del espacio, notas ancladas, etiquetas, metadatos y resultados de búsqueda."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Suivez les commentaires de l’espace de travail, les notes ancrées, les étiquettes, les métadonnées et les résultats de recherche."
+            "value": "Suivez les commentaires, notes ancrées, étiquettes, métadonnées et résultats de recherche."
           }
         },
         "hi": {
@@ -5343,13 +5343,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Protege con contraseña las exportaciones compatibles y controla los permisos de copia e impresión."
+            "value": "Protege con contraseña las exportaciones y controla permisos de copia e impresión."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Protégez par mot de passe les exports compatibles et contrôlez les autorisations de copie ou d’impression."
+            "value": "Protégez par mot de passe les exports compatibles et gérez les droits de copie ou d’impression."
           }
         },
         "hi": {
@@ -5425,13 +5425,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guarda espacios de trabajo en PDF o exporta a PDF, DOCX, Markdown, texto, HTML, PNG y JPEG."
+            "value": "Guarda espacios en PDF o exporta a PDF, DOCX, Markdown, texto, HTML, PNG y JPEG."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enregistrez des espaces de travail PDF ou exportez en PDF, DOCX, Markdown, texte, HTML, PNG et JPEG."
+            "value": "Enregistrez vos espaces PDF ou exportez en PDF, DOCX, Markdown, texte, HTML, PNG ou JPEG."
           }
         },
         "hi": {
@@ -27631,6 +27631,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "ダブルクリックしてこのファイルを開く"
+          }
+        }
+      }
+    },
+    "error.signingIdentity.preparationFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not prepare that signing identity: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo preparar esa identidad de firma: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu préparer cette identité de signature : %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold उस हस्ताक्षर पहचान को तैयार नहीं कर सका: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法准备该签名身份：%@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold はその署名IDを準備できませんでした：%@"
           }
         }
       }

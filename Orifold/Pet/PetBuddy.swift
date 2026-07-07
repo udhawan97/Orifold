@@ -425,6 +425,10 @@ struct PetView: View {
     @State private var hoverHideWorkItem: DispatchWorkItem?
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // `.popover` content on macOS doesn't inherit the `.environment(\.locale:)`
+    // override applied at the scene root — it resets to the system default —
+    // so it must be re-applied explicitly to the presented content below.
+    @EnvironmentObject private var languageManager: LanguageManager
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -480,6 +484,8 @@ struct PetView: View {
                 isPresented: $isPopoverPresented,
                 buddy: buddy
             )
+            .environmentObject(languageManager)
+            .environment(\.locale, languageManager.effectiveLocale)
         }
         .overlay(alignment: .topTrailing) {
             if presentation == .workspace, let hoverTipMessage {

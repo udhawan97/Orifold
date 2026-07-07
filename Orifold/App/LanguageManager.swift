@@ -49,12 +49,24 @@ enum SupportedLanguage: String, CaseIterable, Identifiable {
 /// `.environment(\.locale:)` at the root of each scene so the whole view tree
 /// (Text, Button, .help, alerts) resolves strings against the chosen language,
 /// with automatic fallback to English for any untranslated key.
+extension Notification.Name {
+    /// Posted whenever the user changes `LanguageManager.language`. SwiftUI views
+    /// pick up the change automatically via `.environment(\.locale:)`, but AppKit
+    /// controls built imperatively (NSMenuItem titles, tooltips, accessibility
+    /// descriptions in ReadingCanvas.swift's PDFKit overlays) have no such
+    /// mechanism and must observe this notification to refresh themselves.
+    static let orifoldLanguageDidChange = Notification.Name("orifoldLanguageDidChange")
+}
+
 @MainActor
 final class LanguageManager: ObservableObject {
     nonisolated static let storageKey = "orifoldLanguage"
 
     @Published var language: SupportedLanguage {
-        didSet { UserDefaults.standard.set(language.rawValue, forKey: Self.storageKey) }
+        didSet {
+            UserDefaults.standard.set(language.rawValue, forKey: Self.storageKey)
+            NotificationCenter.default.post(name: .orifoldLanguageDidChange, object: nil)
+        }
     }
 
     init() {

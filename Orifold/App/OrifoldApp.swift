@@ -13,7 +13,13 @@ struct OrifoldApp: App {
                 .environment(\.locale, languageManager.effectiveLocale)
         }
         .commands {
-            AppCommands()
+            // `.commands {}` is a separate branch of the scene graph from the
+            // DocumentGroup's window content — it doesn't inherit the
+            // `.environment(\.locale:)` override applied to `ContentView` above
+            // (and `Commands`, unlike `View`, has no `.environmentObject`/
+            // `.environment` modifier to reapply it), so the language manager is
+            // passed down directly instead.
+            AppCommands(languageManager: languageManager)
         }
 
         Window("window.about.title", id: "about-orifold") {

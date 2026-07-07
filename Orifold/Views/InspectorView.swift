@@ -379,6 +379,10 @@ private struct WorkspaceCommentRow: View {
     @State private var isEditing = false
     @State private var draftBody = ""
     @State private var draftTag = ""
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private let colorChoices: [(label: String, hex: String, color: Color)] = [
         ("Dark", "#1F2933", Color.dsTextPrimary),
@@ -401,7 +405,7 @@ private struct WorkspaceCommentRow: View {
         let current = liveComment
         VStack(alignment: .leading, spacing: .dsSM) {
             HStack(alignment: .firstTextBaseline) {
-                Text(relativeTimestamp(for: current.createdAt))
+                Text(relativeTimestamp(for: current.createdAt, locale: locale))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.dsTextTertiary)
                     .help(current.createdAt.formatted(date: .complete, time: .shortened))
@@ -545,7 +549,7 @@ private struct WorkspaceCommentRow: View {
 
             Menu {
                 ForEach(WorkspaceCommentTextSize.allCases) { size in
-                    Button(commentTextSizeLabel(size)) {
+                    Button(commentTextSizeLabel(size, locale: locale)) {
                         var style = liveComment.style
                         style.textSize = size
                         viewModel.updateCommentStyle(liveComment, style: style)
@@ -636,11 +640,11 @@ private struct WorkspaceCommentRow: View {
         draftTag = ""
     }
 
-    private func commentTextSizeLabel(_ size: WorkspaceCommentTextSize) -> String {
+    private func commentTextSizeLabel(_ size: WorkspaceCommentTextSize, locale: Locale) -> String {
         switch size {
-        case .small: return L10n.string("inspector.commentTextSize.small.label")
-        case .regular: return L10n.string("inspector.commentTextSize.regular.label")
-        case .large: return L10n.string("inspector.commentTextSize.large.label")
+        case .small: return L10n.string("inspector.commentTextSize.small.label", locale: locale)
+        case .regular: return L10n.string("inspector.commentTextSize.regular.label", locale: locale)
+        case .large: return L10n.string("inspector.commentTextSize.large.label", locale: locale)
         }
     }
 
@@ -652,11 +656,11 @@ private struct WorkspaceCommentRow: View {
         }
     }
 
-    private func relativeTimestamp(for date: Date) -> String {
+    private func relativeTimestamp(for date: Date, locale: Locale) -> String {
         let calendar = Calendar.current
         let now = Date()
         if calendar.isDateInYesterday(date) {
-            return L10n.string("inspector.relativeTime.yesterday")
+            return L10n.string("inspector.relativeTime.yesterday", locale: locale)
         }
         if let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day,
            days >= 7 {
@@ -664,18 +668,18 @@ private struct WorkspaceCommentRow: View {
         }
         let seconds = max(0, now.timeIntervalSince(date))
         if seconds < 60 {
-            return L10n.string("inspector.relativeTime.justNow")
+            return L10n.string("inspector.relativeTime.justNow", locale: locale)
         }
         if seconds < 3_600 {
             let minutes = Int(seconds / 60)
-            return String(localized: "\(minutes)m ago", locale: L10n.currentLocale)
+            return String(localized: "\(minutes)m ago", locale: locale)
         }
         if seconds < 86_400 {
             let hours = Int(seconds / 3_600)
-            return String(localized: "\(hours)h ago", locale: L10n.currentLocale)
+            return String(localized: "\(hours)h ago", locale: locale)
         }
         let days = Int(seconds / 86_400)
-        return String(localized: "\(days)d ago", locale: L10n.currentLocale)
+        return String(localized: "\(days)d ago", locale: locale)
     }
 
     private func color(fromHex value: String) -> Color {
@@ -711,11 +715,15 @@ private struct PDFNoteCommentRow: View {
     var note: WorkspaceViewModel.PDFNoteComment
     var onJump: () -> Void
     var onRemove: () -> Void
+    // Passed into L10n.format() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsSM) {
             HStack(alignment: .firstTextBaseline) {
-                Label(L10n.format("inspector.pdfNote.pageLabel", note.pageNumber), systemImage: "note.text")
+                Label(L10n.format("inspector.pdfNote.pageLabel", note.pageNumber, locale: locale), systemImage: "note.text")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.dsTextTertiary)
                 Spacer()
@@ -760,6 +768,10 @@ private struct PDFNoteCommentRow: View {
 private struct InspectorDecorateView: View {
     @Bindable var viewModel: WorkspaceViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into L10n.format()/PageDecorationSwatch.label() below so this view's
+    // `body` actually reads it — SwiftUI only re-invokes `body` on a locale change
+    // for views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -825,7 +837,7 @@ private struct InspectorDecorateView: View {
 
             decorationRow(title: "inspector.decorate.pageNumbers.title", isOn: pageNumbersEnabled) {
                 VStack(alignment: .leading, spacing: .dsSM) {
-                    Text(L10n.format("inspector.pageOf", max(viewModel.pageCount, 1)))
+                    Text(L10n.format("inspector.pageOf", max(viewModel.pageCount, 1), locale: locale))
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextSecondary)
 
@@ -842,7 +854,7 @@ private struct InspectorDecorateView: View {
                     TextField("inspector.decorate.bates.prefix.placeholder", text: batesPrefix)
                         .textFieldStyle(.roundedBorder)
                     Stepper(value: batesStartNumber, in: 0...999_999) {
-                        Text(L10n.format("inspector.decorate.startNumber", viewModel.decorationStartNumber(for: .bates)))
+                        Text(L10n.format("inspector.decorate.startNumber", viewModel.decorationStartNumber(for: .bates), locale: locale))
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsTextSecondary)
                     }
@@ -902,7 +914,7 @@ private struct InspectorDecorateView: View {
                                        range: ClosedRange<Double>,
                                        step: Double) -> some View {
         Stepper(value: decorationFontSizeBinding(for: kind), in: range, step: step) {
-            Text(L10n.format("inspector.decorate.fontSize", Int(viewModel.decorationFontSize(for: kind))))
+            Text(L10n.format("inspector.decorate.fontSize", Int(viewModel.decorationFontSize(for: kind)), locale: locale))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
         }
@@ -928,7 +940,7 @@ private struct InspectorDecorateView: View {
                     viewModel.setDecorationSwatch(kind, swatch: swatch)
                 } label: {
                     HStack {
-                        Text(swatch.label)
+                        Text(swatch.label(locale: locale))
                         if viewModel.decorationSwatch(for: kind) == swatch {
                             Image(systemName: "checkmark")
                         }
@@ -941,7 +953,7 @@ private struct InspectorDecorateView: View {
                     .fill(viewModel.decorationSwatch(for: kind).viewColor)
                     .frame(width: 14, height: 14)
                     .overlay(Circle().strokeBorder(Color.dsSeparator, lineWidth: 1))
-                Text(viewModel.decorationSwatch(for: kind).label)
+                Text(viewModel.decorationSwatch(for: kind).label(locale: locale))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
             }
@@ -986,18 +998,18 @@ private extension PageDecorationSwatch {
         }
     }
 
-    var label: String {
+    func label(locale: Locale) -> String {
         switch self {
         case .accent:
-            return L10n.string("inspector.colorSwatch.accent.label")
+            return L10n.string("inspector.colorSwatch.accent.label", locale: locale)
         case .sage:
-            return L10n.string("inspector.colorSwatch.sage.label")
+            return L10n.string("inspector.colorSwatch.sage.label", locale: locale)
         case .coral:
-            return L10n.string("inspector.colorSwatch.coral.label")
+            return L10n.string("inspector.colorSwatch.coral.label", locale: locale)
         case .tertiary:
-            return L10n.string("inspector.colorSwatch.gray.label")
+            return L10n.string("inspector.colorSwatch.gray.label", locale: locale)
         case .lavender:
-            return L10n.string("inspector.colorSwatch.lavender.label")
+            return L10n.string("inspector.colorSwatch.lavender.label", locale: locale)
         }
     }
 }
@@ -1006,6 +1018,10 @@ private extension PageDecorationSwatch {
 
 private struct InspectorOCRView: View {
     @Bindable var viewModel: WorkspaceViewModel
+    // Passed into L10n.format() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var statusTitle: LocalizedStringKey {
         if viewModel.isMakingSearchable {
@@ -1032,8 +1048,8 @@ private struct InspectorOCRView: View {
         }
         if viewModel.hasScannedPages {
             return LocalizedStringKey(viewModel.scannedPageCount == 1
-                ? L10n.format("inspector.ocr.scannedPages.one", viewModel.scannedPageCount)
-                : L10n.format("inspector.ocr.scannedPages.other", viewModel.scannedPageCount))
+                ? L10n.format("inspector.ocr.scannedPages.one", viewModel.scannedPageCount, locale: locale)
+                : L10n.format("inspector.ocr.scannedPages.other", viewModel.scannedPageCount, locale: locale))
         }
         if viewModel.ocrCandidatePageCount > 0 {
             return "inspector.ocr.detail.textFoundNoAutoRun"
@@ -1247,6 +1263,10 @@ private struct InspectorTextEditRow: View {
     var item: WorkspaceViewModel.InlineTextEditListItem
     var onSelect: () -> Void
     var onRevert: () -> Void
+    // Passed into L10n.format() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var changeSummary: String {
         if item.isInsertion || item.originalText.isEmpty {
@@ -1269,7 +1289,7 @@ private struct InspectorTextEditRow: View {
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsTextPrimary)
                             .lineLimit(3)
-                        Text(L10n.format("inspector.versionHistory.pageLabel", item.pageNumber) + (item.memberName.isEmpty ? "" : " · \(item.memberName)"))
+                        Text(L10n.format("inspector.versionHistory.pageLabel", item.pageNumber, locale: locale) + (item.memberName.isEmpty ? "" : " · \(item.memberName)"))
                             .font(.system(size: 11))
                             .foregroundStyle(Color.dsTextTertiary)
                     }
@@ -1368,6 +1388,10 @@ private struct InspectorAnnotationRow: View {
     var onSelect: () -> Void
     var onEdit: () -> Void
     var onDelete: () -> Void
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var canEditContents: Bool {
         ann.type == "Text" || ann.type == "FreeText"
@@ -1375,13 +1399,13 @@ private struct InspectorAnnotationRow: View {
 
     private var typeLabel: String {
         switch ann.type {
-        case "Highlight": return L10n.string("inspector.annotationType.highlight.label")
-        case "Text":      return L10n.string("inspector.annotationType.note.label")
-        case "Ink":       return L10n.string("inspector.annotationType.ink.label")
-        case "FreeText":  return L10n.string("inspector.annotationType.textBox.label")
-        case "Underline": return L10n.string("inspector.annotationType.underline.label")
-        case "StrikeOut": return L10n.string("inspector.annotationType.strikeout.label")
-        default:          return ann.type ?? L10n.string("inspector.annotationType.generic.label")
+        case "Highlight": return L10n.string("inspector.annotationType.highlight.label", locale: locale)
+        case "Text":      return L10n.string("inspector.annotationType.note.label", locale: locale)
+        case "Ink":       return L10n.string("inspector.annotationType.ink.label", locale: locale)
+        case "FreeText":  return L10n.string("inspector.annotationType.textBox.label", locale: locale)
+        case "Underline": return L10n.string("inspector.annotationType.underline.label", locale: locale)
+        case "StrikeOut": return L10n.string("inspector.annotationType.strikeout.label", locale: locale)
+        default:          return ann.type ?? L10n.string("inspector.annotationType.generic.label", locale: locale)
         }
     }
 

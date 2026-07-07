@@ -9,6 +9,10 @@ struct RecentFilesSection: View {
     var onOpen: (URL) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into L10n.string()/L10n.format() below so this view's `body`
+    // actually reads it — SwiftUI only re-invokes `body` on a locale change
+    // for views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
     @State private var isExpanded = false
     @State private var hasAppeared = false
 
@@ -73,7 +77,7 @@ struct RecentFilesSection: View {
                         isExpanded.toggle()
                     }
                 } label: {
-                    Text(isExpanded ? L10n.string("recentFiles.showLess") : L10n.format("recentFiles.showAll", store.entries.count))
+                    Text(isExpanded ? L10n.string("recentFiles.showLess", locale: locale) : L10n.format("recentFiles.showAll", store.entries.count, locale: locale))
                         .font(.dsCaption())
                 }
                 .buttonStyle(.plain)
@@ -111,6 +115,10 @@ private struct RecentFileCard: View {
     var onOpen: (URL) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into L10n.string()/L10n.format() below so this view's `body`
+    // actually reads it — SwiftUI only re-invokes `body` on a locale change
+    // for views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
     @State private var thumbnail: NSImage?
     @State private var isHovered = false
     @State private var isAvailable = true
@@ -124,16 +132,16 @@ private struct RecentFileCard: View {
     private var relativeTime: String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
-        formatter.locale = L10n.currentLocale
+        formatter.locale = locale
         return formatter.localizedString(for: entry.lastOpened, relativeTo: Date())
     }
 
     private var metadataLine: String {
-        guard isAvailable else { return L10n.string("recentFiles.notFound") }
+        guard isAvailable else { return L10n.string("recentFiles.notFound", locale: locale) }
         if let count = entry.pageCount, count > 0 {
             let pageLabel = count == 1
-                ? L10n.string("recentFiles.pageCount.singular")
-                : L10n.format("recentFiles.pageCount.plural", count)
+                ? L10n.string("recentFiles.pageCount.singular", locale: locale)
+                : L10n.format("recentFiles.pageCount.plural", count, locale: locale)
             return "\(relativeTime) · \(pageLabel)"
         }
         return relativeTime
@@ -142,9 +150,9 @@ private struct RecentFileCard: View {
     private var resumeLabel: String? {
         guard isAvailable else { return nil }
         if let page = entry.lastPageOpened {
-            return L10n.format("recentFiles.resumeAtPage", page + 1)
+            return L10n.format("recentFiles.resumeAtPage", page + 1, locale: locale)
         }
-        return L10n.string("recentFiles.open")
+        return L10n.string("recentFiles.open", locale: locale)
     }
 
     var body: some View {
@@ -191,7 +199,7 @@ private struct RecentFileCard: View {
 
     private var accessibilityLabel: String {
         var parts = [entry.displayName, metadataLine]
-        if !isAvailable { parts.append(L10n.string("recentFiles.notFound")) }
+        if !isAvailable { parts.append(L10n.string("recentFiles.notFound", locale: locale)) }
         return parts.joined(separator: ", ")
     }
 

@@ -188,6 +188,10 @@ struct ContentView: View {
     @AppStorage("orifoldNightModeDimming") private var persistedNightModeDimming = NightModeSettings.default.dimming
     @Environment(\.undoManager) private var undoManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // `.popover` content on macOS doesn't inherit the `.environment(\.locale:)`
+    // override applied at the scene root — it resets to the system default —
+    // so it must be re-applied explicitly to each popover's presented content.
+    @EnvironmentObject private var languageManager: LanguageManager
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -319,21 +323,31 @@ struct ContentView: View {
         }
         .popover(isPresented: $viewModel.isShowingSearch, arrowEdge: .top) {
             SearchView(viewModel: viewModel)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
         }
         .popover(isPresented: $viewModel.isShowingSignaturePalette, arrowEdge: .top) {
             SignaturePalette(viewModel: viewModel)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
         }
         .popover(isPresented: $viewModel.isShowingStampPalette, arrowEdge: .top) {
             StampPalette(viewModel: viewModel)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
         }
         .sheet(isPresented: $isShowingExportSheet) {
             ExportSheet(viewModel: viewModel, isPresented: $isShowingExportSheet)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
         }
         .popover(isPresented: $showTOC, arrowEdge: .top) {
             TOCView(viewModel: viewModel) { pageIndex in
                 NotificationCenter.default.post(name: .orifoldJumpToPageIndex, object: pageIndex)
                 showTOC = false
             }
+            .environmentObject(languageManager)
+            .environment(\.locale, languageManager.effectiveLocale)
         }
         .alert("contentView.importError.title", isPresented: Binding(
             get: { viewModel.importError != nil },
@@ -473,6 +487,8 @@ struct ContentView: View {
             .popover(isPresented: $isShowingNightModeControls, arrowEdge: .top) {
                 NightModeControls(viewModel: viewModel)
                     .frame(width: 320)
+                    .environmentObject(languageManager)
+                    .environment(\.locale, languageManager.effectiveLocale)
             }
 
             GuideButton(autoShow: true)
@@ -602,6 +618,10 @@ private struct ReaderModePill: View {
     var openNotes: () -> Void
     var onExit: () -> Void
     @State private var isShowingToneControls = false
+    // `.popover` content on macOS doesn't inherit the `.environment(\.locale:)`
+    // override applied at the scene root — it resets to the system default —
+    // so it must be re-applied explicitly to the presented content below.
+    @EnvironmentObject private var languageManager: LanguageManager
 
     var body: some View {
         HStack(spacing: .dsSM) {
@@ -621,6 +641,8 @@ private struct ReaderModePill: View {
             .popover(isPresented: $isShowingToneControls, arrowEdge: .top) {
                 NightModeControls(viewModel: viewModel)
                     .frame(width: 320)
+                    .environmentObject(languageManager)
+                    .environment(\.locale, languageManager.effectiveLocale)
             }
 
             Button(action: openNotes) {
@@ -786,6 +808,10 @@ private struct ExportSheet: View {
     @State private var removesMetadata = false
     @State private var isSanitizeExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -808,13 +834,13 @@ private struct ExportSheet: View {
             return nil
         }
         if password.isEmpty {
-            return L10n.string("contentView.exportSheet.passwordMissing.message")
+            return L10n.string("contentView.exportSheet.passwordMissing.message", locale: locale)
         }
         if passwordConfirmation.isEmpty {
-            return L10n.string("contentView.exportSheet.confirmationMissing.message")
+            return L10n.string("contentView.exportSheet.confirmationMissing.message", locale: locale)
         }
         if passwordMismatch {
-            return L10n.string("contentView.exportSheet.passwordMismatch.message")
+            return L10n.string("contentView.exportSheet.passwordMismatch.message", locale: locale)
         }
         return nil
     }
@@ -1666,6 +1692,10 @@ private func preferredImportExtension(for contentType: UTType, fallback: String)
 private struct DocumentCommentsIndicator: View {
     var count: Int
     var action: () -> Void
+    // Passed into L10n.string()/L10n.format() below so this view's `body`
+    // actually reads it — SwiftUI only re-invokes `body` on a locale change
+    // for views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         if count > 0 {
@@ -1686,8 +1716,8 @@ private struct DocumentCommentsIndicator: View {
                 }
             }
             .buttonStyle(.plain)
-            .help(count == 1 ? L10n.string("contentView.viewComments.one") : L10n.format("contentView.viewComments.other", count))
-            .accessibilityLabel(count == 1 ? L10n.string("contentView.viewComments.one") : L10n.format("contentView.viewComments.other", count))
+            .help(count == 1 ? L10n.string("contentView.viewComments.one", locale: locale) : L10n.format("contentView.viewComments.other", count, locale: locale))
+            .accessibilityLabel(count == 1 ? L10n.string("contentView.viewComments.one", locale: locale) : L10n.format("contentView.viewComments.other", count, locale: locale))
             .transition(.opacity.combined(with: .scale(scale: 0.96)))
         }
     }

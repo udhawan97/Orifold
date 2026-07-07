@@ -4,6 +4,10 @@ import PDFKit
 struct TOCView: View {
     var viewModel: WorkspaceViewModel
     var onJump: ((Int) -> Void)?
+    // Passed into L10n.format() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var entries: [WorkspaceViewModel.TOCEntry] {
         viewModel.tableOfContents
@@ -49,7 +53,7 @@ struct TOCView: View {
                                             .font(.dsBody())
                                             .foregroundStyle(Color.dsTextPrimary)
                                             .lineLimit(1)
-                                        Text(L10n.format("toc.pageLabel", entry.displayPageNumber))
+                                        Text(L10n.format("toc.pageLabel", entry.displayPageNumber, locale: locale))
                                             .font(.dsCaption())
                                             .foregroundStyle(Color.dsTextTertiary)
                                     }

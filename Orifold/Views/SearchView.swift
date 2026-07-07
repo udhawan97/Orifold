@@ -131,6 +131,10 @@ struct SearchView: View {
 struct SearchResultRow: View {
     var result: PDFSelection
     var isActive: Bool
+    // Passed into L10n.format() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var pageLabel: String {
         result.pages.first.flatMap { $0.label } ?? "?"
@@ -146,7 +150,7 @@ struct SearchResultRow: View {
                 .foregroundStyle(isActive ? Color.dsAccent : Color.dsTextPrimary)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(L10n.format("search.pageLabel", pageLabel))
+            Text(L10n.format("search.pageLabel", pageLabel, locale: locale))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextTertiary)
         }
