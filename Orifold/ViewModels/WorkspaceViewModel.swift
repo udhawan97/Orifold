@@ -86,6 +86,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
     case stamp     = "seal"
 
     var id: String { rawValue }
+
     var label: String {
         switch self {
         case .none:      return L10n.string("annotationTool.none.label")
@@ -284,6 +285,8 @@ final class WorkspaceViewModel {
     var searchQuery = ""
     var searchResults: [PDFSelection] = []
     var searchResultIndex: Int = -1
+    var isReplaceRevealed = false
+    var replaceText = ""
     var pendingSignatureData: Data? = nil
     var pendingSignatureOptions: PendingSignaturePlacementOptions? = nil
     var pendingStampOptions: PendingStampPlacementOptions? = nil
@@ -2253,6 +2256,14 @@ final class WorkspaceViewModel {
         return document.workspace.pageOrder.filter { selectedIDs.contains($0.id) }
     }
 
+    /// Page refs for the sidebar's current selection, used by toolbar-level page actions
+    /// (the overflow menu) that don't have a specific right-clicked thumbnail to anchor to.
+    var currentSelectionPageRefs: [PageRef] {
+        guard let id = selectedPageRefID,
+              let ref = document.workspace.pageOrder.first(where: { $0.id == id }) else { return [] }
+        return pageRefsForCurrentSelection(including: ref)
+    }
+
     func combinedPageIndex(for ref: PageRef) -> Int? {
         var combinedIndex = 0
         for member in document.workspace.documents {
@@ -3779,6 +3790,68 @@ final class WorkspaceViewModel {
     private func jumpToSearchResult(_ index: Int) {
         guard index >= 0, index < searchResults.count else { return }
         NotificationCenter.default.post(name: .orifoldJumpToSelection, object: searchResults[index])
+    }
+
+    // MARK: - Find & Replace
+
+    /// Comments whose body contains the current search query — the only content Find &
+    /// Replace can safely rewrite. PDF page text (`searchResults`) stays find-only: rewriting
+    /// PDF content streams needs the full text-edit engine behind the "Edit Text" tool, which
+    /// operates on a single interactively-clicked block at a time. Reusing it blind for a
+    /// batch Replace All risks silently mangling layout, so that stays out of scope here —
+    /// only content Orifold fully owns (comment text) is safe to rewrite in bulk.
+    var replaceableCommentMatches: [WorkspaceComment] {
+        guard !searchQuery.isEmpty else { return [] }
+        return document.workspace.comments.filter {
+            $0.body.range(of: searchQuery, options: .caseInsensitive) != nil
+        }
+    }
+
+    /// Replaces every occurrence of `searchQuery` in a single comment's body with
+    /// `replaceText`, advancing past each replacement's own text so a replacement that
+    /// itself contains the search query (e.g. "cat" → "cats") can't loop or re-match.
+    private func replacingAllOccurrences(of query: String, with replacement: String, in text: String) -> String {
+        guard !query.isEmpty else { return text }
+        var result = ""
+        var searchRange = text.startIndex..<text.endIndex
+        while let range = text.range(of: query, options: .caseInsensitive, range: searchRange) {
+            result += text[searchRange.lowerBound..<range.lowerBound]
+            result += replacement
+            searchRange = range.upperBound..<text.endIndex
+        }
+        result += text[searchRange]
+        return result
+    }
+
+    /// Replaces every match of `searchQuery` in `comment`'s body with `replaceText` and
+    /// commits it through the existing comment-edit path, so undo naming and the
+    /// modified-document flag behave exactly like a manual comment edit.
+    func replaceMatches(in comment: WorkspaceComment) {
+        guard !searchQuery.isEmpty else { return }
+        let updated = replacingAllOccurrences(of: searchQuery, with: replaceText, in: comment.body)
+        guard updated != comment.body else { return }
+        updateCommentBody(comment, body: updated)
+    }
+
+    /// Replaces every match across every editable comment in one atomic undo step.
+    /// Returns the number of comments actually changed, for the confirmation/result UI.
+    @discardableResult
+    func replaceAllCommentMatches() -> Int {
+        let matches = replaceableCommentMatches
+        guard !matches.isEmpty, !searchQuery.isEmpty else { return 0 }
+        var changedCount = 0
+        registerIsolatedUndo {
+            for comment in matches {
+                let updated = replacingAllOccurrences(of: searchQuery, with: replaceText, in: comment.body)
+                guard updated != comment.body else { continue }
+                updateCommentBody(comment, body: updated)
+                changedCount += 1
+            }
+            if changedCount > 0 {
+                undoManager?.setActionName(L10n.string("undo.replaceText"))
+            }
+        }
+        return changedCount
     }
 
     // MARK: - Zoom

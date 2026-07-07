@@ -24,6 +24,12 @@ struct OrifoldApp: App {
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
+
+        Settings {
+            SettingsView()
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
     }
 }
 
