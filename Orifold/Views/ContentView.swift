@@ -469,7 +469,7 @@ struct ContentView: View {
             .accessibilityLabel(Text("toolbar.documentComfort.accessibilityLabel"))
             .popover(isPresented: $isShowingDocumentComfortPopover, arrowEdge: .top) {
                 DocumentComfortPopover(viewModel: viewModel)
-                    .frame(width: 340)
+                    .frame(width: 360)
             }
 
             GuideButton(autoShow: true)
@@ -614,7 +614,7 @@ private struct ReaderModePill: View {
             .accessibilityLabel(Text("toolbar.documentComfort.accessibilityLabel"))
             .popover(isPresented: $isShowingToneControls, arrowEdge: .top) {
                 DocumentComfortPopover(viewModel: viewModel)
-                    .frame(width: 340)
+                    .frame(width: 360)
             }
 
             Button(action: openNotes) {
@@ -646,53 +646,164 @@ private struct ReaderModePill: View {
     }
 }
 
-/// The unified "Document Comfort" control: viewer-only eye-care presets and live sliders that
-/// never touch PDF content or exported output (see `DocumentComfortSettings`).
-private struct DocumentComfortPopover: View {
-    @Bindable var viewModel: WorkspaceViewModel
+/// A small info-circle affordance that opens a short plain-language explanation.
+/// Being a real `Button`, it is reachable and activatable by both mouse and keyboard
+/// focus (Tab + Space), and mirrors its copy into `.help()` so VoiceOver and the
+/// hover tooltip both read the same text.
+private struct ComfortInfoButton: View {
+    let titleKey: String
+    let infoKey: String
+    @State private var isPresented = false
+
+    private var titleText: Text { Text(LocalizedStringKey(titleKey)) }
+    private var infoText: Text { Text(LocalizedStringKey(infoKey)) }
+    private var helpText: String { L10n.string(String.LocalizationValue(stringLiteral: infoKey)) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: .dsMD) {
+        Button {
+            isPresented.toggle()
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 12))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.dsTextTertiary)
+        .help(helpText)
+        .accessibilityLabel(titleText)
+        .accessibilityHint(infoText)
+        .popover(isPresented: $isPresented, arrowEdge: .trailing) {
+            infoText
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 220, alignment: .leading)
+                .padding(.dsMD)
+        }
+    }
+}
+
+/// The unified "Document Comfort" control: one-tap reading presets, viewer-only page
+/// modes, and fine-tune sliders/toggles that never touch PDF content or exported
+/// output (see `DocumentComfortSettings`). Every row shares a common icon/label/value
+/// grid so alignment stays consistent regardless of label length or language.
+private struct DocumentComfortPopover: View {
+    @Bindable var viewModel: WorkspaceViewModel
+    @AppStorage("orifoldComfortAdvancedExpanded") private var isAdvancedExpanded = false
+    @State private var pendingReset = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || viewModel.documentComfortSettings.reduceAnimations
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsLG) {
             header
 
-            Divider()
+            presetsSection
+
+            Rectangle()
+                .fill(Color.dsSeparator.opacity(0.5))
+                .frame(height: 1)
 
             appThemeSection
 
-            Divider()
-
             pageModeSection
 
-            Divider()
-
-            eyeCareSection
-
-            Divider()
+            advancedSection
 
             readingFocusSection
 
-            Divider()
+            Rectangle()
+                .fill(Color.dsSeparator.opacity(0.5))
+                .frame(height: 1)
 
             resetRow
         }
         .padding(.dsLG)
+        .confirmationDialog(
+            "documentComfort.reset.confirm.title",
+            isPresented: $pendingReset,
+            titleVisibility: .visible
+        ) {
+            Button("documentComfort.reset.confirm.confirm", role: .destructive) {
+                applyReset()
+            }
+            Button("documentComfort.reset.confirm.cancel", role: .cancel) {}
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("documentComfort.title")
-                .font(.dsHeadline())
+                .font(.dsTitle())
             Text("documentComfort.subtitle")
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
         }
     }
 
+    // MARK: - Reading Presets
+
+    private var presetsSection: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            HStack(spacing: .dsXS) {
+                sectionLabel("documentComfort.presets.section")
+                ComfortInfoButton(
+                    titleKey: "documentComfort.presets.section",
+                    infoKey: "documentComfort.presets.info"
+                )
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: .dsSM), count: 4), spacing: .dsSM) {
+                ForEach(ComfortPreset.allCases) { preset in
+                    presetChip(preset)
+                }
+            }
+        }
+    }
+
+    private func presetChip(_ preset: ComfortPreset) -> some View {
+        let isSelected = viewModel.documentComfortSettings.activePreset == preset
+        return Button {
+            applyPreset(preset)
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: preset.systemImage)
+                    .font(.system(size: 15))
+                Text(preset.title)
+                    .font(.dsCaption())
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+        }
+        .buttonStyle(ComfortCardButtonStyle(isSelected: isSelected, shouldReduceMotion: shouldReduceMotion))
+        .foregroundStyle(isSelected ? Color.dsAccent : Color.dsTextPrimary)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .help(preset.title)
+    }
+
+    private func applyPreset(_ preset: ComfortPreset) {
+        var transaction = Transaction(animation: shouldReduceMotion ? nil : .easeInOut(duration: 0.15))
+        transaction.disablesAnimations = shouldReduceMotion
+        withTransaction(transaction) {
+            viewModel.documentComfortSettings = preset.settings
+        }
+    }
+
+    // MARK: - Application theme
+
     private var appThemeSection: some View {
         VStack(alignment: .leading, spacing: .dsSM) {
-            Label("contentView.nightModeControls.application.label", systemImage: "macwindow")
-                .font(.dsCaption())
-                .foregroundStyle(Color.dsTextSecondary)
+            HStack(spacing: .dsXS) {
+                sectionLabel("contentView.nightModeControls.application.label")
+                ComfortInfoButton(
+                    titleKey: "contentView.nightModeControls.application.label",
+                    infoKey: "documentComfort.appTheme.info"
+                )
+            }
             Picker("contentView.nightModeControls.applicationAppearance.picker", selection: appAppearanceModeBinding) {
                 ForEach(AppAppearanceMode.allCases) { mode in
                     Label(mode.title, systemImage: mode.systemImage)
@@ -704,10 +815,18 @@ private struct DocumentComfortPopover: View {
         }
     }
 
+    // MARK: - Page Mode
+
     private var pageModeSection: some View {
         VStack(alignment: .leading, spacing: .dsSM) {
-            sectionLabel("documentComfort.pageMode.section", systemImage: "doc.richtext")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: .dsSM)], alignment: .leading, spacing: .dsSM) {
+            HStack(spacing: .dsXS) {
+                sectionLabel("documentComfort.pageMode.section")
+                ComfortInfoButton(
+                    titleKey: "documentComfort.pageMode.section",
+                    infoKey: "documentComfort.pageMode.info"
+                )
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: .dsSM), count: 3), spacing: .dsSM) {
                 ForEach(PageMode.allCases) { mode in
                     pageModeChip(mode)
                 }
@@ -724,119 +843,141 @@ private struct DocumentComfortPopover: View {
                 viewModel.documentComfortSettings.pageMode = mode
             }
         } label: {
-            Label(mode.title, systemImage: mode.systemImage)
-                .labelStyle(.titleAndIcon)
-                .font(.dsCaption())
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+            VStack(spacing: 4) {
+                Image(systemName: mode.systemImage)
+                    .font(.system(size: 15))
+                Text(mode.title)
+                    .font(.dsCaption())
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 64)
         }
-        .buttonStyle(.borderless)
-        .background(
-            isSelected ? Color.dsAccent.opacity(0.18) : Color.dsSeparator.opacity(0.35),
-            in: RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
-                .strokeBorder(isSelected ? Color.dsAccent : Color.clear, lineWidth: 1.5)
-        }
+        .buttonStyle(ComfortCardButtonStyle(isSelected: isSelected, shouldReduceMotion: shouldReduceMotion))
         .foregroundStyle(isSelected ? Color.dsAccent : Color.dsTextPrimary)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .help(mode.title)
     }
 
-    private var eyeCareSection: some View {
-        VStack(alignment: .leading, spacing: .dsSM) {
-            sectionLabel("documentComfort.eyeCare.section", systemImage: "eye")
+    // MARK: - Advanced (fine-tune) controls
 
-            comfortSlider(
-                title: "documentComfort.brightness.title",
-                systemImage: "sun.max",
-                value: Binding(
-                    get: { viewModel.documentComfortSettings.brightness },
-                    set: { viewModel.documentComfortSettings.brightness = $0 }
-                ),
-                range: 50...150
-            )
-            comfortSlider(
-                title: "documentComfort.contrast.title",
-                systemImage: "circle.lefthalf.filled",
-                value: Binding(
-                    get: { viewModel.documentComfortSettings.contrast },
-                    set: { viewModel.documentComfortSettings.contrast = $0 }
-                ),
-                range: 50...150
-            )
-            comfortSlider(
-                title: "documentComfort.warmth.title",
-                systemImage: "thermometer.sun",
-                value: Binding(
-                    get: { viewModel.documentComfortSettings.warmth },
-                    set: { viewModel.documentComfortSettings.warmth = $0 }
-                ),
-                range: 0...100
-            )
+    private var advancedSection: some View {
+        DisclosureGroup(isExpanded: $isAdvancedExpanded) {
+            VStack(alignment: .leading, spacing: .dsMD) {
+                comfortSlider(
+                    title: "documentComfort.brightness.title",
+                    systemImage: "sun.max",
+                    infoKey: "documentComfort.brightness.info",
+                    value: Binding(
+                        get: { viewModel.documentComfortSettings.brightness },
+                        set: { viewModel.documentComfortSettings.brightness = $0 }
+                    ),
+                    range: 50...150
+                )
+                comfortSlider(
+                    title: "documentComfort.contrast.title",
+                    systemImage: "circle.lefthalf.filled",
+                    infoKey: "documentComfort.contrast.info",
+                    value: Binding(
+                        get: { viewModel.documentComfortSettings.contrast },
+                        set: { viewModel.documentComfortSettings.contrast = $0 }
+                    ),
+                    range: 50...150
+                )
+                comfortSlider(
+                    title: "documentComfort.warmth.title",
+                    systemImage: "thermometer.sun",
+                    infoKey: "documentComfort.warmth.info",
+                    value: Binding(
+                        get: { viewModel.documentComfortSettings.warmth },
+                        set: { viewModel.documentComfortSettings.warmth = $0 }
+                    ),
+                    range: 0...100
+                )
 
-            Toggle(isOn: Binding(
-                get: { viewModel.documentComfortSettings.reduceGlare },
-                set: { viewModel.documentComfortSettings.reduceGlare = $0 }
-            )) {
-                Label("documentComfort.reduceGlare.title", systemImage: "sparkles")
-                    .font(.dsCaption())
+                comfortToggle(
+                    title: "documentComfort.reduceGlare.title",
+                    systemImage: "sparkles",
+                    infoKey: "documentComfort.reduceGlare.info",
+                    isOn: Binding(
+                        get: { viewModel.documentComfortSettings.reduceGlare },
+                        set: { viewModel.documentComfortSettings.reduceGlare = $0 }
+                    )
+                )
+                comfortToggle(
+                    title: "documentComfort.softenWhitePages.title",
+                    systemImage: "doc.text.image",
+                    infoKey: "documentComfort.softenWhitePages.info",
+                    isOn: Binding(
+                        get: { viewModel.documentComfortSettings.softenWhitePages },
+                        set: { viewModel.documentComfortSettings.softenWhitePages = $0 }
+                    )
+                )
             }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-
-            Toggle(isOn: Binding(
-                get: { viewModel.documentComfortSettings.softenWhitePages },
-                set: { viewModel.documentComfortSettings.softenWhitePages = $0 }
-            )) {
-                Label("documentComfort.softenWhitePages.title", systemImage: "doc.text.image")
-                    .font(.dsCaption())
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
+            .padding(.top, .dsSM)
+        } label: {
+            Text("documentComfort.advanced.disclosure")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
         }
     }
+
+    // MARK: - Reading Focus
 
     private var readingFocusSection: some View {
         VStack(alignment: .leading, spacing: .dsSM) {
-            sectionLabel("documentComfort.readingFocus.section", systemImage: "target")
-
-            Toggle(isOn: Binding(
-                get: { viewModel.documentComfortSettings.focusMode },
-                set: { viewModel.documentComfortSettings.focusMode = $0 }
-            )) {
-                Label("documentComfort.focusMode.title", systemImage: "viewfinder")
-                    .font(.dsCaption())
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .help("documentComfort.focusMode.help")
-
-            Toggle(isOn: Binding(
-                get: { viewModel.documentComfortSettings.reduceAnimations },
-                set: { viewModel.documentComfortSettings.reduceAnimations = $0 }
-            )) {
-                Label("documentComfort.reduceAnimations.title", systemImage: "wand.and.stars")
-                    .font(.dsCaption())
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .help("documentComfort.reduceAnimations.help")
+            comfortToggle(
+                title: "documentComfort.focusMode.title",
+                systemImage: "viewfinder",
+                infoKey: "documentComfort.focusMode.info",
+                isOn: Binding(
+                    get: { viewModel.documentComfortSettings.focusMode },
+                    set: { viewModel.documentComfortSettings.focusMode = $0 }
+                )
+            )
+            comfortToggle(
+                title: "documentComfort.reduceAnimations.title",
+                systemImage: "wand.and.stars",
+                infoKey: "documentComfort.reduceAnimations.info",
+                isOn: Binding(
+                    get: { viewModel.documentComfortSettings.reduceAnimations },
+                    set: { viewModel.documentComfortSettings.reduceAnimations = $0 }
+                )
+            )
         }
     }
 
+    // MARK: - Reset
+
     private var resetRow: some View {
-        HStack {
-            Spacer()
-            Button("documentComfort.reset.button") {
-                var transaction = Transaction(animation: nil)
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    viewModel.documentComfortSettings = .default
+        HStack(spacing: .dsXS) {
+            Button {
+                if viewModel.documentComfortSettings.isAtDefault {
+                    return
                 }
+                pendingReset = true
+            } label: {
+                Label("documentComfort.reset.button", systemImage: "arrow.counterclockwise")
+                    .font(.dsCaption())
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.bordered)
             .disabled(viewModel.documentComfortSettings.isAtDefault)
+
+            ComfortInfoButton(
+                titleKey: "documentComfort.reset.button",
+                infoKey: "documentComfort.reset.info"
+            )
+        }
+    }
+
+    private func applyReset() {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            viewModel.documentComfortSettings = .default
         }
     }
 
@@ -858,29 +999,104 @@ private struct DocumentComfortPopover: View {
         }
     }
 
-    private func sectionLabel(_ key: LocalizedStringKey, systemImage: String) -> some View {
-        Label(key, systemImage: systemImage)
-            .font(.dsHeadline())
+    private func sectionLabel(_ key: LocalizedStringKey) -> some View {
+        Text(key)
+            .font(.dsCaption())
+            .fontWeight(.semibold)
+            .tracking(.dsLabelTracking)
+            .foregroundStyle(Color.dsTextSecondary)
+            .textCase(.uppercase)
     }
 
-    private func comfortSlider(title: LocalizedStringKey, systemImage: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+    private func comfortSlider(
+        title: String,
+        systemImage: String,
+        infoKey: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: .dsSM) {
+                Image(systemName: systemImage)
+                    .frame(width: 20)
+                    .foregroundStyle(Color.dsTextTertiary)
+                Text(LocalizedStringKey(title))
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: .dsSM)
+                Text("\(Int(value.wrappedValue))%")
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .monospacedDigit()
+                    .frame(width: 44, alignment: .trailing)
+                ComfortInfoButton(titleKey: title, infoKey: infoKey)
+            }
+            HStack(spacing: .dsSM) {
+                Color.clear.frame(width: 20)
+                Slider(value: value, in: range, step: 1)
+            }
+        }
+    }
+
+    private func comfortToggle(
+        title: String,
+        systemImage: String,
+        infoKey: String,
+        isOn: Binding<Bool>
+    ) -> some View {
         HStack(spacing: .dsSM) {
             Image(systemName: systemImage)
-                .frame(width: 18)
+                .frame(width: 20)
                 .foregroundStyle(Color.dsTextTertiary)
-            Text(title)
-                .font(.dsCaption())
-                .foregroundStyle(Color.dsTextSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .frame(width: 92, alignment: .leading)
-            Slider(value: value, in: range, step: 1)
-            Text("\(Int(value.wrappedValue))%")
-                .font(.dsCaption())
-                .foregroundStyle(Color.dsTextSecondary)
-                .monospacedDigit()
-                .frame(width: 42, alignment: .trailing)
+            Toggle(isOn: isOn) {
+                Text(LocalizedStringKey(title))
+                    .font(.dsCaption())
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            ComfortInfoButton(titleKey: title, infoKey: infoKey)
         }
+    }
+}
+
+/// Shared card visual for preset and page-mode chips: selected/hover/pressed states,
+/// with hover/press motion gated behind Reduce Animations / OS reduced-motion.
+private struct ComfortCardButtonStyle: ButtonStyle {
+    let isSelected: Bool
+    let shouldReduceMotion: Bool
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.vertical, 6)
+            .background(
+                fillColor(isPressed: configuration.isPressed),
+                in: RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                    .strokeBorder(isSelected ? Color.dsAccent : Color.clear, lineWidth: 1.5)
+            }
+            .scaleEffect(configuration.isPressed && !shouldReduceMotion ? 0.97 : 1)
+            .onHover { hovering in
+                isHovered = hovering
+            }
+            .animation(shouldReduceMotion ? nil : .easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+
+    private func fillColor(isPressed: Bool) -> Color {
+        if isSelected {
+            return Color.dsAccent.opacity(isPressed ? 0.26 : 0.18)
+        }
+        if isPressed {
+            return Color.dsSeparator.opacity(0.6)
+        }
+        if isHovered {
+            return Color.dsSeparator.opacity(0.5)
+        }
+        return Color.dsSeparator.opacity(0.35)
     }
 }
 

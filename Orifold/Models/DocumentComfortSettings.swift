@@ -115,6 +115,62 @@ enum PageMode: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+/// A one-tap bundle of `DocumentComfortSettings` values. Purely a convenience factory —
+/// applying a preset just assigns the resulting struct, so it composes with manual
+/// fine-tuning afterward without any extra state to keep in sync.
+enum ComfortPreset: String, CaseIterable, Identifiable {
+    case defaultPreset = "default"
+    case night
+    case eyeCare
+    case focus
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .defaultPreset: return L10n.string("documentComfort.preset.default.title")
+        case .night: return L10n.string("documentComfort.preset.night.title")
+        case .eyeCare: return L10n.string("documentComfort.preset.eyeCare.title")
+        case .focus: return L10n.string("documentComfort.preset.focus.title")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .defaultPreset: return "circle.dashed"
+        case .night: return "moon.stars.fill"
+        case .eyeCare: return "eye.fill"
+        case .focus: return "viewfinder"
+        }
+    }
+
+    var settings: DocumentComfortSettings {
+        switch self {
+        case .defaultPreset:
+            return .default
+        case .night:
+            var settings = DocumentComfortSettings()
+            settings.pageMode = .dark
+            settings.warmth = 35
+            settings.brightness = 90
+            settings.reduceGlare = true
+            return settings
+        case .eyeCare:
+            var settings = DocumentComfortSettings()
+            settings.pageMode = .sepia
+            settings.warmth = 55
+            settings.softenWhitePages = true
+            settings.contrast = 110
+            return settings
+        case .focus:
+            var settings = DocumentComfortSettings()
+            settings.focusMode = true
+            settings.reduceAnimations = true
+            return settings
+        }
+    }
+}
+
 /// Viewer-only "eye care" presentation settings. These never mutate PDF data, annotations, or
 /// export output — they only drive presentation layers composited above/behind the page (see
 /// `DocumentComfortOverlayView` in ReadingCanvas.swift).
@@ -131,6 +187,13 @@ struct DocumentComfortSettings: Equatable, Codable {
     static let `default` = DocumentComfortSettings()
 
     var isAtDefault: Bool { clamped == .default }
+
+    /// The preset whose settings exactly match the current (clamped) values, if any.
+    /// Used only to highlight a preset chip as selected — never a source of truth.
+    var activePreset: ComfortPreset? {
+        let current = clamped
+        return ComfortPreset.allCases.first { $0.settings.clamped == current }
+    }
 
     var clamped: DocumentComfortSettings {
         var copy = self
