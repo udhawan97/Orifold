@@ -67,7 +67,7 @@ extension SigningIdentity {
     }
 }
 
-enum SigningIdentityError: Error, Equatable, CustomStringConvertible {
+enum SigningIdentityError: Error, Equatable, CustomStringConvertible, LocalizedError {
     case securityStatus(operation: String, status: OSStatus)
     case securityFrameworkError(operation: String, message: String)
     case missingCertificate
@@ -83,7 +83,10 @@ enum SigningIdentityError: Error, Equatable, CustomStringConvertible {
     var description: String {
         switch self {
         case let .securityStatus(operation, status):
-            return String(localized: "\(operation) failed with OSStatus \(status)", locale: L10n.currentLocale)
+            if let plainEnglish = Self.plainEnglishMessage(for: status) {
+                return plainEnglish
+            }
+            return String(localized: "\(operation) failed (code \(status)). Try again, and if it keeps happening, check the certificate in Keychain Access.", locale: L10n.currentLocale)
         case let .securityFrameworkError(operation, message):
             return String(localized: "\(operation) failed: \(message)", locale: L10n.currentLocale)
         case .missingCertificate:
@@ -97,13 +100,42 @@ enum SigningIdentityError: Error, Equatable, CustomStringConvertible {
         case .noIdentityInPKCS12:
             return L10n.string("error.signingIdentity.noIdentityInPKCS12")
         case let .unsupportedPrivateKeyAlgorithm(details):
-            return String(localized: "Unsupported private key algorithm: \(details)", locale: L10n.currentLocale)
+            return String(localized: "Orifold doesn't support this certificate's private key algorithm (\(details)). Try a different certificate.", locale: L10n.currentLocale)
         case let .unsupportedSigningAlgorithm(algorithm):
-            return String(localized: "The private key cannot create \(algorithm.rawValue) signatures.", locale: L10n.currentLocale)
+            return String(localized: "This certificate's private key can't create \(algorithm.rawValue) signatures. Try a different certificate.", locale: L10n.currentLocale)
         case let .randomGenerationFailed(status):
-            return String(localized: "Secure random generation failed with OSStatus \(status)", locale: L10n.currentLocale)
+            return String(localized: "Orifold couldn't generate the secure random data signing requires (code \(status)). Try again.", locale: L10n.currentLocale)
         case .selfSignedCertificateCreationFailed:
             return L10n.string("error.signingIdentity.selfSignedCertificateCreationFailed")
+        }
+    }
+
+    /// `LocalizedError` conformance so `error.localizedDescription` at generic catch sites
+    /// actually surfaces the message above -- without this conformance, Swift/Foundation's
+    /// default `Error` -> `NSError` bridging produces a useless generic string ("The
+    /// operation couldn't be completed. (Orifold.SigningIdentityError error 0.)") that hides
+    /// every case here, including the ones already written to be plain-English.
+    var errorDescription: String? { description }
+
+    /// Translates the handful of Security-framework status codes a casual user can actually
+    /// act on (wrong password, cancelled, item missing) into plain English. Returns `nil`
+    /// for anything else so the caller's generic-but-still-actionable fallback applies —
+    /// deliberately not attempting to explain every one of Security's ~100 status codes,
+    /// most of which are internal/never-actually-hit in this app's call paths.
+    private static func plainEnglishMessage(for status: OSStatus) -> String? {
+        switch status {
+        case errSecAuthFailed, errSecPkcs12VerifyFailure:
+            return L10n.string("error.signingIdentity.wrongPassword")
+        case errSecUserCanceled:
+            return L10n.string("error.signingIdentity.userCancelled")
+        case errSecItemNotFound:
+            return L10n.string("error.signingIdentity.itemNotFoundInKeychain")
+        case errSecDuplicateItem:
+            return L10n.string("error.signingIdentity.alreadyInKeychain")
+        case errSecInteractionNotAllowed:
+            return L10n.string("error.signingIdentity.keychainLocked")
+        default:
+            return nil
         }
     }
 }

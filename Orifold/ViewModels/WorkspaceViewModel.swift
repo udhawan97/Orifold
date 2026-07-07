@@ -3553,7 +3553,7 @@ final class WorkspaceViewModel {
             exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
             return
         } catch {
-            exportError = ExportError(message: String(localized: "Orifold could not prepare the signing identity: \(error.localizedDescription)", locale: L10n.currentLocale))
+            exportError = ExportError(message: String(localized: "Orifold couldn’t prepare the signing identity. \(error.localizedDescription)", locale: L10n.currentLocale))
             return
         }
         // Review found nothing in the actual signing path ever checked this — a placement
@@ -3610,7 +3610,7 @@ final class WorkspaceViewModel {
                 bounds: placement.rect
             )
         } catch {
-            exportError = ExportError(message: String(localized: "Orifold could not prepare the visible signature appearance: \(error.localizedDescription)", locale: L10n.currentLocale))
+            exportError = ExportError(message: String(localized: "Orifold couldn’t prepare the visible signature. \(error.localizedDescription)", locale: L10n.currentLocale))
             return
         }
 
@@ -3742,7 +3742,7 @@ final class WorkspaceViewModel {
                     case SigningError.unsupportedPDFStructure:
                         self.exportError = ExportError(message: L10n.string("error.export.unsupportedPDFStructure"))
                     default:
-                        self.exportError = ExportError(message: String(localized: "Orifold could not sign the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
+                        self.exportError = ExportError(message: String(localized: "Orifold couldn’t sign the PDF. \(error.localizedDescription)", locale: L10n.currentLocale))
                     }
                 }
             }
@@ -4144,7 +4144,7 @@ final class WorkspaceViewModel {
             } else if let validationError = error as? PDFExportValidationError {
                 exportError = ExportError(message: validationError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold could not save the PDF: \(error.localizedDescription)", locale: L10n.currentLocale))
+                exportError = ExportError(message: String(localized: "Orifold couldn’t save the PDF. \(error.localizedDescription) Check that the destination still exists and that you have permission to write there, then try again.", locale: L10n.currentLocale))
             }
             return false
         }
@@ -4688,7 +4688,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold could not export page images: \(error.localizedDescription)", locale: L10n.currentLocale))
+                exportError = ExportError(message: String(localized: "Orifold couldn’t export page images. \(error.localizedDescription) Check that the destination folder exists and has free space, then try again.", locale: L10n.currentLocale))
             }
             return false
         }
@@ -4711,7 +4711,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold could not write the \(format.menuTitle) export: \(error.localizedDescription)", locale: L10n.currentLocale))
+                exportError = ExportError(message: String(localized: "Orifold couldn’t write the \(format.menuTitle) export. \(error.localizedDescription) Check that the destination folder exists and has free space, then try again.", locale: L10n.currentLocale))
             }
             return false
         }
@@ -5290,7 +5290,7 @@ final class WorkspaceViewModel {
         case let error as PDFKitEngine.ExportAssemblyError:
             return error.localizedDescription
         default:
-            return String(localized: "Orifold could not create the \(format.menuTitle) export: \(error.localizedDescription)", locale: L10n.currentLocale)
+            return String(localized: "Orifold couldn’t create the \(format.menuTitle) export. \(error.localizedDescription)", locale: L10n.currentLocale)
         }
     }
 
@@ -6006,7 +6006,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold could not export the selected pages: \(error.localizedDescription)", locale: L10n.currentLocale))
+                exportError = ExportError(message: String(localized: "Orifold couldn’t export the selected pages. \(error.localizedDescription)", locale: L10n.currentLocale))
             }
         }
     }

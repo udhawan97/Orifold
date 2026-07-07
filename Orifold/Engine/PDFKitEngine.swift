@@ -9,6 +9,7 @@ final class PDFKitEngine: PDFEngine {
     enum ExportAssemblyError: LocalizedError, Equatable {
         case unreadableMember(String)
         case emptyDocument
+        case metadataEmbedFailed
 
         var errorDescription: String? {
             switch self {
@@ -16,6 +17,8 @@ final class PDFKitEngine: PDFEngine {
                 return String(localized: "Orifold could not prepare \"\(name)\" for export. Reopen the document and try exporting again.", locale: L10n.currentLocale)
             case .emptyDocument:
                 return L10n.string("error.export.emptyDocument")
+            case .metadataEmbedFailed:
+                return L10n.string("error.export.metadataEmbedFailed")
             }
         }
     }
@@ -1276,13 +1279,24 @@ private struct SimpleZIPArchive {
         guard entry.compressionMethod == 8 else {
             throw ZIPError.unsupportedCompression
         }
+        // A zero-byte deflate entry (a malformed/adversarial .docx/.xlsx/.pptx central
+        // directory can declare this) makes `compressed` an empty slice, whose
+        // `withUnsafeBytes` buffer has a nil `baseAddress` -- force-unwrapping that used to
+        // crash the app on import instead of just failing this one entry. An empty deflate
+        // entry can only validly decode to zero bytes; anything else is inconsistent
+        // metadata, not real content.
+        guard !compressed.isEmpty else {
+            guard entry.uncompressedSize == 0 else { throw ZIPError.unreadable }
+            return Data()
+        }
 
         var output = [UInt8](repeating: 0, count: entry.uncompressedSize)
-        let decoded = compressed.withUnsafeBytes { input in
-            compression_decode_buffer(
+        let decoded = compressed.withUnsafeBytes { input -> Int in
+            guard let baseAddress = input.bindMemory(to: UInt8.self).baseAddress else { return -1 }
+            return compression_decode_buffer(
                 &output,
                 output.count,
-                input.bindMemory(to: UInt8.self).baseAddress!,
+                baseAddress,
                 compressed.count,
                 nil,
                 COMPRESSION_ZLIB
