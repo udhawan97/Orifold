@@ -345,7 +345,12 @@ struct CodableColor: Codable, Equatable {
     var blue: CGFloat
     var alpha: CGFloat
 
-    static let documentText = CodableColor(nsColor: .dsTextPrimaryNS)
+    /// Fallback color for text whose fill color can't be read from the PDF. This is ink
+    /// on paper — always near-black — and deliberately NOT a UI label color: resolving a
+    /// dynamic AppKit color here snapshots whatever appearance is active when this static
+    /// first initializes, and under dark mode that's a near-WHITE value that then gets
+    /// baked verbatim into exported pages as white-on-white invisible replacement text.
+    static let documentText = CodableColor(red: 0.13, green: 0.13, blue: 0.13)
 
     init(red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat = 1) {
         self.red = red

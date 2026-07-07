@@ -227,7 +227,15 @@ final class PDFTextAnalysisEngine {
         }
 
         let bandHits = candidates.filter { block in
-            let bandTolerance = max(tolerance, block.bounds.height * 0.5)
+            // Band from the block's LINE height, not its whole (possibly multi-line
+            // paragraph) height — a 15-line paragraph's bounds.height would otherwise
+            // grant it a ~100pt gravity band that swallows clicks intended for small
+            // neighbors above/below it.
+            let lineHeights = block.lines.map(\.bounds.height).sorted()
+            let lineHeight = lineHeights.isEmpty
+                ? max(block.fontSize * 1.3, 10)
+                : lineHeights[lineHeights.count / 2]
+            let bandTolerance = max(tolerance, lineHeight * 0.5)
             return block.bounds.insetBy(dx: -bandTolerance, dy: -bandTolerance * 0.6).contains(point)
         }
         return smallestBlock(among: bandHits)
@@ -643,7 +651,13 @@ final class PDFTextAnalysisEngine {
         let heights = sortedLine.compactMap { $0.bounds?.height }.sorted()
         guard heights.count > 1 else { return [sortedLine] }
         let medianHeight = heights[heights.count / 2]
-        let gapThreshold = max(medianHeight * 1.5, 6)
+        // The median GLYPH INK height is x-height dominated (~0.5-0.6× the point size),
+        // so a 1.5× multiplier put the split point around 0.78em — squarely inside the
+        // range justified/loosely-set prose stretches ordinary word gaps to (up to ~1em).
+        // That shattered such paragraphs into single-word "blocks". Real column gutters
+        // sit at several ems; 2.2× ink height (~1.2em) keeps stretched word gaps intact
+        // while still splitting genuine gutters.
+        let gapThreshold = max(medianHeight * 2.2, 8)
         var segments: [[CharacterSample]] = []
         var current: [CharacterSample] = []
         var prevMaxX: CGFloat?
@@ -865,7 +879,11 @@ final class PDFTextAnalysisEngine {
             let rawBounds = selection.bounds(for: page)
             guard rawBounds.width > 2, rawBounds.height > 2 else { return nil }
             let fontName = "Helvetica"
-            let estimatedSize = effectiveFontSize(fromInkHeight: rawBounds.height, fontName: fontName)
+            // A PDFKit line SELECTION rect spans the full line box (ascent + descent +
+            // leading ≈ 1.15-1.3× the point size), not glyph ink — feeding it through the
+            // ink-height model overestimated fallback sizes by ~20-35%, so fallback
+            // replacements rendered visibly oversized. Divide by a line-box factor instead.
+            let estimatedSize = max(4, rawBounds.height / 1.22)
             return EditableTextBlock(
                 pageRefID: pageRefID,
                 text: text,
