@@ -3609,6 +3609,11 @@ final class WorkspaceViewModel {
                                 let token = try Self.fetchTimestampSynchronously(for: signatureValue, preferring: preferredTSA).cmsTimeStampToken
                                 outcome.timestampWasApplied = true
                                 return token
+                            } catch SigningError.cancelled {
+                                // Must propagate, not fall back — otherwise cancelling
+                                // during a hung TSA request would silently continue signing
+                                // (just without a timestamp) instead of actually stopping.
+                                throw SigningError.cancelled
                             } catch {
                                 outcome.timestampFallbackMessage = L10n.string("status.sign.timestampUnavailable")
                                 return nil
@@ -3688,7 +3693,7 @@ final class WorkspaceViewModel {
         }
         let box = TimestampBox()
 
-        Task.detached {
+        let fetchTask = Task.detached {
             do {
                 box.result = .success(
                     try await TimestampAuthorityFallbackChain.fetchTimestamp(for: signatureValue, preferring: preferredTSA)
@@ -3699,7 +3704,21 @@ final class WorkspaceViewModel {
             semaphore.signal()
         }
 
-        semaphore.wait()
+        // Poll instead of an unconditional `semaphore.wait()` — the enclosing signing
+        // operation may be cancelled while up to 4 TSA endpoints are being tried in
+        // sequence (each with its own network timeout), and an unconditional wait would
+        // make the "Cancel" button in the progress UI do nothing until that whole chain
+        // finally times out on its own. `Task.isCancelled` here reflects the OUTER
+        // `Task.detached` this function is called from (task-local cancellation state is
+        // visible across synchronous call frames within the same executing task), so
+        // cancelling the signing task actually interrupts a hung timestamp request.
+        while semaphore.wait(timeout: .now() + 0.2) == .timedOut {
+            if Task.isCancelled {
+                fetchTask.cancel()
+                throw SigningError.cancelled
+            }
+        }
+
         switch box.result {
         case .success(let token):
             return token
