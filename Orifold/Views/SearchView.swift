@@ -166,4 +166,5 @@ extension Notification.Name {
     static let orifoldZoomIn          = Notification.Name("orifoldZoomIn")
     static let orifoldZoomOut         = Notification.Name("orifoldZoomOut")
     static let orifoldZoomFit         = Notification.Name("orifoldZoomFit")
+    static let orifoldShowShortcuts   = Notification.Name("orifoldShowShortcuts")
 }

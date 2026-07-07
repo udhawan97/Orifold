@@ -180,6 +180,7 @@ struct ContentView: View {
     @State private var isWorkspaceDropTargeted = false
     @State private var isNavigationDropTargeted = false
     @State private var isShowingDocumentComfortPopover = false
+    @State private var isShowingShortcutsCheatSheet = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @AppStorage("orifoldAppAppearanceMode") private var persistedAppAppearanceMode = AppAppearanceMode.system.rawValue
     @AppStorage("orifoldDocumentComfortSettings") private var persistedDocumentComfortSettingsData = Data()
@@ -357,6 +358,9 @@ struct ContentView: View {
             Text(err.message)
         }
         .modifier(ExportSuccessOverlay(viewModel: viewModel))
+        .onReceive(NotificationCenter.default.publisher(for: .orifoldShowShortcuts)) { _ in
+            isShowingShortcutsCheatSheet.toggle()
+        }
         .sheet(isPresented: $viewModel.isShowingPasswordPrompt) {
             if let url = viewModel.pendingPasswordURL,
                let pdf = viewModel.pendingPasswordPDF {
@@ -396,6 +400,7 @@ struct ContentView: View {
                 handleDrop(providers: providers)
             }
             .help("toolbar.contents.help")
+            .keyboardShortcut("1", modifiers: [.command, .option])
         }
 
         // Center: annotation tools + color swatch
@@ -421,6 +426,7 @@ struct ContentView: View {
                 handleDrop(providers: providers)
             }
             .help(viewModel.isReaderMode ? "toolbar.readerMode.exit.help" : "toolbar.readerMode.enter.help")
+            .keyboardShortcut("r", modifiers: [.command, .shift])
 
             Button { viewModel.isShowingSearch.toggle() } label: {
                 Label("toolbar.search.label", systemImage: "magnifyingglass")
@@ -446,7 +452,7 @@ struct ContentView: View {
                 handleDrop(providers: providers)
             }
             .help("toolbar.export.help")
-            .keyboardShortcut("e", modifiers: [.command, .shift])
+            .keyboardShortcut("e", modifiers: .command)
 
             Button { showInspector.toggle() } label: {
                 Label("toolbar.inspector.label", systemImage: "sidebar.right")
@@ -455,6 +461,7 @@ struct ContentView: View {
                 handleDrop(providers: providers)
             }
             .help("toolbar.inspector.help")
+            .keyboardShortcut("i", modifiers: [.command, .option])
 
             Button {
                 isShowingDocumentComfortPopover.toggle()
@@ -471,6 +478,11 @@ struct ContentView: View {
                 DocumentComfortPopover(viewModel: viewModel)
                     .frame(width: 360)
             }
+
+            ShortcutsCheatSheetButton(isPresented: $isShowingShortcutsCheatSheet, autoShow: true)
+                .acceptsImportDrops { providers in
+                    handleDrop(providers: providers)
+                }
 
             GuideButton(autoShow: true)
                 .acceptsImportDrops { providers in
