@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<title>Orifold - origami crane</title>
+<defs>
+<linearGradient id="d-tile" x1="0" y1="1" x2="1" y2="0">
+<stop offset="0" stop-color="#203752"/>
+<stop offset="0.52" stop-color="#39647f"/>
+<stop offset="1" stop-color="#67b1c9"/>
+</linearGradient>
+<radialGradient id="d-glow" cx="0.51" cy="0.47" r="0.5">
+<stop offset="0" stop-color="#dbf2f7" stop-opacity="0.14"/>
+<stop offset="1" stop-color="#dbf2f7" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="d-tan" cx="0.36" cy="0.32" r="0.9">
+<stop offset="0" stop-color="#f0554e"/>
+<stop offset="0.6" stop-color="#e63d38"/>
+<stop offset="1" stop-color="#9c1f22"/>
+</radialGradient>
+<clipPath id="d-clip"><rect x="6" y="6" width="1012" height="1012" rx="226"/></clipPath>
+</defs>
+<g clip-path="url(#d-clip)">
+<rect x="6" y="6" width="1012" height="1012" fill="url(#d-tile)"/>
+<rect x="34" y="34" width="956" height="956" rx="200" fill="none" stroke="#eaf6fa" stroke-opacity="0.10" stroke-width="3"/>
+<circle cx="512" cy="482" r="418" fill="url(#d-glow)"/>
+<circle cx="505" cy="490" r="336" fill="none" stroke="#eaf6fa" stroke-opacity="0.09" stroke-width="4"/>
+<g fill="none" stroke="#fffbf5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M160 675 L400 575 L300 200 L610 565 L778 353 L886 395 L772 423 L652 635 L505 765 L380 645 Z" fill="#fffbf5" fill-opacity="0.12" stroke="none"/>
+<path d="M400 575 L300 200 L610 565 Z" fill="#fffbf5" fill-opacity="0.08" stroke="none"/>
+<path d="M610 565 L778 353 L886 395 L772 423 L652 635 Z" fill="#fffbf5" fill-opacity="0.05" stroke="none"/>
+<g stroke-width="7" stroke-opacity="0.5" stroke-dasharray="20 16">
+<path d="M400 575 L505 765 M610 565 L505 765"/>
+</g>
+<g stroke-width="7" stroke-opacity="0.66">
+<path d="M400 575 L610 565"/>
+<path d="M300 200 L505 570"/>
+<path d="M610 565 L652 635"/>
+<path d="M400 575 L380 645"/>
+<path d="M779 416 L816 374"/>
+</g>
+<path d="M160 675 L400 575 L300 200 L610 565 L778 353 L886 395 L772 423 L652 635 L505 765 L380 645 Z" stroke-width="22" stroke-opacity="0.97"/>
+</g>
+<g fill="#fffbf5" fill-opacity="0.95">
+<circle cx="160" cy="675" r="13"/><circle cx="400" cy="575" r="13"/><circle cx="300" cy="200" r="13"/><circle cx="610" cy="565" r="13"/><circle cx="886" cy="395" r="10"/><circle cx="652" cy="635" r="13"/><circle cx="505" cy="765" r="13"/><circle cx="380" cy="645" r="13"/>
+</g>
+<circle cx="778" cy="353" r="23" fill="url(#d-tan)"/>
+</g>
+</svg>

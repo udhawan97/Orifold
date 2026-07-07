@@ -1,0 +1,36 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<title>Orifold - origami crane</title>
+<defs>
+<linearGradient id="c-bg" x1="0.12" y1="1" x2="0.85" y2="0"><stop offset="0" stop-color="#26405f"/><stop offset="0.55" stop-color="#4a7c9b"/><stop offset="1" stop-color="#77c0d4"/></linearGradient>
+<radialGradient id="c-vig" cx="0.75" cy="0.14" r="0.65"><stop offset="0" stop-color="#ffffff" stop-opacity="0.14"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+<radialGradient id="c-gsh"><stop offset="0" stop-color="#0c1728" stop-opacity="0.20"/><stop offset="0.6" stop-color="#0c1728" stop-opacity="0.08"/><stop offset="1" stop-color="#0c1728" stop-opacity="0"/></radialGradient>
+<linearGradient id="c-ivory" x1="0" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#fffdf8"/><stop offset="1" stop-color="#f6efe4"/></linearGradient>
+<linearGradient id="c-o1" gradientUnits="userSpaceOnUse" x1="0" y1="574" x2="0" y2="618"><stop offset="0" stop-color="#16233a" stop-opacity="0.32"/><stop offset="1" stop-color="#16233a" stop-opacity="0"/></linearGradient>
+<linearGradient id="c-o2" gradientUnits="userSpaceOnUse" x1="457" y1="380" x2="428.8" y2="364.8"><stop offset="0" stop-color="#16233a" stop-opacity="0.30"/><stop offset="1" stop-color="#16233a" stop-opacity="0"/></linearGradient>
+<linearGradient id="c-o4" gradientUnits="userSpaceOnUse" x1="675" y1="497" x2="649.3" y2="481.4"><stop offset="0" stop-color="#16233a" stop-opacity="0.22"/><stop offset="1" stop-color="#16233a" stop-opacity="0"/></linearGradient>
+<clipPath id="c-clip"><rect x="6" y="6" width="1012" height="1012" rx="226"/></clipPath>
+<clipPath id="c-cbody"><path d="M490,485 L655,595 L475,710 L330,640 L150,618 L352,585 Z"/></clipPath>
+<clipPath id="c-cfar"><path d="M412,286 L540,505 L248,578 Z"/></clipPath>
+<clipPath id="c-cwb"><path d="M560,190 L680,590 L355,570 Z"/><path d="M490,485 L655,595 L475,710 L330,640 L150,618 L352,585 Z"/></clipPath>
+</defs>
+<g clip-path="url(#c-clip)">
+<rect x="6" y="6" width="1012" height="1012" fill="url(#c-bg)"/>
+<rect x="6" y="6" width="1012" height="1012" fill="url(#c-vig)"/>
+<rect x="46" y="46" width="932" height="932" rx="196" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="2.5"/>
+<g transform="translate(-26,-23.5) scale(1.05)">
+<ellipse cx="505" cy="668" rx="300" ry="120" fill="url(#c-gsh)"/>
+<path d="M412,286 L540,505 L248,578 Z" fill="#ccd3dd"/>
+<path d="M560,190 L355,570 L323.3,552.9 L528.3,172.9 Z" fill="url(#c-o2)" clip-path="url(#c-cfar)"/>
+<path d="M412,286 L248,578" fill="none" stroke="#e9eef4" stroke-opacity="0.7" stroke-width="3"/>
+<path d="M490,485 L655,595 L475,710 L330,640 L150,618 L352,585 Z" fill="#e1e6ec"/>
+<rect x="330" y="560" width="360" height="60" fill="url(#c-o1)" clip-path="url(#c-cbody)"/>
+<path d="M490,485 L352,585 L150,618" fill="none" stroke="#f3f6f9" stroke-opacity="0.6" stroke-width="3"/>
+<path d="M560,190 L680,590 L355,570 Z" fill="url(#c-ivory)"/>
+<path d="M560,190 L355,570" fill="none" stroke="#fffef9" stroke-opacity="0.6" stroke-width="4"/>
+<path d="M754,364 L592,634 L562.9,616.4 L724.9,346.4 Z" fill="url(#c-o4)" clip-path="url(#c-cwb)"/>
+<path d="M592,634 L754,364 L804,296 L912,360 L794,404 L664,592 Z" fill="#fbf5ea"/>
+<path d="M592,634 L754,364 L804,296" fill="none" stroke="#fffef9" stroke-opacity="0.5" stroke-width="3"/>
+<circle cx="240" cy="762" r="40" fill="#e63d38"/>
+</g>
+</g>
+</svg>
