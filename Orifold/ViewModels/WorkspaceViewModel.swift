@@ -655,7 +655,12 @@ final class WorkspaceViewModel {
                 sanitizeInkAnnotations(in: pdf)
                 loadedPDFs.append((member, pdf))
                 // Capture original (pre-edit) bytes exactly once for clean regeneration.
-                originalMemberPDFData[member.id] = data
+                // A workspace saved WITH committed edit operations persists its true
+                // pristine bytes separately (`restoredOriginalMemberPDFData`) — the loaded
+                // member bytes already contain the baked edits in that case and must not
+                // be mistaken for a pristine base, or every re-edit would erase/redraw on
+                // top of the previous bake instead of regenerating from the original.
+                originalMemberPDFData[member.id] = document.restoredOriginalMemberPDFData[member.id] ?? data
             }
         }
 
@@ -664,6 +669,18 @@ final class WorkspaceViewModel {
             guard let self else { return [:] }
             return try self.currentPDFDataForExport()
         }
+        // Snapshot hook: persist pristine bytes for members with committed edits so a
+        // fresh session can always regenerate f(pristine, operations) exactly.
+        document.currentOriginalPDFDataProvider = { [weak self] in
+            guard let self else { return [:] }
+            return self.pristineDataForMembersWithCommittedEdits()
+        }
+
+        // A freshly-opened workspace must SHOW its committed edits — never trust that the
+        // saved bytes and the saved operations agree (a historical divergence otherwise
+        // stays trapped forever: the editor "remembers" the edit while the page and every
+        // export silently miss it).
+        reconcileCommittedEditsWithLoadedPages()
 
         if !loadedPDFs.isEmpty { rebuild() }
     }
@@ -1233,6 +1250,12 @@ final class WorkspaceViewModel {
         var pageRotations: [UUID: Int]
         var pdfData: [UUID: Data]
         var sourcePayloads: [UUID: SourceDocumentPayload]
+        /// Captured together with `pdfData` because the two must move as a unit: the PDF
+        /// bytes contain the BAKED result of these operations. Restoring bytes from one
+        /// point in time with operations from another leaves an edit that the editor
+        /// "remembers" but the page/export doesn't show (or vice versa, ghost ink with no
+        /// backing operation).
+        var pageEditStates: [PageEditState]
     }
 
     private struct InlineTextEditSnapshot {
@@ -1251,7 +1274,8 @@ final class WorkspaceViewModel {
             signatureIdentities: signingIdentitiesByPlacementID,
             pageRotations: currentPageRotations(),
             pdfData: currentPDFData(),
-            sourcePayloads: document.sourcePayloads
+            sourcePayloads: document.sourcePayloads,
+            pageEditStates: document.workspace.pageEditStates
         )
     }
 
@@ -1264,6 +1288,7 @@ final class WorkspaceViewModel {
         signingIdentitiesByPlacementID = snapshot.signatureIdentities
         document.memberPDFData = snapshot.pdfData
         document.sourcePayloads = snapshot.sourcePayloads
+        document.workspace.pageEditStates = snapshot.pageEditStates
         loadedPDFs = snapshot.documents.compactMap { member in
             guard let data = snapshot.pdfData[member.id],
                   let pdf = PDFDocument(data: data) else { return nil }
@@ -2706,6 +2731,81 @@ final class WorkspaceViewModel {
             }
         }
         return true
+    }
+
+    // MARK: - Committed edit ↔ page byte reconciliation
+
+    /// Pristine (pre-edit) bytes for every member that currently has committed inline
+    /// text edit operations — what the save path persists so future sessions can always
+    /// regenerate `f(pristine, operations)` exactly.
+    private func pristineDataForMembersWithCommittedEdits() -> [UUID: Data] {
+        var result: [UUID: Data] = [:]
+        for state in document.workspace.pageEditStates where !state.operations.isEmpty {
+            guard let ref = document.workspace.pageOrder.first(where: { $0.id == state.pageRefID }),
+                  result[ref.memberDocId] == nil,
+                  let pristine = originalMemberPDFData[ref.memberDocId] else { continue }
+            result[ref.memberDocId] = pristine
+        }
+        return result
+    }
+
+    /// Verifies that every page with committed edit operations actually SHOWS them in its
+    /// current bytes, regenerating the page from its pristine base when it doesn't. This is
+    /// the self-healing half of the "operations are the source of truth" contract: the ops
+    /// live in workspace state while the visible/exported result lives in `memberPDFData`,
+    /// and any historical divergence between the two (e.g. a file saved by an older build
+    /// with ops but no bake) would otherwise persist forever — the editor "remembers" the
+    /// edit while the page and every export silently miss it.
+    ///
+    /// Detection is text-presence-based (see `pageVisiblyReflects`), so a style-only edit
+    /// whose bake went missing is not detectable here — a documented residual limitation;
+    /// the divergence vectors themselves are closed separately (OrderSnapshot now carries
+    /// `pageEditStates`; commits regenerate atomically).
+    @discardableResult
+    func reconcileCommittedEditsWithLoadedPages() -> Int {
+        var regeneratedPages = 0
+        for state in document.workspace.pageEditStates where !state.operations.isEmpty {
+            guard let ref = document.workspace.pageOrder.first(where: { $0.id == state.pageRefID }) else { continue }
+            if pageVisiblyReflects(operations: state.operations, ref: ref) { continue }
+            if regenerateEditedPage(pageRef: ref, operations: state.operations) {
+                regeneratedPages += 1
+            } else {
+                NSLog("[Orifold] Warning: page %@ has committed text edits its bytes don't show, and regeneration failed — the edit remains invisible.", ref.id.uuidString)
+            }
+        }
+        return regeneratedPages
+    }
+
+    /// True when the page's CURRENT bytes visibly contain every operation's replacement
+    /// text. Whitespace-collapsed comparison, because the committed replacement wraps into
+    /// lines during rendering and extraction re-inserts line breaks at arbitrary points.
+    /// Style-only operations (replacement text equal to the source, or empty) are treated
+    /// as reflected — text presence can't distinguish their bake.
+    private func pageVisiblyReflects(operations: [PDFTextEditOperation], ref: PageRef) -> Bool {
+        guard let lookup = memberPDF(for: ref),
+              let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex),
+              let page = lookup.pdf.page(at: localIdx) else {
+            // No page to check against — nothing sensible to regenerate either.
+            return true
+        }
+        // `.attributedString`, not `.string`: PDFKit's `.string` interleaves characters for
+        // overlapping text runs on the CI toolchain (see
+        // [[ci-xcode164-pdfkit-string-extraction-quirk]] / UserFlowRegressionTests) — and an
+        // edited page is exactly that shape (replacement drawn over the covered original).
+        let pageText = Self.collapsedWhitespace(page.attributedString?.string ?? "")
+        for operation in operations {
+            let replacement = Self.collapsedWhitespace(operation.replacementText)
+            let source = Self.collapsedWhitespace(operation.sourceText)
+            guard !replacement.isEmpty, replacement != source else { continue }
+            if !pageText.contains(replacement) { return false }
+        }
+        return true
+    }
+
+    private static func collapsedWhitespace(_ text: String) -> String {
+        text.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     // MARK: - Inline text edit revert
@@ -4156,10 +4256,15 @@ final class WorkspaceViewModel {
         if (options.encryption != nil || options.sanitization != nil), hasCryptographicSignaturePlacement {
             throw PDFEncryptionError.digitalSignatureConflict
         }
+        // Belt-and-braces against any in-session ops↔bytes divergence: exported bytes must
+        // reflect every committed edit operation, so verify (and self-heal) right before
+        // they leave the app rather than trusting accumulated state.
+        reconcileCommittedEditsWithLoadedPages()
         let snapshot = WorkspacePackage(
             workspace: document.workspace,
             memberPDFData: try currentPDFDataForExport(),
-            sourcePayloads: document.sourcePayloads
+            sourcePayloads: document.sourcePayloads,
+            originalMemberPDFData: pristineDataForMembersWithCommittedEdits()
         )
         let pdfData = try document.exportedPDFDataThrowing(from: snapshot, options: options)
         let reducedData: Data

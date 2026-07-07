@@ -30,6 +30,12 @@ struct WorkspacePackage {
     var memberPDFData: [UUID: Data]
     /// Original rich/text imports keyed by MemberDocument.id for faithful non-PDF export.
     var sourcePayloads: [UUID: SourceDocumentPayload] = [:]
+    /// Pristine (pre-any-inline-text-edit) PDF bytes for members that have committed edit
+    /// operations. Persisted alongside the baked bytes so a reopened workspace can always
+    /// regenerate `f(pristine, operations)` exactly, instead of re-baking on top of
+    /// already-baked pages (ghost ink) or — worse — trusting baked bytes that a historical
+    /// divergence left WITHOUT the bake (the "edit remembered but invisible" trap).
+    var originalMemberPDFData: [UUID: Data] = [:]
 }
 
 final class WorkspaceDocument: ReferenceFileDocument {
@@ -48,15 +54,21 @@ final class WorkspaceDocument: ReferenceFileDocument {
         var sourcePayloads: [UUID: SourceDocumentPayload] = [:]
         var editableWorkspace: Workspace?
         var editableMemberPDFData: [UUID: Data] = [:]
+        /// See `WorkspacePackage.originalMemberPDFData` — pristine pre-edit bytes, only
+        /// for members that have committed inline text edit operations. Absent in files
+        /// saved by older builds; loaders must treat that as "pristine unknown".
+        var editableOriginalMemberPDFData: [UUID: Data] = [:]
 
         init(comments: [WorkspaceComment] = [],
              sourcePayloads: [UUID: SourceDocumentPayload] = [:],
              editableWorkspace: Workspace? = nil,
-             editableMemberPDFData: [UUID: Data] = [:]) {
+             editableMemberPDFData: [UUID: Data] = [:],
+             editableOriginalMemberPDFData: [UUID: Data] = [:]) {
             self.comments = comments
             self.sourcePayloads = sourcePayloads
             self.editableWorkspace = editableWorkspace
             self.editableMemberPDFData = editableMemberPDFData
+            self.editableOriginalMemberPDFData = editableOriginalMemberPDFData
         }
 
         init(from decoder: Decoder) throws {
@@ -65,6 +77,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             sourcePayloads = try c.decodeIfPresent([UUID: SourceDocumentPayload].self, forKey: .sourcePayloads) ?? [:]
             editableWorkspace = try c.decodeIfPresent(Workspace.self, forKey: .editableWorkspace)
             editableMemberPDFData = try c.decodeIfPresent([UUID: Data].self, forKey: .editableMemberPDFData) ?? [:]
+            editableOriginalMemberPDFData = try c.decodeIfPresent([UUID: Data].self, forKey: .editableOriginalMemberPDFData) ?? [:]
         }
     }
 
@@ -121,8 +134,18 @@ final class WorkspaceDocument: ReferenceFileDocument {
     @Published var memberPDFData: [UUID: Data] = [:]
     @Published var sourcePayloads: [UUID: SourceDocumentPayload] = [:]
 
+    /// Pristine pre-edit member bytes restored from a saved workspace's embedded metadata
+    /// (see `OrifoldMetadata.editableOriginalMemberPDFData`). Read once by
+    /// `WorkspaceViewModel.init` to seed its own pristine-base cache; empty for fresh
+    /// imports and for files saved before this payload existed.
+    private(set) var restoredOriginalMemberPDFData: [UUID: Data] = [:]
+
     /// ViewModel sets this so snapshot() can capture live annotation state.
     var currentPDFDataProvider: (() throws -> [UUID: Data])?
+
+    /// ViewModel sets this so snapshot() can persist pristine pre-edit member bytes for
+    /// members that currently have committed inline text edit operations.
+    var currentOriginalPDFDataProvider: (() -> [UUID: Data])?
 
     // MARK: - New document
 
@@ -202,6 +225,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             workspace = editableWorkspace
             memberPDFData = metadata.editableMemberPDFData
             sourcePayloads = metadata.sourcePayloads
+            restoredOriginalMemberPDFData = metadata.editableOriginalMemberPDFData
             return
         }
         // If `metadata(from:)` stripped baked Orifold annotations, the on-disk `originalPDFData`
@@ -242,7 +266,16 @@ final class WorkspaceDocument: ReferenceFileDocument {
 
     func snapshot(contentType: UTType) throws -> WorkspacePackage {
         let pdfData = try currentPDFDataProvider?() ?? memberPDFData
-        return WorkspacePackage(workspace: workspace, memberPDFData: pdfData, sourcePayloads: sourcePayloads)
+        // Without a live view model (e.g. a document being saved headlessly), fall back to
+        // whatever pristine bytes the load restored — never to the current baked bytes,
+        // which would freeze the bake into the "pristine" slot for every future session.
+        let originals = currentOriginalPDFDataProvider?() ?? restoredOriginalMemberPDFData
+        return WorkspacePackage(
+            workspace: workspace,
+            memberPDFData: pdfData,
+            sourcePayloads: sourcePayloads,
+            originalMemberPDFData: originals
+        )
     }
 
     // MARK: - Write
@@ -269,6 +302,19 @@ final class WorkspaceDocument: ReferenceFileDocument {
         let sourcePayloads = Self.sourcePayloadsForPDFMetadata(from: snapshot)
         let editableWorkspace = options.embedsEditableWorkspaceState ? snapshot.workspace : nil
         let editableMemberPDFData = options.embedsEditableWorkspaceState ? snapshot.memberPDFData : [:]
+        // Persist pristine bytes ONLY for members that actually have committed edit
+        // operations — that's the only case regeneration ever needs a base, and it keeps
+        // the metadata payload from doubling for the (common) unedited workspace.
+        let membersWithEdits = Set(
+            snapshot.workspace.pageEditStates
+                .filter { !$0.operations.isEmpty }
+                .compactMap { state in
+                    snapshot.workspace.pageOrder.first(where: { $0.id == state.pageRefID })?.memberDocId
+                }
+        )
+        let editableOriginalMemberPDFData = options.embedsEditableWorkspaceState
+            ? snapshot.originalMemberPDFData.filter { membersWithEdits.contains($0.key) }
+            : [:]
         let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
         guard !visualPlacements.isEmpty else {
             let formData = try Self.applyFormExportAdditions(to: pdfData, workspace: snapshot.workspace, options: options)
@@ -280,6 +326,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 sourcePayloads: sourcePayloads,
                 editableWorkspace: editableWorkspace,
                 editableMemberPDFData: editableMemberPDFData,
+                editableOriginalMemberPDFData: editableOriginalMemberPDFData,
                 omittingComments: omitsCommentMetadata
             )
         }
@@ -297,6 +344,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 sourcePayloads: sourcePayloads,
                 editableWorkspace: editableWorkspace,
                 editableMemberPDFData: editableMemberPDFData,
+                editableOriginalMemberPDFData: editableOriginalMemberPDFData,
                 omittingComments: omitsCommentMetadata
             )
         } catch SigningError.notImplemented {
@@ -309,6 +357,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 sourcePayloads: sourcePayloads,
                 editableWorkspace: editableWorkspace,
                 editableMemberPDFData: editableMemberPDFData,
+                editableOriginalMemberPDFData: editableOriginalMemberPDFData,
                 omittingComments: omitsCommentMetadata
             )
         } catch {
@@ -596,6 +645,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
                                       sourcePayloads: [UUID: SourceDocumentPayload],
                                       editableWorkspace: Workspace? = nil,
                                       editableMemberPDFData: [UUID: Data] = [:],
+                                      editableOriginalMemberPDFData: [UUID: Data] = [:],
                                       omittingComments: Bool = false) throws -> Data {
         guard let pdf = PDFDocument(data: data) else {
             return data
@@ -613,7 +663,8 @@ final class WorkspaceDocument: ReferenceFileDocument {
             comments: comments,
             sourcePayloads: sourcePayloads,
             editableWorkspace: editableWorkspace,
-            editableMemberPDFData: editableMemberPDFData
+            editableMemberPDFData: editableMemberPDFData,
+            editableOriginalMemberPDFData: editableOriginalMemberPDFData
         )),
               let metadataString = String(data: metadataData, encoding: .utf8) else {
             guard removedExistingMetadata else { return data }
