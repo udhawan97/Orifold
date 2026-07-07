@@ -28,41 +28,83 @@
     <rect x="19" y="19" width="303" height="303" rx="56" fill="none" stroke="rgba(255,255,255,0.06)"/>
     <rect x="37" y="37" width="265" height="265" rx="37" fill="none" stroke="rgba(255,255,255,0.06)"/>
 
-    <ellipse cx="150" cy="278" rx="72" ry="13" fill="url(#dogContactG)"/>
+    <ellipse cx="150" cy="280" rx="78" ry="13" fill="url(#dogContactG)"/>
 
     <g filter="url(#dogSoft)">
       <!-- Far (near-camera) ear — a large floppy trapezoid draping behind the head. -->
       <polygon points="150,96 112,64 122,150 158,140" fill="url(#dogEarShade)"/>
-      <!-- Tail — wagging group, pivoting at its base near the haunch; cream-tipped. -->
+      <!-- Far-ear fold crease. -->
+      <line x1="118" y1="72" x2="128" y2="146" stroke="rgba(255,240,220,0.08)" stroke-width="1"/>
+
+      <!-- Tail — wagging group, pivoting at its base near the haunch; three folds
+           to a two-facet cream tip so the plume reads layered, not flat. -->
       <g transform="rotate(0 128 236)">
         <animateTransform attributeName="transform" type="rotate" values="-12 128 236;12 128 236;-12 128 236" keyTimes="0;0.5;1" dur="1.3s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
         <polygon points="128,236 68,188 140,218" fill="url(#dogTailLit)"/>
         <polygon points="128,236 140,218 150,236" fill="url(#dogTailShade)"/>
-        <polygon points="68,188 88,198 80,213" fill="url(#dogCreamLit)"/>
+        <!-- Underside fold of the plume, tucked along the lower edge. -->
+        <polygon points="98,206 68,188 88,198 116,218" fill="url(#dogTailShade)" opacity="0.85"/>
+        <!-- Median fold crease along the plume. -->
+        <line x1="128" y1="230" x2="76" y2="194" stroke="rgba(255,240,220,0.10)" stroke-width="1"/>
+        <!-- Cream tip, folded in two facets: lit face + turned-under shade. -->
+        <polygon points="68,188 86,196 74,205" fill="url(#dogCreamLit)"/>
+        <polygon points="74,205 86,196 80,213" fill="url(#dogCreamShade)"/>
       </g>
+
+      <!-- Hind haunch — a lower fold behind the seated body, giving the pose weight. -->
+      <polygon points="104,236 160,268 152,286 96,262" fill="url(#dogBodyShade)"/>
+      <!-- Rear paw — a small cream tab peeking from under the haunch. -->
+      <polygon points="96,262 126,272 122,286 92,280" fill="url(#dogCreamShade)"/>
+
       <!-- Body / seated haunch (black saddle) -->
       <polygon points="160,180 160,270 100,240" fill="url(#dogBodyShade)"/>
       <polygon points="160,180 200,260 160,270" fill="url(#dogBodyLit)"/>
+      <!-- Saddle keel crease — the fold line between shaded and lit body panels. -->
+      <line x1="160" y1="184" x2="160" y2="266" stroke="rgba(255,240,220,0.12)" stroke-width="1"/>
+
       <!-- Chest tuft — the cream blaze continuing down the front. -->
       <polygon points="168,187 188,230 163,255" fill="url(#dogCreamLit)"/>
       <polygon points="168,258 205,256 200,272 168,272" fill="url(#dogCreamLit)"/>
+      <!-- Toe creases on the front paw. -->
+      <line x1="180" y1="262" x2="180" y2="271" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+      <line x1="191" y1="261" x2="191" y2="271" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
+
+      <!-- Occlusion — soft shadow where the head sits over the chest. -->
+      <polygon points="158,188 180,194 170,210 154,200" fill="#000000" opacity="0.16"/>
+
       <!-- Head (black, split shade/lit) -->
       <polygon points="170,110 170,195 135,150" fill="url(#dogHeadShade)"/>
       <polygon points="170,110 205,150 170,195" fill="url(#dogHeadLit)"/>
+      <!-- Occlusion — the near ear's drape shadowing the side of the head. -->
+      <polygon points="150,100 158,140 146,144 140,108" fill="#000000" opacity="0.22"/>
+
       <!-- Blaze — the cream stripe down the center of the face into the muzzle. -->
       <polygon points="163,120 182,132 176,178 158,163" fill="url(#dogCreamLit)"/>
+      <!-- Blaze fold edges — faint creases where cream meets black at the fold. -->
+      <line x1="163" y1="121" x2="159" y2="162" stroke="rgba(0,0,0,0.14)" stroke-width="1"/>
+      <line x1="182" y1="133" x2="176" y2="177" stroke="rgba(0,0,0,0.14)" stroke-width="1"/>
+
       <!-- Eye, set on the blaze -->
       <polygon points="176,140 194,146 177,158" fill="#2e241d"/>
       <polygon points="179,142 185,144 180,148" fill="#ffffff" opacity="0.85"/>
+
       <!-- Muzzle — short and rounded, cream -->
       <polygon points="196,128 240,158 198,158" fill="url(#dogCreamLit)"/>
       <polygon points="198,158 240,158 206,178" fill="url(#dogCreamShade)"/>
+      <!-- Muzzle ridge crease. -->
+      <line x1="199" y1="157" x2="238" y2="158" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+
       <!-- Nose -->
       <polygon points="233,152 249,158 234,168" fill="#3a2a22"/>
       <polygon points="236,154 243,156 238,160" fill="#ffffff" opacity="0.5"/>
+
       <!-- Near ear — the larger floppy trapezoid draping over the cheek on the left. -->
       <polygon points="150,96 116,72 128,146 155,136" fill="url(#dogEarLit)"/>
       <polygon points="150,100 128,90 134,138 152,132" fill="url(#dogEarShade)" opacity="0.7"/>
+      <!-- Ear-tip fold-back — the paper flips at the bottom, showing its warm underside. -->
+      <polygon points="128,146 152,138 146,152 132,156" fill="#4a382c" opacity="0.9"/>
+      <!-- Near-ear fold crease. -->
+      <line x1="122" y1="80" x2="132" y2="142" stroke="rgba(255,240,220,0.10)" stroke-width="1"/>
     </g>
   </g>
 </svg>

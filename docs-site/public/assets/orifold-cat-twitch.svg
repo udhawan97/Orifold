@@ -18,6 +18,7 @@
     <linearGradient id="catBodyLit" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#dde3ef"/><stop offset="1" stop-color="#b0b9d0"/></linearGradient>
     <linearGradient id="catBodyShade" x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stop-color="#a6afc4"/><stop offset="1" stop-color="#78819e"/></linearGradient>
     <linearGradient id="catCream" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#ecdfc4"/></linearGradient>
+    <linearGradient id="catCreamShade" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#eee1c6"/><stop offset="1" stop-color="#cfc0a0"/></linearGradient>
     <linearGradient id="catTailLit" x1="0" y1="0" x2="1" y2="0.3"><stop offset="0" stop-color="#dfe4f0"/><stop offset="1" stop-color="#aeb7ce"/></linearGradient>
     <linearGradient id="catTailShade" x1="0" y1="1" x2="0.6" y2="0"><stop offset="0" stop-color="#9aa3bb"/><stop offset="1" stop-color="#6f7996"/></linearGradient>
   </defs>
@@ -30,7 +31,7 @@
     <rect x="19" y="19" width="303" height="303" rx="56" fill="none" stroke="rgba(255,255,255,0.06)"/>
     <rect x="37" y="37" width="265" height="265" rx="37" fill="none" stroke="rgba(255,255,255,0.06)"/>
 
-    <ellipse cx="170" cy="285" rx="64" ry="11" fill="url(#catContactG)"/>
+    <ellipse cx="170" cy="290" rx="70" ry="11" fill="url(#catContactG)"/>
 
     <g filter="url(#catSoft)">
       <!-- Tail — a long layered plume that wraps around the front of her seated
@@ -38,18 +39,37 @@
            (nothing like a dog wag), pivoting near its root by the haunch. -->
       <g transform="rotate(0 216 248)">
         <animateTransform attributeName="transform" type="rotate" values="-6 216 248;6 216 248;-6 216 248" keyTimes="0;0.5;1" dur="3.6s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
+        <!-- Underside sliver at the root — the fold turning away from the light. -->
+        <polygon points="220.3,255.4 233.7,279.1 226.0,283.0 213.0,262.0" fill="#5a6480"/>
         <polygon points="220.3,255.4 197.9,268.6 210.1,306.8 233.7,279.1" fill="url(#catTailShade)"/>
         <polygon points="197.9,268.6 164.9,274.7 163.2,316.9 210.1,306.8" fill="url(#catTailLit)"/>
+        <!-- Fold shadows where the plume segments overlap. -->
+        <line x1="199.5" y1="270" x2="210.8" y2="305" stroke="rgba(0,0,0,0.18)" stroke-width="1.5"/>
+        <line x1="165.8" y1="276" x2="164.2" y2="315" stroke="rgba(0,0,0,0.16)" stroke-width="1.5"/>
         <polygon points="164.9,274.7 132.6,272.1 116.1,305.2 163.2,316.9" fill="url(#catCream)"/>
+        <!-- Cream tip median crease. -->
+        <line x1="148" y1="277" x2="140" y2="310" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
       </g>
+
+      <!-- Hip folds — wider haunches behind the seated bell, the Siberian bulk. -->
+      <polygon points="128,206 148,196 140,254 114,244" fill="url(#catBodyShade)" opacity="0.9"/>
+      <polygon points="192,196 212,206 226,244 200,254" fill="url(#catBodyShade)" opacity="0.75"/>
 
       <!-- Body — compact seated bell: shadowed left, lit right, bright chest kite,
            two cream "mitten" front paws. -->
       <polygon points="170,185.3 170,277.1 126.5,270.3 145.5,190.4" fill="url(#catBodyShade)"/>
       <polygon points="170,185.3 194.5,190.4 213.5,270.3 170,277.1" fill="url(#catBodyLit)"/>
       <polygon points="170,190.4 184.3,244.8 170,268.6 155.7,244.8" fill="url(#catCream)"/>
+      <!-- Chest keel crease. -->
+      <line x1="170" y1="193" x2="170" y2="266" stroke="rgba(255,255,255,0.30)" stroke-width="1"/>
       <polygon points="150.3,263.5 169.3,262.5 169.3,278.1 148.2,278.1" fill="url(#catCream)"/>
       <polygon points="170.7,262.5 189.7,263.5 191.8,278.1 170.7,278.1" fill="url(#catCream)"/>
+      <!-- Toe creases on the mittens. -->
+      <line x1="158" y1="266" x2="158" y2="277" stroke="rgba(0,0,0,0.14)" stroke-width="1"/>
+      <line x1="180" y1="266" x2="180" y2="277" stroke="rgba(0,0,0,0.14)" stroke-width="1"/>
+
+      <!-- Occlusion — soft shadow where the head and ruff sit over the chest. -->
+      <polygon points="170,186 188,193 170,206 152,193" fill="#000000" opacity="0.14"/>
 
       <!-- Ears — wide tufted cat ears rooted on the crown, small cream lynx tips at
            each apex (the Siberian signature); they twitch in quick, sharp flicks
@@ -58,11 +78,18 @@
         <animateTransform attributeName="transform" type="rotate" values="0 170 112;0 170 112;-8 170 112;6 170 112;0 170 112;0 170 112" keyTimes="0;0.6;0.7;0.8;0.9;1" dur="3.2s" repeatCount="indefinite" calcMode="spline" keySplines="0.3 0 0.15 1;0.3 0 0.15 1;0.3 0 0.15 1;0.3 0 0.15 1;0.3 0 0.15 1"/>
         <polygon points="136.7,126.5 131.2,62.6 162.5,104.0" fill="url(#catEarLit)"/>
         <polygon points="140.8,119.7 135.3,78.2 156.4,104.0" fill="url(#catInnerEar)"/>
+        <!-- Ear fold creases. -->
+        <line x1="139" y1="116" x2="133.5" y2="70" stroke="rgba(255,255,255,0.30)" stroke-width="1"/>
         <polygon points="131.2,62.6 122.0,49.4 138.9,57.8" fill="url(#catCream)"/>
         <polygon points="177.5,104.0 208.8,62.6 203.3,126.5" fill="url(#catEarShade)"/>
         <polygon points="183.6,104.0 204.7,78.2 199.2,119.7" fill="url(#catInnerEar)" opacity="0.9"/>
+        <line x1="201" y1="116" x2="206.5" y2="70" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
         <polygon points="208.8,62.6 218.0,49.4 201.1,57.8" fill="url(#catCream)"/>
       </g>
+
+      <!-- Occlusion — ear bases shadowing the crown. -->
+      <polygon points="142,118 160,104 152,124" fill="#000000" opacity="0.16"/>
+      <polygon points="198,118 180,104 188,124" fill="#000000" opacity="0.16"/>
 
       <!-- Head — a wide rounded diamond with cheek corners, split on a center keel,
            under a darker smoke mask leaving a cream blaze between the brows. -->
@@ -73,10 +100,19 @@
       <polygon points="159.5,132.0 170,109.0 180.5,132.0 170,140.0" fill="url(#catCream)"/>
       <line x1="170" y1="97.9" x2="170" y2="186.3" stroke="rgba(255,255,255,0.35)" stroke-width="1"/>
 
-      <!-- Ruff — the full cream collar framing the jaw and flowing into the chest,
-           the Siberian's plush, wide-at-the-face proportion. -->
+      <!-- Ruff — a layered cream collar framing the jaw and flowing into the chest:
+           a shaded inner layer under the jaw, the bright outer quads, and serrated
+           lower points, so the plush reads as folded paper depth. -->
+      <polygon points="138.7,170.7 156,182 142,198 124,186" fill="url(#catCreamShade)"/>
+      <polygon points="201.3,170.7 184,182 198,198 216,186" fill="url(#catCreamShade)"/>
       <polygon points="123.1,138.7 138.7,170.7 118.0,192.0 100.0,160.0" fill="url(#catCream)"/>
       <polygon points="216.9,138.7 201.3,170.7 222.0,192.0 240.0,160.0" fill="url(#catCream)"/>
+      <!-- Serrated ruff points hanging under the collar. -->
+      <polygon points="110,178 124,190 104,194" fill="url(#catCreamShade)"/>
+      <polygon points="230,178 216,190 236,194" fill="url(#catCreamShade)"/>
+      <!-- Ruff fold creases. -->
+      <line x1="112" y1="152" x2="122" y2="184" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+      <line x1="228" y1="152" x2="218" y2="184" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
 
       <!-- Eyes — two dark almonds, outer corners tilted up for a calm, knowing gaze,
            each lifted by a catchlight. -->
