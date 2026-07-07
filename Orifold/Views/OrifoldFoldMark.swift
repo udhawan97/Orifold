@@ -317,6 +317,14 @@ private struct PaperPalette {
     // `overridePalette`, matching how the crane's tancho crown is layered on.
     static let berneInk = PaperPalette(warm: (0.26, 0.23, 0.22), cool: (0.09, 0.08, 0.09))
     static let berneCream = PaperPalette(warm: (1.00, 0.985, 0.94), cool: (0.80, 0.78, 0.73))
+
+    // Ori the Siberian: a richer, warmer silver-blue than the old flat `.slate`
+    // (`siberianSlate`, the figure's base paper) plus a deeper smoke tone for the
+    // mask/mantle markings (`siberianSmoke`, applied via `overridePalette`). She
+    // reuses `berneCream` for her ruff/chest/paws/tail-tip — the shared cream is
+    // the deliberate "cut from the same sheet" cue with her brother Gami.
+    static let siberianSlate = PaperPalette(warm: (0.88, 0.89, 0.95), cool: (0.42, 0.46, 0.60))
+    static let siberianSmoke = PaperPalette(warm: (0.55, 0.58, 0.70), cool: (0.26, 0.29, 0.40))
 }
 
 /// One paper facet. `hi`/`lo` are paper-tone values (0…1) for the two ends of the
@@ -652,26 +660,39 @@ extension PaperFigure {
             palette: .berneInk,
             // A calmer plume wag than the old shiba tail — still picks up when the
             // cursor is close (`excitable`), since the tail is the one part that
-            // visibly reacts to attention.
+            // visibly reacts to attention. On hover the head also adds a gentle,
+            // attentive cock (`hoverOnly`) — the same head-tilt trick Ori uses,
+            // applied to head/muzzle/ears together so the whole face leans as one.
             idle: [
                 PaperWag(group: .tail, pivot: CGPoint(x: 0.365, y: 0.700), amplitude: 0.22, speed: 7.0,
-                         motion: .sway, excitable: true)
+                         motion: .sway, excitable: true),
+                PaperWag(group: .head, pivot: CGPoint(x: 0.470, y: 0.380), amplitude: 0.06, speed: 1.3,
+                         motion: .sway, hoverOnly: true),
+                PaperWag(group: .neck, pivot: CGPoint(x: 0.470, y: 0.380), amplitude: 0.06, speed: 1.3,
+                         motion: .sway, hoverOnly: true),
+                PaperWag(group: .wing, pivot: CGPoint(x: 0.470, y: 0.380), amplitude: 0.06, speed: 1.3,
+                         motion: .sway, hoverOnly: true),
             ]
         )
     }()
 }
 
-// MARK: Cat geometry
+// MARK: Cat geometry — Ori
 //
-// Ori: a FRONT-FACING seated origami cat in cool slate paper — deliberately a different
-// pose family from the dog's 3/4 profile so the two never read as reskinned silhouettes.
-// A wide, rounded diamond face split on a center keel, two broad triangular ears with
-// pink inner folds, two dark almond eyes with catchlights, a tiny pink nose over a
-// bright muzzle wedge, whisker crease lines on both cheeks, a compact seated bell of a
-// body with chest tuft and two front paws, and a tail that hooks around the right side
-// with a raised dark tip. Group mapping: head+eyes→head, ears→wing, muzzle/nose/whiskers
-// →neck, torso→body, tail→tail. The front-facing symmetry is what makes it read as a
-// cat instantly, even at the 72 pt workspace-chip size.
+// Ori: a FRONT-FACING origami Siberian in cool slate paper with a cream ruff, chest,
+// muzzle, and paws — deliberately a different pose family from the dog's 3/4 profile
+// so the two never read as reskinned silhouettes, and a plusher, more feminine build
+// than the earlier flat-slate cat. A wide, rounded diamond face under a darker smoke
+// mask (crown + outer cheeks) with a cream blaze between the brows, a full cream ruff
+// framing the jaw and flowing into the chest, tall tufted ears with pink inner folds
+// and small cream lynx tips, two dark almond eyes tilted up at the outer corner for a
+// calm, knowing gaze, a tiny pink nose over a cream muzzle wedge, whisker crease lines,
+// a compact seated body with cream chest and paws, and a long layered tail that wraps
+// around the front of the paws (composed, not raised) ending in a cream tip. Group
+// mapping: head+eyes+ruff+mask+blaze→head, ears+lynx tufts→wing, muzzle/nose/whiskers
+// →neck, torso/chest/paws→body, tail→tail. The front-facing symmetry plus the ruff's
+// added width are what make her read as a plush Siberian instantly, even at the 56 pt
+// workspace-chip size.
 
 extension PaperFigure {
     static let cat: PaperFigure = {
@@ -679,17 +700,24 @@ extension PaperFigure {
         let headBot = CGPoint(x: 0.500, y: 0.548)
 
         let facets: [PaperFacet] = [
-            // Tail — a bold hook curling around the right side from behind, dark tip
-            // raised: the classic curled cat tail, nothing like the dog's plume.
+            // Tail — a long layered plume curling from the haunch around the front of
+            // the seated paws (composed, not raised): three slate segments shading
+            // from root to mid, then a cream tip. Nothing like the dog's wag-in-place
+            // plume, and nothing like the old figure's right-side hook.
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.565, y: 0.805), CGPoint(x: 0.750, y: 0.780), CGPoint(x: 0.618, y: 0.726)],
-                       hi: 0.74, lo: 0.56, gradFrom: CGPoint(x: 0.618, y: 0.726), gradTo: CGPoint(x: 0.750, y: 0.780)),
+                       pts: [CGPoint(x: 0.648, y: 0.751), CGPoint(x: 0.582, y: 0.790), CGPoint(x: 0.618, y: 0.926), CGPoint(x: 0.687, y: 0.821)],
+                       hi: 0.62, lo: 0.44, gradFrom: CGPoint(x: 0.648, y: 0.751), gradTo: CGPoint(x: 0.618, y: 0.926)),
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.618, y: 0.726), CGPoint(x: 0.750, y: 0.780), CGPoint(x: 0.734, y: 0.630)],
-                       hi: 0.56, lo: 0.40, gradFrom: CGPoint(x: 0.734, y: 0.630), gradTo: CGPoint(x: 0.750, y: 0.780)),
+                       pts: [CGPoint(x: 0.582, y: 0.790), CGPoint(x: 0.485, y: 0.808), CGPoint(x: 0.480, y: 0.932), CGPoint(x: 0.618, y: 0.926)],
+                       hi: 0.50, lo: 0.34, gradFrom: CGPoint(x: 0.582, y: 0.790), gradTo: CGPoint(x: 0.480, y: 0.932)),
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.716, y: 0.652), CGPoint(x: 0.766, y: 0.622), CGPoint(x: 0.720, y: 0.560)],
-                       hi: 0.38, lo: 0.22, gradFrom: CGPoint(x: 0.766, y: 0.622), gradTo: CGPoint(x: 0.720, y: 0.560)),
+                       pts: [CGPoint(x: 0.485, y: 0.808), CGPoint(x: 0.390, y: 0.800), CGPoint(x: 0.353, y: 0.898), CGPoint(x: 0.480, y: 0.932)],
+                       hi: 0.40, lo: 0.26, gradFrom: CGPoint(x: 0.485, y: 0.808), gradTo: CGPoint(x: 0.353, y: 0.898)),
+            // Cream-tipped end of the plume — the Siberian's characteristic pale tail tip.
+            PaperFacet(group: .tail,
+                       pts: [CGPoint(x: 0.390, y: 0.800), CGPoint(x: 0.341, y: 0.783), CGPoint(x: 0.272, y: 0.824), CGPoint(x: 0.353, y: 0.898)],
+                       hi: 0.98, lo: 0.78, gradFrom: CGPoint(x: 0.341, y: 0.783), gradTo: CGPoint(x: 0.272, y: 0.824),
+                       overridePalette: .berneCream),
             // Torso — a compact seated bell, shadowed left + lit right.
             PaperFacet(group: .body,
                        pts: [CGPoint(x: 0.500, y: 0.545), CGPoint(x: 0.500, y: 0.815), CGPoint(x: 0.372, y: 0.795), CGPoint(x: 0.428, y: 0.560)],
@@ -697,18 +725,21 @@ extension PaperFigure {
             PaperFacet(group: .body,
                        pts: [CGPoint(x: 0.500, y: 0.545), CGPoint(x: 0.572, y: 0.560), CGPoint(x: 0.628, y: 0.795), CGPoint(x: 0.500, y: 0.815)],
                        hi: 0.82, lo: 0.62, gradFrom: CGPoint(x: 0.500, y: 0.545), gradTo: CGPoint(x: 0.628, y: 0.795)),
-            // Chest tuft — a soft bright kite down the front.
+            // Chest tuft — the cream ruff continuing down the front.
             PaperFacet(group: .body,
                        pts: [CGPoint(x: 0.500, y: 0.560), CGPoint(x: 0.542, y: 0.720), CGPoint(x: 0.500, y: 0.790), CGPoint(x: 0.458, y: 0.720)],
-                       hi: 0.96, lo: 0.76, gradFrom: CGPoint(x: 0.500, y: 0.560), gradTo: CGPoint(x: 0.500, y: 0.790)),
-            // Front paws — two small tabs, the near one brighter.
+                       hi: 0.99, lo: 0.80, gradFrom: CGPoint(x: 0.500, y: 0.560), gradTo: CGPoint(x: 0.500, y: 0.790),
+                       overridePalette: .berneCream),
+            // Front paws — cream "mittens," the near one brighter.
             PaperFacet(group: .body,
                        pts: [CGPoint(x: 0.442, y: 0.775), CGPoint(x: 0.498, y: 0.772), CGPoint(x: 0.498, y: 0.818), CGPoint(x: 0.436, y: 0.818)],
-                       hi: 0.86, lo: 0.70, gradFrom: CGPoint(x: 0.442, y: 0.775), gradTo: CGPoint(x: 0.436, y: 0.818)),
+                       hi: 0.92, lo: 0.74, gradFrom: CGPoint(x: 0.442, y: 0.775), gradTo: CGPoint(x: 0.436, y: 0.818),
+                       overridePalette: .berneCream),
             PaperFacet(group: .body,
                        pts: [CGPoint(x: 0.502, y: 0.772), CGPoint(x: 0.558, y: 0.775), CGPoint(x: 0.564, y: 0.818), CGPoint(x: 0.502, y: 0.818)],
-                       hi: 0.98, lo: 0.80, gradFrom: CGPoint(x: 0.502, y: 0.772), gradTo: CGPoint(x: 0.502, y: 0.818)),
-            // Ears — wide symmetric triangles rooted ON the crown edges, tips splayed
+                       hi: 0.99, lo: 0.82, gradFrom: CGPoint(x: 0.502, y: 0.772), gradTo: CGPoint(x: 0.502, y: 0.818),
+                       overridePalette: .berneCream),
+            // Ears — tall, wide-based triangles rooted ON the crown edges, tips splayed
             // slightly outward. Painted before the head so their bases tuck under it.
             PaperFacet(group: .wing,
                        pts: [CGPoint(x: 0.402, y: 0.372), CGPoint(x: 0.386, y: 0.184), CGPoint(x: 0.478, y: 0.306)],
@@ -724,6 +755,16 @@ extension PaperFigure {
                        pts: [CGPoint(x: 0.540, y: 0.306), CGPoint(x: 0.602, y: 0.230), CGPoint(x: 0.586, y: 0.352)],
                        hi: 0.62, lo: 0.38, gradFrom: CGPoint(x: 0.602, y: 0.230), gradTo: CGPoint(x: 0.586, y: 0.352),
                        overridePalette: .innerEarCat),
+            // Lynx tips — small cream tufts at each ear's apex, a Siberian signature and
+            // a further anti-rabbit cue (rabbit ears never carry a tip marking like this).
+            PaperFacet(group: .wing,
+                       pts: [CGPoint(x: 0.386, y: 0.184), CGPoint(x: 0.372, y: 0.150), CGPoint(x: 0.402, y: 0.164)],
+                       hi: 0.96, lo: 0.80, gradFrom: CGPoint(x: 0.372, y: 0.150), gradTo: CGPoint(x: 0.402, y: 0.164),
+                       overridePalette: .berneCream),
+            PaperFacet(group: .wing,
+                       pts: [CGPoint(x: 0.614, y: 0.184), CGPoint(x: 0.628, y: 0.150), CGPoint(x: 0.598, y: 0.164)],
+                       hi: 0.96, lo: 0.80, gradFrom: CGPoint(x: 0.628, y: 0.150), gradTo: CGPoint(x: 0.598, y: 0.164),
+                       overridePalette: .berneCream),
             // Head — a wide, rounded diamond with cheek corners, split on a center
             // keel: shadowed left half + lit right half under the cool top-right light.
             PaperFacet(group: .head,
@@ -732,13 +773,41 @@ extension PaperFigure {
             PaperFacet(group: .head,
                        pts: [headTop, CGPoint(x: 0.638, y: 0.408), CGPoint(x: 0.592, y: 0.502), headBot],
                        hi: 1.00, lo: 0.82, gradFrom: headTop, gradTo: CGPoint(x: 0.605, y: 0.480)),
-            // Eyes — two dark ink almonds, each lifted by a tiny catchlight.
+            // Smoke mask — a deeper slate marking over the crown and outer cheeks,
+            // the fold-line color change that reads as her tabby-point cap.
             PaperFacet(group: .head,
-                       pts: [CGPoint(x: 0.415, y: 0.408), CGPoint(x: 0.468, y: 0.398), CGPoint(x: 0.462, y: 0.432)],
+                       pts: [headTop, CGPoint(x: 0.362, y: 0.408), CGPoint(x: 0.430, y: 0.360)],
+                       hi: 0.55, lo: 0.30, gradFrom: headTop, gradTo: CGPoint(x: 0.362, y: 0.408),
+                       overridePalette: .siberianSmoke),
+            PaperFacet(group: .head,
+                       pts: [headTop, CGPoint(x: 0.638, y: 0.408), CGPoint(x: 0.570, y: 0.360)],
+                       hi: 0.58, lo: 0.32, gradFrom: headTop, gradTo: CGPoint(x: 0.638, y: 0.408),
+                       overridePalette: .siberianSmoke),
+            // Blaze — a small cream diamond between the brows, the gap in the smoke
+            // mask that keeps her expression open and warm rather than fully masked.
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.472, y: 0.400), CGPoint(x: 0.500, y: 0.355), CGPoint(x: 0.528, y: 0.400), CGPoint(x: 0.500, y: 0.420)],
+                       hi: 0.98, lo: 0.82, gradFrom: CGPoint(x: 0.500, y: 0.355), gradTo: CGPoint(x: 0.500, y: 0.420),
+                       overridePalette: .berneCream),
+            // Ruff — the full cream collar framing the jaw and flowing into the chest,
+            // the Siberian's plush, wide-at-the-face proportion. Painted after the head
+            // base so it reads as fur foaming out past the face's silhouette.
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.362, y: 0.415), CGPoint(x: 0.408, y: 0.500), CGPoint(x: 0.365, y: 0.580), CGPoint(x: 0.300, y: 0.500)],
+                       hi: 0.98, lo: 0.78, gradFrom: CGPoint(x: 0.362, y: 0.415), gradTo: CGPoint(x: 0.300, y: 0.500),
+                       overridePalette: .berneCream),
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.638, y: 0.415), CGPoint(x: 0.592, y: 0.500), CGPoint(x: 0.635, y: 0.580), CGPoint(x: 0.700, y: 0.500)],
+                       hi: 1.00, lo: 0.82, gradFrom: CGPoint(x: 0.638, y: 0.415), gradTo: CGPoint(x: 0.700, y: 0.500),
+                       overridePalette: .berneCream),
+            // Eyes — two dark ink almonds, outer corners tilted up for a calm, knowing
+            // gaze (rather than wide and eager), each lifted by a tiny catchlight.
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.408, y: 0.396), CGPoint(x: 0.468, y: 0.398), CGPoint(x: 0.462, y: 0.432)],
                        hi: 0.60, lo: 0.20, gradFrom: CGPoint(x: 0.468, y: 0.398), gradTo: CGPoint(x: 0.462, y: 0.432),
                        overridePalette: .craneInk),
             PaperFacet(group: .head,
-                       pts: [CGPoint(x: 0.532, y: 0.398), CGPoint(x: 0.585, y: 0.408), CGPoint(x: 0.538, y: 0.432)],
+                       pts: [CGPoint(x: 0.532, y: 0.398), CGPoint(x: 0.592, y: 0.396), CGPoint(x: 0.538, y: 0.432)],
                        hi: 0.60, lo: 0.20, gradFrom: CGPoint(x: 0.532, y: 0.398), gradTo: CGPoint(x: 0.538, y: 0.432),
                        overridePalette: .craneInk),
             PaperFacet(group: .head,
@@ -749,11 +818,12 @@ extension PaperFigure {
                        pts: [CGPoint(x: 0.549, y: 0.404), CGPoint(x: 0.564, y: 0.407), CGPoint(x: 0.553, y: 0.415)],
                        hi: 1.0, lo: 0.9, gradFrom: CGPoint(x: 0.549, y: 0.404), gradTo: CGPoint(x: 0.553, y: 0.415),
                        overridePalette: .catchlight),
-            // Muzzle — a short bright wedge; the chin ends well above the head's
+            // Muzzle — a short bright cream wedge; the chin ends well above the head's
             // bottom point so the face stays round and cute, never long.
             PaperFacet(group: .neck,
                        pts: [CGPoint(x: 0.464, y: 0.460), CGPoint(x: 0.536, y: 0.460), CGPoint(x: 0.500, y: 0.512)],
-                       hi: 1.00, lo: 0.86, gradFrom: CGPoint(x: 0.500, y: 0.460), gradTo: CGPoint(x: 0.500, y: 0.512)),
+                       hi: 1.00, lo: 0.86, gradFrom: CGPoint(x: 0.500, y: 0.460), gradTo: CGPoint(x: 0.500, y: 0.512),
+                       overridePalette: .berneCream),
             // Nose — a tiny pink downward triangle centered under the eyes.
             PaperFacet(group: .neck,
                        pts: [CGPoint(x: 0.482, y: 0.460), CGPoint(x: 0.518, y: 0.460), CGPoint(x: 0.500, y: 0.485)],
@@ -765,8 +835,10 @@ extension PaperFigure {
             PaperCrease(group: .head, a: headTop, b: headBot, valley: true, strength: 0.9),                                          // center face keel
             PaperCrease(group: .wing, a: CGPoint(x: 0.462, y: 0.318), b: CGPoint(x: 0.392, y: 0.196), valley: true, strength: 0.5),  // left-ear fold
             PaperCrease(group: .wing, a: CGPoint(x: 0.538, y: 0.318), b: CGPoint(x: 0.608, y: 0.196), valley: true, strength: 0.35), // right-ear fold
+            PaperCrease(group: .head, a: CGPoint(x: 0.362, y: 0.415), b: CGPoint(x: 0.365, y: 0.580), valley: false, strength: 0.4), // left ruff fold
+            PaperCrease(group: .head, a: CGPoint(x: 0.638, y: 0.415), b: CGPoint(x: 0.635, y: 0.580), valley: false, strength: 0.4), // right ruff fold
             PaperCrease(group: .body, a: CGPoint(x: 0.500, y: 0.560), b: CGPoint(x: 0.500, y: 0.790), valley: true, strength: 0.45), // chest keel
-            PaperCrease(group: .tail, a: CGPoint(x: 0.600, y: 0.780), b: CGPoint(x: 0.734, y: 0.640), valley: false, strength: 0.4), // tail median
+            PaperCrease(group: .tail, a: CGPoint(x: 0.648, y: 0.751), b: CGPoint(x: 0.485, y: 0.808), valley: false, strength: 0.4), // tail median
             // Whiskers — four thin bright crease lines fanning off the muzzle. Ridge
             // hairlines at low strength read as fold accents, not drawn-on whiskers.
             PaperCrease(group: .neck, a: CGPoint(x: 0.452, y: 0.472), b: CGPoint(x: 0.372, y: 0.458), valley: false, strength: 0.5),
@@ -778,7 +850,7 @@ extension PaperFigure {
         let occlusion: [PaperOcclusion] = [
             PaperOcclusion(center: CGPoint(x: 0.500, y: 0.550), radius: 0.09, group: .body),  // under the chin
             PaperOcclusion(center: CGPoint(x: 0.500, y: 0.340), radius: 0.07, group: .wing),  // between the ear bases
-            PaperOcclusion(center: CGPoint(x: 0.595, y: 0.770), radius: 0.07, group: .tail),  // tail root
+            PaperOcclusion(center: CGPoint(x: 0.648, y: 0.751), radius: 0.07, group: .tail),  // tail root
         ]
 
         // The hover head-tilt is one gentle rotation applied identically to the head,
@@ -794,7 +866,7 @@ extension PaperFigure {
             packetTriangle: PaperFigure.packet,
             groundCenter: CGPoint(x: 0.500, y: 0.845),
             specular: PaperSpecular(from: CGPoint(x: 0.545, y: 0.330), to: CGPoint(x: 0.610, y: 0.430), group: .head),
-            palette: .slate,
+            palette: .siberianSlate,
             // Distinctly un-dog-like motion: the ears stay near rest and snap through a
             // quick, sharp flick (`.twitch`), the tail sways in a slow, smooth curl
             // (`.sway`, well below the dog's tail speed), and on hover the whole face
@@ -803,7 +875,7 @@ extension PaperFigure {
             idle: [
                 PaperWag(group: .wing, pivot: CGPoint(x: 0.500, y: 0.330), amplitude: 0.10, speed: 9.0,
                          motion: .twitch, excitable: true),
-                PaperWag(group: .tail, pivot: CGPoint(x: 0.600, y: 0.790), amplitude: 0.16, speed: 1.6,
+                PaperWag(group: .tail, pivot: CGPoint(x: 0.648, y: 0.751), amplitude: 0.14, speed: 1.4,
                          motion: .sway, excitable: true),
                 PaperWag(group: .head, pivot: headTiltPivot, amplitude: 0.07, speed: 1.3,
                          motion: .sway, hoverOnly: true),

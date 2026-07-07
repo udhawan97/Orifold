@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32" height="32" role="img" aria-label="Gami mark: a minimal origami Bernedoodle head, floppy ears folded down">
+  <title>Gami — origami Bernedoodle head mark</title>
+  <!-- Single-color mark (fill="currentColor") so it can be recolored via CSS for
+       favicons, badges, or dark/light contexts — derived from the in-app figure's
+       own head/ear facets (OrifoldFoldMark.swift `PaperFigure.dog`), simplified to
+       flat geometry appropriate for a small mark rather than a shaded illustration. -->
+  <g fill="currentColor">
+    <!-- Far ear -->
+    <polygon points="54,22 74,34 66,64 52,50" opacity="0.55"/>
+    <!-- Near ear -->
+    <polygon points="40,20 24,50 48,42 46,26" opacity="0.85"/>
+    <!-- Head -->
+    <polygon points="47,16 63,42 47,72 27,42" opacity="0.85"/>
+    <polygon points="47,16 27,42 33,40" opacity="0.55"/>
+    <!-- Muzzle -->
+    <polygon points="55,38 78,52 56,52" opacity="0.85"/>
+    <!-- Nose -->
+    <circle cx="72" cy="51" r="4"/>
+  </g>
+</svg>

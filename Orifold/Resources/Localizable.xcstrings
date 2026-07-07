@@ -15622,662 +15622,6 @@
         }
       }
     },
-    "pet.cat.export.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export complete. Naturally, I supervised."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exportación completa. Por supuesto, yo supervisé."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export terminé. J'ai supervisé, naturellement."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "एक्सपोर्ट पूरा। ज़ाहिर है, निगरानी मैंने की।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "書き出し完了。もちろん、私が監督した。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "导出完成。当然，是我在监督。"
-          }
-        }
-      }
-    },
-    "pet.cat.export.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export it. I wanted closure."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Listo. Se portó bien porque yo miraba."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voilà. Il s'est tenu tranquille parce que je regardais."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "हो गया। यह इसलिए ठीक चला क्योंकि मैं देख रहा था।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "完了。私が見ていたから大人しくしていたのさ。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搞定。它乖乖的，是因为我在盯着。"
-          }
-        }
-      }
-    },
-    "pet.cat.greeting.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You're back. I allowed it."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Has vuelto. Lo permití."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Te revoilà. Je l'ai permis."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आप लौट आए। मैंने इजाज़त दी थी।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "戻ってきたね。許してあげた。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你回来了。我允许的。"
-          }
-        }
-      }
-    },
-    "pet.cat.greeting.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You may continue editing. I permit it."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Una página nueva. Fingiré estar impresionado."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Une nouvelle page. Je ferai semblant d'être impressionné."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "एक नया पन्ना। मैं प्रभावित होने का नाटक कर लूँगा।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新しいページか。感心したふりをしておくよ。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新的一页。我会假装很惊艳。"
-          }
-        }
-      }
-    },
-    "pet.cat.hoverTip.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Human, your document requires attention."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estoy observando el documento. Con elegancia."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "J'observe le document. Avec élégance."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मैं दस्तावेज़ का निरीक्षण कर रहा हूँ। शालीनता से।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文書を観察している。優雅にね。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我在观察这份文档。优雅地。"
-          }
-        }
-      }
-    },
-    "pet.cat.hoverTip.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I inspected the margins. Acceptable. Barely."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los márgenes parecen aceptables. Por ahora."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les marges semblent acceptables. Pour l'instant."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मार्जिन ठीक-ठाक लगते हैं। फ़िलहाल।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "余白はまあ許せる。今のところは。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "页边距还算过得去。暂时如此。"
-          }
-        }
-      }
-    },
-    "pet.cat.hoverTip.3": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Proceed. I will supervise."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Necesitas ayuda? Puede que finja que fue idea mía."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Besoin d'aide ? Je ferai peut-être semblant que c'était mon idée."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मदद चाहिए? हो सकता है मैं दिखावा करूँ कि यह मेरा विचार था।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "手伝おうか？これは私のアイデアってことにしておくかもね。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要帮忙吗？我可能会假装这是我的主意。"
-          }
-        }
-      }
-    },
-    "pet.cat.hoverTip.4": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This PDF is under my silent judgment."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este PDF está bajo mi juicio silencioso."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce PDF est soumis à mon jugement silencieux."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "यह PDF मेरी ख़ामोश परख के अधीन है।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この PDF は、私の静かな審判の下にあります。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这份 PDF 正接受我无声的评判。"
-          }
-        }
-      }
-    },
-    "pet.cat.hoverTip.5": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I was not waiting for you. I was observing."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No te estaba esperando. Estaba observando."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je ne t'attendais pas. J'observais."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मैं तुम्हारा इंतज़ार नहीं कर रहा था। मैं बस देख रहा था।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "あなたを待っていたのではありません。観察していたのです。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我不是在等你。我是在观察。"
-          }
-        }
-      }
-    },
-    "pet.cat.hoverTip.6": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Click wisely, human."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Haz clic con sabiduría, humano."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clique avec sagesse, humain."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "समझदारी से क्लिक करो, इंसान।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "賢くクリックしなさい、人間よ。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点击需谨慎，人类。"
-          }
-        }
-      }
-    },
-    "pet.cat.intro.greeting": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I'm Ori. This is my document now. You may assist."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Soy Ori. Ahora este documento es mío. Puedes ayudar."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je suis Ori. Ce document est le mien désormais. Tu peux m'assister."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मैं Ori हूँ। अब यह दस्तावेज़ मेरा है। तुम मदद कर सकते हो।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "私は Ori。この書類は今、私のもの。手伝ってよろしい。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我是 Ori。这份文档现在归我了。你可以来协助。"
-          }
-        }
-      }
-    },
-    "pet.cat.intro.message": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Everything stays on this Mac. I'll offer the occasional clever tip — your files stay yours."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todo se queda en este Mac. Ofreceré algún consejo ingenioso de vez en cuando; tus archivos siguen siendo tuyos."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tout reste sur ce Mac. Je glisserai une astuce futée à l'occasion — tes fichiers restent les tiens."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सब कुछ इसी Mac पर रहता है। कभी-कभार कोई चतुर सुझाव दूँगा — आपकी फ़ाइलें आपकी ही रहेंगी।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "すべてこのMacの中だけ。時々気の利いたヒントを授けよう——ファイルはあなたのもの。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "一切都留在这台 Mac 上。我偶尔会给点机灵的提示——你的文件始终是你的。"
-          }
-        }
-      }
-    },
-    "pet.cat.save.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saved. I fixed nothing; it simply obeyed."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guardado. No arreglé nada; simplemente obedeció."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enregistré. Je n'ai rien réparé ; il a simplement obéi."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सहेज लिया। मैंने कुछ ठीक नहीं किया; यह बस मान गया।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存した。何も直していない。ただ従っただけ。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已保存。我什么都没修，它自己听话了。"
-          }
-        }
-      }
-    },
-    "pet.cat.save.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The formatting is behaving. Suspicious."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guardado. De nada, supongo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enregistré. De rien, sans doute."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सहेज लिया। शुक्रिया, शायद।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存した。どういたしまして、たぶん。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已保存。不客气，大概吧。"
-          }
-        }
-      }
-    },
-    "pet.cat.warning.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A problem. Do not panic — that is my job, and I refuse."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un problema. No te alarmes: ese es mi trabajo, y me niego."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un problème. Ne panique pas — c'est mon rôle, et je refuse."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "एक समस्या। घबराओ मत — यह मेरा काम है, और मैं मना करता हूँ।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "問題ですね。慌てないで——それは私の役目ですが、私は断ります。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "有个问题。别慌——那是我的职责，而我拒绝。"
-          }
-        }
-      }
-    },
-    "pet.cat.warning.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Something is amiss. I will supervise the repair."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Algo va mal. Supervisaré la reparación."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quelque chose ne va pas. Je superviserai la réparation."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कुछ गड़बड़ है। मैं मरम्मत की निगरानी करूँगा।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "何かがおかしいです。修復を監督します。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "有些不对劲。我会监督修复。"
-          }
-        }
-      }
-    },
     "pet.event.addFile.1": {
       "extractionState": "manual",
       "localizations": {
@@ -18334,37 +17678,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Origami cat · clever, composed, quietly in charge."
+            "value": "Origami Siberian · curious, clever, elegant, quietly in charge."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gato de origami · astuto, sereno, al mando en silencio."
+            "value": "Siberiano de origami · curiosa, inteligente, elegante, discretamente al mando."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chat en origami · malin, posé, aux commandes en silence."
+            "value": "Sibérien en origami · curieuse, futée, élégante, discrètement aux commandes."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "ओरिगामी बिल्ली · चतुर, शांत, चुपचाप सब संभालने वाली।"
+            "value": "ओरिगामी साइबेरियन · जिज्ञासु, चतुर, सुरुचिपूर्ण, चुपचाप प्रभारी।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "折り紙の猫 · 賢く、落ち着いていて、静かに仕切る。"
+            "value": "折り紙のシベリアン猫・好奇心旺盛で賢く優雅、静かに仕切り屋。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "折纸猫 · 聪慧、沉着，不动声色地掌控全局。"
+            "value": "折纸西伯利亚猫 · 好奇、聪慧、优雅，悄悄地说了算。"
           }
         }
       }
@@ -18785,37 +18129,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pick a paper friend to fold along with you. You can switch anytime."
+            "value": "Two companions, one sheet of paper — together, they make Origami. You can switch anytime."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elige un amigo de papel que te acompañe. Puedes cambiarlo cuando quieras."
+            "value": "Dos compañeros, una sola hoja de papel — juntos hacen Origami. Puedes cambiar cuando quieras."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choisis un ami en papier qui te suivra. Tu peux en changer à tout moment."
+            "value": "Deux compagnons, une seule feuille de papier — ensemble, ils font Origami. Vous pouvez changer à tout moment."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "अपने साथ चलने के लिए एक काग़ज़ी दोस्त चुनें। आप कभी भी बदल सकते हैं।"
+            "value": "दो साथी, एक ही कागज़ की शीट — मिलकर वे बनाते हैं Origami। आप कभी भी बदल सकते हैं।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "一緒に折り進む紙の友だちを選ぼう。いつでも変えられるよ。"
+            "value": "二匹の相棒、一枚の紙——合わせて Origami。いつでも切り替えられます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "挑一个陪你一起折纸的纸上伙伴。随时可以更换。"
+            "value": "两个伙伴，同一张纸——合起来就是 Origami。你可以随时切换。"
           }
         }
       }
@@ -38578,6 +37922,949 @@
           "stringUnit": {
             "state": "translated",
             "value": "此证书已过期。请在签署前选择其他数字身份证明，或新建/导入一个。"
+          }
+        }
+      }
+    },
+    "ori.greeting.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're back. I kept everything exactly where you left it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has vuelto. Dejé todo exactamente donde lo tenías."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous voilà. J'ai gardé chaque chose exactement à sa place."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आप वापस आ गए। मैंने सब कुछ वहीं रखा जहाँ आपने छोड़ा था।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お帰りなさい。すべて置いたままにしておきました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你回来了。一切都保持在你离开时的样子。"
+          }
+        }
+      }
+    },
+    "ori.greeting.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proceed. I've already reviewed the room."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adelante. Ya revisé la sala."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allez-y. J'ai déjà tout inspecté."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आगे बढ़िए। मैं पहले ही सब जांच चुकी हूँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "どうぞ。もう確認は済んでいます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请继续。我已经检查过了。"
+          }
+        }
+      }
+    },
+    "ori.export.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporting? I found a cleaner path through this. Follow me."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Vas a exportar? Encontré un camino más limpio. Sígueme."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous exportez ? J'ai trouvé une voie plus nette. Suivez-moi."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक्सपोर्ट कर रहे हैं? मुझे एक बेहतर तरीका मिला। मेरा अनुसरण करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "書き出しますか？ もっと綺麗な道を見つけました。ついてきて。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要导出了？我找到了更简洁的路径。跟我来。"
+          }
+        }
+      }
+    },
+    "ori.export.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export approved. Naturally, I checked it first."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportación aprobada. Naturalmente, lo revisé primero."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export approuvé. Naturellement, j'ai vérifié avant."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक्सपोर्ट स्वीकृत। स्वाभाविक रूप से, मैंने पहले जांचा।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "書き出し承認。もちろん、先に確認済みです。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导出已批准。当然，我先检查过了。"
+          }
+        }
+      }
+    },
+    "ori.save.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved. Your work stays here, under my supervision."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado. Tu trabajo se queda aquí, bajo mi supervisión."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistré. Votre travail reste ici, sous ma supervision."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सहेजा गया। आपका काम यहीं है, मेरी निगरानी में।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存しました。作業はここに、私の監督のもとで。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存。你的内容留在这里，由我看管。"
+          }
+        }
+      }
+    },
+    "ori.save.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noted and kept. Elegant edits only, please."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anotado y guardado. Solo ediciones elegantes, por favor."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noté et conservé. Des modifications élégantes, je vous prie."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दर्ज और सुरक्षित। कृपया केवल सुरुचिपूर्ण बदलाव करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録して保存しました。上品な編集でお願いします。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已记录并保存。请只做优雅的修改。"
+          }
+        }
+      }
+    },
+    "ori.warning.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something needs your attention. I noticed it first, obviously."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algo requiere tu atención. Lo noté primero, obviamente."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelque chose requiert votre attention. Je l'ai remarqué en premier, évidemment."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "किसी चीज़ पर ध्यान चाहिए। मैंने पहले ही देख लिया, जाहिर है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "何かが注意を必要としています。もちろん、私が先に気づきました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有件事需要你注意。当然，我先发现的。"
+          }
+        }
+      }
+    },
+    "ori.warning.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A small problem. Handle it; I'll observe."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pequeño problema. Encárgate; yo observaré."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un petit problème. Occupez-vous-en ; j'observerai."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक छोटी सी समस्या। इसे संभालिए; मैं देखूँगी।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小さな問題です。対処してください。私は見ています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一个小问题。你来处理，我在旁边看着。"
+          }
+        }
+      }
+    },
+    "ori.hoverTip.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yes? I was already watching."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Sí? Ya estaba observando."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oui ? J'observais déjà."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हाँ? मैं पहले से देख रही थी।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "はい？ もう見ていましたよ。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "怎么？我早就在看着了。"
+          }
+        }
+      }
+    },
+    "ori.hoverTip.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click me if you require guidance. Or company."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic en mí si necesitas guía. O compañía."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cliquez sur moi si vous avez besoin d'un guide. Ou de compagnie."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मार्गदर्शन चाहिए तो मुझ पर क्लिक करें। या साथ चाहिए तो भी।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "案内が必要なら私をクリックして。話し相手でも。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要指引就点我。或者只是想有个伴。"
+          }
+        }
+      }
+    },
+    "ori.hoverTip.3": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything stays on this Mac. I insist on it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo permanece en este Mac. Insisto en ello."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout reste sur ce Mac. J'y tiens absolument."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सब कुछ इसी Mac पर रहता है। मैं इस पर ज़ोर देती हूँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてこの Mac の中に留まります。私がそう決めています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一切都留在这台 Mac 上。这一点我坚持。"
+          }
+        }
+      }
+    },
+    "ori.hoverTip.4": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami would chase the cursor. I prefer strategy."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami perseguiría el cursor. Yo prefiero la estrategia."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami poursuivrait le curseur. Je préfère la stratégie."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गामी कर्सर के पीछे भागता। मुझे रणनीति पसंद है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ガミならカーソルを追いかけるでしょう。私は戦略派です。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami 会去追光标。我更喜欢讲策略。"
+          }
+        }
+      }
+    },
+    "ori.hoverTip.5": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your margins are acceptable. Barely."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus márgenes son aceptables. A duras penas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos marges sont acceptables. À peine."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके मार्जिन ठीक हैं। बस मुश्किल से।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マージンは合格です。ぎりぎりですが。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的页边距还算过得去。勉强而已。"
+          }
+        }
+      }
+    },
+    "ori.hoverTip.6": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proceed, human. You may."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adelante, humano. Puedes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allez-y, humain. Vous pouvez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आगे बढ़िए, मनुष्य। आप कर सकते हैं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "どうぞ、人間さん。許可します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继续吧，人类。准许了。"
+          }
+        }
+      }
+    },
+    "ori.intro.greeting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I'm Ori. I'll be supervising. You'll do wonderfully."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soy Ori. Yo superviso. Lo harás muy bien."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je suis Ori. Je supervise. Vous vous en sortirez à merveille."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मैं ओरी हूँ। मैं निगरानी करूँगी। आप बहुत अच्छा करेंगे।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "私はオリ。監督はお任せください。きっとうまくいきます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我是 Ori。我来监督。你会做得很好的。"
+          }
+        }
+      }
+    },
+    "ori.intro.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything stays on this Mac. I'll offer a clever tip when one is warranted — your files stay yours."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo permanece en este Mac. Ofreceré un consejo inteligente cuando lo amerite; tus archivos siguen siendo tuyos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout reste sur ce Mac. Je proposerai un conseil avisé quand il le faudra — vos fichiers restent les vôtres."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सब कुछ इसी Mac पर रहता है। जब ज़रूरी होगा, मैं एक चतुर सुझाव दूँगी — आपकी फ़ाइलें आपकी ही रहती हैं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてこの Mac の中に留まります。必要な時だけ気の利いたヒントを。書類はあなたのものです。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一切都保留在这台 Mac 上。需要的时候我会给出一句聪明的提示——你的文件始终是你的。"
+          }
+        }
+      }
+    },
+    "gami.sibling.switch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ori's my sister — same sheet, fancier creases!"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ori es mi hermana: la misma hoja, con pliegues más elegantes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ori, c'est ma sœur — même feuille, plis plus chics !"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ओरी मेरी बहन है — वही कागज़, बस ज़्यादा शानदार सिलवटें!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オリは僕の妹。同じ紙から、もっと洒落た折り方をしただけ！"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ori 是我妹妹——同一张纸，只是折得更讲究。"
+          }
+        }
+      }
+    },
+    "ori.sibling.switch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You've met my brother Gami. Different fold, same paper."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya conociste a mi hermano Gami. Otro pliegue, el mismo papel."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez rencontré mon frère Gami. Pli différent, même papier."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आप मेरे भाई गामी से मिल चुके हैं। अलग तह, वही कागज़।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "弟のガミには会いましたね。折り方は違っても、紙は同じです。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你已经见过我弟弟 Gami 了。折法不同，纸是一样的。"
+          }
+        }
+      }
+    },
+    "companionHint.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Two companions, one sheet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dos compañeros, una sola hoja"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deux compagnons, une seule feuille"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दो साथी, एक शीट"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "二匹の相棒、一枚の紙"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "两个伙伴，同一张纸"
+          }
+        }
+      }
+    },
+    "companionHint.gami": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami keeps things playful."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami mantiene las cosas divertidas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami garde les choses ludiques."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गामी सब कुछ मज़ेदार बनाए रखता है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ガミは楽しさを大事にします。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami 让一切保持轻松有趣。"
+          }
+        }
+      }
+    },
+    "companionHint.ori": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ori supervises with taste."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ori supervisa con estilo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ori supervise avec goût."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ओरी बड़े नज़ाकत से निगरानी करती है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オリは品よく監督します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ori 优雅地监督一切。"
+          }
+        }
+      }
+    },
+    "companionHint.switch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch anytime"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar en cualquier momento"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer à tout moment"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कभी भी बदलें"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いつでも切り替え"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "随时切换"
+          }
+        }
+      }
+    },
+    "companionHint.dismiss": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Got it"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entendido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compris"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "समझ गया"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "了解しました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "知道了"
           }
         }
       }

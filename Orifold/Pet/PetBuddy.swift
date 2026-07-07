@@ -30,7 +30,8 @@ enum PetLines {
     // "pet.%@.greeting.1") rather than the concrete key. Hence the explicit switch.
     //
     // Gami (dog) uses the `gami.*` namespace with a calm, professional voice; Ori
-    // (cat) keeps its existing `pet.cat.*` personality untouched.
+    // (cat) uses the `ori.*` namespace — curious, clever, elegant, calm, and
+    // charmingly bossy rather than Gami's warm encouragement.
     private static func speciesHero(_ species: PetSpecies, _ event: PetEvent) -> [String]? {
         switch (species, event) {
         case (.dog, .greeting):
@@ -40,15 +41,15 @@ enum PetLines {
         case (.dog, .save):
             return [L10n.string("gami.save.1"), L10n.string("gami.save.2")]
         case (.cat, .greeting):
-            return [L10n.string("pet.cat.greeting.1"), L10n.string("pet.cat.greeting.2")]
+            return [L10n.string("ori.greeting.1"), L10n.string("ori.greeting.2")]
         case (.cat, .export):
-            return [L10n.string("pet.cat.export.1"), L10n.string("pet.cat.export.2")]
+            return [L10n.string("ori.export.1"), L10n.string("ori.export.2")]
         case (.cat, .save):
-            return [L10n.string("pet.cat.save.1"), L10n.string("pet.cat.save.2")]
+            return [L10n.string("ori.save.1"), L10n.string("ori.save.2")]
         case (.dog, .warning):
             return [L10n.string("gami.warning.1"), L10n.string("gami.warning.2")]
         case (.cat, .warning):
-            return [L10n.string("pet.cat.warning.1"), L10n.string("pet.cat.warning.2")]
+            return [L10n.string("ori.warning.1"), L10n.string("ori.warning.2")]
         default:
             return nil
         }
@@ -153,9 +154,20 @@ enum PetLines {
             // this species-neutral fallback is only reached if a species ever loses its
             // hero copy — kept exhaustive for the compiler and as a safe default.
             return [
-                L10n.string("pet.dog.warning.1"),
-                L10n.string("pet.cat.warning.1")
+                L10n.string("gami.warning.1"),
+                L10n.string("ori.warning.1")
             ]
+        }
+    }
+
+    /// The one-time "meet my sibling" line shown when the user switches from an
+    /// already-chosen companion to the other — the Origami joke (Gami + Ori =
+    /// Origami, siblings from another mother), used sparingly so it never repeats
+    /// at random alongside the rotating hover/event pools.
+    static func siblingSwitchLines(for newSpecies: PetSpecies) -> [String] {
+        switch newSpecies {
+        case .dog: return [L10n.string("gami.sibling.switch")]
+        case .cat: return [L10n.string("ori.sibling.switch")]
         }
     }
 
@@ -199,12 +211,12 @@ enum PetLines {
             ]
         case .cat:
             lines = [
-                L10n.string("pet.cat.hoverTip.1"),
-                L10n.string("pet.cat.hoverTip.2"),
-                L10n.string("pet.cat.hoverTip.3"),
-                L10n.string("pet.cat.hoverTip.4"),
-                L10n.string("pet.cat.hoverTip.5"),
-                L10n.string("pet.cat.hoverTip.6")
+                L10n.string("ori.hoverTip.1"),
+                L10n.string("ori.hoverTip.2"),
+                L10n.string("ori.hoverTip.3"),
+                L10n.string("ori.hoverTip.4"),
+                L10n.string("ori.hoverTip.5"),
+                L10n.string("ori.hoverTip.6")
             ]
         }
         return lines.randomElement() ?? ""
@@ -292,6 +304,59 @@ enum PetBuddyHook {
         didSet { if !isUserSelecting, !isUserEditing { flushDeferredHintIfPossible() } }
     }
 
+    // MARK: Companion-switch launch hint
+    //
+    // A one-time popover teaching that the *other* companion exists and the chip
+    // can switch between them — shown from the third session onward, and only if
+    // the user hasn't already discovered the popover or switched species on their
+    // own. See GAMI_REDESIGN_PLAN.md's sibling `ORI_REDESIGN_PLAN.md` §6.
+
+    @ObservationIgnored @AppStorage("gamiSessionCount") private var sessionCountStorage = 0
+    @ObservationIgnored @AppStorage("companionSwitchHintShown") private var switchHintShownStorage = false
+    @ObservationIgnored @AppStorage("gamiPopoverOpened") private var popoverOpenedStorage = false
+    @ObservationIgnored @AppStorage("gamiHasSwitchedSpecies") private var hasSwitchedSpeciesStorage = false
+
+    /// Cached at launch from `sessionCountStorage` (read once, like `seenEvents`
+    /// below) rather than read live on every `isSwitchHintEligible` check —
+    /// `@AppStorage` on a plain `@Observable` class isn't guaranteed to reflect
+    /// external `UserDefaults` writes on every access. Settable for tests.
+    var sessionCount = 0
+    var switchHintShown = false {
+        didSet { switchHintShownStorage = switchHintShown }
+    }
+    /// Set the moment the user opens the real popover on their own — this
+    /// pre-empts the teaching hint permanently, since they've already found it.
+    var hasOpenedPopover = false {
+        didSet {
+            popoverOpenedStorage = hasOpenedPopover
+            if hasOpenedPopover { switchHintShown = true }
+        }
+    }
+    /// Set the moment the user switches species on their own — same pre-emption
+    /// as `hasOpenedPopover`.
+    var hasSwitchedSpecies = false {
+        didSet {
+            hasSwitchedSpeciesStorage = hasSwitchedSpecies
+            if hasSwitchedSpecies { switchHintShown = true }
+        }
+    }
+    /// True while the teaching hint is presented — event bubbles are suppressed
+    /// during this window so the two never compete for attention.
+    var isSwitchHintPresented = false
+
+    /// Whether the one-time companion-switch hint is eligible to show right now.
+    /// Callers still need to check window/chrome constraints (cramped window,
+    /// import/export in progress) before actually presenting it.
+    var isSwitchHintEligible: Bool {
+        isEnabled && sessionCount >= 3 && !switchHintShown
+    }
+
+    /// Marks the hint permanently done — called on any interaction with it
+    /// (dismiss, "Switch anytime," or click-away) so it never shows again.
+    func markSwitchHintShown() {
+        switchHintShown = true
+    }
+
     /// Minimum gap between bubbles — long enough that Gami reads as occasional
     /// guidance, not chatter, during focused editing.
     let minInterval: TimeInterval = 45
@@ -317,12 +382,22 @@ enum PetBuddyHook {
         species = PetSpecies.resolved(from: speciesStorage)
         hasChosenSpecies = speciesChosenStorage
         seenEvents = Set(seenEventsStorage.split(separator: ",").map(String.init))
+        switchHintShown = switchHintShownStorage
+        hasOpenedPopover = popoverOpenedStorage
+        hasSwitchedSpecies = hasSwitchedSpeciesStorage
+        // `PetBuddy.shared` is constructed exactly once per launch, making `init`
+        // the natural place to count sessions for the switch-hint trigger.
+        sessionCountStorage += 1
+        sessionCount = sessionCountStorage
     }
 
     func trigger(_ event: PetEvent) {
         guard isEnabled else { return }
 
         pulseToken += 1
+
+        // The teaching hint and event bubbles never compete for attention.
+        guard !isSwitchHintPresented else { return }
 
         let now = Date()
         let isFirstUse = !seenEvents.contains(rawKey(for: event))
@@ -405,12 +480,18 @@ enum PetBuddyHook {
     /// confirmation greeting in the new pet's voice. Persists automatically via the
     /// `species`/`hasChosenSpecies` `didSet`s.
     func selectSpecies(_ newSpecies: PetSpecies) {
+        // A real switch (an already-chosen companion swapped for the other one) gets
+        // the one-time "meet my sibling" joke instead of the plain greeting — first
+        // pick has no prior companion to reference.
+        let wasActualSwitch = hasChosenSpecies && newSpecies != species
         let isNewChoice = newSpecies != species || !hasChosenSpecies
         species = newSpecies
         hasChosenSpecies = true
+        if wasActualSwitch { hasSwitchedSpecies = true }
         guard isEnabled, isNewChoice else { return }
         // Bypass the inter-message throttle so the choice confirms right away.
-        guard let line = pickLine(from: PetLines.lines(for: newSpecies, event: .greeting)) else { return }
+        let lines = wasActualSwitch ? PetLines.siblingSwitchLines(for: newSpecies) : PetLines.lines(for: newSpecies, event: .greeting)
+        guard let line = pickLine(from: lines) else { return }
         show(line, at: Date(), isSticky: false)
     }
 
@@ -596,6 +677,8 @@ struct PetView: View {
 
     @State private var buddy = PetBuddy.shared
     @State private var isPopoverPresented = false
+    @State private var isSwitchHintPresented = false
+    @State private var switchHintWorkItem: DispatchWorkItem?
     @State private var replayToken = 0
     @State private var isHovered = false
     @State private var isPulsing = false
@@ -626,6 +709,9 @@ struct PetView: View {
         // visual growth — this mirrors the proven-working hover pattern already used by
         // `EmptyStatePill` elsewhere in this app, which decorates its Button the same way.
         Button {
+            // Never present both popovers at once — a click always means "open the
+            // real popover," which also counts as the user discovering it organically.
+            isSwitchHintPresented = false
             isPopoverPresented.toggle()
         } label: {
             petIcon
@@ -672,6 +758,19 @@ struct PetView: View {
             .environmentObject(languageManager)
             .environment(\.locale, languageManager.effectiveLocale)
         }
+        // A separate, mutually-exclusive popover for the one-time "you can switch
+        // companions" teaching hint — see `PetBuddy.isSwitchHintEligible`.
+        .popover(isPresented: $isSwitchHintPresented, arrowEdge: .bottom) {
+            CompanionSwitchHintCard(
+                onSwitchAnytime: {
+                    isSwitchHintPresented = false
+                    isPopoverPresented = true
+                },
+                onDismiss: { isSwitchHintPresented = false }
+            )
+            .environmentObject(languageManager)
+            .environment(\.locale, languageManager.effectiveLocale)
+        }
         .overlay(alignment: .topTrailing) {
             if presentation == .workspace, let hoverTipMessage {
                 // The tip only ever shows while hovered, i.e. while the chip is
@@ -704,13 +803,47 @@ struct PetView: View {
         }
         // A popover taking focus should not leave a stray hover tip behind it.
         .onChange(of: isPopoverPresented) { _, isPresented in
-            if isPresented { hideHoverTipImmediately() }
+            if isPresented {
+                hideHoverTipImmediately()
+                buddy.hasOpenedPopover = true
+            }
+        }
+        .onChange(of: isSwitchHintPresented) { _, isPresented in
+            buddy.isSwitchHintPresented = isPresented
+            if !isPresented { buddy.markSwitchHintShown() }
+        }
+        .onAppear {
+            guard presentation == .workspace else { return }
+            scheduleSwitchHintIfEligible()
         }
         .onDisappear {
             hoverShowWorkItem?.cancel()
             hoverHideWorkItem?.cancel()
             pulseResetWorkItem?.cancel()
+            switchHintWorkItem?.cancel()
         }
+    }
+
+    /// A single, one-shot attempt to show the companion-switch hint, 5s after the
+    /// chip appears — long enough that it never competes with the launch greeting
+    /// bubble. If any condition isn't met at that moment (cramped window, an
+    /// operation in progress, a bubble already visible, the real popover already
+    /// open), the hint simply doesn't show this session; it isn't rescheduled,
+    /// since `isSwitchHintEligible` stays true until it's shown or pre-empted, and
+    /// the next launch tries again.
+    private func scheduleSwitchHintIfEligible() {
+        guard buddy.isSwitchHintEligible else { return }
+        switchHintWorkItem?.cancel()
+        let item = DispatchWorkItem {
+            guard buddy.isSwitchHintEligible,
+                  !isCramped,
+                  !buddy.isChromeBusy,
+                  !buddy.isBubbleVisible,
+                  !isPopoverPresented else { return }
+            isSwitchHintPresented = true
+        }
+        switchHintWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: item)
     }
 
     /// The chip's combined scale: hover growth and the brief event pulse compose
@@ -776,8 +909,9 @@ struct PetView: View {
 
         if hovering {
             // A brief pause before the tip appears, so a mouse just passing over the
-            // corner doesn't spam a message every time.
-            let delay: TimeInterval = shouldReduceMotion ? 0.05 : 0.35
+            // corner doesn't spam a message every time. Ori's pause is longer than
+            // Gami's — she doesn't leap to attention, she notices you first.
+            let delay: TimeInterval = shouldReduceMotion ? 0.05 : buddy.species.hoverTipDelay
             let item = DispatchWorkItem {
                 // Never stack the hover tip on top of a live feature-event bubble.
                 guard !buddy.isBubbleVisible else { return }
@@ -977,6 +1111,85 @@ private struct HoverSensor: NSViewRepresentable {
         override func mouseExited(with event: NSEvent) { onChange?(false) }
 
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
+}
+
+/// A one-time teaching popover: "you can switch companions." Shown at most once,
+/// anchored to the chip like the real control popover, and pre-empted the moment
+/// the user discovers either path (opening the popover, switching species) on
+/// their own. See `PetBuddy.isSwitchHintEligible`.
+private struct CompanionSwitchHintCard: View {
+    var onSwitchAnytime: () -> Void
+    var onDismiss: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var didAnimateIn = false
+
+    private var shouldReduceMotion: Bool {
+        reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsMD) {
+            Text("companionHint.title")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.dsTextPrimary)
+
+            HStack(alignment: .top, spacing: .dsMD) {
+                companionRow(species: .dog, lineKey: "companionHint.gami")
+                companionRow(species: .cat, lineKey: "companionHint.ori")
+            }
+
+            HStack {
+                Button("companionHint.dismiss", action: onDismiss)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.dsTextSecondary)
+                Spacer()
+                Button("companionHint.switch", action: onSwitchAnytime)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.dsAccent)
+            }
+            .font(.dsCaption())
+        }
+        .padding(.dsMD)
+        .frame(width: 260, alignment: .leading)
+        .background(alignment: .center) {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Color.dsSurface.opacity(colorScheme == .dark ? 0.55 : 0.42)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
+                .strokeBorder(Color.dsSeparator.opacity(colorScheme == .dark ? 0.7 : 0.9), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.24 : 0.10), radius: 10, x: 0, y: 4)
+        .scaleEffect(didAnimateIn || shouldReduceMotion ? 1 : 0.96, anchor: .bottomTrailing)
+        .opacity(didAnimateIn || shouldReduceMotion ? 1 : 0)
+        .accessibilityElement(children: .contain)
+        .onAppear {
+            guard !shouldReduceMotion else {
+                didAnimateIn = true
+                return
+            }
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.78)) {
+                didAnimateIn = true
+            }
+        }
+    }
+
+    private func companionRow(species: PetSpecies, lineKey: LocalizedStringKey) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            OrifoldFoldMark(size: 28, interactive: false, figure: .forSpecies(species))
+                .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+            Text(lineKey)
+                .font(.system(size: 10.5, weight: .regular))
+                .foregroundStyle(Color.dsTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

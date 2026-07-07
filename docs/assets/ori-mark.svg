@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32" height="32" role="img" aria-label="Ori mark: a minimal origami Siberian head, tufted ears and a ruffed collar">
+  <title>Ori — origami Siberian head mark</title>
+  <!-- Single-color mark (fill="currentColor") so it can be recolored via CSS for
+       favicons, badges, or dark/light contexts — derived from the in-app figure's
+       own head/ear/ruff facets (OrifoldFoldMark.swift `PaperFigure.cat`),
+       simplified to flat geometry appropriate for a small mark. Pairs 1:1 with
+       gami-mark.svg (same viewBox, same weight) so the two read as siblings. -->
+  <g fill="currentColor">
+    <!-- Ruff -->
+    <polygon points="24,50 34,64 26,76 16,60" opacity="0.55"/>
+    <polygon points="76,50 66,64 74,76 84,60" opacity="0.55"/>
+    <!-- Ears with lynx tips -->
+    <polygon points="34,42 30,14 50,34" opacity="0.85"/>
+    <polygon points="30,14 24,6 36,10"/>
+    <polygon points="66,42 70,14 50,34" opacity="0.85"/>
+    <polygon points="70,14 76,6 64,10"/>
+    <!-- Head -->
+    <polygon points="50,20 68,42 60,62 50,72 40,62 32,42" opacity="0.85"/>
+    <!-- Mask -->
+    <polygon points="50,20 32,42 40,36" opacity="0.55"/>
+    <polygon points="50,20 68,42 60,36" opacity="0.55"/>
+  </g>
+</svg>

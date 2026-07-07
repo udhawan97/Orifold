@@ -51,14 +51,24 @@ enum PetSpecies: String, CaseIterable, Sendable {
     var introGreeting: String {
         switch self {
         case .dog: return L10n.string("gami.intro.greeting")
-        case .cat: return L10n.string("pet.cat.intro.greeting")
+        case .cat: return L10n.string("ori.intro.greeting")
         }
     }
 
     var introMessage: String {
         switch self {
         case .dog: return L10n.string("gami.intro.message")
-        case .cat: return L10n.string("pet.cat.intro.message")
+        case .cat: return L10n.string("ori.intro.message")
+        }
+    }
+
+    /// How long the cursor must rest on the workspace chip before the hover tip
+    /// appears. Ori's pause is longer than Gami's — she notices you before she
+    /// speaks, rather than leaping to attention.
+    var hoverTipDelay: TimeInterval {
+        switch self {
+        case .dog: return 0.35
+        case .cat: return 0.6
         }
     }
 }

@@ -74,18 +74,18 @@ It is not perfect yet, but it is being built in public with care, curiosity, and
 
 ## 🐾 Meet Your Paper Companion
 
-The same fold that opens Orifold's logo blossoms into a small companion that lives in your workspace — pick **Gami · Orifold Guide** (an origami Bernedoodle, all floppy black ears and a cream blaze) or **Ori** (the origami cat) on first launch, or switch anytime. Your companion sits quietly in the corner, keeps its hints out of your document's way, and speaks up — briefly and usefully — for moments that matter: exporting, saving, and anything that needs your attention.
+The same fold that opens Orifold's logo blossoms into a small companion that lives in your workspace — pick **Gami · Orifold Guide** (an origami Bernedoodle, all floppy black ears and a cream blaze) or **Ori** (an origami Siberian, plush cream ruff and a composed, wrap-around tail) on first launch, or switch anytime. They're siblings folded from the same sheet of paper — different mothers' patterns, same origami — and it shows: same cream paper, same quiet manners, very different personalities. Your companion sits quietly in the corner, keeps its hints out of your document's way, and speaks up — briefly and usefully — for moments that matter: exporting, saving, and anything that needs your attention.
 
 <table align="center">
   <tr>
     <td align="center" width="240"><img src="docs/assets/orifold-crane-fold.svg" alt="Animated: a sheet of paper folds into an origami crane, then becomes the app icon" width="200"></td>
     <td align="center" width="240"><img src="docs/assets/orifold-dog-wag.svg" alt="Animated: Gami the origami Bernedoodle, tail wagging" width="200"></td>
-    <td align="center" width="240"><img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Ori the origami cat, front-facing with wide triangular ears that twitch, whisker creases, and a curled tail that sways" width="200"></td>
+    <td align="center" width="240"><img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Ori the origami Siberian, front-facing with a cream ruff, tufted ears that twitch, and a long tail that wraps around her paws and sways" width="200"></td>
   </tr>
   <tr>
     <td align="center"><strong>The Fold</strong><br><sub>The brand mark folds into a crane — a quiet red tancho crown its only splash of color.</sub></td>
     <td align="center"><strong>Gami</strong> &nbsp;<sub>· the Bernedoodle</sub><br><sub>Floppy black ears, a cream blaze, a calm wag. A quiet guide, not a mascot — tips stay brief and out of your document's way.</sub></td>
-    <td align="center"><strong>Ori</strong> &nbsp;<sub>· the cat</sub><br><sub>Clever, composed, quietly in charge. Ears twitch sharp while the tail sways slow.</sub></td>
+    <td align="center"><strong>Ori</strong> &nbsp;<sub>· the Siberian</sub><br><sub>Curious, clever, elegant, charmingly bossy. She notices first, speaks second — a wrapped tail instead of a wag.</sub></td>
   </tr>
 </table>
 
@@ -153,7 +153,7 @@ Everything below runs on your Mac. The cloud was not consulted.
 | 🌐 | **Work in your language** — full UI in English, Spanish, French, Hindi, Simplified Chinese, and Japanese | An app that speaks your language, switchable from the landing screen |
 
 > [!TIP]
-> **Meet Gami & Ori 🤝** — Orifold ships with a small built-in companion that offers short, useful hints for moments that matter (Gami: "Exporting? I can walk you through the options." · Ori: "This PDF is under my silent judgment."). Hints keep clear of your document and collapse to a quiet corner badge rather than sit on top of your page. Helpful when you're new, easy to quiet when you're not: toggle **Hide Gami Tips** from the companion's own popover, or **Show Orifold Buddy** from the app's menu to hide it entirely.
+> **Meet Gami & Ori 🤝** — Orifold ships with a small built-in companion that offers short, useful hints for moments that matter (Gami: "Exporting? I can walk you through the options." · Ori: "Gami would chase the cursor. I prefer strategy."). Hints keep clear of your document and collapse to a quiet corner badge rather than sit on top of your page. Helpful when you're new, easy to quiet when you're not: toggle **Hide Gami Tips** from the companion's own popover, or **Show Orifold Buddy** from the app's menu to hide it entirely.
 
 <details>
 <summary>📋 &nbsp;Full capability list, feature by feature</summary>
@@ -178,7 +178,7 @@ Everything below runs on your Mac. The cloud was not consulted.
 | **Export integrity** | Every exported PDF passes a qpdf structural check before it reaches disk |
 | **Export** | PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, or print |
 | **Languages** | Full interface localization in English, Spanish, French, Hindi, Simplified Chinese, and Japanese, switchable from the landing screen and persisted across launches |
-| **Companion** | Gami · Orifold Guide (an origami Bernedoodle) or Ori (cat) — an optional origami companion that offers brief hints for exporting, saving, and warnings, with positioning that keeps clear of your document; toggle tips from its popover or hide it entirely from the app menu |
+| **Companion** | Gami · Orifold Guide (an origami Bernedoodle) or Ori (an origami Siberian) — an optional companion, each with its own personality and voice, that offers brief hints for exporting, saving, and warnings, with positioning that keeps clear of your document; switch between them anytime, toggle tips from the popover, or hide it entirely from the app menu |
 | **Install & update** | One-line installer, Desktop launch/update helpers, clean uninstaller, Homebrew cask |
 </details>
 

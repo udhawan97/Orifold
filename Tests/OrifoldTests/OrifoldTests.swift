@@ -8608,6 +8608,135 @@ final class PetBuddyTests: XCTestCase {
         XCTAssertTrue(PetLines.inspiration.contains(buddy.currentMessage ?? ""))
         XCTAssertNotNil(buddy.lastInspirationAt)
     }
+
+    func testHoverTipDelayDiffersBySpecies() {
+        // Ori notices before she speaks — her pause is longer than Gami's.
+        XCTAssertLessThan(PetSpecies.dog.hoverTipDelay, PetSpecies.cat.hoverTipDelay)
+        XCTAssertEqual(PetSpecies.dog.hoverTipDelay, 0.35)
+        XCTAssertEqual(PetSpecies.cat.hoverTipDelay, 0.6)
+    }
+
+    @MainActor
+    func testSwitchingAnAlreadyChosenSpeciesShowsSiblingLineOnceAndSetsFlag() {
+        let buddy = PetBuddy.shared
+        let oldSpeciesValue = UserDefaults.standard.string(forKey: "petSpecies")
+        let oldChosenValue = UserDefaults.standard.object(forKey: "petSpeciesChosen") as? Bool
+        let oldSwitchedValue = UserDefaults.standard.object(forKey: "gamiHasSwitchedSpecies") as? Bool
+
+        defer {
+            buddy.hush()
+            buddy.lastShownAt = nil
+            buddy.recentLines = []
+            if let oldSpeciesValue {
+                UserDefaults.standard.set(oldSpeciesValue, forKey: "petSpecies")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "petSpecies")
+            }
+            buddy.species = PetSpecies.resolved(from: oldSpeciesValue)
+            buddy.hasChosenSpecies = oldChosenValue ?? false
+            buddy.hasSwitchedSpecies = oldSwitchedValue ?? false
+        }
+
+        // Simulate an already-chosen companion (not a first-run pick).
+        buddy.species = .dog
+        buddy.hasChosenSpecies = true
+        buddy.hasSwitchedSpecies = false
+        buddy.hush()
+
+        buddy.selectSpecies(.cat)
+
+        XCTAssertEqual(buddy.species, .cat)
+        XCTAssertTrue(buddy.hasSwitchedSpecies)
+        XCTAssertTrue(buddy.isBubbleVisible)
+        XCTAssertEqual(buddy.currentMessage, L10n.string("ori.sibling.switch"))
+    }
+
+    @MainActor
+    func testFirstEverPickDoesNotShowSiblingLine() {
+        let buddy = PetBuddy.shared
+        let oldSpeciesValue = UserDefaults.standard.string(forKey: "petSpecies")
+        let oldChosenValue = UserDefaults.standard.object(forKey: "petSpeciesChosen") as? Bool
+        let oldSwitchedValue = UserDefaults.standard.object(forKey: "gamiHasSwitchedSpecies") as? Bool
+
+        defer {
+            buddy.hush()
+            buddy.lastShownAt = nil
+            buddy.recentLines = []
+            if let oldSpeciesValue {
+                UserDefaults.standard.set(oldSpeciesValue, forKey: "petSpecies")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "petSpecies")
+            }
+            buddy.species = PetSpecies.resolved(from: oldSpeciesValue)
+            buddy.hasChosenSpecies = oldChosenValue ?? false
+            buddy.hasSwitchedSpecies = oldSwitchedValue ?? false
+        }
+
+        // No prior companion chosen yet — a first-run pick, not a switch.
+        buddy.hasChosenSpecies = false
+        buddy.hasSwitchedSpecies = false
+        buddy.hush()
+
+        buddy.selectSpecies(.cat)
+
+        XCTAssertFalse(buddy.hasSwitchedSpecies)
+        XCTAssertNotEqual(buddy.currentMessage, L10n.string("ori.sibling.switch"))
+    }
+
+    @MainActor
+    func testCompanionSwitchHintEligibilityGating() {
+        let buddy = PetBuddy.shared
+        let defaults = UserDefaults.standard
+        let oldEnabledValue = defaults.object(forKey: "petEnabled")
+        let oldSessionCount = buddy.sessionCount
+        let oldSwitchHintShown = buddy.switchHintShown
+
+        defer {
+            if let oldEnabledValue {
+                defaults.set(oldEnabledValue, forKey: "petEnabled")
+                buddy.isEnabled = defaults.bool(forKey: "petEnabled")
+            } else {
+                defaults.removeObject(forKey: "petEnabled")
+                buddy.isEnabled = true
+            }
+            buddy.sessionCount = oldSessionCount
+            buddy.switchHintShown = oldSwitchHintShown
+        }
+
+        buddy.enable()
+        buddy.switchHintShown = false
+        buddy.sessionCount = 1
+        XCTAssertFalse(buddy.isSwitchHintEligible, "should not be eligible before session 3")
+
+        buddy.sessionCount = 3
+        XCTAssertTrue(buddy.isSwitchHintEligible, "eligible from session 3 onward when never shown")
+
+        buddy.markSwitchHintShown()
+        XCTAssertFalse(buddy.isSwitchHintEligible, "never eligible again once shown")
+
+        buddy.switchHintShown = false
+        buddy.disable()
+        XCTAssertFalse(buddy.isSwitchHintEligible, "never eligible while the companion itself is hidden")
+    }
+
+    @MainActor
+    func testOpeningPopoverOrganicallyPreemptsTheSwitchHint() {
+        let buddy = PetBuddy.shared
+        let oldOpenedValue = UserDefaults.standard.object(forKey: "gamiPopoverOpened") as? Bool
+
+        defer {
+            buddy.hasOpenedPopover = oldOpenedValue ?? false
+            buddy.switchHintShown = false
+        }
+
+        buddy.switchHintShown = false
+        buddy.hasOpenedPopover = false
+        XCTAssertFalse(buddy.switchHintShown)
+
+        buddy.hasOpenedPopover = true
+
+        XCTAssertTrue(buddy.switchHintShown, "discovering the real popover organically should retire the hint")
+    }
 }
 
 private extension PDFDocument {
