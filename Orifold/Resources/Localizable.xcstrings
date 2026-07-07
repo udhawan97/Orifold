@@ -27061,47 +27061,6 @@
         }
       }
     },
-    "status.markup.clickToErase": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Click a highlight, underline, or strikeout to erase it."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Haz clic en un resaltado, subrayado o tachado para borrarlo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cliquez sur une surbrillance, un soulignement ou un barré pour l’effacer."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "उसे मिटाने के लिए किसी हाइलाइट, अंडरलाइन या स्ट्राइकआउट पर क्लिक करें।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ハイライト、下線、取り消し線をクリックすると消去できます。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "点击高亮、下划线或删除线即可将其擦除。"
-          }
-        }
-      }
-    },
     "status.mutating.finishCompression": {
       "extractionState": "manual",
       "localizations": {
@@ -27266,170 +27225,6 @@
         }
       }
     },
-    "status.page.editAccessFailed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not access the original page for editing."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold no pudo acceder a la página original para editarla."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold n’a pas pu accéder à la page d’origine pour la modifier."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold संपादन के लिए मूल पेज तक नहीं पहुँच सका।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifoldは編集のために元のページにアクセスできませんでした。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold 无法访问原始页面进行编辑。"
-          }
-        }
-      }
-    },
-    "status.page.regenerateFailed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not regenerate that edited page. The original page is unchanged."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold no pudo regenerar esa página editada. La página original no ha cambiado."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold n’a pas pu régénérer cette page modifiée. La page d’origine reste inchangée."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold उस संपादित पेज को दोबारा जनरेट नहीं कर सका। मूल पेज अपरिवर्तित है।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifoldはその編集済みページを再生成できませんでした。元のページは変更されていません。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold 无法重新生成该已编辑页面。原始页面未发生变化。"
-          }
-        }
-      }
-    },
-    "status.page.restoreFailed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not restore that page. The edit was left in place."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold no pudo restaurar esa página. La edición se dejó tal como estaba."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold n’a pas pu restaurer cette page. La modification a été conservée."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold उस पेज को पुनर्स्थापित नहीं कर सका। संपादन को यथावत छोड़ दिया गया।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifoldはそのページを復元できませんでした。編集内容はそのまま残されています。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold 无法恢复该页面。相应编辑已被保留。"
-          }
-        }
-      }
-    },
-    "status.page.restoreSomeFailed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold could not restore some pages; their edits were left in place."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold no pudo restaurar algunas páginas; sus ediciones se dejaron tal como estaban."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold n’a pas pu restaurer certaines pages ; leurs modifications ont été conservées."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold कुछ पेजों को पुनर्स्थापित नहीं कर सका; उनके संपादन यथावत छोड़ दिए गए।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifoldは一部のページを復元できませんでした。該当ページの編集内容はそのまま残されています。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orifold 无法恢复部分页面;这些页面的编辑已被保留。"
-          }
-        }
-      }
-    },
     "status.readerMode.blockedEditText": {
       "extractionState": "manual",
       "localizations": {
@@ -27549,6 +27344,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "阅读模式下签名功能处于锁定状态。请将其关闭以放置或导出签名。"
+          }
+        }
+      }
+    },
+    "status.readerMode.blockedSignaturePlacement": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reader Mode keeps signing locked. Turn it off to place signatures."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El modo lectura mantiene la firma bloqueada. Desactívalo para colocar firmas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le mode lecture maintient la signature verrouillée. Désactivez-le pour placer des signatures."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रीडर मोड हस्ताक्षर को लॉक रखता है। हस्ताक्षर रखने के लिए इसे बंद करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リーダーモードでは署名がロックされています。署名を配置するにはオフにしてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "阅读模式下签名功能已锁定。要放置签名,请关闭阅读模式。"
           }
         }
       }

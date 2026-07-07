@@ -3830,10 +3830,7 @@ final class NoteEditorViewController: NSViewController {
             didRestoreOriginalStyle: didRestoreOriginalStyle
         )
         if formattingDiffersFromSource {
-            viewModel?.showEditMessage(
-                L10n.string("status.textEdit.formatMismatch"),
-                isError: false
-            )
+            viewModel?.showEditMessage(L10n.string("status.textEdit.formatMismatch"), isError: false)
         }
         removeFromSuperview()
         // See the comment in `cancel()`: restores a stable first responder so the document
@@ -3921,7 +3918,7 @@ final class NoteEditorViewController: NSViewController {
         guard !didFinish else { return }
         let viewModel = viewModel
         guard viewModel?.isReaderMode != true else {
-            viewModel?.showEditMessage(L10n.string("status.readerMode.blockedSignature"), isError: false)
+            viewModel?.showEditMessage(L10n.string("status.readerMode.blockedSignaturePlacement"), isError: false)
             refocusEditor()
             return
         }

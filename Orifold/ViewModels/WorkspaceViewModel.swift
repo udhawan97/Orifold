@@ -2505,7 +2505,7 @@ final class WorkspaceViewModel {
     ) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let basePage = originalBasePage(for: pageRef) else {
-            showEditMessage(L10n.string("status.page.editAccessFailed"), isError: true)
+            showEditMessage(L10n.string("error.pageEdit.cannotAccessOriginal"), isError: true)
             return false
         }
 
@@ -2583,7 +2583,7 @@ final class WorkspaceViewModel {
         let operations = document.workspace.pageEditStates.first(where: { $0.pageRefID == pageRef.id })?.operations ?? []
         guard regenerateEditedPage(pageRef: pageRef, operations: operations) else {
             document.workspace.pageEditStates = previousSnapshot.editStates
-            showEditMessage(L10n.string("status.page.regenerateFailed"), isError: true)
+            showEditMessage(L10n.string("error.pageEdit.regenerateFailed"), isError: true)
             return false
         }
 
@@ -2717,7 +2717,7 @@ final class WorkspaceViewModel {
         }
         guard regenerateEditedPage(pageRef: pageRef, operations: remaining) else {
             document.workspace.pageEditStates = previousSnapshot.editStates
-            showEditMessage(L10n.string("status.page.restoreFailed"), isError: true)
+            showEditMessage(L10n.string("error.pageEdit.restoreFailed"), isError: true)
             return false
         }
         rebuild()
@@ -2759,7 +2759,7 @@ final class WorkspaceViewModel {
             // Keep the edits we could not visually revert so the document and the edit
             // list stay consistent.
             document.workspace.pageEditStates = states.filter { failedPageRefIDs.contains($0.pageRefID) }
-            showEditMessage(L10n.string("status.page.restoreSomeFailed"), isError: true)
+            showEditMessage(L10n.string("error.pageEdit.restoreSomeFailed"), isError: true)
         }
         rebuild()
         markWorkspaceModified()
@@ -3002,7 +3002,7 @@ final class WorkspaceViewModel {
     func eraseMarkupAnnotation(at pagePoint: CGPoint, on page: PDFPage) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let ann = erasableMarkupAnnotation(at: pagePoint, on: page) else {
-            showEditMessage(L10n.string("status.markup.clickToErase"), isError: true)
+            showEditMessage(L10n.string("error.markup.eraseTargetMissing"), isError: true)
             return false
         }
         page.removeAnnotation(ann)
