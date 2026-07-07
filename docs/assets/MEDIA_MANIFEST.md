@@ -36,6 +36,22 @@ Still illustrated SVGs (open work — replace per the standards below when captu
 Gami/Ori side-by-side comparison in particular need either a persisted recent-files list or a
 companion-switch reset to capture for real — not just opening the app once.
 
+The four **motion** flows are already wired through the `Media` component
+(`docs-site/src/components/Media.astro`) with the illustrated SVG as the video `poster`, so
+dropping in a real clip is a one-line change — add `mp4="/Orifold/assets/gifs/<name>.mp4"` next
+to the existing `poster=` and the still is replaced by an autoplaying, muted, looping, reduced-
+motion-aware `<video>`. These four, with their target clips (from each page's `spec`):
+
+| Page | `Media` on page | Target clip |
+| --- | --- | --- |
+| `import/combine` | `combine-reorder-pages.svg` | 4–6s · drag a page across two demo docs → Export once |
+| `import/organize-pages` | `reorder-rotate-delete-pages.svg` | 4–6s · right-click a sidebar page → Rotate, then Delete |
+| `fill-sign/signatures` | `sign-document-workflow.svg` | 4–6s · draw a signature → place on the line → export |
+| `export/export-save` | `export-save-confirmation.svg` | 3–5s · ⇧⌘E → pick PDF → save panel → confirmation |
+
+`import-files-overview.svg` and `recently-viewed-shelf.svg` remain single-still `Figure`s and
+should become real PNG captures, not clips.
+
 The top-level `docs/assets/screenshots/` and `docs/assets/gifs/` folders remain unused
 (placeholder `.gitkeep` only) — the Astro site serves only from `docs-site/public/assets/`.
 
@@ -47,8 +63,10 @@ The top-level `docs/assets/screenshots/` and `docs/assets/gifs/` folders remain 
   `Sample Agreement.pdf`, `Sample Invoice.pdf`, `Sample Scan.pdf`) — never a real document.
 - **Consistent chrome.** Dark mode (the app default), same window size (1600×1000 recommended),
   same zoom level, same companion (pick one of Gami/Ori and stick with it across all captures).
-- **Format.** PNG for static screenshots, GIF (or MP4 transcoded to GIF) for motion — keep GIFs
-  under ~3–4 seconds looped and under ~2 MB; downscale/optimize before committing.
+- **Format.** PNG for static screenshots. **MP4 (H.264) for motion — not GIF** (the `Media`
+  component renders `<video>`, which is smaller and higher-quality than a GIF). Keep clips under
+  ~3–6 seconds, looping cleanly (first frame ≈ last frame), silent, and under ~1.5 MB; add a
+  poster still and downscale/optimize before committing.
 - **Naming.** `kebab-case-workflow-name.png` / `.gif`, matching the filenames below exactly.
 
 ## Shot list
