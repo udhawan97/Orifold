@@ -2,15 +2,13 @@
 ---
 
 <script>
-	// SMIL animations don't honour prefers-reduced-motion on their own. When the
-	// user asks for less motion we don't just pause (that would freeze the fold at
-	// t=0, i.e. mid-build) — we seek past the end so the crane shows its finished
-	// state, then pause so nothing runs. The intro is one-shot with fill="freeze",
-	// so any time past ~1.2s is the final frame. Inlined SVG (not <object>), so
-	// the timeline API is available as soon as the element exists.
+	// SMIL animation tags don't respect prefers-reduced-motion on their own —
+	// pause the crane fold explicitly when the user has asked for less motion.
+	// The crane is inlined directly into the page (not <object>-embedded) so
+	// there's no nested document to wait on — pauseAnimations() is available
+	// as soon as the SVG itself exists in the DOM.
 	const crane = document.getElementById('of-hero-crane');
 	if (crane instanceof SVGSVGElement && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-		crane.setCurrentTime(5);
 		crane.pauseAnimations();
 	}
 </script>
