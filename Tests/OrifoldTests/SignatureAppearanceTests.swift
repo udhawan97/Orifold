@@ -3,6 +3,21 @@ import PDFKit
 import XCTest
 @testable import Orifold
 
+final class TypedSignatureFontStyleTests: XCTestCase {
+    func testEveryFontStyleResolvesToARealFontOnThisMac() {
+        for style in TypedSignatureFontStyle.allCases {
+            let resolved = style.candidateFontNames.lazy.compactMap { NSFont(name: $0, size: 24) }.first
+            XCTAssertNotNil(resolved, "\(style.rawValue) has no resolvable candidate name among \(style.candidateFontNames) — the Typed panel would silently fall back to a system font for it")
+        }
+    }
+
+    func testDisplayNamesAreDistinctAndNonEmpty() {
+        let names = TypedSignatureFontStyle.allCases.map(\.displayName)
+        XCTAssertEqual(Set(names).count, names.count, "font style display names must be distinct so the picker isn't ambiguous")
+        XCTAssertTrue(names.allSatisfy { !$0.isEmpty })
+    }
+}
+
 final class SignatureAppearanceRendererTests: XCTestCase {
     func testTypedSignatureRendersRasterAndSelfContainedPDFPathStream() throws {
         let descriptor = SignatureAppearanceDescriptor.typedName("Ada Lovelace")

@@ -22,9 +22,19 @@ struct AppCommands: Commands {
             UndoRedoCommandButtons()
         }
 
+        CommandGroup(after: .textEditing) {
+            FindNavigationCommandButtons()
+        }
+
+        CommandGroup(after: .saveItem) {
+            PrintCommandButton()
+        }
+
         CommandGroup(after: .toolbar) {
             PetBuddyCommandToggle()
             PetSpeciesCommandPicker()
+            Divider()
+            ZoomCommandButtons()
         }
 
         // Replace the default "About" item with the witty popover version
@@ -34,6 +44,7 @@ struct AppCommands: Commands {
 
         CommandGroup(after: .help) {
             ViewDocumentationCommandLink()
+            ShowKeyboardShortcutsCommandButton()
         }
     }
 }
@@ -141,8 +152,76 @@ private struct UndoRedoCommandButtons: View {
         Button(L10n.string("appCommands.redo.button")) {
             viewModel?.performRedoCommand()
         }
-        .keyboardShortcut("z", modifiers: [.command, .shift])
+        .keyboardShortcut("y", modifiers: .command)
         .disabled(importInProgress || undoManager?.canRedo != true)
+    }
+}
+
+private struct FindNavigationCommandButtons: View {
+    @EnvironmentObject private var languageManager: LanguageManager
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+
+    var body: some View {
+        Button(L10n.string("appCommands.findNext.button")) {
+            viewModel?.searchNext()
+        }
+        .keyboardShortcut("g", modifiers: .command)
+        .disabled(viewModel == nil || viewModel?.searchResults.isEmpty != false)
+
+        Button(L10n.string("appCommands.findPrevious.button")) {
+            viewModel?.searchPrevious()
+        }
+        .keyboardShortcut("g", modifiers: [.command, .shift])
+        .disabled(viewModel == nil || viewModel?.searchResults.isEmpty != false)
+    }
+}
+
+private struct PrintCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+
+    var body: some View {
+        Button(L10n.string("appCommands.print.button")) {
+            NotificationCenter.default.post(name: .orifoldPrint, object: nil)
+        }
+        .keyboardShortcut("p", modifiers: .command)
+        .disabled(viewModel == nil)
+    }
+}
+
+private struct ZoomCommandButtons: View {
+    @EnvironmentObject private var languageManager: LanguageManager
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+
+    var body: some View {
+        Button(L10n.string("appCommands.zoomIn.button")) {
+            viewModel?.zoomIn()
+        }
+        .keyboardShortcut("+", modifiers: .command)
+        .disabled(viewModel == nil)
+
+        Button(L10n.string("appCommands.zoomOut.button")) {
+            viewModel?.zoomOut()
+        }
+        .keyboardShortcut("-", modifiers: .command)
+        .disabled(viewModel == nil)
+
+        Button(L10n.string("appCommands.zoomFit.button")) {
+            viewModel?.zoomFit()
+        }
+        .keyboardShortcut("0", modifiers: .command)
+        .disabled(viewModel == nil)
+    }
+}
+
+private struct ShowKeyboardShortcutsCommandButton: View {
+    @EnvironmentObject private var languageManager: LanguageManager
+
+    var body: some View {
+        Button(L10n.string("appCommands.keyboardShortcuts.button")) {
+            NotificationCenter.default.post(name: .orifoldShowShortcuts, object: nil)
+        }
+        .keyboardShortcut("/", modifiers: .command)
     }
 }
 

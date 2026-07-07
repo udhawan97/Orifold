@@ -20,6 +20,13 @@ enum SigningError: Error, Equatable {
     case byteRangePlaceholderNotFound
     case missingIdentity
     case timestampUnavailable
+    /// The PDF's most recent cross-reference section is a modern cross-reference STREAM
+    /// (`/Type /XRef`), not a classic `xref` table. `PDFIncrementalUpdatePlan` only knows
+    /// how to append a classic incremental xref section with `/Prev` pointing at a classic
+    /// table — writing one on top of an xref-stream-only file produces a PDF most readers
+    /// (and this app's own re-parse) can't traverse. Refuse instead of risking corruption.
+    case unsupportedPDFStructure
+    case cancelled
 }
 
 // MARK: - Module D contracts (PDF incremental signer)
@@ -372,6 +379,7 @@ private struct PDFIncrementalUpdatePlan {
         let text = String(decoding: pdf, as: UTF8.self)
         self.rootObjectNumber = try Self.parseRootObjectNumber(from: text)
         self.previousStartXref = try Self.parsePreviousStartXref(from: text)
+        try Self.requireClassicXrefTable(in: pdf, atByteOffset: previousStartXref)
         self.maxObjectNumber = max(Self.parseMaxObjectNumber(from: text), try Self.parseTrailerSize(from: text) - 1)
         self.originalCatalogBody = try Self.parseObjectBody(objectNumber: rootObjectNumber, in: text)
         self.existingAcroFormFieldRefs = Self.parseExistingAcroFormFieldRefs(catalogBody: originalCatalogBody, in: text)
@@ -586,6 +594,24 @@ private struct PDFIncrementalUpdatePlan {
             throw SigningError.invalidPDF
         }
         return value
+    }
+
+    /// Per the PDF spec, `startxref` gives the exact byte offset of either the literal
+    /// `xref` keyword (classic table) or an `N G obj` header whose object is a
+    /// cross-reference STREAM (`/Type /XRef`) — the modern form most tools now emit.
+    /// This appender only knows how to write a classic incremental `xref` section with
+    /// `/Prev`, so refuse up front rather than silently emitting a PDF whose xref chain
+    /// most readers can't walk. Checked against the ORIGINAL raw bytes (not the lossy
+    /// UTF-8-decoded `text` used for pattern matching elsewhere in this parser), since an
+    /// exact byte offset must be verified against exact bytes.
+    private static func requireClassicXrefTable(in pdf: Data, atByteOffset offset: Int) throws {
+        let bytes = [UInt8](pdf)
+        let keyword = Array("xref".utf8)
+        guard offset >= 0,
+              offset + keyword.count <= bytes.count,
+              Array(bytes[offset..<(offset + keyword.count)]) == keyword else {
+            throw SigningError.unsupportedPDFStructure
+        }
     }
 
     private static func parseMaxObjectNumber(from text: String) -> Int {
@@ -895,5 +921,35 @@ enum SignatureExportBaker {
             into: pdf,
             pageIndexForPlacement: pageIndexForPlacement
         )
+    }
+}
+
+// MARK: - Post-export self-check
+
+/// A lightweight, purely local self-check run on the app's OWN signing output right after
+/// export — not a substitute for opening the file in a real PDF reader (that's what
+/// `docs/signing/VERIFICATION.md` is for), but enough to catch the signing/export pipeline
+/// itself producing a structurally broken result — e.g. the atomic-write step truncating
+/// the file, or a `/ByteRange` that doesn't reach end-of-file — before telling the user
+/// "signed successfully."
+enum SignatureSelfCheck {
+    struct Result: Equatable {
+        /// `true` when the most recent `/ByteRange [a b c d]` covers the ENTIRE file
+        /// (`a == 0`, `c + d == fileLength`) — i.e. nothing was appended or truncated after
+        /// the signature was written, matching what a real validator like `pdfsig` reports
+        /// as "Total document signed".
+        var coversWholeDocument: Bool
+        var byteRange: [Int]?
+    }
+
+    static func verify(signedPDF: Data) -> Result {
+        let text = String(decoding: signedPDF, as: UTF8.self)
+        guard let match = text.lastRegexMatch(#"/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]"#),
+              match.count == 5,
+              let a = Int(match[1]), let b = Int(match[2]), let c = Int(match[3]), let d = Int(match[4]) else {
+            return Result(coversWholeDocument: false, byteRange: nil)
+        }
+        let coversWhole = a == 0 && (c + d) == signedPDF.count
+        return Result(coversWholeDocument: coversWhole, byteRange: [a, b, c, d])
     }
 }

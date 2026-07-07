@@ -6,6 +6,8 @@ struct SearchView: View {
     @Bindable var viewModel: WorkspaceViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var fieldFocused: Bool
+    @State private var isConfirmingReplaceAll = false
+    @State private var replaceResultMessage: String?
 
     private enum Layout {
         static let width: CGFloat = 460
@@ -17,12 +19,20 @@ struct SearchView: View {
         let n = viewModel.searchResults.count
         if n == 0 { return "" }
         let i = viewModel.searchResultIndex
-        if i >= 0 { return "\(i + 1) of \(n)" }
-        return "\(n) result\(n == 1 ? "" : "s")"
+        if i >= 0 { return L10n.format("search.results.position", i + 1, n) }
+        return L10n.format(n == 1 ? "search.results.count.one" : "search.results.count.other", n)
     }
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    private var replaceMatchCount: Int { viewModel.replaceableCommentMatches.count }
+
+    private var replaceStatusLabel: String {
+        guard !viewModel.searchQuery.isEmpty else { return "" }
+        if replaceMatchCount == 0 { return L10n.string("search.replace.noMatches") }
+        return L10n.format(replaceMatchCount == 1 ? "search.replace.matches.one" : "search.replace.matches.other", replaceMatchCount)
     }
 
     var body: some View {
@@ -40,6 +50,7 @@ struct SearchView: View {
                     .onSubmit { viewModel.commitSearch() }
                     .onChange(of: viewModel.searchQuery) { _, q in
                         viewModel.scheduleSearch(query: q)
+                        replaceResultMessage = nil
                     }
 
                 if !viewModel.searchQuery.isEmpty {
@@ -71,6 +82,7 @@ struct SearchView: View {
                         viewModel.searchQuery = ""
                         viewModel.searchResults = []
                         viewModel.searchResultIndex = -1
+                        replaceResultMessage = nil
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 13))
@@ -78,9 +90,28 @@ struct SearchView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.dsTextTertiary)
                 }
+
+                Divider().frame(height: 14)
+
+                Button {
+                    withAnimation(shouldReduceMotion ? nil : .easeOut(duration: 0.15)) {
+                        viewModel.isReplaceRevealed.toggle()
+                    }
+                } label: {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(viewModel.isReplaceRevealed ? Color.dsAccent : Color.dsTextSecondary)
+                .help("search.replace.disclosure.help")
             }
             .padding(.horizontal, .dsMD)
             .padding(.vertical, .dsMD)
+
+            if viewModel.isReplaceRevealed {
+                Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
+                replaceRow
+            }
 
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
@@ -126,6 +157,84 @@ struct SearchView: View {
         .background(Color.dsSurface)
         .onAppear { fieldFocused = true }
     }
+
+    private var replaceRow: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            HStack(spacing: .dsSM) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .foregroundStyle(Color.dsTextTertiary)
+                    .font(.system(size: 13))
+
+                TextField("search.replace.placeholder", text: $viewModel.replaceText)
+                    .textFieldStyle(.plain)
+                    .font(.dsBody())
+                    .onChange(of: viewModel.replaceText) { _, _ in replaceResultMessage = nil }
+
+                Button("search.replace.one.button") {
+                    replaceCurrentMatch()
+                }
+                .buttonStyle(.bordered)
+                .font(.dsCaption())
+                .help("search.replace.one.help")
+                .disabled(!canReplaceCurrentMatch)
+
+                Button("search.replace.all.button") {
+                    isConfirmingReplaceAll = true
+                }
+                .buttonStyle(.bordered)
+                .font(.dsCaption())
+                .disabled(replaceMatchCount == 0)
+            }
+
+            if let replaceResultMessage {
+                Text(replaceResultMessage)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsSuccessAccent)
+            } else if !viewModel.searchQuery.isEmpty {
+                Text(replaceStatusLabel)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextTertiary)
+            }
+
+            Text("search.replace.locked.notice")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, .dsMD)
+        .padding(.vertical, .dsSM)
+        .confirmationDialog(
+            "search.replace.confirm.title",
+            isPresented: $isConfirmingReplaceAll,
+            titleVisibility: .visible
+        ) {
+            Button("search.replace.confirm.replace") {
+                let count = viewModel.replaceAllCommentMatches()
+                replaceResultMessage = L10n.format(count == 1 ? "search.replace.result.one" : "search.replace.result.other", count)
+            }
+            Button("search.replace.confirm.cancel", role: .cancel) {}
+        } message: {
+            let count = replaceMatchCount
+            if count == 1 {
+                Text(L10n.format("search.replace.confirm.message.one", viewModel.replaceText))
+            } else {
+                Text(L10n.format("search.replace.confirm.message.other", count, viewModel.replaceText))
+            }
+        }
+    }
+
+    /// The active search result row must actually be one of the currently editable comment
+    /// matches — not a PDF-page-text match — before the single "Replace" button can act.
+    private var canReplaceCurrentMatch: Bool {
+        guard !viewModel.searchQuery.isEmpty, !viewModel.replaceableCommentMatches.isEmpty else { return false }
+        return true
+    }
+
+    private func replaceCurrentMatch() {
+        guard let comment = viewModel.replaceableCommentMatches.first else { return }
+        viewModel.replaceMatches(in: comment)
+        replaceResultMessage = L10n.string("search.replace.result.one")
+    }
 }
 
 struct SearchResultRow: View {
@@ -166,4 +275,5 @@ extension Notification.Name {
     static let orifoldZoomIn          = Notification.Name("orifoldZoomIn")
     static let orifoldZoomOut         = Notification.Name("orifoldZoomOut")
     static let orifoldZoomFit         = Notification.Name("orifoldZoomFit")
+    static let orifoldShowShortcuts   = Notification.Name("orifoldShowShortcuts")
 }

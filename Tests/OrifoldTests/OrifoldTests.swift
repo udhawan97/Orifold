@@ -5451,6 +5451,92 @@ final class WorkspaceViewModelTests: XCTestCase {
         XCTAssertGreaterThan(viewModel.commentRevision, initialRevision)
     }
 
+    func testReplaceableCommentMatchesFindsCaseInsensitiveSubstring() {
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        viewModel.addComment("Please review the Budget draft")
+        viewModel.addComment("Unrelated note")
+
+        viewModel.searchQuery = "budget"
+
+        XCTAssertEqual(viewModel.replaceableCommentMatches.count, 1)
+        XCTAssertEqual(viewModel.replaceableCommentMatches.first?.body, "Please review the Budget draft")
+    }
+
+    func testReplaceMatchesInCommentUpdatesBodyAndRegistersUndo() {
+        let undoManager = UndoManager()
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        viewModel.undoManager = undoManager
+        viewModel.addComment("The cat sat on the cat mat")
+        let comment = viewModel.document.workspace.comments[0]
+        // The setup addComment above and the replace below run in the same synchronous
+        // call stack with no run-loop turn between them, so `groupsByEvent` would otherwise
+        // merge both into one implicit undo group. Clearing history isolates the replace's
+        // own undo step, matching how these would actually land as separate steps in the app.
+        undoManager.removeAllActions()
+
+        viewModel.searchQuery = "cat"
+        viewModel.replaceText = "dog"
+        viewModel.replaceMatches(in: comment)
+
+        XCTAssertEqual(viewModel.document.workspace.comments[0].body, "The dog sat on the dog mat")
+        XCTAssertTrue(undoManager.canUndo)
+
+        undoManager.undo()
+        XCTAssertEqual(viewModel.document.workspace.comments[0].body, "The cat sat on the cat mat")
+    }
+
+    /// A replacement that itself contains the search query (e.g. "cat" -> "cats") must not
+    /// loop or re-match its own inserted text — this pins the non-overlapping advance logic.
+    func testReplaceMatchesDoesNotLoopWhenReplacementContainsQuery() {
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        viewModel.addComment("I have a cat")
+        let comment = viewModel.document.workspace.comments[0]
+
+        viewModel.searchQuery = "cat"
+        viewModel.replaceText = "cats"
+        viewModel.replaceMatches(in: comment)
+
+        XCTAssertEqual(viewModel.document.workspace.comments[0].body, "I have a cats")
+    }
+
+    func testReplaceAllCommentMatchesIsOneUndoStepAcrossMultipleComments() {
+        let undoManager = UndoManager()
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        viewModel.undoManager = undoManager
+        viewModel.addComment("First: apple pie")
+        viewModel.addComment("Second: apple tart")
+        viewModel.addComment("Unrelated")
+        // Isolate the replace-all undo step from the setup comments' own undo actions —
+        // see the comment in testReplaceMatchesInCommentUpdatesBodyAndRegistersUndo.
+        undoManager.removeAllActions()
+
+        viewModel.searchQuery = "apple"
+        viewModel.replaceText = "pear"
+        let changedCount = viewModel.replaceAllCommentMatches()
+
+        XCTAssertEqual(changedCount, 2)
+        let bodies = Set(viewModel.document.workspace.comments.map(\.body))
+        XCTAssertTrue(bodies.contains("First: pear pie"))
+        XCTAssertTrue(bodies.contains("Second: pear tart"))
+        XCTAssertTrue(bodies.contains("Unrelated"))
+
+        undoManager.undo()
+        let revertedBodies = Set(viewModel.document.workspace.comments.map(\.body))
+        XCTAssertTrue(revertedBodies.contains("First: apple pie"))
+        XCTAssertTrue(revertedBodies.contains("Second: apple tart"))
+    }
+
+    func testReplaceAllCommentMatchesReturnsZeroWhenNoMatches() {
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        viewModel.addComment("Nothing relevant here")
+
+        viewModel.searchQuery = "budget"
+        viewModel.replaceText = "forecast"
+
+        XCTAssertEqual(viewModel.replaceAllCommentMatches(), 0)
+        XCTAssertEqual(viewModel.document.workspace.comments[0].body, "Nothing relevant here")
+    }
+
     func testPageCommentBadgeIncludesPDFStickyNotes() throws {
         let fixture = try makeMemberWithPDF(name: "Notes", pageTexts: ["Sticky note target"])
         let document = WorkspaceDocument()
