@@ -1,4 +1,10 @@
 ---
+interface Props {
+	/** Spoken form for screen readers, e.g. "Command Z" for ⌘Z. */
+	label?: string;
+}
+
+const { label }: Props = Astro.props;
 ---
 
-<kbd class="of-kbd"><slot /></kbd>
+<kbd class="of-kbd" aria-label={label}><slot /></kbd>
