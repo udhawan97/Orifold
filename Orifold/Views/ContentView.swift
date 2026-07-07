@@ -181,6 +181,7 @@ struct ContentView: View {
     @State private var isNavigationDropTargeted = false
     @State private var isConfirmingOverflowDelete = false
     @State private var isShowingDocumentComfortPopover = false
+    @State private var isShowingShortcutsCheatSheet = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
@@ -360,6 +361,9 @@ struct ContentView: View {
             Text(err.message)
         }
         .modifier(ExportSuccessOverlay(viewModel: viewModel))
+        .onReceive(NotificationCenter.default.publisher(for: .orifoldShowShortcuts)) { _ in
+            isShowingShortcutsCheatSheet.toggle()
+        }
         .sheet(isPresented: $viewModel.isShowingPasswordPrompt) {
             if let url = viewModel.pendingPasswordURL,
                let pdf = viewModel.pendingPasswordPDF {
@@ -397,6 +401,7 @@ struct ContentView: View {
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
+            .keyboardShortcut("1", modifiers: [.command, .option])
         }
 
         // Center: annotation tools + color swatch
@@ -448,6 +453,7 @@ struct ContentView: View {
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
 
             ToolbarIconButton(labelKey: "toolbar.search.label", systemImage: "magnifyingglass", helpKey: "toolbar.search.help") {
                 viewModel.isShowingSearch.toggle()
@@ -473,7 +479,7 @@ struct ContentView: View {
                 handleDrop(providers: providers)
             }
             .help("toolbar.export.help")
-            .keyboardShortcut("e", modifiers: [.command, .shift])
+            .keyboardShortcut("e", modifiers: .command)
 
             ToolbarIconButton(
                 labelKey: "toolbar.inspector.label",
@@ -486,6 +492,7 @@ struct ContentView: View {
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
+            .keyboardShortcut("i", modifiers: [.command, .option])
 
             ToolbarIconButton(
                 labelKey: "toolbar.documentComfort.label",
@@ -557,6 +564,11 @@ struct ContentView: View {
                     Text(L10n.format("sidebar.removePages.confirmation.plural", count))
                 }
             }
+
+            ShortcutsCheatSheetButton(isPresented: $isShowingShortcutsCheatSheet, autoShow: true)
+                .acceptsImportDrops { providers in
+                    handleDrop(providers: providers)
+                }
 
             GuideButton(autoShow: true)
                 .buttonStyle(.plain)

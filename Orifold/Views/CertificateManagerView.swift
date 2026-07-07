@@ -263,6 +263,8 @@ struct ManageCertificatesSheet: View {
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextTertiary)
 
+            CertificateTrustCheckRow(profile: profile)
+
             HStack {
                 Button(action: { exportPublicCertificate(profile) }) {
                     Label("certificateSheet.manage.exportPublicCert", systemImage: "square.and.arrow.up")
@@ -299,4 +301,90 @@ struct ManageCertificatesSheet: View {
         formatter.timeStyle = .none
         return formatter
     }()
+}
+
+/// On-demand chain-trust + revocation check, using macOS's own Security.framework
+/// (`SecTrust` + `SecPolicyCreateRevocation`) rather than any hand-rolled OCSP/CRL client.
+/// Never runs automatically — only when the user presses the button — since revocation
+/// checking can make a network request to the certificate issuer's responder.
+private struct CertificateTrustCheckRow: View {
+    var profile: DigitalCertificateProfile
+
+    @State private var isChecking = false
+    @State private var result: CertificateTrustEvaluation?
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: .dsSM) {
+                Button(action: check) {
+                    if isChecking {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("certificateSheet.manage.checkTrust", systemImage: "network")
+                    }
+                }
+                .buttonStyle(.borderless)
+                .font(.dsCaption())
+                .disabled(isChecking)
+                .help("certificateSheet.manage.checkTrust.help")
+
+                if let result {
+                    resultBadge(for: result)
+                }
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsErrorAccent)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func check() {
+        isChecking = true
+        errorMessage = nil
+        Task {
+            do {
+                let evaluation = try await CertificateTrustEvaluator.evaluate(profile: profile)
+                await MainActor.run {
+                    result = evaluation
+                    isChecking = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isChecking = false
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func resultBadge(for evaluation: CertificateTrustEvaluation) -> some View {
+        switch evaluation.verdict {
+        case .trusted:
+            Label("certificateSheet.manage.trustResult.trusted", systemImage: "checkmark.seal.fill")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsSuccessAccent)
+        case .revoked:
+            Label("certificateSheet.manage.trustResult.revoked", systemImage: "xmark.seal.fill")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsErrorAccent)
+        case .notTrusted:
+            // Expected, non-alarming result for a self-signed identity — phrased per the
+            // honest-language matrix, not as an error.
+            Label(
+                profile.isSelfSigned
+                    ? "certificateSheet.manage.trustResult.notTrustedSelfSigned"
+                    : "certificateSheet.manage.trustResult.notTrusted",
+                systemImage: "questionmark.circle"
+            )
+            .font(.dsCaption())
+            .foregroundStyle(Color.dsTextSecondary)
+        }
+    }
 }

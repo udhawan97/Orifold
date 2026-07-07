@@ -7,6 +7,7 @@ struct SignaturePalette: View {
 
     @State private var selectedMode: SignaturePaletteMode = .type
     @State private var typedName: String = SignaturePalette.defaultSignerName
+    @State private var typedFontStyle: TypedSignatureFontStyle = .snellRoundhand
     @State private var initials: String = SignaturePalette.defaultInitials(from: SignaturePalette.defaultSignerName)
     @State private var drawnSignatureData: Data?
     @State private var drawClearTrigger = 0
@@ -16,6 +17,7 @@ struct SignaturePalette: View {
     @State private var location: String = ""
     @State private var contactInfo: String = ""
     @State private var useTimestamp: Bool = true
+    @State private var preferredTSA: TimestampAuthorityOption = .freeTSA
     @State private var isShowingGuide = false
     @State private var isShowingTrustInfo = false
     @State private var isShowingCreateSelfSigned = false
@@ -77,6 +79,14 @@ struct SignaturePalette: View {
             TextField("signaturePalette.typed.name.placeholder", text: $typedName)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(addTypedSignature)
+
+            Picker("signaturePalette.typed.fontStyle.picker", selection: $typedFontStyle) {
+                ForEach(TypedSignatureFontStyle.allCases) { style in
+                    Text(style.displayName).tag(style)
+                }
+            }
+            .pickerStyle(.menu)
+            .help("signaturePalette.typed.fontStyle.help")
 
             SignaturePreview(data: typedSignatureData)
 
@@ -215,6 +225,16 @@ struct SignaturePalette: View {
             .toggleStyle(.checkbox)
             .help("signaturePalette.digital.timestamp.help")
 
+            if useTimestamp {
+                Picker("signaturePalette.digital.tsaProvider.picker", selection: $preferredTSA) {
+                    ForEach(TimestampAuthorityOption.allCases) { option in
+                        Text(option.displayName).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+                .help("signaturePalette.digital.tsaProvider.help")
+            }
+
             SignaturePreview(data: digitalSignatureData)
 
             HStack(spacing: .dsSM) {
@@ -233,7 +253,7 @@ struct SignaturePalette: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.dsAccent)
-                .disabled(!viewModel.hasCryptographicSignaturePlacement)
+                .disabled(!viewModel.hasCryptographicSignaturePlacement || viewModel.isSigningInProgress)
                 .help("signaturePalette.digital.signAndExport.help")
             }
         }
@@ -289,7 +309,7 @@ struct SignaturePalette: View {
     }
 
     private var typedSignatureData: Data? {
-        SignatureImageRenderer.render(text: trimmed(typedName), kind: .visualTyped)
+        SignatureImageRenderer.render(text: trimmed(typedName), kind: .visualTyped, fontStyle: typedFontStyle)
     }
 
     private var initialsSignatureData: Data? {
@@ -366,7 +386,7 @@ struct SignaturePalette: View {
     }
 
     private func signAndExport() {
-        viewModel.signAndExportCryptographicPDF(timestampRequested: useTimestamp)
+        viewModel.signAndExportCryptographicPDF(timestampRequested: useTimestamp, preferredTSA: preferredTSA)
     }
 
     private func selectDefaultCertificateProfileIfNeeded() {
@@ -613,6 +633,40 @@ enum CertificateGuideResource {
     }
 }
 
+/// Script-style fonts for the Typed signature tab, all already shipped as part of macOS
+/// itself (no new binary assets to bundle, no third-party licensing footprint) — every
+/// candidate here is one this file already trusted as a fallback before this choice
+/// existed, so offering them as a picker doesn't introduce any new availability risk.
+enum TypedSignatureFontStyle: String, CaseIterable, Identifiable, Codable {
+    case snellRoundhand
+    case appleChancery
+    case noteworthy
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .snellRoundhand: return L10n.string("signaturePalette.typed.fontStyle.snellRoundhand")
+        case .appleChancery: return L10n.string("signaturePalette.typed.fontStyle.appleChancery")
+        case .noteworthy: return L10n.string("signaturePalette.typed.fontStyle.noteworthy")
+        }
+    }
+
+    /// Candidate font names to try, in order — falling back to the next entry (and finally
+    /// to a system font) if a name isn't resolvable on this Mac. `NSFont(name:)` matches on a
+    /// font's registered name, which for these particular system fonts varies between the
+    /// spaced "family" form and the compact PostScript form; trying both maximizes the
+    /// chance of a real match while keeping the existing graceful system-font fallback as
+    /// the final safety net either way.
+    var candidateFontNames: [String] {
+        switch self {
+        case .snellRoundhand: return ["Snell Roundhand", "SnellRoundhand"]
+        case .appleChancery: return ["Apple Chancery", "AppleChancery"]
+        case .noteworthy: return ["Noteworthy Light", "Noteworthy-Light", "Noteworthy"]
+        }
+    }
+}
+
 private enum SignatureImageRenderer {
     struct Metadata {
         var signedAt: Date?
@@ -623,7 +677,8 @@ private enum SignatureImageRenderer {
 
     static func render(text: String,
                        kind: SignaturePlacement.Kind,
-                       metadata: Metadata? = nil) -> Data? {
+                       metadata: Metadata? = nil,
+                       fontStyle: TypedSignatureFontStyle = .snellRoundhand) -> Data? {
         guard !text.isEmpty else { return nil }
 
         let isCryptographic = kind == .cryptographic
@@ -661,7 +716,10 @@ private enum SignatureImageRenderer {
         } else {
             fontSize = 52
         }
-        let font = NSFont(name: "Snell Roundhand", size: fontSize)
+        // Initials and the crypto-appearance preview keep the original, unchanged default
+        // (Snell Roundhand); only the Typed tab's font is user-selectable.
+        let fontNameCandidates = kind == .visualTyped ? fontStyle.candidateFontNames : ["Snell Roundhand"]
+        let font = fontNameCandidates.lazy.compactMap { NSFont(name: $0, size: fontSize) }.first
             ?? NSFont.systemFont(ofSize: fontSize, weight: .regular)
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center

@@ -115,6 +115,79 @@ final class TimestampClientTests: XCTestCase {
     }
 }
 
+final class TimestampAuthorityFallbackChainTests: XCTestCase {
+    func testFallsBackToTheNextTSAWhenThePreferredOneFails() async throws {
+        let imprint = Data(SHA256.hash(data: Data("cms-signature-value".utf8)))
+        let goodResponse = makeTimeStampResponse(status: 0, token: makeTimeStampToken(messageImprint: imprint))
+        // The preferred TSA (freeTSA) always fails; the second one tried (digiCert, per
+        // TimestampAuthorityOption.allCases order after moving the preferred one first)
+        // succeeds.
+        let session = RoutingStubTimestampSession(responses: [
+            TimestampAuthorityOption.freeTSA.url: .failure(statusCode: 503),
+            TimestampAuthorityOption.digiCert.url: .success(data: goodResponse)
+        ])
+
+        let token = try await TimestampAuthorityFallbackChain.fetchTimestamp(
+            for: Data("cms-signature-value".utf8),
+            preferring: .freeTSA,
+            client: TimestampClient(session: session)
+        )
+
+        XCTAssertEqual(token.messageImprint, imprint)
+        XCTAssertEqual(session.requestedURLsInOrder, [TimestampAuthorityOption.freeTSA.url, TimestampAuthorityOption.digiCert.url],
+                       "must try the preferred TSA first, then fall back to the next option in order")
+    }
+
+    func testThrowsTheLastErrorWhenEveryTSAFails() async {
+        let session = RoutingStubTimestampSession(responses: [:], defaultStatusCode: 503)
+
+        do {
+            _ = try await TimestampAuthorityFallbackChain.fetchTimestamp(
+                for: Data([0x01]),
+                preferring: .sectigo,
+                client: TimestampClient(session: session)
+            )
+            XCTFail("Expected every TSA in the fallback chain to fail")
+        } catch {
+            XCTAssertEqual(error as? TimestampClientError, .httpStatus(503))
+        }
+        XCTAssertEqual(session.requestedURLsInOrder.count, TimestampAuthorityOption.allCases.count,
+                       "must try every option in the chain before giving up")
+    }
+}
+
+private final class RoutingStubTimestampSession: TimestampNetworking {
+    enum StubResponse {
+        case success(data: Data)
+        case failure(statusCode: Int)
+    }
+
+    private let responses: [URL: StubResponse]
+    private let defaultStatusCode: Int
+    private(set) var requestedURLsInOrder: [URL] = []
+
+    init(responses: [URL: StubResponse], defaultStatusCode: Int = 200) {
+        self.responses = responses
+        self.defaultStatusCode = defaultStatusCode
+    }
+
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let url = request.url!
+        requestedURLsInOrder.append(url)
+        switch responses[url] {
+        case .success(let data):
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (data, response)
+        case .failure(let statusCode):
+            let response = HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (Data(), response)
+        case nil:
+            let response = HTTPURLResponse(url: url, statusCode: defaultStatusCode, httpVersion: "HTTP/1.1", headerFields: nil)!
+            return (Data(), response)
+        }
+    }
+}
+
 private final class StubTimestampSession: TimestampNetworking {
     private let data: Data
     private let statusCode: Int

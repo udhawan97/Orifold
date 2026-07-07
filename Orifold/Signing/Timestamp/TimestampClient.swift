@@ -55,6 +55,36 @@ protocol TimestampNetworking {
 
 extension URLSession: TimestampNetworking {}
 
+/// A free, public RFC-3161 timestamp authority Orifold can call with no account or cost.
+/// Offering more than one matters because a single free TSA can go down or rate-limit —
+/// `TimestampAuthorityFallbackChain` tries each in turn before giving up.
+enum TimestampAuthorityOption: String, CaseIterable, Identifiable, Codable {
+    case freeTSA
+    case digiCert
+    case sectigo
+    case globalSign
+
+    var id: String { rawValue }
+
+    var url: URL {
+        switch self {
+        case .freeTSA: return TimestampClient.defaultTSAURL
+        case .digiCert: return URL(string: "http://timestamp.digicert.com")!
+        case .sectigo: return URL(string: "http://timestamp.sectigo.com")!
+        case .globalSign: return URL(string: "http://timestamp.globalsign.com/tsa/r6advanced1")!
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .freeTSA: return "FreeTSA.org"
+        case .digiCert: return "DigiCert"
+        case .sectigo: return "Sectigo"
+        case .globalSign: return "GlobalSign"
+        }
+    }
+}
+
 struct TimestampClient {
     static let defaultTSAURL = URL(string: "https://freetsa.org/tsr")!
 
@@ -208,5 +238,31 @@ enum TimestampResponseParser {
 
         try reader.requireEnd()
         return TimestampStatusInfo(status: status, statusString: strings, failureInfo: failureInfo)
+    }
+}
+
+/// Tries the user's preferred free TSA first, then falls back to the others in turn —
+/// so one free timestamp authority being down or rate-limited doesn't sink the whole
+/// "get a trusted timestamp" request. Returns the first success; if every option fails,
+/// throws the LAST error encountered (the caller's existing "timestamp unavailable,
+/// falling back to an unstamped signature" handling still applies).
+enum TimestampAuthorityFallbackChain {
+    static func fetchTimestamp(
+        for signatureValue: Data,
+        preferring preferred: TimestampAuthorityOption,
+        client: TimestampClient = TimestampClient()
+    ) async throws -> TimeStampToken {
+        var order = [preferred]
+        order.append(contentsOf: TimestampAuthorityOption.allCases.filter { $0 != preferred })
+
+        var lastError: Error = TimestampClientError.invalidResponse("no timestamp authority configured")
+        for option in order {
+            do {
+                return try await client.fetchTimestamp(for: signatureValue, tsaURL: option.url)
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError
     }
 }
