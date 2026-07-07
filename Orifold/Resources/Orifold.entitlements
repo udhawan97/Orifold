@@ -4,6 +4,12 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- Outbound connections only. Used solely for the RFC-3161 trusted-timestamp
+	     request during digital signing (sends a SHA-256 hash of the signature value,
+	     never document content). Added 2026-07-07; WEBSITE_PLAN.md PR-4's update
+	     checker reuses this same entitlement. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
 	<key>com.apple.security.files.bookmarks.app-scope</key>

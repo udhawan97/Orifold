@@ -180,7 +180,7 @@ Everything below runs on your Mac. The cloud was not consulted.
 
 Orifold is local-first by design — not as a setting, as an architecture.
 
-- 🖥️ **Everything runs on your Mac.** Import, OCR, compression, encryption, and export never touch a network.
+- 🖥️ **Everything runs on your Mac.** Import, OCR, compression, encryption, and export never touch a network. The one exception: the optional trusted timestamp during digital signing asks a timestamp authority to countersign a hash of your signature — a fingerprint, never your document.
 - 🛡️ **Sandboxed.** The app uses macOS App Sandbox with user-selected file access only.
 - 📡 **Zero telemetry.** There is no analytics pipeline. There isn't even a server to send it to.
 
@@ -189,11 +189,12 @@ Orifold is local-first by design — not as a setting, as an architecture.
 
 <br>
 
-The app enables exactly three sandbox entitlements:
+The app enables exactly four sandbox entitlements:
 
 - `com.apple.security.app-sandbox`
 - `com.apple.security.files.user-selected.read-write`
 - `com.apple.security.files.bookmarks.app-scope` (so Recently Viewed can reopen files you already granted access to)
+- `com.apple.security.network.client` (outbound-only; used solely for the opt-in RFC-3161 trusted-timestamp request while signing)
 
 Practical guardrails include password prompts for protected PDFs, import size limits, local validation before and after compression or encryption, a qpdf structural check gating every export, an optional sanitize pass that strips auto-run actions and embedded JavaScript, form flattening before decoration burn-in, export error reporting for malformed PDFs or failed writes, and hidden Orifold comment metadata stripped before flat PDF export.
 </details>

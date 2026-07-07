@@ -4,7 +4,7 @@ description: Orifold is local-first by architecture, not by setting — no uploa
 keywords: [privacy, local-first, telemetry, sandbox, is orifold private, offline]
 ---
 
-**The promise:** there is no server. Nothing about your files or your use of Orifold is sent anywhere.
+**The promise:** there is no server. Nothing about your files or your use of Orifold is sent anywhere — with one narrow, user-initiated exception spelled out below.
 
 Here's the proof.
 
@@ -12,17 +12,20 @@ Here's the proof.
 
 Every feature — import, page organization, text editing, annotation, OCR, compression, encryption, signing, form filling, and export — executes entirely on-device. There is no cloud step to opt out of, because there isn't one to opt into.
 
+The single exception: if you enable the optional **trusted timestamp** when applying a digital signature, Orifold contacts a public timestamp authority (RFC 3161). That request contains only a SHA-256 hash of the signature bytes — never your document, its text, or anything about you — and it only happens when you switch the option on. See [Sign documents](/Orifold/fill-sign/signatures/).
+
 ## Sandboxed by design
 
-Orifold runs inside the macOS App Sandbox with exactly three entitlements:
+Orifold runs inside the macOS App Sandbox with exactly four entitlements:
 
 ```
 com.apple.security.app-sandbox
 com.apple.security.files.user-selected.read-write
 com.apple.security.files.bookmarks.app-scope
+com.apple.security.network.client
 ```
 
-The file entitlements mean Orifold can only read and write files **you** explicitly select — it has no standing access to the rest of your disk. The app-scope bookmark lets the Recently Viewed shelf reopen a file you already granted access to, without asking again — the access you gave, remembered, nothing wider.
+The file entitlements mean Orifold can only read and write files **you** explicitly select — it has no standing access to the rest of your disk. The app-scope bookmark lets the Recently Viewed shelf reopen a file you already granted access to, without asking again — the access you gave, remembered, nothing wider. The network entitlement is outbound-only and exists for the trusted-timestamp request above; the sandbox has no way to scope it per-host, so the honest scoping is in the code — which is open for you to read.
 
 ## Zero telemetry
 
@@ -30,7 +33,7 @@ There is no analytics pipeline in Orifold, and no server to send data to even if
 
 ## Verify it yourself
 
-Orifold is open source. Read the code, watch network activity while using the app (you'll find none), and check the entitlements file directly in the repository.
+Orifold is open source. Read the code, watch network activity while using the app (the only traffic you will ever see is the optional timestamp request during digital signing), and check the entitlements file directly in the repository.
 
 ## Related
 

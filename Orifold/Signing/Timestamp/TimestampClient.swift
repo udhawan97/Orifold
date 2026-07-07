@@ -69,8 +69,11 @@ enum TimestampAuthorityOption: String, CaseIterable, Identifiable, Codable {
     var url: URL {
         switch self {
         case .freeTSA: return TimestampClient.defaultTSAURL
+        // DigiCert and GlobalSign only answer RFC-3161 over plain HTTP (https:// on these
+        // hosts times out — verified 2026-07-07), so they need the per-host ATS exceptions
+        // in Info.plist. Sectigo serves the same endpoint over TLS, so use it.
         case .digiCert: return URL(string: "http://timestamp.digicert.com")!
-        case .sectigo: return URL(string: "http://timestamp.sectigo.com")!
+        case .sectigo: return URL(string: "https://timestamp.sectigo.com")!
         case .globalSign: return URL(string: "http://timestamp.globalsign.com/tsa/r6advanced1")!
         }
     }

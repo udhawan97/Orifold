@@ -160,8 +160,8 @@ Signatures are deliberately **not** a card (next band). Stamps/Bates/find-replac
 - H2: "Everything happens on your Mac. The cloud was not consulted."
 - Stat-styled facts, inline SVG glyphs, **app-scoped wording**. ⚠️ Corrected in Revision 2: a flat "0 network calls" is **false** — the shipped signing flow contains a real TSA client (`Orifold/Signing/Timestamp/TimestampClient.swift`) that makes opt-in RFC-3161 requests when the user asks for a trusted timestamp, and §3.4 advertises exactly that feature. Copy scopes the claim to telemetry:
   - **0** — "telemetry, analytics, accounts. There isn't even a server to send them to. The only thing Orifold ever asks the network for: a trusted timestamp, when you request one while signing." *(flips via `site.json.appNetworkCheck` when the Phase-1 update check ships: adds "…and the latest version number — only if you turn that on.")*
-  - **Blocking verification before this copy is final:** the entitlements file has no `com.apple.security.network.client`, so the sandboxed release build may be silently blocking TSA requests today — i.e. the timestamp feature may be broken in shipped builds. Test timestamped signing in a sandboxed build; if broken, PR-4's entitlement addition is what fixes it (note this in the PR-4 description), and until then §3.4 must not promise timestamps.
-  - **3** sandbox entitlements — "app-sandbox, the files you pick, and remembering the access you gave. That's the whole list." *(flips to 4 with the same flag, same tag as the app change)*
+  - ~~**Blocking verification before this copy is final**~~ **RESOLVED 2026-07-07:** verified with a sandboxed harness (Orifold's exact entitlements + Info.plist ATS state) — the sandbox WAS blocking all TSA requests (DNS resolution denied, `NSURLErrorDomain -1003`), and ATS was independently blocking the three `http://` fallback TSAs (`-1022`). Fixed in the app repo the same day: `network.client` entitlement added, Sectigo switched to `https://`, per-host ATS exceptions for DigiCert + GlobalSign (which don't serve TLS on their TSA hosts), `settings/privacy.mdx` + `fill-sign/signatures.mdx` copy flipped in the same commit. Re-verified sandboxed: all 4 TSAs return valid tokens. §3.4 may promise timestamps.
+  - **4** sandbox entitlements — "app-sandbox, the files you pick, remembering the access you gave, and an outbound-only network line used solely for the trusted timestamp you ask for. That's the whole list." *(Was 3 until 2026-07-07 — the count is already 4 before PR-4; `appNetworkCheck` now flips only the update-check clause in the 0-telemetry stat, not the entitlement count.)*
   - **503** tests gate every release · **Free forever, MIT** — the old TrustStrip content lands here; `TrustStrip.astro` itself stays docs-only, untouched.
 - One honest clause, small text: "This page asks GitHub for the latest version number so the button below is always current. The app never does."
 - "Verify it yourself" → entitlements file + `settings/privacy` docs page.
@@ -306,9 +306,9 @@ Fully covered by §5. Zero manual steps by construction; daily cron + post-deplo
 
 ### (b) In-app updates
 
-**Phase 1 — now (ad-hoc era): check-only, consent-first.** *(The sandbox forbids in-process download-and-swap: no network entitlement exists today; sandboxed apps can't strip quarantine or replace their own running bundle.)*
+**Phase 1 — now (ad-hoc era): check-only, consent-first.** *(The sandbox forbids in-process download-and-swap: sandboxed apps can't strip quarantine or replace their own running bundle. The `network.client` entitlement exists as of 2026-07-07 — outbound requests work; self-replacement still doesn't.)*
 
-- Add `com.apple.security.network.client` (entitlement count → **4**; §3.5 stat copy + `settings/privacy.mdx` flip in the **same tag** — enforced by the `appNetworkCheck` flag existing in `site.json` from day one with both copy states written). **Side effect worth stating in the PR (Revision 2):** the sandbox currently has no network entitlement, yet the shipped signing flow contains a TSA timestamp client — adding this entitlement likely *fixes* trusted timestamps in sandboxed release builds (verify per §3.5).
+- ~~Add `com.apple.security.network.client`~~ **Already shipped 2026-07-07, ahead of PR-4:** the entitlement was added to fix trusted timestamps, which sandboxed builds were silently degrading (verified per §3.5 — sandbox blocked TSA DNS; ATS blocked the http fallbacks; both fixed, privacy docs flipped in the same commit). PR-4 no longer touches entitlements — it only adds the UpdateChecker, Settings toggle, and menu item, and flips `site.json.appNetworkCheck` for the update-check clause in the §3.5 copy.
 - `UpdateChecker`: GET `releases/latest` with ETag caching, normalize tag, compare to `CFBundleShortVersionString`. Surfaces: menu **"Check for Updates…"** (always explicit) + Settings toggle **"Check automatically (weekly)" — default OFF**. Copy: "Asks GitHub for the latest version number. Your files are never involved." (Not "the only network request Orifold can make" — trusted-timestamp signing also uses the network, opt-in.)
 - Update available → sheet: release-notes link + **"Open download page"** (website `#download`) + **"Run the installer"** (NSWorkspace-opens the existing `Install or Update Orifold.command` in Terminal — LaunchServices-legal; the script runs unsandboxed and already solved quit/replace/verify).
 - **Install-location reconciliation** (dmg introduces `/Applications`; installer prefers `~/Applications`): small `install-mac.sh` change — if an existing `Orifold.app` is found in `/Applications`, replace it **in place** instead of sweeping it into `~/Applications`, so dmg users' Dock icons and Open-With bindings survive updates. The sweep remains only when no prior install exists.
@@ -357,7 +357,9 @@ Casks/orifold.rb                                     # arch guard now; version/s
 docs/DOCS_PREMIUM_MAKEOVER_PLAN.md                   # status header corrected; fold-anim ownership → landing
 assets: hero capture @2x + MEDIA_MANIFEST.md update; crane SVG dieted + static variant;
   Gami/Ori finite-loop + static variants
-Orifold app (PR-4): UpdateChecker + network.client entitlement + Settings toggle + menu item
+Orifold app (PR-4): UpdateChecker + Settings toggle + menu item
+                                                     # (network.client entitlement already shipped 2026-07-07
+                                                     #  with the trusted-timestamp fix; privacy docs flipped then)
 
 UNTOUCHED, DELIBERATELY
 install.sh entry point, zip layout/name, Desktop .command helpers, all docs slugs,
@@ -391,11 +393,11 @@ tokens.css, theme.css, TrustStrip.astro (docs-only), Hero/Footer overrides (docs
 4. **CI cask commit races concurrent sessions** — `pull --rebase` retry ×3; the cask file is touched by nothing else.
 5. **hdiutil flakiness** — 3-attempt retry + no AppleScript; documented fallback = tagged-only dmg if retries prove insufficient.
 6. **Crane can't reach ≤25KB gz** — pre-decided fallback: static mark on the landing, animation stays docs-only. No renegotiation at build time.
-7. **First network call vs. the "0 network calls" brand** — PR-4 ships the entitlement, consent UX, privacy.mdx update, and the §3.5 stat flip in one tag; enforced by `appNetworkCheck` existing in `site.json` from day one with both copy states pre-written.
+7. **First network call vs. the "0 network calls" brand** — moot for the entitlement itself: `network.client` + the privacy.mdx rescope shipped together 2026-07-07 with the trusted-timestamp fix. PR-4 still ships consent UX + the `appNetworkCheck` stat flip (update-check clause only) in one tag.
 8. **EdDSA key loss (Phase 2)** — generate once, GitHub secret + offline copy; documented in `build-release.mdx` before Sparkle ships; keys are rotatable but never removable.
 9. **Rate limits on shared IPs** — the enhancer is confirm-or-upgrade-only with ETag caching; the build-time state is canonical; the no-JS path is fully correct by construction.
 10. **Publish-window 404 on the stable URL** — closed by atomic draft→upload→publish; the runtime guard covers the residual case.
-11. **TSA timestamps possibly broken in shipped sandboxed builds** (no `network.client` entitlement exists, but the signing flow ships a TSA client) — verify before finalizing any privacy or signature copy (§3.5); if broken, PR-4's entitlement is the fix and §3.4 must soften the timestamp claim until it ships.
+11. ~~**TSA timestamps possibly broken in shipped sandboxed builds**~~ **Confirmed and fixed 2026-07-07** (§3.5): sandbox blocked all TSA DNS, ATS blocked the three `http://` fallbacks. Entitlement + ATS exceptions + Sectigo-https shipped with the privacy-copy flip; re-verified sandboxed with all 4 TSAs returning tokens. §3.4 may promise timestamps.
 12. **Screenshots must be captured on a post-toolbar-redesign build** — any capture showing the pre-`37ae9b6` toolbar is an instant credibility bug on a page whose caption says "real capture."
 
 ---
@@ -408,7 +410,7 @@ Ship as four small PRs (shared-repo rule: small units, commit often, expect conc
 2. **Pre-PR-2 gates (blocking):** capture session (§2.1), Gatekeeper machine test (§2.2), crane diet (§2.3), Starlight route prototype (§2.4).
 3. **PR-2 — Site:** landing page + components + `release.ts` + `site.json` + `docs.yml` changes (dispatch/cron/smoke) + workflows hub + `/docs` redirect + `index.mdx` deletion + `popular.json` wiring.
 4. **PR-3 — Docs/README:** §10 items independent of the app.
-5. **PR-4 — App:** check-only `UpdateChecker` + `network.client` entitlement + Settings toggle + menu item + privacy copy flips, riding the next `v*` tag.
+5. **PR-4 — App:** check-only `UpdateChecker` + Settings toggle + menu item + `appNetworkCheck` stat flip, riding the next `v*` tag. (`network.client` entitlement + privacy.mdx rescope already shipped 2026-07-07 with the timestamp fix.)
 6. **Later:** two clean releases → Sparkle 2 (Phase 2); membership purchased → §6 pre-flip signing work → flip `signedBuilds`.
 
 **Implementation rules for Sonnet:**

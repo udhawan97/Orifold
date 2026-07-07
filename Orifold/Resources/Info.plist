@@ -230,6 +230,27 @@
 	<string>0.8.1</string>
 	<key>CFBundleVersion</key>
 	<string>8</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- RFC-3161 timestamp authorities that only serve plain HTTP (verified 2026-07-07:
+		     https:// on these hosts times out). Cleartext is protocol-standard and safe here:
+		     the returned TimeStampToken is signed DER whose message imprint is verified
+		     against the request, so transport tampering is detectable. Scoped per-host —
+		     NOT NSAllowsArbitraryLoads. -->
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>timestamp.digicert.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>timestamp.globalsign.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026. MIT License.</string>
 	<key>NSPrincipalClass</key>

@@ -48,14 +48,14 @@ Orifold has two kinds of signing, and they answer different needs. Open the **Si
 
 ## Apply a digital signature
 
-A digital signature binds a cryptographic proof to the file using a **Digital ID** (a certificate + private key). Orifold produces a standards-based PAdES signature and can add a trusted timestamp — all locally.
+A digital signature binds a cryptographic proof to the file using a **Digital ID** (a certificate + private key). Orifold produces a standards-based PAdES signature entirely on your Mac. The optional trusted timestamp is the one step that goes online: a timestamp authority is sent a SHA-256 hash of the signature bytes — never your document — and returns a signed proof of time.
 
 1. Open the **Signatures** palette and choose **Digital**.
 2. Provide a Digital ID:
    - **Import .p12 / CA-issued Digital ID** — a certificate file you already have.
    - **Choose Keychain Digital ID** — an identity already in your macOS Keychain.
    - **Generate self-signed ID** — created on the spot, no cost (see the caveat below).
-3. Optionally enable a **timestamp** so the signature records a trusted time.
+3. Optionally enable a **timestamp** so the signature records a trusted time (requires an internet connection — this is the only feature in Orifold that makes a network request).
 4. Click **Sign & Export…** and choose where to save.
 
 <Callout variant="note">

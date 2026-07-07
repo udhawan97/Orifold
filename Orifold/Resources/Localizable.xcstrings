@@ -32315,37 +32315,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Requests a free trusted timestamp so the signing time remains provable even if this certificate later expires."
+            "value": "Requests a free trusted timestamp over the internet so the signing time remains provable even if this certificate later expires. Only a fingerprint of the signature is sent — never your document."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solicita una marca de tiempo confiable gratuita para que la hora de firma siga siendo demostrable aunque este certificado caduque más adelante."
+            "value": "Solicita por internet una marca de tiempo confiable gratuita para que la hora de firma siga siendo demostrable aunque este certificado caduque más adelante. Solo se envía una huella de la firma, nunca su documento."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demande un horodatage fiable gratuit afin que l'heure de signature reste prouvable même si ce certificat expire plus tard."
+            "value": "Demande via Internet un horodatage fiable gratuit afin que l'heure de signature reste prouvable même si ce certificat expire plus tard. Seule une empreinte de la signature est envoyée — jamais votre document."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "एक निःशुल्क विश्वसनीय टाइमस्टैम्प का अनुरोध करता है ताकि यह प्रमाणपत्र बाद में समाप्त होने पर भी हस्ताक्षर का समय सिद्ध किया जा सके।"
+            "value": "इंटरनेट के माध्यम से एक निःशुल्क विश्वसनीय टाइमस्टैम्प का अनुरोध करता है ताकि यह प्रमाणपत्र बाद में समाप्त होने पर भी हस्ताक्षर का समय सिद्ध किया जा सके। केवल हस्ताक्षर का फ़िंगरप्रिंट भेजा जाता है — आपका दस्तावेज़ कभी नहीं।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この証明書が後で失効しても署名時刻を証明できるよう、無料の信頼できるタイムスタンプを要求します。"
+            "value": "この証明書が後で失効しても署名時刻を証明できるよう、インターネット経由で無料の信頼できるタイムスタンプを要求します。送信されるのは署名のフィンガープリントのみで、文書自体は送信されません。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请求一个免费的可信时间戳，这样即使此证书日后过期，签名时间仍可证明。"
+            "value": "通过互联网请求一个免费的可信时间戳，这样即使此证书日后过期，签名时间仍可证明。仅发送签名的指纹，绝不发送您的文档。"
           }
         }
       }
