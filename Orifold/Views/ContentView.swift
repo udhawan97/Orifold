@@ -389,6 +389,8 @@ struct ContentView: View {
                     viewModel: viewModel
                 )
                 .id(url)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
             }
         }
     }
@@ -578,7 +580,7 @@ struct ContentView: View {
                 if count == 1 {
                     Text("sidebar.deletePages.confirmation.messageSingular")
                 } else {
-                    Text(L10n.format("sidebar.removePages.confirmation.plural", count))
+                    Text(L10n.format("sidebar.removePages.confirmation.plural", count, locale: languageManager.effectiveLocale))
                 }
             }
 

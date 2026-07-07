@@ -20,18 +20,18 @@ enum PetSpecies: String, CaseIterable, Sendable {
     }
 
     /// Localized display name ("Dog" / "Cat").
-    var displayName: String {
+    func displayName(locale: Locale) -> String {
         switch self {
-        case .dog: return L10n.string("pet.species.dog.name")
-        case .cat: return L10n.string("pet.species.cat.name")
+        case .dog: return L10n.string("pet.species.dog.name", locale: locale)
+        case .cat: return L10n.string("pet.species.cat.name", locale: locale)
         }
     }
 
     /// One-line personality tagline for the picker cards.
-    var tagline: String {
+    func tagline(locale: Locale) -> String {
         switch self {
-        case .dog: return L10n.string("pet.species.dog.tagline")
-        case .cat: return L10n.string("pet.species.cat.tagline")
+        case .dog: return L10n.string("pet.species.dog.tagline", locale: locale)
+        case .cat: return L10n.string("pet.species.cat.tagline", locale: locale)
         }
     }
 
@@ -44,21 +44,21 @@ enum PetSpecies: String, CaseIterable, Sendable {
         }
     }
 
-    var accessibilityLabel: String { displayName }
+    func accessibilityLabel(locale: Locale) -> String { displayName(locale: locale) }
 
     /// Species-flavored greeting shown on the intro page once a companion is chosen.
     /// Keys are literals (see `PetLines.speciesHero` for why interpolation is unsafe).
-    var introGreeting: String {
+    func introGreeting(locale: Locale) -> String {
         switch self {
-        case .dog: return L10n.string("gami.intro.greeting")
-        case .cat: return L10n.string("pet.cat.intro.greeting")
+        case .dog: return L10n.string("gami.intro.greeting", locale: locale)
+        case .cat: return L10n.string("pet.cat.intro.greeting", locale: locale)
         }
     }
 
-    var introMessage: String {
+    func introMessage(locale: Locale) -> String {
         switch self {
-        case .dog: return L10n.string("gami.intro.message")
-        case .cat: return L10n.string("pet.cat.intro.message")
+        case .dog: return L10n.string("gami.intro.message", locale: locale)
+        case .cat: return L10n.string("pet.cat.intro.message", locale: locale)
         }
     }
 }

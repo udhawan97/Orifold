@@ -568,6 +568,10 @@ private struct EmptyStatePill: View {
 private struct EmptyStatePetIntro: View {
     @State private var buddy = PetBuddy.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into species.introGreeting(locale:)/introMessage(locale:) below so
+    // this view's `body` actually reads it — SwiftUI only re-invokes `body` on a
+    // locale change for views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
     @State private var hasAppeared = false
 
     private var shouldReduceMotion: Bool {
@@ -592,10 +596,10 @@ private struct EmptyStatePetIntro: View {
     private var chosenIntro: some View {
         HStack(alignment: .bottom, spacing: .dsSM) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(verbatim: buddy.species.introGreeting)
+                Text(verbatim: buddy.species.introGreeting(locale: locale))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
-                Text(verbatim: buddy.species.introMessage)
+                Text(verbatim: buddy.species.introMessage(locale: locale))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -690,6 +694,11 @@ private struct PetPickerCard: View {
     var onChoose: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    // Passed into species.displayName(locale:)/tagline(locale:)/accessibilityLabel(locale:)
+    // below so this view's `body` actually reads it — SwiftUI only re-invokes
+    // `body` on a locale change for views that read `\.locale` during the
+    // previous evaluation.
+    @Environment(\.locale) private var locale
     @State private var isHovered = false
 
     var body: some View {
@@ -701,10 +710,10 @@ private struct PetPickerCard: View {
                             excitement: isHovered ? 1 : 0)
 
             VStack(spacing: 2) {
-                Text(verbatim: species.displayName)
+                Text(verbatim: species.displayName(locale: locale))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
-                Text(verbatim: species.tagline)
+                Text(verbatim: species.tagline(locale: locale))
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(Color.dsTextSecondary)
                     .multilineTextAlignment(.center)
@@ -734,7 +743,7 @@ private struct PetPickerCard: View {
         }
         .onHover { isHovered = $0 }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(species.accessibilityLabel)
+        .accessibilityLabel(species.accessibilityLabel(locale: locale))
     }
 }
 
