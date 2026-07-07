@@ -5,28 +5,34 @@ keywords: [release notes, changelog, whats new, latest version]
 ---
 
 import Badge from '../../components/Badge.astro';
+import Callout from '../../components/Callout.astro';
 
 <Badge variant="new" />
 
-## v7 — A bulletproof PDF engine underneath
+## v0.8.1 — Hardened, verified, and honestly numbered
 
-*Released July 5, 2026*
+*Released July 2026*
 
-Orifold v7 adds a native qpdf engine alongside PDFKit and PDFium, gating every export behind a structural integrity check.
+<Callout variant="note" label="Beta">
+	Orifold is in beta. `v0.8.1` marks the move to semantic versioning — the v1–v7 line
+	continues here as focused polish, validation, and user-flow hardening on the road to 1.0.
+</Callout>
 
-- **Corrupt PDFs are repaired, not rejected** — a qpdf recovery pass runs automatically on import when the native reader fails. See [Import files](/Orifold/import/import-files/).
-- **Real AES-256 password protection** — protected exports now use qpdf's R6 encryption handler, verified after every export. See [Password-protect a PDF](/Orifold/export/protect/).
-- **Sanitize for sharing** — strip auto-run actions, embedded JavaScript, embedded files, and (opt-in) metadata. See [Sanitize before sharing](/Orifold/export/sanitize/).
-- **Lossless structural compression** — a qpdf object-stream pass follows image downsampling for extra size wins, especially on text-heavy PDFs. See [Compress a PDF](/Orifold/export/compress/).
-- **Every export is structurally validated** before it reaches disk. See [Export integrity checks](/Orifold/export/integrity/).
-- **Reader Mode and three Night Mode presets** — Gentle, Paper, and Amber. See [Night Mode & Document Comfort](/Orifold/reading/night-mode/).
-- **Full six-language localization** — English, Español, Français, हिन्दी, 简体中文, 日本語. See [Change the app language](/Orifold/settings/language/).
-- **Gami & Ori**, the origami companions, and a **Recently Viewed** shelf on the empty-state screen. See [Meet Gami & Ori](/Orifold/get-started/companion/) and [Recently viewed files](/Orifold/import/recently-viewed/).
-- **Gami redesigned as an origami Bernedoodle**, with a lighter hint bubble that keeps clear of your document, collapses to a small badge in cramped windows or while exporting, and a new **Hide Gami Tips** toggle for quieting hints without hiding the companion. See [Meet Gami & Ori](/Orifold/get-started/companion/).
-- **Ori redesigned as her own character** — an origami Siberian with a plush cream ruff, tufted ears, and a tail that wraps composedly around her paws — with a distinct curious, clever, quietly-in-charge voice, plus a one-time hint that teaches you can switch companions. See [Meet Gami & Ori](/Orifold/get-started/companion/).
+v0.8.1 has no single headline feature. Instead it hardens everything v7 shipped — signing, the qpdf engine, the companions, localization — under real use, and gives the documentation the overhaul it was overdue for.
+
+- **Signing, made trustworthy** — async signing with a working cancel button, a TSA fallback chain with a provider picker, certificate trust/revocation checks, persistent certificate profiles, and a post-export structural self-check. See [Sign a document](/Orifold/fill-sign/signatures/).
+- **Toolbar and sidebar redesign** — a consolidated, responsive toolbar with Find & Replace and a dedicated Settings window; a redesigned sidebar with better undo grouping and performance. See [The Orifold window](/Orifold/get-started/the-window/).
+- **Keyboard shortcuts overhauled** to match macOS conventions, with a new cheat sheet. See [Keyboard shortcuts](/Orifold/settings/shortcuts/).
+- **Document Comfort replaces Night Mode** — four reading presets (Default, Night, Eye Care, Focus) plus warmth, brightness, and contrast controls. See [Document Comfort](/Orifold/reading/night-mode/).
+- **Folder import** added to the intro screen and Add Files menu. See [Import files](/Orifold/import/import-files/).
+- **Two rounds of locale-staleness fixes** across companions, toolbar messages, and popovers, plus a fixed language-selector z-order bug. See [Change the app language](/Orifold/settings/language/).
+- **A full documentation site rebuild** with in-app links from the Help menu — the pages you're reading now.
+
+Full changelog: [`docs/release-v0.8.1.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.8.1.md).
 
 ## Older releases
 
+- [v7 — A bulletproof PDF engine underneath](/Orifold/releases/v7/)
 - [v6 — Searchable scans, forms, stamps, and protected export](/Orifold/releases/v6/)
 - [v5 — A cleaner save, export, and editing release](/Orifold/releases/v5/)
 - [v4 — Inline editing, digital signatures, and Xcode build parity](/Orifold/releases/v4/)

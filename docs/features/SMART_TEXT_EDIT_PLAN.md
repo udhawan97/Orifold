@@ -1,6 +1,6 @@
 # Smart Text Edit — Implementation Plan
 
-**Status:** Plan only (no code yet). Hand-off document for execution.
+**Status:** Implemented — shipped in v0.8.1 (see "Fix blank-box text edit: classify + make fallback text hittable"). Kept here as the design rationale.
 **Date:** 2026-07-06
 **Scope:** Make "Edit Text" detect the real text under the click, prefill the editor
 with it, bind the edit to that text region, and export without ghosting — with an

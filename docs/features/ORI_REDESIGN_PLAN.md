@@ -1,6 +1,6 @@
 # Ori Redesign Plan — A Distinct Companion, Not "the Cat Version of Gami"
 
-**Status:** Plan only. No implementation yet. Hand to Sonnet for execution (§9).
+**Status:** Implemented — shipped in v0.8.1. Kept here as the design rationale; see `Orifold/Views/OrifoldFoldMark.swift` and `Orifold/Pet/` for the shipped code.
 **Date:** 2026-07-06
 **Prereq reading:** `docs/features/GAMI_REDESIGN_PLAN.md` (shipped 2026-07-06) — Ori inherits all of the bubble/positioning/behavior infrastructure built there. This plan changes *who Ori is*, not how bubbles work.
 

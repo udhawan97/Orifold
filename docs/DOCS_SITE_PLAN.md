@@ -1,6 +1,6 @@
 # Orifold Documentation Website — Product Plan
 
-**Status:** Planning complete, not implemented.
+**Status:** Implemented — the site described here shipped as `docs-site/` (Astro/Starlight), live at https://udhawan97.github.io/Orifold/. Kept here as the original design rationale.
 **Audience for this document:** The implementing agent (Sonnet) plus the maintainer.
 **Product baseline:** Orifold v7 — macOS 14+ native SwiftUI PDF workspace. Free, MIT, 100% local, 6 languages, Gami & Ori companions.
 **Repo:** `udhawan97/Orifold`. Existing brand assets live in `docs/assets/` (crane-fold SVG, hero banners light/dark, value props, architecture diagram, Gami/Ori animations).

@@ -227,9 +227,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>v7</string>
+	<string>0.8.1</string>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>8</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026. MIT License.</string>
 	<key>NSPrincipalClass</key>

@@ -1,0 +1,24 @@
+---
+title: "v7 — A bulletproof PDF engine underneath"
+description: Orifold v7 release notes.
+keywords: [release notes, v7, changelog]
+---
+
+*Released July 5, 2026*
+
+Orifold v7 adds a native qpdf engine alongside PDFKit and PDFium, gating every export behind a structural integrity check.
+
+- **Corrupt PDFs are repaired, not rejected** — a qpdf recovery pass runs automatically on import when the native reader fails. See [Import files](/Orifold/import/import-files/).
+- **Real AES-256 password protection** — protected exports now use qpdf's R6 encryption handler, verified after every export. See [Password-protect a PDF](/Orifold/export/protect/).
+- **Sanitize for sharing** — strip auto-run actions, embedded JavaScript, embedded files, and (opt-in) metadata. See [Sanitize before sharing](/Orifold/export/sanitize/).
+- **Lossless structural compression** — a qpdf object-stream pass follows image downsampling for extra size wins, especially on text-heavy PDFs. See [Compress a PDF](/Orifold/export/compress/).
+- **Every export is structurally validated** before it reaches disk. See [Export integrity checks](/Orifold/export/integrity/).
+- **Reader Mode and Document Comfort presets** for easier long-document reading. See [Document Comfort](/Orifold/reading/night-mode/).
+- **Full six-language localization** — English, Español, Français, हिन्दी, 简体中文, 日本語. See [Change the app language](/Orifold/settings/language/).
+- **Gami & Ori**, the origami companions, and a **Recently Viewed** shelf on the empty-state screen. See [Meet Gami & Ori](/Orifold/get-started/companion/) and [Recently viewed files](/Orifold/import/recently-viewed/).
+- **Gami redesigned as an origami Bernedoodle**, with a lighter hint bubble that keeps clear of your document, collapses to a small badge in cramped windows or while exporting, and a new **Hide Gami Tips** toggle for quieting hints without hiding the companion. See [Meet Gami & Ori](/Orifold/get-started/companion/).
+- **Ori redesigned as her own character** — an origami Siberian with a plush cream ruff, tufted ears, and a tail that wraps composedly around her paws — with a distinct curious, clever, quietly-in-charge voice, plus a one-time hint that teaches you can switch companions. See [Meet Gami & Ori](/Orifold/get-started/companion/).
+
+## Related
+
+- [What's new](/Orifold/releases/)

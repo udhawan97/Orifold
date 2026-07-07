@@ -5,8 +5,8 @@
 file drop-in obvious, communicates document state, and adds professional controls without
 clutter — while staying fast, native, and easy to maintain.
 
-**Status:** design plan, not implemented. The final section is a copy-paste execution
-prompt for the implementing agent.
+**Status:** Implemented — shipped in v0.8.1. Kept here as the design rationale; see
+`Orifold/Views/SidebarView.swift` for the shipped code.
 
 ---
 

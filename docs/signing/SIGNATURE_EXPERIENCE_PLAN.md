@@ -1,6 +1,6 @@
 # Orifold Signature Experience — Redesign & Hardening Plan
 
-Status: **PLAN ONLY — no implementation in this document's authoring session.**
+Status: **Implemented — shipped in v0.8.1** ("Implement signature experience plan: persistent certificate profiles, 4-mode palette, PDF signing hardening"). Kept here as the design rationale.
 Audience: Sonnet (implementer), reviewers.
 Date: 2026-07-06.
 

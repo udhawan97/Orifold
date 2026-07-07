@@ -1,6 +1,6 @@
 # Gami Redesign Plan — Companion + Speech Bubble System
 
-**Status:** Plan only. No implementation yet.
+**Status:** Implemented — shipped in v0.8.1. Kept here as the design rationale; see `Orifold/Pet/` and `Orifold/Views/OrifoldFoldMark.swift` for the shipped code.
 **Date:** 2026-07-06
 **Scope:** `Orifold/Pet/PetBuddy.swift`, `Orifold/Pet/PetSpecies.swift`, `Orifold/Views/OrifoldFoldMark.swift` (dog figure), `Orifold/Views/ContentView.swift:289` (overlay mount), `Orifold/Resources/Localizable.xcstrings` (`pet.*` keys), `Orifold/DesignSystem/DesignSystem.swift` (tokens).
 

@@ -1,11 +1,15 @@
 # Docs media capture manifest
 
-**Status: no real screenshots or GIFs have been captured yet.** Every visual slot below
-renders as a dashed placeholder box in the built docs site (see the `Figure` component in
-`docs-site/src/components/Figure.astro`) until the real file is dropped into
-`docs/assets/screenshots/` or `docs/assets/gifs/` and the corresponding page's `<Figure src="...">`
-prop is filled in. Do not commit fabricated, stock, or placeholder-pixel images under these
-filenames — an empty folder + this manifest is the honest state until a real capture happens.
+**Status: every slot below is filled with a hand-illustrated, app-faithful SVG** — not a
+photographic capture. The illustrations live in `docs-site/public/assets/screenshots/` and
+`docs-site/public/assets/gifs/` (as `.svg` files) and are wired into their pages' `<Figure src="...">`
+prop; the `Figure` component's dashed-placeholder fallback (see
+`docs-site/src/components/Figure.astro`) is no longer in use anywhere in the built site.
+
+The top-level `docs/assets/screenshots/` and `docs/assets/gifs/` folders are unused
+(placeholder `.gitkeep` only) — real photographic captures were never taken. That remains
+open work: this manifest's capture standards and shot list still apply if/when someone
+replaces an illustration with a real screenshot or GIF.
 
 ## Capture standards (apply to every asset)
 
@@ -32,10 +36,11 @@ filenames — an empty folder + this manifest is the honest state until a real c
 | `export-save-confirmation.gif` | gif | [export/export-save](../../docs-site/src/content/docs/export/export-save.mdx) | ⇧⌘E → format picker → save panel → confirmation |
 | `language-switcher.png` | screenshot | [settings/language](../../docs-site/src/content/docs/settings/language.mdx) | Landing-screen language switcher open, all 6 languages visible |
 | `recently-viewed-shelf.png` | screenshot | [import/recently-viewed](../../docs-site/src/content/docs/import/recently-viewed.mdx) | Empty-state screen with the Recently Viewed shelf, 3–4 demo-file thumbnails |
-| `night-mode-comparison.png` | screenshot | [reading/night-mode](../../docs-site/src/content/docs/reading/night-mode.mdx) | Same demo page shown three times side by side under Gentle / Paper / Amber |
+| `night-mode-comparison.png` | screenshot | [reading/night-mode](../../docs-site/src/content/docs/reading/night-mode.mdx) | Same demo page shown side by side under a few Document Comfort reading presets |
 | `reader-mode-toggle.png` | screenshot | [reading/reader-mode](../../docs-site/src/content/docs/reading/reader-mode.mdx) | Before/after: normal toolbar view vs. Reader Mode with chrome hidden |
 | `first-workspace-empty-state.png` | screenshot | [get-started/first-workspace](../../docs-site/src/content/docs/get-started/first-workspace.mdx) | The Gami/Ori companion picker on first launch |
 | `the-orifold-window-annotated.png` | screenshot | [get-started/the-window](../../docs-site/src/content/docs/get-started/the-window.mdx) | Full window with sidebar/canvas/toolbar/inspector regions labeled |
+| `companion-gami-ori.png` | screenshot | [get-started/companion](../../docs-site/src/content/docs/get-started/companion.mdx) | Gami and Ori shown side by side in the corner of a workspace |
 
 Each target page's placeholder `alt` text repeats the exact filename and framing above, so
 whoever captures these can grep the docs source for a filename and know precisely what to shoot.
