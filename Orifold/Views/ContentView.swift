@@ -294,7 +294,8 @@ struct ContentView: View {
         ))
         .overlay(alignment: .bottomTrailing) {
             if !viewModel.memberDocuments.isEmpty {
-                PetOverlay().padding(18)
+                PetOverlay(isChromeBusy: viewModel.operationProgress.isActive)
+                    .padding(.gamiEdgeInset)
             }
         }
         .overlay(alignment: .bottom) {

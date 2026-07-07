@@ -21,17 +21,24 @@ enum PetLines {
         return shared(for: event)
     }
 
+    static func isHero(_ event: PetEvent) -> Bool {
+        heroEvents.contains(event)
+    }
+
     // Keys must be string literals: `L10n.string` takes a `LocalizationValue`, so any
     // interpolated variable would be captured as a format argument (looking up
     // "pet.%@.greeting.1") rather than the concrete key. Hence the explicit switch.
+    //
+    // Gami (dog) uses the `gami.*` namespace with a calm, professional voice; Ori
+    // (cat) keeps its existing `pet.cat.*` personality untouched.
     private static func speciesHero(_ species: PetSpecies, _ event: PetEvent) -> [String]? {
         switch (species, event) {
         case (.dog, .greeting):
-            return [L10n.string("pet.dog.greeting.1"), L10n.string("pet.dog.greeting.2")]
+            return [L10n.string("gami.greeting.1"), L10n.string("gami.greeting.2")]
         case (.dog, .export):
-            return [L10n.string("pet.dog.export.1"), L10n.string("pet.dog.export.2")]
+            return [L10n.string("gami.export.1"), L10n.string("gami.export.2")]
         case (.dog, .save):
-            return [L10n.string("pet.dog.save.1"), L10n.string("pet.dog.save.2")]
+            return [L10n.string("gami.save.1"), L10n.string("gami.save.2")]
         case (.cat, .greeting):
             return [L10n.string("pet.cat.greeting.1"), L10n.string("pet.cat.greeting.2")]
         case (.cat, .export):
@@ -39,11 +46,25 @@ enum PetLines {
         case (.cat, .save):
             return [L10n.string("pet.cat.save.1"), L10n.string("pet.cat.save.2")]
         case (.dog, .warning):
-            return [L10n.string("pet.dog.warning.1"), L10n.string("pet.dog.warning.2")]
+            return [L10n.string("gami.warning.1"), L10n.string("gami.warning.2")]
         case (.cat, .warning):
             return [L10n.string("pet.cat.warning.1"), L10n.string("pet.cat.warning.2")]
         default:
             return nil
+        }
+    }
+
+    /// A one-time, more instructive line shown the first time a feature fires for the
+    /// user, species-neutral (both companions share the same useful tip). Returns
+    /// `nil` for events with no dedicated first-use line — those fall back to the
+    /// shared per-event copy the first time too.
+    static func firstUseLine(for event: PetEvent) -> String? {
+        switch event {
+        case .edit: return L10n.string("pet.firstUse.edit")
+        case .search: return L10n.string("pet.firstUse.search")
+        case .sign: return L10n.string("pet.firstUse.sign")
+        case .addFile: return L10n.string("pet.firstUse.addFile")
+        default: return nil
         }
     }
 
@@ -169,12 +190,12 @@ enum PetLines {
         switch species {
         case .dog:
             lines = [
-                L10n.string("pet.dog.hoverTip.1"),
-                L10n.string("pet.dog.hoverTip.2"),
-                L10n.string("pet.dog.hoverTip.3"),
-                L10n.string("pet.dog.hoverTip.4"),
-                L10n.string("pet.dog.hoverTip.5"),
-                L10n.string("pet.dog.hoverTip.6")
+                L10n.string("gami.hoverTip.1"),
+                L10n.string("gami.hoverTip.2"),
+                L10n.string("gami.hoverTip.3"),
+                L10n.string("gami.hoverTip.4"),
+                L10n.string("gami.hoverTip.5"),
+                L10n.string("gami.hoverTip.6")
             ]
         case .cat:
             lines = [
@@ -213,9 +234,18 @@ enum PetBuddyHook {
     @ObservationIgnored @AppStorage("petTriggerCount") private var triggerCountStorage = 0
     @ObservationIgnored @AppStorage("petSpecies") private var speciesStorage = PetSpecies.fallback.rawValue
     @ObservationIgnored @AppStorage("petSpeciesChosen") private var speciesChosenStorage = false
+    /// Separate from `petEnabled` (which hides the whole companion): this only
+    /// silences the hint bubble/hover tip while keeping the chip and popover.
+    @ObservationIgnored @AppStorage("gamiTipsEnabled") var tipsEnabledStorage = true
+    /// Comma-joined `PetEvent` raw values the user has already triggered once —
+    /// drives the one-time, more-instructive first-use line per feature.
+    @ObservationIgnored @AppStorage("gamiSeenEvents") private var seenEventsStorage = ""
 
     var isEnabled = true {
         didSet { isEnabledStorage = isEnabled }
+    }
+    var tipsEnabled = true {
+        didSet { tipsEnabledStorage = tipsEnabled }
     }
     /// The chosen companion — *identity*, persisted and stable across launches,
     /// navigation, and document opens. Deliberately separate from the transient
@@ -230,36 +260,92 @@ enum PetBuddyHook {
     }
     var currentMessage: String?
     var isBubbleVisible = false
+    /// Set for hints that shouldn't auto-dismiss quietly (currently: warnings) —
+    /// the bubble grows a dismiss button and becomes hit-testable.
+    var isCurrentSticky = false
     /// Mirrors `PetView`'s hover state so `PetOverlay` can widen the gap above
     /// the pet before it grows into the space the message bubble occupies —
     /// the pet's `scaleEffect` doesn't change its layout size, so the VStack
     /// spacing has to be told about the hover growth explicitly.
     var isHovered = false
+    /// Bumped on every event, independent of whether a bubble is shown — drives the
+    /// chip's acknowledgment pulse even when the message is suppressed (non-hero
+    /// repeat events collapse to a pulse only, per the reduced-chatter redesign).
+    var pulseToken = 0
+    /// The most recent message that was suppressed into a hint-chip badge instead of
+    /// a floating bubble (window too small, or export/save chrome busy nearby) — the
+    /// popover surfaces it under "Latest tip" so nothing is silently lost.
+    var lastCollapsedMessage: String?
+    /// True while export/save chrome that occupies the bottom of the window is
+    /// active — set by the workspace layer. While true, hints collapse to the
+    /// hint-chip badge instead of a floating bubble, guaranteeing no overlap with
+    /// that chrome without needing its exact geometry.
+    var isChromeBusy = false
+    /// Hooks for a future workspace-level editing/selection gate: while either is
+    /// true, non-critical hints are deferred rather than shown immediately. Not yet
+    /// wired to live PDF selection/edit state (see GAMI_REDESIGN_PLAN.md §5) — safe
+    /// no-op defaults until that follow-up lands.
+    var isUserEditing = false {
+        didSet { if !isUserEditing, !isUserSelecting { flushDeferredHintIfPossible() } }
+    }
+    var isUserSelecting = false {
+        didSet { if !isUserSelecting, !isUserEditing { flushDeferredHintIfPossible() } }
+    }
 
-    let minInterval: TimeInterval = 6
-    let displayDuration: TimeInterval = 4.5
+    /// Minimum gap between bubbles — long enough that Gami reads as occasional
+    /// guidance, not chatter, during focused editing.
+    let minInterval: TimeInterval = 45
 
     var lastShownAt: Date?
-    var lastLine: String?
+    /// The last few *resolved* strings shown, most-recent first, capped at 5 — a
+    /// message is never repeated back-to-back while any of these are still fresh.
+    var recentLines: [String] = []
     var triggerCount = 0 {
         didSet { triggerCountStorage = triggerCount }
     }
     var lastFeedbackAt: Date?
     var lastInspirationAt: Date?
     @ObservationIgnored var dismissWorkItem: DispatchWorkItem?
+    @ObservationIgnored private var seenEvents: Set<String> = []
+    @ObservationIgnored private var pendingDeferredEvent: PetEvent?
+    @ObservationIgnored private var pendingDeferredExpiry: Date?
 
     private init() {
         isEnabled = isEnabledStorage
+        tipsEnabled = tipsEnabledStorage
         triggerCount = triggerCountStorage
         species = PetSpecies.resolved(from: speciesStorage)
         hasChosenSpecies = speciesChosenStorage
+        seenEvents = Set(seenEventsStorage.split(separator: ",").map(String.init))
     }
 
     func trigger(_ event: PetEvent) {
         guard isEnabled else { return }
 
+        pulseToken += 1
+
         let now = Date()
-        if let lastShownAt, now.timeIntervalSince(lastShownAt) < minInterval {
+        let isFirstUse = !seenEvents.contains(rawKey(for: event))
+        markSeen(event)
+
+        // Hero moments (greeting/export/save/warning) and a feature's first-ever
+        // firing always get a chance at a bubble; everything else after that is
+        // acknowledged with a pulse only, per the reduced-chatter redesign.
+        let isHero = PetLines.isHero(event)
+        guard isHero || isFirstUse else { return }
+
+        guard tipsEnabled else { return }
+
+        if let lastShownAt, now.timeIntervalSince(lastShownAt) < minInterval, event != .warning {
+            return
+        }
+
+        // Non-critical hints wait out an active edit/selection instead of covering
+        // it; warnings are allowed through immediately (see `isUserEditing`/
+        // `isUserSelecting` doc comments for the current no-op-by-default wiring).
+        if event != .warning, isUserEditing || isUserSelecting {
+            pendingDeferredEvent = event
+            pendingDeferredExpiry = now.addingTimeInterval(20)
             return
         }
 
@@ -276,17 +362,42 @@ enum PetBuddyHook {
         } else if shouldShowInspiration {
             sourceLines = PetLines.inspiration
             lastInspirationAt = now
+        } else if isFirstUse, let firstUse = PetLines.firstUseLine(for: event) {
+            sourceLines = [firstUse]
         } else {
             sourceLines = PetLines.lines(for: species, event: event)
         }
 
-        var line = sourceLines.randomElement()
-        if line == lastLine, sourceLines.count > 1 {
-            line = sourceLines.randomElement()
-        }
-        guard let selectedLine = line, !selectedLine.isEmpty else { return }
+        guard let selectedLine = pickLine(from: sourceLines) else { return }
+        show(selectedLine, at: now, isSticky: event == .warning)
+    }
 
-        show(selectedLine, at: now)
+    /// Picks a line that isn't among the last few shown, falling back to any line
+    /// (even a repeat) if every candidate has recently been shown.
+    private func pickLine(from lines: [String]) -> String? {
+        guard !lines.isEmpty else { return nil }
+        let fresh = lines.filter { !recentLines.contains($0) }
+        return (fresh.isEmpty ? lines : fresh).randomElement()
+    }
+
+    private func rawKey(for event: PetEvent) -> String {
+        String(describing: event)
+    }
+
+    private func markSeen(_ event: PetEvent) {
+        let key = rawKey(for: event)
+        guard seenEvents.insert(key).inserted else { return }
+        seenEventsStorage = seenEvents.sorted().joined(separator: ",")
+    }
+
+    /// If the editing/selection gate just cleared and a hint was waiting, show it
+    /// now (unless it expired while we waited).
+    private func flushDeferredHintIfPossible() {
+        guard let event = pendingDeferredEvent, let expiry = pendingDeferredExpiry else { return }
+        pendingDeferredEvent = nil
+        pendingDeferredExpiry = nil
+        guard Date() < expiry else { return }
+        trigger(event)
     }
 
     /// Switch the chosen companion (from the picker, avatar popover, or menu). Updates
@@ -299,37 +410,46 @@ enum PetBuddyHook {
         hasChosenSpecies = true
         guard isEnabled, isNewChoice else { return }
         // Bypass the inter-message throttle so the choice confirms right away.
-        var line = PetLines.lines(for: newSpecies, event: .greeting).randomElement()
-        if line == lastLine {
-            line = PetLines.lines(for: newSpecies, event: .greeting).randomElement()
-        }
-        if let line, !line.isEmpty {
-            show(line, at: Date())
-        }
+        guard let line = pickLine(from: PetLines.lines(for: newSpecies, event: .greeting)) else { return }
+        show(line, at: Date(), isSticky: false)
     }
 
-    /// Present a line in the bubble and schedule its dismissal. Shared by event
-    /// triggers and explicit species-selection confirmations.
-    private func show(_ line: String, at now: Date) {
-        currentMessage = line
-        isBubbleVisible = true
+    /// Present a line in the bubble (or, when window/chrome constraints demand it,
+    /// collapse it into the hint-chip badge) and schedule its dismissal. Shared by
+    /// event triggers and explicit species-selection confirmations.
+    private func show(_ line: String, at now: Date, isSticky: Bool) {
+        recentLines.insert(line, at: 0)
+        if recentLines.count > 5 { recentLines.removeLast(recentLines.count - 5) }
         lastShownAt = now
-        lastLine = line
+
+        // `isBubbleVisible` drives both the floating bubble and the collapsed
+        // hint-chip badge (the overlay picks between them based on window/chrome
+        // constraints, including the cramped-window case this method can't see) —
+        // `lastCollapsedMessage` always mirrors the latest line so the popover can
+        // surface it if the overlay ends up rendering the badge instead of the
+        // floating bubble for any reason.
+        lastCollapsedMessage = line
+        currentMessage = isChromeBusy ? nil : line
+        isBubbleVisible = true
+        isCurrentSticky = isSticky
 
         dismissWorkItem?.cancel()
+        guard !isSticky else { return }
         let item = DispatchWorkItem { [weak self] in
             Task { @MainActor in
                 self?.isBubbleVisible = false
             }
         }
         dismissWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + displayDuration, execute: item)
+        let duration = GamiHintBubble.displayDuration(for: line)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: item)
     }
 
     func hush() {
         dismissWorkItem?.cancel()
         dismissWorkItem = nil
         isBubbleVisible = false
+        isCurrentSticky = false
         currentMessage = nil
     }
 
@@ -344,22 +464,52 @@ enum PetBuddyHook {
 }
 
 struct PetOverlay: View {
+    /// True while export/save chrome along the bottom of the window is active
+    /// (e.g. `WorkspaceOperationProgressView`) — passed down from `ContentView`,
+    /// which already tracks it, rather than re-deriving it here. While true, any
+    /// hint collapses into the hint-chip badge instead of a floating bubble, which
+    /// guarantees no overlap with that chrome without needing its exact geometry.
+    var isChromeBusy = false
+
     @State private var buddy = PetBuddy.shared
+    @State private var windowObserver = GamiWindowSizeObserver()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Below this width or height, the workspace area is considered cramped: the
+    /// chip shrinks and every hint collapses to the badge rather than risking a
+    /// bubble that has nowhere safe to sit.
+    private static let crampedWidth: CGFloat = 700
+    private static let crampedHeight: CGFloat = 500
+
+    private var isCramped: Bool {
+        windowObserver.size.width > 0 &&
+            (windowObserver.size.width < Self.crampedWidth || windowObserver.size.height < Self.crampedHeight)
+    }
 
     var body: some View {
         if buddy.isEnabled {
             VStack(alignment: .trailing, spacing: bubbleSpacing) {
-                if buddy.isBubbleVisible, let message = buddy.currentMessage {
-                    PetBubble(message: message)
-                        .allowsHitTesting(false)
-                        .transition(bubbleTransition)
+                if showsBubble, let message = buddy.currentMessage {
+                    GamiHintBubble(
+                        message: message,
+                        notchEdge: .bottom,
+                        isSticky: buddy.isCurrentSticky,
+                        onDismiss: buddy.isCurrentSticky ? { buddy.hush() } : nil
+                    )
+                    .transition(bubbleTransition)
+                } else if showsHintChipBadge {
+                    GamiHintChipBadge()
+                        .transition(.opacity)
                 }
-                PetView(presentation: .workspace)
+                PetView(presentation: .workspace, isCramped: isCramped)
             }
             .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82), value: buddy.isBubbleVisible)
             .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82), value: buddy.isHovered)
-            .onAppear { buddy.trigger(.greeting) }
+            .onAppear {
+                buddy.isChromeBusy = isChromeBusy
+                buddy.trigger(.greeting)
+            }
+            .onChange(of: isChromeBusy) { _, busy in buddy.isChromeBusy = busy }
         }
     }
 
@@ -369,8 +519,18 @@ struct PetOverlay: View {
     /// extra room reserved for that growth plus a safe gap, or the enlarged
     /// pet visually pushes into the bubble.
     private var bubbleSpacing: CGFloat {
-        guard buddy.isHovered else { return .dsSM }
+        guard buddy.isHovered else { return .gamiBubbleGap }
         return PetView.hoverGrowthDelta(for: .workspace) + PetView.popoverGap
+    }
+
+    private var showsBubble: Bool {
+        buddy.isBubbleVisible && !isCramped && !buddy.isChromeBusy
+    }
+
+    /// A hint exists but the window/chrome constraints ruled out a floating
+    /// bubble — show the small badge instead (its message surfaces in the popover).
+    private var showsHintChipBadge: Bool {
+        buddy.isBubbleVisible && (isCramped || buddy.isChromeBusy)
     }
 
     private var bubbleTransition: AnyTransition {
@@ -378,48 +538,48 @@ struct PetOverlay: View {
     }
 }
 
-struct PetBubble: View {
-    let message: String
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var feedbackURL: URL? {
-        guard message.contains("umangdhawan97@gmail.com") else { return nil }
-        return URL(string: "mailto:umangdhawan97@gmail.com")
-    }
+/// A small accent-colored badge shown on/near the chip when a hint exists but
+/// couldn't safely render as a floating bubble (cramped window, busy chrome). No
+/// text — the message is still available via the popover's "Latest tip" row.
+private struct GamiHintChipBadge: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
 
     var body: some View {
-        Group {
-            if let feedbackURL {
-                Link(destination: feedbackURL) {
-                    bubbleText
+        Circle()
+            .fill(Color.dsAccent)
+            .frame(width: 8, height: 8)
+            .scaleEffect(pulse ? 1.15 : 0.9)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    pulse = true
                 }
-                .buttonStyle(.plain)
-            } else {
-                bubbleText
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// Observes the key window's frame size via `NSWindow.didResizeNotification`,
+/// purely for cramped-window detection — no layout dependency on `ContentView`'s
+/// own view hierarchy, so this stays additive and low-risk.
+@MainActor @Observable private final class GamiWindowSizeObserver {
+    var size: CGSize = .zero
+    @ObservationIgnored private var observer: NSObjectProtocol?
+
+    init() {
+        size = NSApp.keyWindow?.frame.size ?? .zero
+        observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.size = NSApp.keyWindow?.frame.size ?? .zero
             }
         }
-        .padding(.horizontal, .dsMD)
-        .padding(.vertical, .dsSM)
-        .frame(maxWidth: 300, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
-        .background(
-            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
-                .fill(Color.dsSurface.opacity(colorScheme == .dark ? 0.82 : 0.68))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
-                .strokeBorder(Color.dsSeparator.opacity(colorScheme == .dark ? 0.85 : 1), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(colorScheme == .dark ? 0.28 : 0.12), radius: 14, x: 0, y: 6)
     }
 
-    private var bubbleText: some View {
-        Text(message)
-            .font(.dsCaption())
-            .lineSpacing(3)
-            .foregroundStyle(Color.dsTextPrimary)
-            .multilineTextAlignment(.leading)
-            .fixedSize(horizontal: false, vertical: true)
+    deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
     }
 }
 
@@ -430,6 +590,9 @@ enum PetPresentation {
 
 struct PetView: View {
     var presentation: PetPresentation = .workspace
+    /// True when the workspace window is small enough that the chip should dock
+    /// smaller and skip hover expansion — the popover remains the way to see hints.
+    var isCramped: Bool = false
 
     @State private var buddy = PetBuddy.shared
     @State private var isPopoverPresented = false
@@ -453,7 +616,7 @@ struct PetView: View {
 
     /// Only the workspace pet grows on hover and shows a hover tip — the welcome
     /// (intro) pet is already large and expressive, and sits beside its own greeting.
-    private var supportsHoverExpansion: Bool { presentation == .workspace }
+    private var supportsHoverExpansion: Bool { presentation == .workspace && !isCramped }
 
     var body: some View {
         // IMPORTANT: background/border/opacity/scaleEffect/shadow are chained OUTSIDE
@@ -470,7 +633,10 @@ struct PetView: View {
                 .padding(iconPadding)
         }
         .buttonStyle(.plain)
-        .background(petBackground, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .background(alignment: .center) {
+            petBackground
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
         .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .strokeBorder(borderColor, lineWidth: 1)
@@ -494,7 +660,9 @@ struct PetView: View {
         // pixel-perfect hovering — the hit area extends past the paper card.
         .padding(hitAreaPadding)
         .contentShape(Rectangle())
-        .help("petBuddy.avatar.help")
+        .help("gami.avatar.help")
+        .accessibilityLabel("gami.a11y.label")
+        .accessibilityHint("gami.a11y.hint")
         .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
             PetControlPopover(
                 presentation: presentation,
@@ -512,8 +680,7 @@ struct PetView: View {
                 // size), so the offset has to add back the hover growth (which
                 // extends upward, since the scale anchor is bottomTrailing)
                 // plus a safe gap, or the tip lands on top of the enlarged pet.
-                PetBubble(message: hoverTipMessage)
-                    .allowsHitTesting(false)
+                GamiHintBubble(message: hoverTipMessage, notchEdge: nil)
                     .fixedSize()
                     .offset(x: 6, y: -(14 + Self.hoverGrowthDelta(for: .workspace) + Self.popoverGap))
                     .transition(hoverTipTransition)
@@ -656,12 +823,18 @@ struct PetView: View {
     // hit area stay in their intended ranges even if the base constants are tuned later.
 
     /// Compact (at-rest) container size — icon + its padding — clamped to Apple HIG's
-    /// comfortable-but-unobtrusive dock-widget range.
-    private var compactContainerSize: CGFloat { Self.compactContainerSize(for: presentation) }
+    /// comfortable-but-unobtrusive dock-widget range. Docks smaller still in a
+    /// cramped workspace window, where hover expansion is also disabled.
+    private var compactContainerSize: CGFloat {
+        isCramped ? .gamiChipCramped : Self.compactContainerSize(for: presentation)
+    }
 
     /// How much larger the container becomes on hover, clamped to a clearly-bigger but
-    /// still-corner-sized preview.
-    private var hoverContainerSize: CGFloat { Self.hoverContainerSize(for: presentation) }
+    /// still-corner-sized preview. Equal to the compact size in cramped mode, so
+    /// `hoverScale` becomes a no-op (see `supportsHoverExpansion`).
+    private var hoverContainerSize: CGFloat {
+        isCramped ? .gamiChipCramped : Self.hoverContainerSize(for: presentation)
+    }
 
     private var hoverScale: CGFloat {
         hoverContainerSize / compactContainerSize
@@ -670,14 +843,14 @@ struct PetView: View {
     static func compactContainerSize(for presentation: PetPresentation) -> CGFloat {
         switch presentation {
         case .welcome: return 64
-        case .workspace: return clamp(72, in: 64...80)
+        case .workspace: return .gamiChipCompact
         }
     }
 
     static func hoverContainerSize(for presentation: PetPresentation) -> CGFloat {
         switch presentation {
         case .welcome: return compactContainerSize(for: presentation) * 1.15
-        case .workspace: return clamp(112, in: 96...120)
+        case .workspace: return .gamiChipHover
         }
     }
 
@@ -693,10 +866,6 @@ struct PetView: View {
     /// Minimum safe gap between the pet's scaled bounds and any floating
     /// bubble — mirrors a `--pet-popover-gap` design token.
     static let popoverGap: CGFloat = .dsLG
-
-    private static func clamp(_ value: CGFloat, in range: ClosedRange<CGFloat>) -> CGFloat {
-        min(max(value, range.lowerBound), range.upperBound)
-    }
 
     private var iconPadding: CGFloat {
         presentation == .welcome ? 5 : 8
@@ -717,12 +886,18 @@ struct PetView: View {
         presentation == .welcome ? 4 : 10
     }
 
-    private var petBackground: Color {
+    @ViewBuilder
+    private var petBackground: some View {
         switch presentation {
         case .welcome:
-            return Color.dsCard.opacity(colorScheme == .dark ? 0.92 : 0.96)
+            Color.dsCard.opacity(colorScheme == .dark ? 0.92 : 0.96)
         case .workspace:
-            return Color.dsSurface.opacity(colorScheme == .dark ? (isHovered ? 0.94 : 0.86) : (isHovered ? 0.92 : 0.78))
+            // A single light frosted card — resting quietly on the page rather than
+            // announcing itself as an opaque block.
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Color.dsSurface.opacity(colorScheme == .dark ? (isHovered ? 0.55 : 0.48) : (isHovered ? 0.40 : 0.32))
+            }
         }
     }
 
@@ -740,22 +915,24 @@ struct PetView: View {
         case .welcome:
             return Color.dsAccent.opacity(colorScheme == .dark ? 0.22 : 0.18)
         case .workspace:
-            let base = Color.black.opacity(colorScheme == .dark ? 0.24 : 0.12)
-            return isHovered ? Color.black.opacity(colorScheme == .dark ? 0.38 : 0.22) : base
+            // A quiet paper-card shadow at rest; only slightly deeper on hover — the
+            // chip should read as resting on the page, not floating above it.
+            let base = Color.black.opacity(colorScheme == .dark ? 0.20 : 0.08)
+            return isHovered ? Color.black.opacity(colorScheme == .dark ? 0.28 : 0.14) : base
         }
     }
 
     private var shadowRadius: CGFloat {
         switch presentation {
         case .welcome: return 18
-        case .workspace: return isHovered ? 16 : 10
+        case .workspace: return isHovered ? 12 : 8
         }
     }
 
     private var shadowYOffset: CGFloat {
         switch presentation {
         case .welcome: return 8
-        case .workspace: return isHovered ? 6 : 4
+        case .workspace: return isHovered ? 4 : 3
         }
     }
 }
@@ -824,6 +1001,12 @@ private struct PetControlPopover: View {
         VStack(alignment: .leading, spacing: presentation == .welcome ? .dsMD : .dsSM) {
             if presentation == .welcome {
                 welcomeHeader
+            } else {
+                workspaceHeader
+            }
+
+            if let lastCollapsedMessage = buddy.lastCollapsedMessage {
+                latestTipRow(lastCollapsedMessage)
             }
 
             VStack(alignment: .leading, spacing: 5) {
@@ -834,6 +1017,14 @@ private struct PetControlPopover: View {
             }
 
             Divider().opacity(0.6)
+
+            Toggle(isOn: Binding(
+                get: { !buddy.tipsEnabled },
+                set: { buddy.tipsEnabled = !$0 }
+            )) {
+                Text("gami.menu.hideTips")
+            }
+            .toggleStyle(.checkbox)
 
             Button {
                 buddy.hush()
@@ -882,6 +1073,39 @@ private struct PetControlPopover: View {
                 didAnimateIn = true
             }
         }
+        .onDisappear {
+            buddy.lastCollapsedMessage = nil
+        }
+    }
+
+    /// Names the character and its role in the popover header — the chip itself
+    /// stays text-free, so this is the one place the "Gami · Orifold Guide" label
+    /// is spelled out in full.
+    private var workspaceHeader: some View {
+        HStack(alignment: .center, spacing: .dsSM) {
+            OrifoldFoldMark(size: 28, interactive: false, figure: .forSpecies(buddy.species))
+                .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(buddy.species.displayName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text("gami.popover.subtitle")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(Color.dsTextSecondary)
+            }
+        }
+    }
+
+    /// A hint that couldn't safely render as a floating bubble (cramped window,
+    /// busy export/save chrome) is never silently lost — it surfaces here.
+    private func latestTipRow(_ message: String) -> some View {
+        Text(message)
+            .font(.dsCaption())
+            .foregroundStyle(Color.dsTextPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.dsSM)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.dsSurface.opacity(colorScheme == .dark ? 0.5 : 0.4), in: RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
     }
 
     private var welcomeHeader: some View {

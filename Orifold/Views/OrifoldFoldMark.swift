@@ -310,6 +310,13 @@ private struct PaperPalette {
     // The red-crowned crane's (tancho) scarlet crown patch and dark eye.
     static let craneCrown = PaperPalette(warm: (0.90, 0.24, 0.22), cool: (0.52, 0.09, 0.11))
     static let craneInk = PaperPalette(warm: (0.26, 0.28, 0.34), cool: (0.09, 0.10, 0.14))
+
+    // Gami the Bernedoodle: soft near-black ears/saddle paper (`berneInk`, warmed so it
+    // never reads as flat #000) and a warm cream paper for the blaze/chest/muzzle/paw
+    // patches (`berneCream`) — the patch boundaries are drawn at fold lines via
+    // `overridePalette`, matching how the crane's tancho crown is layered on.
+    static let berneInk = PaperPalette(warm: (0.26, 0.23, 0.22), cool: (0.09, 0.08, 0.09))
+    static let berneCream = PaperPalette(warm: (1.00, 0.985, 0.94), cool: (0.80, 0.78, 0.73))
 }
 
 /// One paper facet. `hi`/`lo` are paper-tone values (0…1) for the two ends of the
@@ -516,102 +523,122 @@ extension PaperFigure {
     }()
 }
 
-// MARK: Dog geometry
+// MARK: Dog geometry — Gami
 //
-// A friendly seated shiba-ish origami dog in warm kraft paper, facing right: a rounded
-// two-tone head, a long snout with a dark nose, two soft down-folded ears, a seated
-// haunch, a dark eye, and a big plume tail that WAGS. Group mapping: head→head,
-// ears→wing, snout+nose→neck, torso→body, tail→tail.
+// Gami: a seated origami Bernedoodle in warm near-black paper (`berneInk`) with cream
+// (`berneCream`) blaze/chest/muzzle/paw patches, facing right. Rounder, wider head than
+// the earlier shiba-style figure; two large floppy trapezoid ears folding down past the
+// jaw; a short rounded muzzle instead of a long snout; a shorter, calmer plume tail.
+// Group mapping: head→head, ears→wing, muzzle+nose→neck, torso→body, tail→tail.
 
 extension PaperFigure {
     static let dog: PaperFigure = {
-        let headTop = CGPoint(x: 0.455, y: 0.240)
-        let headR = CGPoint(x: 0.585, y: 0.380)
-        let headBot = CGPoint(x: 0.460, y: 0.520)
-        let headL = CGPoint(x: 0.335, y: 0.375)
+        let headTop = CGPoint(x: 0.460, y: 0.235)
+        let headR = CGPoint(x: 0.610, y: 0.400)
+        let headBot = CGPoint(x: 0.470, y: 0.545)
+        let headL = CGPoint(x: 0.320, y: 0.395)
 
         let facets: [PaperFacet] = [
-            // Far ear — down-folded behind the head on the right, darker.
+            // Far ear — large floppy trapezoid folding down behind the head on the
+            // right, darker (depth). Bigger and rounder than a shiba's pricked ear.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.520, y: 0.270), CGPoint(x: 0.600, y: 0.300), CGPoint(x: 0.545, y: 0.470)],
-                       hi: 0.50, lo: 0.30, gradFrom: CGPoint(x: 0.600, y: 0.300), gradTo: CGPoint(x: 0.545, y: 0.470)),
-            // Tail — a big plume sweeping up the back-left (the wag element), three facets.
+                       pts: [CGPoint(x: 0.545, y: 0.255), CGPoint(x: 0.640, y: 0.330), CGPoint(x: 0.612, y: 0.560),
+                             CGPoint(x: 0.548, y: 0.500)],
+                       hi: 0.46, lo: 0.24, gradFrom: CGPoint(x: 0.640, y: 0.330), gradTo: CGPoint(x: 0.580, y: 0.560)),
+            // Tail — a shorter, rounder plume than before (calmer at rest), three facets.
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.340, y: 0.700), CGPoint(x: 0.185, y: 0.470), CGPoint(x: 0.375, y: 0.620)],
-                       hi: 0.80, lo: 0.55, gradFrom: CGPoint(x: 0.375, y: 0.620), gradTo: CGPoint(x: 0.185, y: 0.470)),
+                       pts: [CGPoint(x: 0.345, y: 0.690), CGPoint(x: 0.220, y: 0.510), CGPoint(x: 0.385, y: 0.630)],
+                       hi: 0.36, lo: 0.16, gradFrom: CGPoint(x: 0.385, y: 0.630), gradTo: CGPoint(x: 0.220, y: 0.510)),
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.340, y: 0.700), CGPoint(x: 0.375, y: 0.620), CGPoint(x: 0.420, y: 0.700)],
-                       hi: 0.62, lo: 0.44, gradFrom: CGPoint(x: 0.420, y: 0.700), gradTo: CGPoint(x: 0.340, y: 0.700)),
-            // Plush dark tip on the tail.
+                       pts: [CGPoint(x: 0.345, y: 0.690), CGPoint(x: 0.385, y: 0.630), CGPoint(x: 0.415, y: 0.695)],
+                       hi: 0.28, lo: 0.14, gradFrom: CGPoint(x: 0.415, y: 0.695), gradTo: CGPoint(x: 0.345, y: 0.690)),
+            // Cream-tipped tail plume — the Bernedoodle's characteristic white flag tip.
             PaperFacet(group: .tail,
-                       pts: [CGPoint(x: 0.185, y: 0.470), CGPoint(x: 0.250, y: 0.500), CGPoint(x: 0.232, y: 0.566)],
-                       hi: 0.44, lo: 0.26, gradFrom: CGPoint(x: 0.250, y: 0.500), gradTo: CGPoint(x: 0.185, y: 0.470)),
-            // Torso / seated haunch — shadowed back + lit front.
+                       pts: [CGPoint(x: 0.220, y: 0.510), CGPoint(x: 0.278, y: 0.535), CGPoint(x: 0.258, y: 0.598)],
+                       hi: 0.98, lo: 0.76, gradFrom: CGPoint(x: 0.278, y: 0.535), gradTo: CGPoint(x: 0.220, y: 0.510),
+                       overridePalette: .berneCream),
+            // Torso / seated haunch (saddle) — shadowed back + lit front, black paper.
             PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.445, y: 0.500), CGPoint(x: 0.445, y: 0.840), CGPoint(x: 0.280, y: 0.740)],
-                       hi: 0.60, lo: 0.40, gradFrom: CGPoint(x: 0.445, y: 0.500), gradTo: CGPoint(x: 0.280, y: 0.740)),
+                       pts: [CGPoint(x: 0.450, y: 0.520), CGPoint(x: 0.450, y: 0.845), CGPoint(x: 0.285, y: 0.745)],
+                       hi: 0.34, lo: 0.14, gradFrom: CGPoint(x: 0.450, y: 0.520), gradTo: CGPoint(x: 0.285, y: 0.745)),
             PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.445, y: 0.500), CGPoint(x: 0.560, y: 0.820), CGPoint(x: 0.445, y: 0.840)],
-                       hi: 0.86, lo: 0.62, gradFrom: CGPoint(x: 0.445, y: 0.500), gradTo: CGPoint(x: 0.560, y: 0.820)),
-            // Chest tuft — a soft bright wedge down the front.
+                       pts: [CGPoint(x: 0.450, y: 0.520), CGPoint(x: 0.565, y: 0.825), CGPoint(x: 0.450, y: 0.845)],
+                       hi: 0.46, lo: 0.24, gradFrom: CGPoint(x: 0.450, y: 0.520), gradTo: CGPoint(x: 0.565, y: 0.825)),
+            // Chest tuft — the broad cream blaze wedge down the front, a Bernedoodle signal.
             PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.470, y: 0.520), CGPoint(x: 0.522, y: 0.700), CGPoint(x: 0.456, y: 0.762)],
-                       hi: 0.99, lo: 0.74, gradFrom: CGPoint(x: 0.470, y: 0.520), gradTo: CGPoint(x: 0.456, y: 0.762)),
-            // Front paw — a small lit tab at the base.
+                       pts: [CGPoint(x: 0.475, y: 0.540), CGPoint(x: 0.528, y: 0.710), CGPoint(x: 0.460, y: 0.768)],
+                       hi: 0.99, lo: 0.78, gradFrom: CGPoint(x: 0.475, y: 0.540), gradTo: CGPoint(x: 0.460, y: 0.768),
+                       overridePalette: .berneCream),
+            // Front paw — a small cream tab at the base, continuing the blaze down.
             PaperFacet(group: .body,
-                       pts: [CGPoint(x: 0.470, y: 0.800), CGPoint(x: 0.575, y: 0.812), CGPoint(x: 0.560, y: 0.848), CGPoint(x: 0.470, y: 0.848)],
-                       hi: 0.94, lo: 0.72, gradFrom: CGPoint(x: 0.470, y: 0.800), gradTo: CGPoint(x: 0.470, y: 0.848)),
-            // Head — shadowed back-left + lit front-right, split on the keel.
+                       pts: [CGPoint(x: 0.475, y: 0.805), CGPoint(x: 0.580, y: 0.816), CGPoint(x: 0.565, y: 0.850), CGPoint(x: 0.475, y: 0.850)],
+                       hi: 0.96, lo: 0.78, gradFrom: CGPoint(x: 0.475, y: 0.805), gradTo: CGPoint(x: 0.475, y: 0.850),
+                       overridePalette: .berneCream),
+            // Head — shadowed back-left (black) + lit front-right (black), split on
+            // the keel. Wider/rounder than the earlier diamond.
             PaperFacet(group: .head,
                        pts: [headTop, headBot, headL],
-                       hi: 0.66, lo: 0.46, gradFrom: headTop, gradTo: headL),
+                       hi: 0.40, lo: 0.20, gradFrom: headTop, gradTo: headL),
             PaperFacet(group: .head,
                        pts: [headTop, headR, headBot],
-                       hi: 1.00, lo: 0.80, gradFrom: headTop, gradTo: headBot),
-            // Eye — dark facet on the lit cheek, lifted by a tiny catchlight.
+                       hi: 0.56, lo: 0.32, gradFrom: headTop, gradTo: headBot),
+            // Blaze — a cream stripe running down the center of the face into the
+            // muzzle, the fold-line color change that reads as the Bernedoodle's
+            // signature facial marking.
             PaperFacet(group: .head,
-                       pts: [CGPoint(x: 0.518, y: 0.356), CGPoint(x: 0.556, y: 0.370), CGPoint(x: 0.520, y: 0.396)],
-                       hi: 0.22, lo: 0.10, gradFrom: CGPoint(x: 0.518, y: 0.356), gradTo: CGPoint(x: 0.520, y: 0.396)),
+                       pts: [CGPoint(x: 0.478, y: 0.300), CGPoint(x: 0.540, y: 0.340), CGPoint(x: 0.520, y: 0.500), CGPoint(x: 0.468, y: 0.480)],
+                       hi: 0.98, lo: 0.80, gradFrom: CGPoint(x: 0.478, y: 0.300), gradTo: CGPoint(x: 0.520, y: 0.500),
+                       overridePalette: .berneCream),
+            // Eye — a rounder, friendlier dark facet set on the cheek, lifted by a
+            // tiny catchlight.
             PaperFacet(group: .head,
-                       pts: [CGPoint(x: 0.524, y: 0.362), CGPoint(x: 0.537, y: 0.366), CGPoint(x: 0.527, y: 0.376)],
-                       hi: 1.0, lo: 0.9, gradFrom: CGPoint(x: 0.524, y: 0.362), gradTo: CGPoint(x: 0.527, y: 0.376),
+                       pts: [CGPoint(x: 0.530, y: 0.372), CGPoint(x: 0.568, y: 0.384), CGPoint(x: 0.536, y: 0.412), CGPoint(x: 0.514, y: 0.396)],
+                       hi: 0.22, lo: 0.10, gradFrom: CGPoint(x: 0.530, y: 0.372), gradTo: CGPoint(x: 0.536, y: 0.412)),
+            PaperFacet(group: .head,
+                       pts: [CGPoint(x: 0.536, y: 0.378), CGPoint(x: 0.550, y: 0.383), CGPoint(x: 0.539, y: 0.394)],
+                       hi: 1.0, lo: 0.9, gradFrom: CGPoint(x: 0.536, y: 0.378), gradTo: CGPoint(x: 0.539, y: 0.394),
                        overridePalette: .catchlight),
-            // Snout — long wedge pointing right, lit top + shadowed underside.
+            // Muzzle — short, rounded two-facet wedge (not a long snout), cream paper.
             PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.545, y: 0.350), CGPoint(x: 0.720, y: 0.470), CGPoint(x: 0.548, y: 0.450)],
-                       hi: 0.98, lo: 0.80, gradFrom: CGPoint(x: 0.720, y: 0.470), gradTo: CGPoint(x: 0.55, y: 0.450)),
+                       pts: [CGPoint(x: 0.520, y: 0.420), CGPoint(x: 0.645, y: 0.480), CGPoint(x: 0.522, y: 0.480)],
+                       hi: 0.99, lo: 0.84, gradFrom: CGPoint(x: 0.645, y: 0.480), gradTo: CGPoint(x: 0.52, y: 0.480),
+                       overridePalette: .berneCream),
             PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.548, y: 0.450), CGPoint(x: 0.720, y: 0.470), CGPoint(x: 0.560, y: 0.520)],
-                       hi: 0.74, lo: 0.56, gradFrom: CGPoint(x: 0.720, y: 0.470), gradTo: CGPoint(x: 0.56, y: 0.520)),
-            // Nose — a rounded dark button with a moist top highlight.
+                       pts: [CGPoint(x: 0.522, y: 0.480), CGPoint(x: 0.645, y: 0.480), CGPoint(x: 0.560, y: 0.525)],
+                       hi: 0.90, lo: 0.72, gradFrom: CGPoint(x: 0.645, y: 0.480), gradTo: CGPoint(x: 0.56, y: 0.525),
+                       overridePalette: .berneCream),
+            // Nose — a rounded dark button with a moist top highlight, set at the
+            // shortened muzzle's tip.
             PaperFacet(group: .neck,
-                       pts: [CGPoint(x: 0.702, y: 0.452), CGPoint(x: 0.741, y: 0.462), CGPoint(x: 0.751, y: 0.482), CGPoint(x: 0.710, y: 0.500)],
-                       hi: 0.82, lo: 0.30, gradFrom: CGPoint(x: 0.720, y: 0.454), gradTo: CGPoint(x: 0.714, y: 0.498),
+                       pts: [CGPoint(x: 0.630, y: 0.462), CGPoint(x: 0.665, y: 0.472), CGPoint(x: 0.672, y: 0.492), CGPoint(x: 0.636, y: 0.508)],
+                       hi: 0.82, lo: 0.30, gradFrom: CGPoint(x: 0.648, y: 0.464), gradTo: CGPoint(x: 0.642, y: 0.506),
                        overridePalette: .noseDog),
-            // Near ear — bright, soft down-fold in front on the left.
+            // Near ear — the larger floppy trapezoid draping over the cheek on the
+            // left, black paper.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.400, y: 0.250), CGPoint(x: 0.300, y: 0.470), CGPoint(x: 0.440, y: 0.400)],
-                       hi: 0.82, lo: 0.56, gradFrom: CGPoint(x: 0.400, y: 0.250), gradTo: CGPoint(x: 0.300, y: 0.470)),
+                       pts: [CGPoint(x: 0.410, y: 0.240), CGPoint(x: 0.280, y: 0.500), CGPoint(x: 0.455, y: 0.430)],
+                       hi: 0.42, lo: 0.20, gradFrom: CGPoint(x: 0.410, y: 0.240), gradTo: CGPoint(x: 0.280, y: 0.500)),
             // Inner near-ear — a warmer, darker fold nested inside for depth.
             PaperFacet(group: .wing,
-                       pts: [CGPoint(x: 0.399, y: 0.294), CGPoint(x: 0.338, y: 0.444), CGPoint(x: 0.430, y: 0.398)],
-                       hi: 0.72, lo: 0.42, gradFrom: CGPoint(x: 0.399, y: 0.294), gradTo: CGPoint(x: 0.338, y: 0.444),
-                       overridePalette: .innerEarDog),
+                       pts: [CGPoint(x: 0.408, y: 0.288), CGPoint(x: 0.312, y: 0.470), CGPoint(x: 0.442, y: 0.418)],
+                       hi: 0.30, lo: 0.14, gradFrom: CGPoint(x: 0.408, y: 0.288), gradTo: CGPoint(x: 0.312, y: 0.470)),
         ]
 
         let creases: [PaperCrease] = [
             PaperCrease(group: .head, a: headTop, b: headBot, valley: true, strength: 1.0),                                          // head keel
-            PaperCrease(group: .neck, a: CGPoint(x: 0.545, y: 0.350), b: CGPoint(x: 0.720, y: 0.470), valley: false, strength: 0.7), // snout ridge
-            PaperCrease(group: .wing, a: CGPoint(x: 0.400, y: 0.250), b: CGPoint(x: 0.300, y: 0.470), valley: true, strength: 0.6),  // near-ear fold
-            PaperCrease(group: .wing, a: CGPoint(x: 0.520, y: 0.270), b: CGPoint(x: 0.545, y: 0.470), valley: true, strength: 0.35), // far-ear fold
-            PaperCrease(group: .body, a: CGPoint(x: 0.445, y: 0.500), b: CGPoint(x: 0.445, y: 0.840), valley: true, strength: 0.5),  // chest keel
-            PaperCrease(group: .tail, a: CGPoint(x: 0.340, y: 0.700), b: CGPoint(x: 0.185, y: 0.470), valley: false, strength: 0.5), // tail median
+            PaperCrease(group: .neck, a: CGPoint(x: 0.520, y: 0.420), b: CGPoint(x: 0.645, y: 0.480), valley: false, strength: 0.6), // muzzle ridge
+            PaperCrease(group: .wing, a: CGPoint(x: 0.410, y: 0.240), b: CGPoint(x: 0.280, y: 0.500), valley: true, strength: 0.6),  // near-ear fold
+            PaperCrease(group: .wing, a: CGPoint(x: 0.400, y: 0.310), b: CGPoint(x: 0.300, y: 0.470), valley: false, strength: 0.3), // near-ear floppy crease
+            PaperCrease(group: .wing, a: CGPoint(x: 0.545, y: 0.255), b: CGPoint(x: 0.612, y: 0.560), valley: true, strength: 0.35), // far-ear fold
+            PaperCrease(group: .wing, a: CGPoint(x: 0.560, y: 0.320), b: CGPoint(x: 0.590, y: 0.500), valley: false, strength: 0.25),// far-ear floppy crease
+            PaperCrease(group: .body, a: CGPoint(x: 0.450, y: 0.520), b: CGPoint(x: 0.450, y: 0.845), valley: true, strength: 0.5),  // chest keel
+            PaperCrease(group: .tail, a: CGPoint(x: 0.345, y: 0.690), b: CGPoint(x: 0.220, y: 0.510), valley: false, strength: 0.5), // tail median
         ]
 
         let occlusion: [PaperOcclusion] = [
-            PaperOcclusion(center: CGPoint(x: 0.47, y: 0.42), radius: 0.12, group: .head),
-            PaperOcclusion(center: CGPoint(x: 0.44, y: 0.60), radius: 0.11, group: .body),
-            PaperOcclusion(center: CGPoint(x: 0.37, y: 0.66), radius: 0.08, group: .tail),
+            PaperOcclusion(center: CGPoint(x: 0.48, y: 0.44), radius: 0.13, group: .head),
+            PaperOcclusion(center: CGPoint(x: 0.44, y: 0.61), radius: 0.11, group: .body),
+            PaperOcclusion(center: CGPoint(x: 0.38, y: 0.66), radius: 0.08, group: .tail),
         ]
 
         return PaperFigure(
@@ -621,13 +648,13 @@ extension PaperFigure {
             occlusion: occlusion,
             packetTriangle: PaperFigure.packet,
             groundCenter: CGPoint(x: 0.44, y: 0.87),
-            specular: PaperSpecular(from: CGPoint(x: 0.470, y: 0.260), to: CGPoint(x: 0.560, y: 0.360), group: .head),
-            palette: .kraft,
-            // Big, lively tail wag around the tail base — picks up further when the
-            // cursor is close (`excitable`), since a dog's tail is the one part of it
-            // that visibly reacts to attention.
+            specular: PaperSpecular(from: CGPoint(x: 0.475, y: 0.260), to: CGPoint(x: 0.560, y: 0.360), group: .head),
+            palette: .berneInk,
+            // A calmer plume wag than the old shiba tail — still picks up when the
+            // cursor is close (`excitable`), since the tail is the one part that
+            // visibly reacts to attention.
             idle: [
-                PaperWag(group: .tail, pivot: CGPoint(x: 0.360, y: 0.720), amplitude: 0.30, speed: 8.2,
+                PaperWag(group: .tail, pivot: CGPoint(x: 0.365, y: 0.700), amplitude: 0.22, speed: 7.0,
                          motion: .sway, excitable: true)
             ]
         )

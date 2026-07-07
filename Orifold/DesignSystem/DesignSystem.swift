@@ -207,6 +207,28 @@ extension CGFloat {
     static let dsXXL: CGFloat = 32
 }
 
+// MARK: - Gami companion tokens
+//
+// Spacing/sizing constants for the Gami companion chip and hint bubble, kept apart
+// from the general spacing scale since they encode specific clearance guarantees
+// (never overlapping document content) rather than generic rhythm.
+
+extension CGFloat {
+    /// Gap between the hint bubble and the companion chip.
+    static let gamiBubbleGap: CGFloat = 12
+    /// Minimum clearance kept between the bubble's bounds and the visible PDF page
+    /// rect / any tracked exclusion zone (selection, edit handles, toolbar, etc).
+    static let gamiContentClearance: CGFloat = 24
+    /// Minimum inset from the window edges.
+    static let gamiEdgeInset: CGFloat = 16
+    /// At-rest chip container size (icon + padding), workspace presentation.
+    static let gamiChipCompact: CGFloat = 56
+    /// Hover-expanded chip container size, workspace presentation.
+    static let gamiChipHover: CGFloat = 88
+    /// Chip container size in cramped/small-window mode.
+    static let gamiChipCramped: CGFloat = 44
+}
+
 // MARK: - Corner radii
 
 extension CGFloat {

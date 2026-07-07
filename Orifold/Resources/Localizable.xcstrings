@@ -16278,699 +16278,43 @@
         }
       }
     },
-    "pet.dog.export.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export complete. Tail wag officially approved."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exportación completa. Meneo de cola oficialmente aprobado."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export terminé. Frétillement de queue officiellement approuvé."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "एक्सपोर्ट पूरा। पूँछ हिलाना आधिकारिक रूप से मंज़ूर।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "書き出し完了。しっぽフリフリ、公式に承認。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "导出完成。摇尾巴，正式批准。"
-          }
-        }
-      }
-    },
-    "pet.dog.export.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delivered clean, no smudges. Who's a good file?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entregado limpio, sin manchas. ¿Quién es un buen archivo?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Livré nickel, sans bavure. C'est qui le bon fichier ?"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "साफ़-सुथरा तैयार, कोई दाग़ नहीं। कौन है अच्छी फ़ाइल?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "汚れひとつなくお届け。いい子のファイルはどれかな？"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "干净利落，没有污渍。谁是乖乖文件呀？"
-          }
-        }
-      }
-    },
-    "pet.dog.greeting.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDF patrol reporting for duty."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cuando quieras. He estado vigilando los márgenes."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quand tu veux. Je surveillais les marges."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "जब आप तैयार हों। मैं मार्जिन की रखवाली कर रहा था।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "いつでもどうぞ。余白を見張っていたよ。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "随时待命。我一直在看守页边距。"
-          }
-        }
-      }
-    },
-    "pet.dog.greeting.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You edit. I supervise with enthusiasm."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Página nueva, olorcito fresco. Dejémosla impecable."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nouvelle page, odeur fraîche. Rendons-la impeccable."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "नया पन्ना, नई ख़ुशबू। इसे करीने से बनाते हैं।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新しいページ、新しい匂い。きれいに仕上げよう。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新的一页，新的气味。咱们把它弄整齐。"
-          }
-        }
-      }
-    },
-    "pet.dog.hoverTip.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You hovered! I've been preparing for this moment."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estoy vigilando los márgenes. Sospechosamente bien portados hoy."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je surveille les marges. Étonnamment sages aujourd'hui."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मैं मार्जिन की रखवाली कर रहा हूँ। आज संदिग्ध रूप से अच्छे व्यवहार में हैं।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "余白を見張ってるよ。今日は妙におとなしいね。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我在看守页边距。今天乖得有点可疑。"
-          }
-        }
-      }
-    },
-    "pet.dog.hoverTip.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDF patrol reporting for duty."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Necesitas ayuda? Yo huelo los crímenes de formato."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Besoin d'aide ? Je flaire les crimes de mise en forme."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मदद चाहिए? मैं फ़ॉर्मैटिंग के अपराध सूँघ लेता हूँ।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "手伝おうか？書式の犯罪なら嗅ぎつけるよ。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要帮忙吗？排版上的小毛病，我一嗅便知。"
-          }
-        }
-      }
-    },
-    "pet.dog.hoverTip.3": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I sniffed the margins. Something smells aligned."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Patrulla de PDF activada."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Patrouille PDF active."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDF गश्त सक्रिय है।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDFパトロール中。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PDF 巡逻，已启动。"
-          }
-        }
-      }
-    },
-    "pet.dog.hoverTip.4": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Need help? I can emotionally support the export button."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Necesitas ayuda? Puedo dar apoyo emocional al botón de exportar."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Besoin d'aide ? Je peux soutenir moralement le bouton d'export."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मदद चाहिए? मैं एक्सपोर्ट बटन को भावनात्मक सहारा दे सकता हूँ।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "お手伝いしましょうか？書き出しボタンを心から応援できます。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "需要帮忙吗？我可以给导出按钮提供情感支持。"
-          }
-        }
-      }
-    },
-    "pet.dog.hoverTip.5": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I'm guarding this document like it owes you money."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vigilo este documento como si te debiera dinero."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je garde ce document comme s'il te devait de l'argent."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मैं इस दस्तावेज़ की ऐसे रखवाली कर रहा हूँ जैसे यह आपका कर्ज़दार हो।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この書類を、借金でもあるかのように見張っています。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "我守着这份文档，就像它欠你钱一样。"
-          }
-        }
-      }
-    },
-    "pet.dog.hoverTip.6": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Still here. Still loyal. Still judging bad spacing."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sigo aquí. Sigo leal. Sigo juzgando el mal espaciado."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toujours là. Toujours loyal. Toujours à juger les mauvais espacements."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अब भी यहीं हूँ। अब भी वफ़ादार। अब भी ख़राब स्पेसिंग को परख रहा हूँ।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まだここにいます。まだ忠実です。まだ雑な余白を見張っています。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "还在这儿。依然忠诚。依然在挑剔糟糕的间距。"
-          }
-        }
-      }
-    },
-    "pet.dog.intro.greeting": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hi, I'm Gami — your paper pup."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¡Hola! Soy Gami, tu cachorro de papel."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Salut, je suis Gami — ton chiot en papier."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "नमस्ते, मैं Gami हूँ — तुम्हारा कागज़ी पिल्ला।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "こんにちは、ぼくは Gami — きみの紙の子犬だよ。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "嗨，我是 Gami——你的纸小狗。"
-          }
-        }
-      }
-    },
-    "pet.dog.intro.message": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Everything stays on this Mac. I'll fetch tips as you edit — never your files."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todo se queda en este Mac. Te traeré consejos mientras editas, nunca tus archivos."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tout reste sur ce Mac. Je t'apporte des astuces pendant que tu édites, jamais tes fichiers."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सब कुछ इसी Mac पर रहता है। संपादन के दौरान मैं सुझाव लाऊँगा — आपकी फ़ाइलें कभी नहीं।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "すべてこのMacの中だけ。編集中はヒントを持ってくるよ——ファイルは持ち出さない。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "一切都留在这台 Mac 上。你编辑时我会叼来小提示——但绝不会碰你的文件。"
-          }
-        }
-      }
-    },
-    "pet.dog.save.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saved and safe. I'll guard it like the last treat."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Guardado y a salvo. Lo cuidaré como la última golosina."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enregistré et à l'abri. Je le garde comme la dernière friandise."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सहेजा और सुरक्षित। इसे आख़िरी दावत की तरह संभालूँगा।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存して安心。最後のおやつみたいに守るよ。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已保存，很安全。我会像守护最后一块零食一样守着它。"
-          }
-        }
-      }
-    },
-    "pet.dog.save.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saved! Nothing gets past me."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¡Guardado! Nada se me escapa."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enregistré ! Rien ne m'échappe."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सहेज लिया! मुझसे कुछ नहीं छूटता।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存完了！僕の目は誤魔化せない。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已保存！什么都逃不过我。"
-          }
-        }
-      }
-    },
-    "pet.dog.warning.1": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Something smells off. I'll sit right here while you fix it."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Algo huele mal. Me quedaré aquí sentado mientras lo arreglas."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quelque chose cloche. Je reste assis ici pendant que tu répares."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कुछ गड़बड़ महसूस हो रही है। जब तक तुम इसे ठीक करो, मैं यहीं बैठा रहूँगा।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "何か様子がおかしいです。直すあいだ、ここに座って待っています。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "有点不对劲。你修的时候，我就守在这儿。"
-          }
-        }
-      }
-    },
-    "pet.dog.warning.2": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uh oh — I sniffed a problem. You've got this."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uy… olí un problema. Tú puedes con esto."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Oh oh — j'ai flairé un problème. Tu vas y arriver."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अरे — मुझे कोई गड़बड़ सूँघ आई। तुम यह कर लोगे।"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "おっと、問題のにおいがします。あなたなら大丈夫。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "糟糕——我嗅到了问题。你可以搞定的。"
-          }
-        }
-      }
-    },
     "pet.event.addFile.1": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Two PDFs enter, one workspace leaves."
+            "value": "Files combined into one workspace."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entran dos PDF, sale un solo espacio de trabajo."
+            "value": "Archivos combinados en un solo espacio de trabajo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deux PDF entrent, un seul espace de travail en sort."
+            "value": "Fichiers réunis dans un seul espace de travail."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "दो PDF अंदर आए, एक वर्कस्पेस बाहर निकला।"
+            "value": "फ़ाइलें एक वर्कस्पेस में मिला दी गईं।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "2つのPDFが入って、1つのワークスペースに。"
+            "value": "ファイルを1つのワークスペースにまとめました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "两个 PDF 进来，一个工作区出去。"
+            "value": "文件已合并到一个工作区。"
           }
         }
       }
@@ -16981,7 +16325,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tip: drag pages between files to reshuffle."
+            "value": "Tip: drag pages between files to reshuffle them."
           }
         },
         "es": {
@@ -16999,19 +16343,19 @@
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: फ़ाइलों के बीच पेज ड्रैग करके उन्हें फिर से व्यवस्थित करें।"
+            "value": "सुझाव: फ़ाइलों के बीच पेज खींचकर उन्हें फिर से व्यवस्थित करें।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: ファイル間でページをドラッグして並べ替えられます。"
+            "value": "ヒント：ページをファイル間でドラッグすると並べ替えられます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：在文件之间拖动页面即可重新组合。"
+            "value": "提示：在文件之间拖动页面即可重新排列。"
           }
         }
       }
@@ -17022,37 +16366,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A comment — bold of you to leave a paper trail."
+            "value": "Comment added."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un comentario. Qué valiente dejar rastro por escrito."
+            "value": "Comentario añadido."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un commentaire — audacieux de laisser une trace écrite."
+            "value": "Commentaire ajouté."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "एक टिप्पणी — कागज़ी सबूत छोड़ना बहादुरी है।"
+            "value": "टिप्पणी जोड़ी गई।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "コメントですか。証拠を残すとは大胆ですね。"
+            "value": "コメントを追加しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "留下了评论——真敢留证据啊。"
+            "value": "已添加评论。"
           }
         }
       }
@@ -17063,37 +16407,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Noted. Literally."
+            "value": "Noted."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anotado. Literalmente."
+            "value": "Anotado."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Noté. Au sens propre."
+            "value": "Noté."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "नोट कर लिया। शब्दशः।"
+            "value": "नोट कर लिया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "記録しました。文字通り。"
+            "value": "記録しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "记下了，真的记下了。"
+            "value": "已记录。"
           }
         }
       }
@@ -17110,31 +16454,31 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Consejo: etiqueta un comentario ahora y lo encontrarás en segundos más tarde."
+            "value": "Consejo: etiqueta un comentario ahora y lo encontrarás en segundos después."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : étiquetez un commentaire dès maintenant pour le retrouver en un instant plus tard."
+            "value": "Astuce : étiquetez un commentaire maintenant, vous le retrouverez en quelques secondes."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: अभी एक टिप्पणी को टैग करें और बाद में उसे सेकंडों में ढूंढ लेंगे।"
+            "value": "सुझाव: अभी टिप्पणी को टैग करें और बाद में सेकंडों में ढूंढ लें।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: 今のうちにコメントにタグを付けると、後で一瞬で見つかります。"
+            "value": "ヒント：コメントに今タグを付けておくと、後ですぐ見つかります。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：现在给评论加个标签，以后几秒钟就能找到。"
+            "value": "提示：现在给评论加个标签，之后几秒就能找到。"
           }
         }
       }
@@ -17145,37 +16489,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sharp feedback. Speaking of which… the dev would love yours 👀"
+            "value": "Feedback like this helps shape Orifold."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comentario certero. Hablando de eso… al desarrollador le encantaría leer el tuyo 👀"
+            "value": "Comentarios como este ayudan a mejorar Orifold."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Retour pertinent. D’ailleurs… le développeur adorerait aussi recevoir le vôtre 👀"
+            "value": "Ce type de retour aide à façonner Orifold."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "पैनी टिप्पणी। इसी बात पर… डेवलपर को आपकी राय भी पसंद आएगी 👀"
+            "value": "इस तरह की प्रतिक्रिया Orifold को बेहतर बनाने में मदद करती है।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "鋭いフィードバックですね。ちなみに…開発者もあなたの感想をきっと喜びますよ 👀"
+            "value": "こうしたフィードバックが Orifold をより良くします。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "犀利的反馈。说到这个……开发者也很想听听你的意见 👀"
+            "value": "这样的反馈有助于打磨 Orifold。"
           }
         }
       }
@@ -17186,37 +16530,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gone. We don't talk about that page anymore."
+            "value": "Page removed."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Desapareció. Ya no hablamos de esa página."
+            "value": "Página eliminada."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disparue. On ne parle plus de cette page."
+            "value": "Page supprimée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "गायब। अब हम उस पेज की बात नहीं करते।"
+            "value": "पेज हटा दिया गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "消えました。あのページの話はもうしません。"
+            "value": "ページを削除しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "没了。我们就不再提那一页了。"
+            "value": "已删除该页。"
           }
         }
       }
@@ -17227,37 +16571,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tip: ⌘Z brings it back if you panic."
+            "value": "Tip: ⌘Z restores it if needed."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Consejo: ⌘Z la trae de vuelta si te arrepientes."
+            "value": "Consejo: ⌘Z la restaura si la necesitas."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : ⌘Z la ramène en cas de panique."
+            "value": "Astuce : ⌘Z la restaure si nécessaire."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: अगर घबरा जाएं तो ⌘Z इसे वापस ले आता है।"
+            "value": "सुझाव: ज़रूरत पड़े तो ⌘Z से वापस लाया जा सकता है।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: 慌てても⌘Zで元に戻せます。"
+            "value": "ヒント：必要なら ⌘Z で元に戻せます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：慌了的话，⌘Z 能把它找回来。"
+            "value": "提示：需要的话，⌘Z 可以恢复。"
           }
         }
       }
@@ -17268,37 +16612,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Editing a PDF? Bold. They said it couldn't be done."
+            "value": "Text updated in place."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Editando un PDF? Qué atrevido. Decían que no se podía."
+            "value": "Texto actualizado en el mismo lugar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Modifier un PDF ? Audacieux. On disait que c’était impossible."
+            "value": "Texte modifié sur place."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "PDF संपादित कर रहे हैं? बहादुरी है। कहा जाता था कि यह हो ही नहीं सकता।"
+            "value": "टेक्स्ट सीधे अपडेट किया गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "PDFを編集? 大胆ですね。無理だと言われていたのに。"
+            "value": "テキストをその場で更新しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "编辑 PDF？真大胆。他们都说这做不到呢。"
+            "value": "文字已就地更新。"
           }
         }
       }
@@ -17315,31 +16659,31 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Consejo: haz clic en cualquier texto para ajustarlo en el momento."
+            "value": "Consejo: haz clic en cualquier texto para editarlo en el sitio."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : cliquez sur n’importe quel texte pour l’ajuster directement."
+            "value": "Astuce : cliquez sur n'importe quel texte pour le modifier sur place."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: किसी भी टेक्स्ट पर क्लिक करके उसे वहीं संशोधित करें।"
+            "value": "सुझाव: किसी भी टेक्स्ट पर क्लिक करके उसे वहीं संपादित करें।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: 好きなテキストをクリックすればその場で編集できます。"
+            "value": "ヒント：テキストをクリックすると、その場で編集できます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：点按任意文字即可原地修改。"
+            "value": "提示：点击任意文字即可就地编辑。"
           }
         }
       }
@@ -17350,37 +16694,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rewriting history, one line at a time."
+            "value": "Edit saved."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reescribiendo la historia, una línea a la vez."
+            "value": "Edición guardada."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réécrire l’histoire, une ligne à la fois."
+            "value": "Modification enregistrée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "इतिहास को फिर से लिखना, एक लाइन एक बार में।"
+            "value": "बदलाव सहेजा गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "歴史を書き換え中、一行ずつ。"
+            "value": "編集を保存しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "一行一行地改写历史。"
+            "value": "编辑已保存。"
           }
         }
       }
@@ -17391,37 +16735,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exported. Go attach it to something important."
+            "value": "Export complete."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exportado. Ve y adjúntalo a algo importante."
+            "value": "Exportación completa."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exporté. Allez le joindre à quelque chose d’important."
+            "value": "Export terminé."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "एक्सपोर्ट हो गया। इसे किसी ज़रूरी चीज़ से जोड़ दें।"
+            "value": "एक्सपोर्ट पूरा हुआ।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "書き出し完了。大事な用途に添付してきましょう。"
+            "value": "書き出しが完了しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "导出完成。快去把它附到重要的事情上吧。"
+            "value": "导出已完成。"
           }
         }
       }
@@ -17438,31 +16782,31 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Consejo: aplana el documento antes de compartirlo para que las anotaciones se mantengan."
+            "value": "Consejo: aplana el documento antes de compartir para que las anotaciones se mantengan."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : aplatissez avant de partager pour que les annotations restent en place."
+            "value": "Astuce : aplatissez avant de partager pour que les annotations restent fixées."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: साझा करने से पहले फ़्लैटन करें ताकि एनोटेशन बने रहें।"
+            "value": "सुझाव: शेयर करने से पहले फ़्लैटन करें ताकि एनोटेशन बने रहें।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: 共有前にフラット化すると注釈がそのまま残ります。"
+            "value": "ヒント：共有前にフラット化すると注釈が固定されます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：分享前先展平，批注才不会丢。"
+            "value": "提示：分享前先展平文档，注释才不会丢失。"
           }
         }
       }
@@ -17473,37 +16817,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Back again? I never left."
+            "value": "Welcome back."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿De vuelta? Yo nunca me fui."
+            "value": "Bienvenido de nuevo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "De retour ? Je n’étais jamais parti."
+            "value": "Content de vous revoir."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "फिर से वापस? मैं तो कभी गया ही नहीं।"
+            "value": "वापसी पर स्वागत है।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "また戻ってきましたね? 私はずっとここにいましたよ。"
+            "value": "おかえりなさい。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "又来了？我可从没走开过。"
+            "value": "欢迎回来。"
           }
         }
       }
@@ -17520,19 +16864,19 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Listo cuando tú lo estés."
+            "value": "Listo cuando quieras."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prêt quand vous le serez."
+            "value": "Prêt quand vous voulez."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "जब आप तैयार हों, मैं तैयार हूं।"
+            "value": "जब आप तैयार हों, मैं तैयार हूँ।"
           }
         },
         "ja": {
@@ -17544,7 +16888,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "准备好了，随时等你。"
+            "value": "准备好了，随时可以开始。"
           }
         }
       }
@@ -17555,37 +16899,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Highlighted. Future-you will pretend they read the rest."
+            "value": "Highlight added."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Resaltado. Tu yo futuro fingirá que leyó el resto."
+            "value": "Resaltado añadido."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Surligné. Votre futur vous fera semblant d’avoir lu le reste."
+            "value": "Surlignage ajouté."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "हाइलाइट कर दिया। भविष्य वाले आप बाकी पढ़ने का नाटक करेंगे।"
+            "value": "हाइलाइट जोड़ा गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ハイライトしましたね。未来のあなたは残りも読んだふりをするはず。"
+            "value": "ハイライトを追加しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已高亮。未来的你会假装读完了剩下的部分。"
+            "value": "已添加高亮。"
           }
         }
       }
@@ -17596,37 +16940,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "That sentence never stood a chance."
+            "value": "Text marked."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esa frase no tuvo ninguna oportunidad."
+            "value": "Texto marcado."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cette phrase n’avait aucune chance."
+            "value": "Texte marqué."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "उस वाक्य के पास कोई मौका नहीं था।"
+            "value": "टेक्स्ट चिह्नित किया गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "あの一文はもう逃げられませんね。"
+            "value": "テキストにマークを付けました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这句话没能逃过一劫。"
+            "value": "文字已标记。"
           }
         }
       }
@@ -17643,31 +16987,31 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Consejo: arrastra sobre el texto y elige un color; los resaltados se acumulan, así que no te pases."
+            "value": "Consejo: arrastra sobre el texto y elige un color; los resaltados se acumulan, así que no exageres."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : sélectionnez du texte, puis choisissez une couleur — les surlignages s’accumulent, alors n’en abusez pas."
+            "value": "Astuce : sélectionnez le texte puis choisissez une couleur — les surlignages s'accumulent, allez-y doucement."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: टेक्स्ट पर ड्रैग करें, फिर एक रंग चुनें — हाइलाइट एक-दूसरे पर जमते हैं, इसलिए संभलकर करें।"
+            "value": "सुझाव: टेक्स्ट पर ड्रैग करें और रंग चुनें — हाइलाइट्स जमा होते जाते हैं, संयम से करें।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: テキストをドラッグして色を選びましょう。ハイライトは重ねがけできるので、ほどほどに。"
+            "value": "ヒント：テキストをドラッグして色を選べます。ハイライトは重なるので使いすぎに注意。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：拖过文字后选择颜色——高亮可以叠加，悠着点用。"
+            "value": "提示：拖选文字后选择颜色——高亮会叠加，适量使用即可。"
           }
         }
       }
@@ -17678,37 +17022,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yellow again? A classic never fails."
+            "value": "Highlight color applied."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Amarillo otra vez? Un clásico nunca falla."
+            "value": "Color de resaltado aplicado."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encore du jaune ? Un classique qui ne déçoit jamais."
+            "value": "Couleur de surlignage appliquée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "फिर से पीला? एक क्लासिक कभी असफल नहीं होता।"
+            "value": "हाइलाइट रंग लागू किया गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "また黄色ですか? 定番は裏切りませんね。"
+            "value": "ハイライトの色を適用しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "又是黄色？经典永不过时。"
+            "value": "已应用高亮颜色。"
           }
         }
       }
@@ -17719,37 +17063,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Freehand! Bob Ross would be proud."
+            "value": "Freehand mark added."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¡A mano alzada! Bob Ross estaría orgulloso."
+            "value": "Trazo a mano alzada añadido."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "À main levée ! Bob Ross en serait fier."
+            "value": "Tracé libre ajouté."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "फ़्रीहैंड! बॉब रॉस को गर्व होता।"
+            "value": "फ्रीहैंड मार्क जोड़ा गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "フリーハンド! ボブ・ロスも誇らしいはず。"
+            "value": "フリーハンドの線を追加しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "手绘！Bob Ross 看了都会骄傲。"
+            "value": "已添加手绘标记。"
           }
         }
       }
@@ -17772,25 +17116,25 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : gardez la main stable — annuler n’est qu’à un ⌘Z."
+            "value": "Astuce : gardez la main stable — annuler est à un ⌘Z près."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: हाथ स्थिर रखें — पूर्ववत करना बस एक ⌘Z दूर है।"
+            "value": "सुझाव: स्थिर रखें — पूर्ववत करने के लिए बस एक ⌘Z दूर है।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: 落ち着いて。⌘Zでいつでも取り消せます。"
+            "value": "ヒント：手を安定させて。元に戻すのは ⌘Z ひとつです。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：手要稳，反正一个 ⌘Z 就能撤销。"
+            "value": "提示：保持手稳——⌘Z 随时可以撤销。"
           }
         }
       }
@@ -17801,37 +17145,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A sticky note. The Post-it lives on, digitally."
+            "value": "Note added."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Una nota adhesiva. El Post-it sigue vivo, pero digital."
+            "value": "Nota añadida."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une note autocollante. Le Post-it survit, façon numérique."
+            "value": "Note ajoutée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "एक स्टिकी नोट। पोस्ट-इट डिजिटल रूप में ज़िंदा है।"
+            "value": "नोट जोड़ा गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "付箋ですね。ポストイットはデジタルでも健在。"
+            "value": "メモを追加しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "一张便签。便利贴以数字形式延续下去。"
+            "value": "已添加备注。"
           }
         }
       }
@@ -17848,25 +17192,25 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Consejo: las notas se quedan en su sitio aunque reordenes las páginas."
+            "value": "Consejo: las notas permanecen en su lugar aunque reorganices las páginas."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : les notes restent en place même après réorganisation des pages."
+            "value": "Astuce : les notes restent en place même après avoir réorganisé les pages."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: पेज फिर से व्यवस्थित करने के बाद भी नोट्स अपनी जगह बने रहते हैं।"
+            "value": "सुझाव: पेज फिर से व्यवस्थित करने के बाद भी नोट्स अपनी जगह बने रहते हैं।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: ページを並べ替えてもノートはそのまま残ります。"
+            "value": "ヒント：ページを並べ替えても、メモはそのまま残ります。"
           }
         },
         "zh-Hans": {
@@ -17883,37 +17227,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Whoa, the page turned sideways. Better now?"
+            "value": "Page rotated."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vaya, la página giró de lado. ¿Mejor así?"
+            "value": "Página rotada."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wahou, la page a basculé sur le côté. Mieux comme ça ?"
+            "value": "Page pivotée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "अरे वाह, पेज तिरछा हो गया। अब बेहतर है?"
+            "value": "पेज घुमाया गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "おっと、ページが横向きに。これでどうですか?"
+            "value": "ページを回転しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "哇，页面转向了。这样好一些了吗？"
+            "value": "页面已旋转。"
           }
         }
       }
@@ -17936,25 +17280,25 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : la rotation ne s’applique qu’à la page choisie."
+            "value": "Astuce : la rotation ne s'applique qu'à la page sélectionnée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: घुमाव सिर्फ़ आपके चुने हुए पेज पर लागू होता है।"
+            "value": "सुझाव: घुमाव केवल आपके चुने हुए पेज पर लागू होता है।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: 回転は選択したページだけに適用されます。"
+            "value": "ヒント：回転は選択したページだけに適用されます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：旋转只会应用到你选中的那一页。"
+            "value": "提示：旋转只对你选中的页面生效。"
           }
         }
       }
@@ -17965,37 +17309,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saved. Responsible of you."
+            "value": "Saved."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Guardado. Muy responsable de tu parte."
+            "value": "Guardado."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enregistré. Bien joué."
+            "value": "Enregistré."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "सेव हो गया। आपकी ज़िम्मेदारी काबिले-तारीफ़ है।"
+            "value": "सहेजा गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "保存しました。しっかりしていますね。"
+            "value": "保存しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已保存。你真负责任。"
+            "value": "已保存。"
           }
         }
       }
@@ -18006,37 +17350,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Locked in. Nicely done."
+            "value": "Changes saved."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Todo listo y a salvo. Bien hecho."
+            "value": "Cambios guardados."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "C’est dans la boîte. Du bon travail."
+            "value": "Modifications enregistrées."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "लॉक हो गया। बढ़िया किया।"
+            "value": "बदलाव सहेजे गए।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "確定しました。お見事です。"
+            "value": "変更を保存しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "稳稳存好了，做得漂亮。"
+            "value": "更改已保存。"
           }
         }
       }
@@ -18047,37 +17391,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Looking for something? Aren't we all."
+            "value": "Search started."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "¿Buscando algo? ¿Quién no?"
+            "value": "Búsqueda iniciada."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vous cherchez quelque chose ? Comme nous tous."
+            "value": "Recherche lancée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "कुछ ढूंढ रहे हैं? हम सब यही तो कर रहे हैं।"
+            "value": "खोज शुरू हुई।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "何かお探しですか? みんなそうですよね。"
+            "value": "検索を開始しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在找什么呢？谁不是呢。"
+            "value": "已开始搜索。"
           }
         }
       }
@@ -18100,25 +17444,25 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : les résultats vous emmènent directement à la page."
+            "value": "Astuce : les résultats vous amènent directement à la page."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: परिणाम आपको सीधे उस पेज पर ले जाते हैं।"
+            "value": "सुझाव: नतीजे आपको सीधे उस पेज पर ले जाते हैं।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: 検索結果からそのページへ直接移動できます。"
+            "value": "ヒント：検索結果からそのページへ直接移動できます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：搜索结果会直接带你跳到对应页面。"
+            "value": "提示：搜索结果可以直接跳转到对应页面。"
           }
         }
       }
@@ -18129,37 +17473,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Signed, sealed — hopefully not regretted."
+            "value": "Signature added."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Firmado, sellado… ojalá no lo lamentes."
+            "value": "Firma añadida."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Signé, scellé — espérons sans regret."
+            "value": "Signature ajoutée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "हस्ताक्षर कर दिया, मुहर लगा दी — उम्मीद है पछताना नहीं पड़ेगा।"
+            "value": "हस्ताक्षर जोड़े गए।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "署名、封印完了。後悔しないといいですね。"
+            "value": "署名を追加しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "签了，盖章了——希望不会后悔。"
+            "value": "已添加签名。"
           }
         }
       }
@@ -18170,37 +17514,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "That's a legally-adjacent flourish right there."
+            "value": "Document signed."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eso sí que es un gesto casi legal."
+            "value": "Documento firmado."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voilà une fioriture presque juridique."
+            "value": "Document signé."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "यह तो एक कानूनी-सी शान भरी बात है।"
+            "value": "दस्तावेज़ पर हस्ताक्षर हो गए।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "それはなかなか法的な雰囲気の一筆ですね。"
+            "value": "書類に署名しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这一笔，颇有几分法律效力的意味。"
+            "value": "文档已签署。"
           }
         }
       }
@@ -18217,7 +17561,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Consejo: arrastra para cambiar el tamaño de la firma antes de confirmarla."
+            "value": "Consejo: arrastra para cambiar el tamaño de la firma antes de confirmar."
           }
         },
         "fr": {
@@ -18229,19 +17573,19 @@
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: कमिट करने से पहले हस्ताक्षर का आकार बदलने के लिए ड्रैग करें।"
+            "value": "सुझाव: पक्का करने से पहले हस्ताक्षर का आकार बदलने के लिए ड्रैग करें।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: 確定する前にドラッグして署名のサイズを調整できます。"
+            "value": "ヒント：確定前にドラッグして署名の大きさを調整できます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：提交前可以拖动调整签名大小。"
+            "value": "提示：确认前可以拖动调整签名大小。"
           }
         }
       }
@@ -18252,37 +17596,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Very official. Your future self approves."
+            "value": "Signature placed."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muy oficial. Tu yo futuro lo aprueba."
+            "value": "Firma colocada."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Très officiel. Votre futur vous approuve."
+            "value": "Signature placée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "बहुत आधिकारिक। आपका भविष्य वाला स्वरूप इसे मंज़ूर करता है।"
+            "value": "हस्ताक्षर लगाए गए।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "とても正式な感じ。未来のあなたも納得です。"
+            "value": "署名を配置しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "非常正式。未来的你会点头认可。"
+            "value": "签名已放置。"
           }
         }
       }
@@ -18293,37 +17637,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tagged. Organized people are just tidy worriers with labels."
+            "value": "Tag added."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Etiquetado. Las personas organizadas solo son personas ansiosas con etiquetas."
+            "value": "Etiqueta añadida."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Étiqueté. Les gens organisés sont juste des inquiets méticuleux avec des étiquettes."
+            "value": "Étiquette ajoutée."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टैग कर दिया। व्यवस्थित लोग बस लेबल वाले करीने से परेशान होने वाले लोग हैं।"
+            "value": "टैग जोड़ा गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "タグを付けましたね。整理好きな人は、ラベル好きな心配性なだけ。"
+            "value": "タグを追加しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打上标签了。爱整理的人不过是贴着标签的操心人。"
+            "value": "已添加标签。"
           }
         }
       }
@@ -18346,25 +17690,25 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Astuce : réutilisez vos étiquettes, vos filtres vous remercieront."
+            "value": "Astuce : réutilisez les étiquettes, vos filtres vous remercieront."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप: टैग को दोबारा इस्तेमाल करें और आपके फ़िल्टर आपका शुक्रिया अदा करेंगे।"
+            "value": "सुझाव: टैग दोबारा उपयोग करें, फ़िल्टर करना आसान हो जाएगा।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ヒント: タグを使い回すと、あとでフィルタが役立ちます。"
+            "value": "ヒント：タグを使い回すと、後でフィルターしやすくなります。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "提示：重复使用标签，筛选起来会更顺手。"
+            "value": "提示：重复使用标签，筛选起来会更方便。"
           }
         }
       }
@@ -18375,37 +17719,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One tag to rule them all."
+            "value": "Tagged for easy filtering."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Una etiqueta para gobernarlas a todas."
+            "value": "Etiquetado para facilitar el filtrado."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une étiquette pour les gouverner toutes."
+            "value": "Étiqueté pour un filtrage facile."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "सबको जोड़ने वाला एक टैग।"
+            "value": "आसान फ़िल्टरिंग के लिए टैग किया गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "すべてを統べる、たった1つのタグ。"
+            "value": "フィルターしやすいようにタグ付けしました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "一个标签，统领全局。"
+            "value": "已加标签，方便筛选。"
           }
         }
       }
@@ -38045,6 +37389,1072 @@
           "stringUnit": {
             "state": "translated",
             "value": "为您的打字签名选择书写风格。"
+          }
+        }
+      }
+    },
+    "gami.greeting.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi, I'm Gami. I'll share tips as you work."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hola, soy Gami. Te daré consejos mientras trabajas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bonjour, je suis Gami. Je vous donnerai des conseils pendant que vous travaillez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नमस्ते, मैं गामी हूँ। काम के दौरान सुझाव दूँगा।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "こんにちは、ガミです。作業中にヒントをお伝えします。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你好，我是 Gami。工作时我会分享一些小提示。"
+          }
+        }
+      }
+    },
+    "gami.greeting.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome back. Your documents stay on this Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bienvenido de nuevo. Tus documentos permanecen en este Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Content de vous revoir. Vos documents restent sur ce Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वापसी पर स्वागत है। आपके दस्तावेज़ इसी Mac पर सुरक्षित रहते हैं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "おかえりなさい。書類はこの Mac の中だけに保存されます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "欢迎回来。你的文档始终保存在这台 Mac 上。"
+          }
+        }
+      }
+    },
+    "gami.export.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporting? I can walk you through the options."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Vas a exportar? Puedo guiarte por las opciones."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous exportez ? Je peux vous présenter les options."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक्सपोर्ट कर रहे हैं? मैं विकल्प समझा सकता हूँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "書き出しますか？ オプションをご案内します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要导出了吗？我可以带你了解一下选项。"
+          }
+        }
+      }
+    },
+    "gami.export.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Compact export shrinks file size before sharing."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consejo: la exportación compacta reduce el tamaño antes de compartir."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Astuce : l'export compact réduit la taille avant le partage."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सुझाव: शेयर करने से पहले कॉम्पैक्ट एक्सपोर्ट फ़ाइल का आकार घटा देता है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヒント：コンパクト書き出しは共有前にファイルサイズを小さくします。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提示：紧凑导出会在分享前缩小文件体积。"
+          }
+        }
+      }
+    },
+    "gami.save.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved. Your work stays private, on this device."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado. Tu trabajo permanece privado, en este dispositivo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistré. Votre travail reste privé, sur cet appareil."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सहेजा गया। आपका काम इसी डिवाइस पर निजी रहता है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存しました。作業内容はこの端末だけに残ります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存。你的内容只保留在这台设备上。"
+          }
+        }
+      }
+    },
+    "gami.save.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Autosave keeps edits safe between sessions."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consejo: el autoguardado protege tus cambios entre sesiones."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Astuce : l'enregistrement automatique protège vos modifications entre les sessions."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सुझाव: ऑटोसेव सत्रों के बीच आपके बदलाव सुरक्षित रखता है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヒント：自動保存でセッション間も編集内容が守られます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提示：自动保存能在多次使用间保留你的修改。"
+          }
+        }
+      }
+    },
+    "gami.warning.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heads up — this document has unsaved changes."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aviso: este documento tiene cambios sin guardar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attention : ce document a des modifications non enregistrées."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ध्यान दें — इस दस्तावेज़ में बिना सहेजे बदलाव हैं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ご注意：この書類には未保存の変更があります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提醒：此文档还有未保存的更改。"
+          }
+        }
+      }
+    },
+    "gami.warning.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something needs your attention before you continue."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algo requiere tu atención antes de continuar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quelque chose requiert votre attention avant de continuer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आगे बढ़ने से पहले किसी चीज़ पर आपका ध्यान चाहिए।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "続ける前に確認していただきたいことがあります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继续之前，有件事需要你确认一下。"
+          }
+        }
+      }
+    },
+    "gami.hoverTip.1": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Need a tip? Click me anytime."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Necesitas un consejo? Haz clic en mí cuando quieras."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Besoin d'un conseil ? Cliquez sur moi à tout moment."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सुझाव चाहिए? कभी भी मुझ पर क्लिक करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヒントが欲しい時は、いつでもクリックしてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要提示？随时点我。"
+          }
+        }
+      }
+    },
+    "gami.hoverTip.2": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything stays on your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo permanece en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout reste sur votre Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सब कुछ आपके Mac पर ही रहता है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてお使いの Mac の中に留まります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一切都保留在你的 Mac 上。"
+          }
+        }
+      }
+    },
+    "gami.hoverTip.3": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I'm here if you need a hand."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquí estoy si necesitas ayuda."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je suis là si vous avez besoin d'aide."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मदद चाहिए तो मैं यहीं हूँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お手伝いが必要な時は、ここにいます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要帮忙的话，我就在这儿。"
+          }
+        }
+      }
+    },
+    "gami.hoverTip.4": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click me for a quick guide."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic en mí para una guía rápida."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cliquez sur moi pour un guide rapide."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "त्वरित गाइड के लिए मुझ पर क्लिक करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "簡単なガイドを見るにはクリックしてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点我查看快速指南。"
+          }
+        }
+      }
+    },
+    "gami.hoverTip.5": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tips appear here as you work."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los consejos aparecen aquí mientras trabajas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Des conseils apparaissent ici pendant que vous travaillez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "काम के दौरान सुझाव यहीं दिखते हैं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作業中は、ここにヒントが表示されます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工作时，提示会显示在这里。"
+          }
+        }
+      }
+    },
+    "gami.hoverTip.6": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Still here, still quiet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sigo aquí, en silencio."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours là, toujours discret."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी भी यहीं हूँ, चुपचाप।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここにいます、静かに。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我还在，安静地陪着你。"
+          }
+        }
+      }
+    },
+    "gami.intro.greeting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hi, I'm Gami — your Orifold guide."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hola, soy Gami: tu guía de Orifold."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bonjour, je suis Gami, votre guide Orifold."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नमस्ते, मैं गामी हूँ — आपका Orifold गाइड।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "こんにちは、ガミです。Orifold のガイド役です。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你好，我是 Gami——你的 Orifold 向导。"
+          }
+        }
+      }
+    },
+    "gami.intro.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything stays on this Mac. I'll share the occasional tip — never your files."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo permanece en este Mac. Compartiré algún consejo de vez en cuando, nunca tus archivos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout reste sur ce Mac. Je partagerai quelques conseils à l'occasion, jamais vos fichiers."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सब कुछ इसी Mac पर रहता है। मैं कभी-कभार सुझाव दूँगा — कभी आपकी फ़ाइलें नहीं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてこの Mac の中に留まります。たまにヒントをお伝えしますが、書類を外に出すことはありません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一切都保留在这台 Mac 上。我偶尔会分享一些小提示——但绝不会碰你的文件。"
+          }
+        }
+      }
+    },
+    "gami.avatar.help": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami · Orifold Guide"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami · Guía de Orifold"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami · Guide Orifold"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गामी · Orifold गाइड"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ガミ・Orifold ガイド"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami · Orifold 向导"
+          }
+        }
+      }
+    },
+    "gami.a11y.label": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami, Orifold guide"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami, guía de Orifold"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami, guide Orifold"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गामी, Orifold गाइड"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ガミ、Orifold ガイド"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gami，Orifold 向导"
+          }
+        }
+      }
+    },
+    "gami.a11y.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows tips for editing and exporting."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muestra consejos para editar y exportar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche des conseils pour l'édition et l'export."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपादन और एक्सपोर्ट के लिए सुझाव दिखाता है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集や書き出しに関するヒントを表示します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示编辑和导出相关的提示。"
+          }
+        }
+      }
+    },
+    "gami.menu.hideTips": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide Gami Tips"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar consejos de Gami"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer les conseils de Gami"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गामी सुझाव छिपाएं"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ガミのヒントを非表示"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏 Gami 提示"
+          }
+        }
+      }
+    },
+    "gami.popover.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold Guide"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guía de Orifold"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guide Orifold"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold गाइड"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold ガイド"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 向导"
+          }
+        }
+      }
+    },
+    "gami.bubble.dismiss": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss tip"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar consejo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignorer le conseil"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सुझाव खारिज करें"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヒントを閉じる"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭提示"
+          }
+        }
+      }
+    },
+    "pet.firstUse.edit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editing text? Zoom in for finer control of handles."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Editando texto? Acerca la vista para un control más preciso."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous modifiez du texte ? Zoomez pour un contrôle plus précis des poignées."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टेक्स्ट संपादित कर रहे हैं? हैंडल पर बेहतर नियंत्रण के लिए ज़ूम इन करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テキストを編集中ですか？ ズームするとハンドルをより細かく操作できます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在编辑文字？放大后能更精确地控制控制点。"
+          }
+        }
+      }
+    },
+    "pet.firstUse.search": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use ⌘F to jump between matches on any page."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa ⌘F para saltar entre coincidencias en cualquier página."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisez ⌘F pour naviguer entre les résultats sur n'importe quelle page."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "किसी भी पेज पर मैचों के बीच जाने के लिए ⌘F का उपयोग करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘F でどのページでも一致箇所を移動できます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 ⌘F 可在任意页面的匹配项之间跳转。"
+          }
+        }
+      }
+    },
+    "pet.firstUse.sign": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signatures are created and stored only on your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las firmas se crean y almacenan solo en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les signatures sont créées et stockées uniquement sur votre Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हस्ताक्षर केवल आपके Mac पर बनाए और सहेजे जाते हैं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "署名はこの Mac の中でのみ作成・保存されます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "签名仅在你的 Mac 上创建和保存。"
+          }
+        }
+      }
+    },
+    "pet.firstUse.addFile": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: drag pages between files to reshuffle them."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consejo: arrastra páginas entre archivos para reorganizarlas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Astuce : faites glisser des pages entre les fichiers pour les réorganiser."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सुझाव: फ़ाइलों के बीच पेज खींचकर उन्हें फिर से व्यवस्थित करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヒント：ページをファイル間でドラッグすると並べ替えられます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提示：在文件之间拖动页面即可重新排列。"
           }
         }
       }

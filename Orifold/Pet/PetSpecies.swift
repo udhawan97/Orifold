@@ -50,14 +50,14 @@ enum PetSpecies: String, CaseIterable, Sendable {
     /// Keys are literals (see `PetLines.speciesHero` for why interpolation is unsafe).
     var introGreeting: String {
         switch self {
-        case .dog: return L10n.string("pet.dog.intro.greeting")
+        case .dog: return L10n.string("gami.intro.greeting")
         case .cat: return L10n.string("pet.cat.intro.greeting")
         }
     }
 
     var introMessage: String {
         switch self {
-        case .dog: return L10n.string("pet.dog.intro.message")
+        case .dog: return L10n.string("gami.intro.message")
         case .cat: return L10n.string("pet.cat.intro.message")
         }
     }
