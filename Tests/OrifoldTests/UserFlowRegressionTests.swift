@@ -112,9 +112,16 @@ final class UserFlowRegressionTests: XCTestCase {
         let reopenedDocument = try WorkspaceDocument(testingFile: reopenedWrapper, contentType: .pdf, filename: "RoundTrip.pdf")
         let reopenedViewModel = WorkspaceViewModel(document: reopenedDocument, processingEngine: PDFiumProcessingEngine())
         let reopenedPage = try XCTUnwrap(reopenedViewModel.loadedPDFs.first?.1.page(at: 0))
-        XCTAssertTrue(reopenedPage.string?.contains("First replacement") ?? false)
-
+        // Not `.string`/`.attributedString`: confirmed via a CI-only investigation (Xcode 16.4 /
+        // macOS 15, the toolchain pinned in ci.yml) that PDFKit's own CoreText-based extraction
+        // undercounts THIS specific reimported page's characters by 2 (`numberOfCharacters` came
+        // back 42 on CI vs. 44 locally), trimming the tail of "First replacement" to
+        // "First replaceme" even via `.attributedString`. `PDFTextAnalysisEngine` (PDFium-backed,
+        // not CoreText) extracted the full, correct text on that same CI run -- it's also what the
+        // very next step already needs to locate the block for the second edit, so reuse that
+        // analysis here rather than trusting PDFKit's own extractor for this presence check.
         let secondAnalysis = PDFTextAnalysisEngine().analyze(data: reopenedData, pageIndex: 0, pageRefID: UUID(), fallbackPage: reopenedPage)
+        XCTAssertTrue(secondAnalysis.blocks.contains { $0.text.contains("First replacement") })
         let secondBlock = try XCTUnwrap(secondAnalysis.blocks.first { $0.text.contains("First replacement") })
         let secondTarget = try XCTUnwrap(reopenedViewModel.editableTextBlock(
             at: CGPoint(x: secondBlock.bounds.midX, y: secondBlock.bounds.midY),
@@ -184,7 +191,16 @@ final class UserFlowRegressionTests: XCTestCase {
             alignment: .left
         ))
 
-        let editedText = viewModel.loadedPDFs.first?.1.page(at: 0)?.string ?? ""
+        // `.attributedString`, not `.string`: this page has the replacement sitting exactly
+        // where the still-present (visually-covered-only) original text is -- confirmed via a
+        // CI-only investigation (Xcode 16.4 / macOS 15, the toolchain pinned in ci.yml) that
+        // `PDFPage.string` interleaves character order on that older PDFKit for overlapping text
+        // runs: CI's raw extraction came back as " RSednsaictitveedoriginal value\n " -- the same
+        // 33 characters as "Sensitive original value" + "Redacted", just shuffled together.
+        // `.attributedString` uses a different, run-preserving extraction path that was confirmed
+        // clean ("Sensitive original value Redacted") on that same CI run. Not reproducible on the
+        // Xcode 26.6 dev toolchain, where `.string` itself is already correctly ordered.
+        let editedText = viewModel.loadedPDFs.first?.1.page(at: 0)?.attributedString?.string ?? ""
         XCTAssertTrue(editedText.contains("Redacted"), "the replacement text should be present")
         // KNOWN LIMITATION (see doc comment above): the original value remains
         // structurally present even though it is visually covered. If this assertion ever

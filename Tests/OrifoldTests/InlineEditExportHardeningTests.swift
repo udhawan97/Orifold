@@ -91,7 +91,18 @@ final class InlineEditExportHardeningTests: XCTestCase {
         let op = operation(replacing: ordinaryBlock, with: "VISIBLE REPLACEMENT", on: page)
 
         let regeneratedRaw = try XCTUnwrap(PDFEditedPageRenderer.regeneratedPage(from: page, applying: [op]))
-        XCTAssertTrue(regeneratedRaw.string?.contains("VISIBLE REPLACEMENT") ?? false)
+        // `.attributedString`, not `.string`: confirmed via a CI-only investigation (Xcode 16.4 /
+        // macOS 15, the toolchain pinned in ci.yml) that `PDFPage.string` interleaves character
+        // order on that older PDFKit when two text runs occupy overlapping page geometry -- which
+        // is exactly this page's shape (the replacement sits where the erased original still is,
+        // per the "erase is visual only" limitation documented on
+        // `UserFlowRegressionTests.testEraseIsVisualOnlyNotContentStreamRemoval`). CI's raw
+        // extraction came back as "VFiIlSlIoBnLlyE(RTErP0)LACEMENT..." -- the same character SET as
+        // "VISIBLE REPLACEMENT" + "Fill only (Tr 0)", just character-by-character shuffled.
+        // `.attributedString` uses a different, run-preserving extraction path that was confirmed
+        // clean and complete on that same CI run. Not reproducible on the Xcode 26.6 dev toolchain,
+        // where `.string` itself is already correctly ordered.
+        XCTAssertTrue(regeneratedRaw.attributedString?.string.contains("VISIBLE REPLACEMENT") ?? false)
         let (hostDocument, regenerated) = try hosted(regeneratedRaw)
         _ = hostDocument // kept alive for the duration of the render below
         let darkPixels = try darkPixelCount(on: regenerated, in: op.editedBounds)
