@@ -139,6 +139,22 @@ enum DocumentImportConverter {
 
     static func userMessage(for error: Error) -> String {
         switch error {
+        case ImportFailureKind.permissionDenied:
+            return L10n.string("error.import.permissionDenied")
+        case ImportFailureKind.staleBookmark:
+            return L10n.string("error.import.staleBookmark")
+        case ImportFailureKind.fileMissing:
+            return L10n.string("error.import.fileMissing")
+        case ImportFailureKind.corruptOrEncrypted:
+            return L10n.string("error.import.corruptOrEncrypted")
+        case ImportFailureKind.iCloudNotDownloaded:
+            return L10n.string("error.import.iCloudNotDownloaded")
+        case ImportFailureKind.exportTempMissing:
+            return L10n.string("error.import.exportTempMissing")
+        case ImportFailureKind.unsupportedType:
+            return L10n.string("error.import.unsupportedFileType")
+        case ImportFailureKind.tooLarge:
+            return L10n.string("error.import.fileTooLarge")
         case ConversionError.unsupportedType:
             return L10n.string("error.import.unsupportedFileType")
         case ConversionError.passwordProtected:

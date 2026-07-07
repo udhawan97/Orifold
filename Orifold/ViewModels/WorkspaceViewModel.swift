@@ -401,6 +401,16 @@ final class WorkspaceViewModel {
         let id = UUID()
         var fileName: String
         var message: String
+        /// Defaults to `.unknown` so existing call sites that only have a raw error
+        /// message keep compiling; call sites that know more (recents, export-reopen)
+        /// pass real classification for recovery-action rendering.
+        var kind: ImportFailureKind = .unknown
+        /// Set when this failure originated from a `RecentFileEntry`, so the alert can
+        /// offer "Remove from Recents".
+        var recentEntryID: UUID? = nil
+        /// The URL that failed to open, when known — used for "Show in Finder" and to
+        /// scope a "Choose File Again" panel to the right folder.
+        var sourceURL: URL? = nil
     }
 
     struct ExportError: Identifiable {
@@ -780,7 +790,9 @@ final class WorkspaceViewModel {
             let failure = failures[0]
             return ImportError(
                 fileName: failure.url.lastPathComponent,
-                message: String(localized: "Could not open \"\(failure.url.lastPathComponent)\". \(DocumentImportConverter.userMessage(for: failure.error))", locale: L10n.currentLocale)
+                message: String(localized: "Could not open \"\(failure.url.lastPathComponent)\". \(DocumentImportConverter.userMessage(for: failure.error))", locale: L10n.currentLocale),
+                kind: ImportFailureClassifier.classify(error: failure.error, url: failure.url),
+                sourceURL: failure.url
             )
         }
 
@@ -811,22 +823,49 @@ final class WorkspaceViewModel {
 
     private func importDocument(from url: URL, cancellation: OperationCancellationToken) async -> Result<AsyncImportedDocument, AsyncImportFailure> {
         await Task.detached(priority: .userInitiated) {
-            let fileName = url.lastPathComponent
             guard !cancellation.isCancelled, !Task.isCancelled else {
-                return .failure(AsyncImportFailure(url: URL(fileURLWithPath: fileName), error: CancellationError()))
+                return .failure(AsyncImportFailure(url: url, error: CancellationError()))
             }
             let isSecurityScoped = url.startAccessingSecurityScopedResource()
             defer {
                 if isSecurityScoped { url.stopAccessingSecurityScopedResource() }
             }
+            if let preflightKind = ImportFailureClassifier.preflight(url: url) {
+                ImportLog.recordAttempt(
+                    source: .openPanel,
+                    fileExtension: url.pathExtension,
+                    securityScopeGranted: isSecurityScoped,
+                    fileExists: preflightKind != .fileMissing,
+                    isReadable: false,
+                    parserResult: .failed
+                )
+                return .failure(AsyncImportFailure(url: url, error: preflightKind))
+            }
             do {
                 let document = try await DocumentImportConverter.importedDocumentAsync(from: url)
                 try Task.checkCancellation()
                 guard !cancellation.isCancelled else { throw CancellationError() }
+                ImportLog.recordAttempt(
+                    source: .openPanel,
+                    fileExtension: url.pathExtension,
+                    securityScopeGranted: isSecurityScoped,
+                    fileExists: true,
+                    isReadable: true,
+                    parserResult: .ok
+                )
                 return .success(AsyncImportedDocument(url: url, document: document))
             } catch {
-                let failedURL = URL(fileURLWithPath: fileName)
-                return .failure(AsyncImportFailure(url: failedURL, error: error))
+                ImportLog.recordAttempt(
+                    source: .openPanel,
+                    fileExtension: url.pathExtension,
+                    securityScopeGranted: isSecurityScoped,
+                    fileExists: true,
+                    isReadable: true,
+                    parserResult: .failed,
+                    errorDomain: (error as NSError).domain,
+                    errorCode: (error as NSError).code
+                )
+                return .failure(AsyncImportFailure(url: url, error: error))
             }
         }.value
     }
@@ -838,16 +877,54 @@ final class WorkspaceViewModel {
             if isSecurityScoped { url.stopAccessingSecurityScopedResource() }
         }
 
+        if let preflightKind = ImportFailureClassifier.preflight(url: url) {
+            ImportLog.recordAttempt(
+                source: .openPanel,
+                fileExtension: url.pathExtension,
+                securityScopeGranted: isSecurityScoped,
+                fileExists: preflightKind != .fileMissing,
+                isReadable: false,
+                parserResult: .failed
+            )
+            importError = ImportError(
+                fileName: fileName,
+                message: DocumentImportConverter.userMessage(for: preflightKind),
+                kind: preflightKind,
+                sourceURL: url
+            )
+            return
+        }
+
         let imported: DocumentImportConverter.ImportedDocument
         do {
             imported = try DocumentImportConverter.importedDocument(from: url)
         } catch {
+            ImportLog.recordAttempt(
+                source: .openPanel,
+                fileExtension: url.pathExtension,
+                securityScopeGranted: isSecurityScoped,
+                fileExists: true,
+                isReadable: true,
+                parserResult: .failed,
+                errorDomain: (error as NSError).domain,
+                errorCode: (error as NSError).code
+            )
             importError = ImportError(
                 fileName: fileName,
-                message: String(localized: "Could not open \"\(fileName)\". \(DocumentImportConverter.userMessage(for: error))", locale: L10n.currentLocale)
+                message: String(localized: "Could not open \"\(fileName)\". \(DocumentImportConverter.userMessage(for: error))", locale: L10n.currentLocale),
+                kind: ImportFailureClassifier.classify(error: error, url: url),
+                sourceURL: url
             )
             return
         }
+        ImportLog.recordAttempt(
+            source: .openPanel,
+            fileExtension: url.pathExtension,
+            securityScopeGranted: isSecurityScoped,
+            fileExists: true,
+            isReadable: true,
+            parserResult: .ok
+        )
         let pdf = imported.pdfDocument
         if pdf.isLocked {
             enqueuePasswordImport(pdf: pdf, url: url)
@@ -4139,6 +4216,16 @@ final class WorkspaceViewModel {
             .joined(separator: " ")
         exportSuccess = ExportSuccess(url: url, detail: detail.isEmpty ? nil : detail)
         PetBuddyHook.trigger(.export)
+        // Persist a security-scoped bookmark for the exported destination so a later
+        // reopen (from Recents, or double-clicking the file in Finder) survives the
+        // sandbox boundary instead of hitting a bare, non-durable path URL — this is
+        // what actually closes the "exported edited.pdf can't be reopened" gap: a
+        // freshly-written export otherwise has no recorded access token at all.
+        if format == .pdf, FileManager.default.isReadableFile(atPath: url.path) {
+            Task { @MainActor in
+                RecentsStore.shared.recordOpen(url: url)
+            }
+        }
     }
 
     /// Writes export bytes to `targetURL`, preferring a crash-safe temp-file +

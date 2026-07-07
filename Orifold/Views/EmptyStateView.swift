@@ -14,6 +14,11 @@ struct EmptyStateView: View {
     @State private var scanPhase: FolderScanPhase = .idle
     @State private var pendingFolderBatch: PendingFolderImportBatch?
     @State private var activeImportTask: Task<Void, Never>?
+    /// Shown once, near the folder-import button, so users understand macOS will ask
+    /// them to grant access to whichever folder they pick — not a startup modal wall,
+    /// just a quiet one-time caption dismissed the first time they act on either
+    /// choose-files/choose-folder button.
+    @AppStorage("Orifold.hasSeenFolderAccessHint") private var hasSeenFolderAccessHint = false
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -91,6 +96,10 @@ struct EmptyStateView: View {
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: .dsSM) { chooseButtons }
                             VStack(spacing: .dsSM) { chooseButtons }
+                        }
+
+                        if !hasSeenFolderAccessHint {
+                            folderAccessHint
                         }
                     }
                     .padding(.horizontal, .dsXXL)
@@ -224,6 +233,30 @@ struct EmptyStateView: View {
         }
     }
 
+    private var folderAccessHint: some View {
+        HStack(alignment: .top, spacing: .dsXS) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 11, weight: .medium))
+            Text("emptyState.folderAccessHint.message")
+                .font(.dsCaption())
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button {
+                hasSeenFolderAccessHint = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("emptyState.folderAccessHint.dismiss.accessibilityLabel")
+        }
+        .foregroundStyle(Color.dsTextTertiary)
+        .padding(.horizontal, .dsMD)
+        .padding(.vertical, .dsSM)
+        .background(Color.dsSurface, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
+        .transition(.opacity)
+    }
+
     private var dropZoneHeadlineKey: LocalizedStringKey {
         switch draggedKind {
         case .files: return "emptyState.dropZone.releaseFiles"
@@ -301,6 +334,7 @@ struct EmptyStateView: View {
     }
 
     private func openFiles() {
+        hasSeenFolderAccessHint = true
         let panel = NSOpenPanel()
         configureImportOpenPanel(panel)
         if panel.runModal() == .OK {
@@ -309,6 +343,7 @@ struct EmptyStateView: View {
     }
 
     private func openFolder() {
+        hasSeenFolderAccessHint = true
         let panel = NSOpenPanel()
         configureFolderImportOpenPanel(panel)
         guard panel.runModal() == .OK else { return }
@@ -354,15 +389,63 @@ struct EmptyStateView: View {
         pendingFolderBatch = nil
     }
 
-    private func openRecentFile(_ url: URL) {
+    private func openRecentFile(_ entry: RecentFileEntry) {
+        guard let url = recentsStore.resolvedURL(for: entry) else {
+            presentRecentFailure(kind: .fileMissing, entry: entry, url: nil)
+            return
+        }
+        if let preflightKind = ImportFailureClassifier.preflight(url: url) {
+            ImportLog.recordAttempt(
+                source: .recent,
+                fileExtension: url.pathExtension,
+                securityScopeGranted: false,
+                fileExists: preflightKind != .fileMissing,
+                isReadable: false,
+                parserResult: .failed
+            )
+            presentRecentFailure(kind: preflightKind, entry: entry, url: url)
+            return
+        }
+        // `openDocument` reads the file asynchronously relative to this call, so the
+        // security scope must stay open until its completion handler fires, not just
+        // for the duration of this synchronous call.
+        let didStartScope = url.startAccessingSecurityScopedResource()
         NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+            if didStartScope { url.stopAccessingSecurityScopedResource() }
             if let error {
-                viewModel.importError = WorkspaceViewModel.ImportError(
-                    fileName: url.lastPathComponent,
-                    message: error.localizedDescription
+                let kind = ImportFailureClassifier.classify(error: error, url: url)
+                ImportLog.recordAttempt(
+                    source: .recent,
+                    fileExtension: url.pathExtension,
+                    securityScopeGranted: didStartScope,
+                    fileExists: true,
+                    isReadable: true,
+                    parserResult: .failed,
+                    errorDomain: (error as NSError).domain,
+                    errorCode: (error as NSError).code
+                )
+                presentRecentFailure(kind: kind, entry: entry, url: url)
+            } else {
+                ImportLog.recordAttempt(
+                    source: .recent,
+                    fileExtension: url.pathExtension,
+                    securityScopeGranted: didStartScope,
+                    fileExists: true,
+                    isReadable: true,
+                    parserResult: .ok
                 )
             }
         }
+    }
+
+    private func presentRecentFailure(kind: ImportFailureKind, entry: RecentFileEntry, url: URL?) {
+        viewModel.importError = WorkspaceViewModel.ImportError(
+            fileName: entry.displayName,
+            message: DocumentImportConverter.userMessage(for: kind),
+            kind: kind,
+            recentEntryID: entry.id,
+            sourceURL: url
+        )
     }
 }
 

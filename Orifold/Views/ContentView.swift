@@ -343,8 +343,8 @@ struct ContentView: View {
         .alert("contentView.importError.title", isPresented: Binding(
             get: { viewModel.importError != nil },
             set: { if !$0 { viewModel.importError = nil } }
-        ), presenting: viewModel.importError) { _ in
-            Button("contentView.ok.button") { viewModel.importError = nil }
+        ), presenting: viewModel.importError) { err in
+            importRecoveryButtons(for: err)
         } message: { err in
             Text(err.message)
         }
@@ -587,6 +587,68 @@ struct ContentView: View {
         if panel.runModal() == .OK {
             importFilesWithBatchLimit(urls: panel.urls, into: viewModel)
         }
+    }
+
+    // MARK: - Import failure recovery
+
+    @ViewBuilder
+    private func importRecoveryButtons(for err: WorkspaceViewModel.ImportError) -> some View {
+        if let url = err.sourceURL, FileManager.default.fileExists(atPath: url.path) {
+            Button("contentView.showInFinder.button") {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+                viewModel.importError = nil
+            }
+        }
+        if err.kind.showsChooseFileAgain {
+            Button("contentView.importRecovery.chooseFileAgain.button") {
+                chooseFileAgain(for: err)
+            }
+        }
+        if err.kind.showsGrantFolderAccess {
+            Button("contentView.importRecovery.grantFolderAccess.button") {
+                grantFolderAccess(for: err)
+            }
+        }
+        if let recentEntryID = err.recentEntryID {
+            Button("recentFiles.menu.remove", role: .destructive) {
+                RecentsStore.shared.remove(id: recentEntryID)
+                viewModel.importError = nil
+            }
+        }
+        Button("folderImport.overLimit.cancel", role: .cancel) { viewModel.importError = nil }
+    }
+
+    private func chooseFileAgain(for err: WorkspaceViewModel.ImportError) {
+        let panel = NSOpenPanel()
+        configureImportOpenPanel(panel)
+        if let url = err.sourceURL {
+            panel.directoryURL = url.deletingLastPathComponent()
+        }
+        let recentEntryID = err.recentEntryID
+        viewModel.importError = nil
+        guard panel.runModal() == .OK else { return }
+        if let recentEntryID {
+            RecentsStore.shared.remove(id: recentEntryID)
+        }
+        importFilesWithBatchLimit(urls: panel.urls, into: viewModel)
+    }
+
+    private func grantFolderAccess(for err: WorkspaceViewModel.ImportError) {
+        let panel = NSOpenPanel()
+        configureFolderImportOpenPanel(panel)
+        if let url = err.sourceURL {
+            panel.directoryURL = url.deletingLastPathComponent()
+        }
+        let sourceURL = err.sourceURL
+        let recentEntryID = err.recentEntryID
+        viewModel.importError = nil
+        guard panel.runModal() == .OK, let folderURL = panel.urls.first else { return }
+        SecurityScopedAccess.grantFolderAccessForSession(folderURL)
+        guard let sourceURL, FileManager.default.fileExists(atPath: sourceURL.path) else { return }
+        if let recentEntryID {
+            RecentsStore.shared.remove(id: recentEntryID)
+        }
+        importFilesWithBatchLimit(urls: [sourceURL], into: viewModel)
     }
 }
 
