@@ -47,7 +47,7 @@ motion-aware `<video>`. These four, with their target clips (from each page's `s
 | `import/combine` | `combine-reorder-pages.svg` | 4–6s · drag a page across two demo docs → Export once |
 | `import/organize-pages` | `reorder-rotate-delete-pages.svg` | 4–6s · right-click a sidebar page → Rotate, then Delete |
 | `fill-sign/signatures` | `sign-document-workflow.svg` | 4–6s · draw a signature → place on the line → export |
-| `export/export-save` | `export-save-confirmation.svg` | 3–5s · ⇧⌘E → pick PDF → save panel → confirmation |
+| `export/export-save` | `export-save-confirmation.svg` | 3–5s · ⌘E → pick PDF → save panel → confirmation |
 
 `import-files-overview.svg` and `recently-viewed-shelf.svg` remain single-still `Figure`s and
 should become real PNG captures, not clips.
@@ -79,7 +79,7 @@ The top-level `docs/assets/screenshots/` and `docs/assets/gifs/` folders remain 
 | `edit-text-workflow.gif` | gif | illustrated | [edit/edit-text](../../docs-site/src/content/docs/edit/edit-text.mdx) | Click a line of detected text, type a change, click away to commit |
 | `annotate-markup-tools.png` | screenshot | **real** | [annotate/markup](../../docs-site/src/content/docs/annotate/markup.mdx) | Highlight tool active in the toolbar, one yellow highlight placed on demo text |
 | `sign-document-workflow.gif` | gif | illustrated | [fill-sign/signatures](../../docs-site/src/content/docs/fill-sign/signatures.mdx) | Draw a signature, place it on a demo signature line, export |
-| `export-save-confirmation.gif` | gif | illustrated | [export/export-save](../../docs-site/src/content/docs/export/export-save.mdx) | ⇧⌘E → format picker → save panel → confirmation |
+| `export-save-confirmation.gif` | gif | illustrated | [export/export-save](../../docs-site/src/content/docs/export/export-save.mdx) | ⌘E → format picker → save panel → confirmation |
 | `language-switcher.png` | screenshot | **real** | [settings/language](../../docs-site/src/content/docs/settings/language.mdx) | Landing-screen language switcher open, all 6 languages visible |
 | `recently-viewed-shelf.svg` | screenshot | illustrated | [import/recently-viewed](../../docs-site/src/content/docs/import/recently-viewed.mdx) | Empty-state screen with the Recently Viewed shelf, 3–4 demo-file thumbnails |
 | `night-mode-comparison.png` | screenshot | **real** | [reading/night-mode](../../docs-site/src/content/docs/reading/night-mode.mdx) | The Document Comfort popover open: presets, application/page mode, fine-tune sliders |

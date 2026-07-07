@@ -82,7 +82,7 @@ enum ShortcutRegistry {
         ),
         ShortcutSpec(
             id: "editing.redo", category: .editing,
-            labelKey: "appCommands.redo.button", keycaps: ["⌘", "⇧", "Z"], isMostUseful: true
+            labelKey: "appCommands.redo.button", keycaps: ["⌘", "Y"], isMostUseful: true
         ),
         ShortcutSpec(id: "editing.cut", category: .editing, labelKey: "shortcut.cut.label", keycaps: ["⌘", "X"]),
         ShortcutSpec(id: "editing.copy", category: .editing, labelKey: "shortcut.copy.label", keycaps: ["⌘", "C"]),

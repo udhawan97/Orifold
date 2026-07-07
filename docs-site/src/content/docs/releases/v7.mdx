@@ -1,12 +1,12 @@
 ---
-title: "v7 — A bulletproof PDF engine underneath"
-description: Orifold v7 release notes.
-keywords: [release notes, v7, changelog]
+title: "v0.7 — A bulletproof PDF engine underneath"
+description: Orifold v0.7 release notes.
+keywords: [release notes, v0.7, changelog]
 ---
 
 *Released July 5, 2026*
 
-Orifold v7 adds a native qpdf engine alongside PDFKit and PDFium, gating every export behind a structural integrity check.
+Orifold v0.7 adds a native qpdf engine alongside PDFKit and PDFium, gating every export behind a structural integrity check.
 
 - **Corrupt PDFs are repaired, not rejected** — a qpdf recovery pass runs automatically on import when the native reader fails. See [Import files](/Orifold/import/import-files/).
 - **Real AES-256 password protection** — protected exports now use qpdf's R6 encryption handler, verified after every export. See [Password-protect a PDF](/Orifold/export/protect/).

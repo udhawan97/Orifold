@@ -4191,14 +4191,11 @@ final class InlineEditableTextView: NSTextView {
             }
         }
         if key == "z", !event.modifierFlags.intersection([.command, .control]).isEmpty {
-            // ⌘⇧Z redoes, ⌘Z undoes — matching TextEdit/Word. Previously any "z" with a
-            // command/control modifier (including the redo chord) routed to undo, so redo
-            // was impossible inside the editor.
-            if event.modifierFlags.contains(.shift) {
-                onRedoShortcut?()
-            } else {
-                onUndoShortcut?()
-            }
+            onUndoShortcut?()
+            return
+        }
+        if key == "y", !event.modifierFlags.intersection([.command, .control]).isEmpty {
+            onRedoShortcut?()
             return
         }
         super.keyDown(with: event)

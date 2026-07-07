@@ -157,8 +157,7 @@ private struct UndoRedoCommandButtons: View {
         Button(L10n.string("appCommands.redo.button", locale: locale)) {
             viewModel?.performRedoCommand()
         }
-        // Mac convention is ⇧⌘Z, not the ⌘Y that had been bound here.
-        .keyboardShortcut("z", modifiers: [.command, .shift])
+        .keyboardShortcut("y", modifiers: .command)
         .disabled(importInProgress || undoManager?.canRedo != true)
     }
 }
