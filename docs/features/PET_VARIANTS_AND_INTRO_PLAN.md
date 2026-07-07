@@ -1,6 +1,13 @@
 # Pet Variants + Intro-Icon Experience — Implementation Plan
 
-**Status:** Plan only. No code written. Hand to Sonnet for execution.
+> **SUPERSEDED (2026-07-07).** Owner decision: **no variants, no restorations** — keep only
+> the current Bernedoodle Gami and Siberian Ori. The variant model, Settings picker, and
+> classic-figure restoration in this document are dropped. The surviving pieces (pet
+> enlargement, intro showcase, welcome-hover fix) plus the in-app detail refinements now
+> live in `PET_POLISH_SONNET_HANDOFF.md`, which is the active spec. The refined marketing
+> SVGs were completed directly (3 loops, commits c67d053 → 899ba20 → 0cf5563).
+
+**Status:** Superseded — do not implement from this document.
 **Date:** 2026-07-07
 **Author model:** Opus (planning)
 **Related plans:** `docs/features/GAMI_REDESIGN_PLAN.md`, `docs/features/ORI_REDESIGN_PLAN.md` (both shipped).
