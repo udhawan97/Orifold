@@ -648,6 +648,7 @@ final class WorkspaceViewModel {
         self.processingEngine = processingEngine
 
         // Reconstruct loadedPDFs from saved package data (document open path)
+        var unreadableMemberIDs: Set<UUID> = []
         for member in document.workspace.documents {
             if let data = document.memberPDFData[member.id],
                let pdf = PDFDocument(data: data) {
@@ -660,8 +661,45 @@ final class WorkspaceViewModel {
                 // member bytes already contain the baked edits in that case and must not
                 // be mistaken for a pristine base, or every re-edit would erase/redraw on
                 // top of the previous bake instead of regenerating from the original.
-                originalMemberPDFData[member.id] = document.restoredOriginalMemberPDFData[member.id] ?? data
+                if let pristine = document.restoredOriginalMemberPDFData[member.id] {
+                    originalMemberPDFData[member.id] = pristine
+                } else {
+                    originalMemberPDFData[member.id] = data
+                    // With no separately-persisted pristine payload, the pristine base IS
+                    // the loaded bytes — whose page layout mirrors member.pageRefs, not
+                    // whatever sourcePageIndex each ref carried when it was first
+                    // imported. Structural ops (delete/reorder/duplicate) before the save
+                    // left refs pointing at stale indices; keeping them would make every
+                    // regeneration/hit-test read a NEIGHBORING page of the new base
+                    // (data-destroying). Renormalize to the layout the base actually has.
+                    for (localIdx, refID) in member.pageRefs.enumerated() {
+                        if let orderIdx = document.workspace.pageOrder.firstIndex(where: { $0.id == refID }),
+                           document.workspace.pageOrder[orderIdx].sourcePageIndex != localIdx {
+                            document.workspace.pageOrder[orderIdx].sourcePageIndex = localIdx
+                        }
+                    }
+                }
+            } else {
+                unreadableMemberIDs.insert(member.id)
             }
+        }
+        // A member whose bytes fail to parse must not linger in the workspace structure:
+        // pageOrder/pageCount would keep counting its pages while combinedPDF omits them,
+        // so every later page's click/marker/export index resolves to the WRONG PageRef.
+        // Drop it from the in-memory structure too (bytes stay in memberPDFData untouched
+        // in case a later build can recover them) and tell the user.
+        if !unreadableMemberIDs.isEmpty {
+            let names = document.workspace.documents
+                .filter { unreadableMemberIDs.contains($0.id) }
+                .map(\.displayName)
+                .joined(separator: ", ")
+            NSLog("[Orifold] Warning: dropping unreadable member document(s) from the workspace structure: %@", names)
+            document.workspace.documents.removeAll { unreadableMemberIDs.contains($0.id) }
+            document.workspace.pageOrder.removeAll { unreadableMemberIDs.contains($0.memberDocId) }
+            importError = ImportError(
+                fileName: names,
+                message: L10n.string("error.import.unreadableSavedMember")
+            )
         }
 
         // Snapshot hook: bake live annotation state before each save
@@ -1280,6 +1318,17 @@ final class WorkspaceViewModel {
     }
 
     private func restore(_ snapshot: OrderSnapshot) {
+        // Register the inverse so the restore itself is redoable — undo closures that
+        // register nothing leave NSUndoManager's redo stack empty, which silently made
+        // every order-snapshot operation (page delete/move/duplicate, document reorder,
+        // OCR, form reset) un-redoable after its undo.
+        let inverse = captureOrderSnapshot()
+        registerIsolatedUndo {
+            undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation() else { return }
+                vm.restore(inverse)
+            }
+        }
         document.workspace.documents = snapshot.documents
         document.workspace.pageOrder = snapshot.pageOrder
         document.workspace.comments = snapshot.comments
@@ -1294,6 +1343,7 @@ final class WorkspaceViewModel {
                   let pdf = PDFDocument(data: data) else { return nil }
             return (member, pdf)
         }
+        textAnalysisCache.removeAll()
         applyPageRotations(snapshot.pageRotations)
         rebuild()
     }
@@ -1366,9 +1416,17 @@ final class WorkspaceViewModel {
     private func restoreInlineTextEditSnapshot(_ snapshot: InlineTextEditSnapshot, actionName: String) {
         let inverse = captureInlineTextEditSnapshot()
         document.workspace.pageEditStates = snapshot.editStates
-        document.memberPDFData = snapshot.pdfData
+        // Merge rather than replace: members imported AFTER this snapshot was captured
+        // have no entry in it, and wholesale replacement silently dropped them from
+        // loadedPDFs/memberPDFData (vanishing from the canvas and every export) while
+        // they remained in the workspace structure.
+        var mergedPDFData = document.memberPDFData
+        for (memberID, data) in snapshot.pdfData {
+            mergedPDFData[memberID] = data
+        }
+        document.memberPDFData = mergedPDFData
         loadedPDFs = document.workspace.documents.compactMap { member in
-            guard let data = snapshot.pdfData[member.id],
+            guard let data = mergedPDFData[member.id],
                   let pdf = PDFDocument(data: data) else { return nil }
             return (member, pdf)
         }
@@ -2124,6 +2182,11 @@ final class WorkspaceViewModel {
     private func applyOCRResult(_ result: PDFOCRResult) {
         for (memberID, data) in result.dataByMemberID {
             document.memberPDFData[memberID] = data
+            // The OCR'd bytes are the member's new pristine base. Leaving the pre-OCR
+            // base in place meant every later page regeneration (inline edit, revert,
+            // reconcile) rebuilt from the pre-OCR scan — silently stripping the freshly
+            // added text layer page by page as the user edited.
+            originalMemberPDFData[memberID] = data
         }
         loadedPDFs = document.workspace.documents.compactMap { member in
             guard let data = result.dataByMemberID[member.id] ?? document.memberPDFData[member.id],
@@ -2747,6 +2810,27 @@ final class WorkspaceViewModel {
             result[ref.memberDocId] = pristine
         }
         return result
+    }
+
+    /// Adopts a member's CURRENT live bytes as its new pristine base and renormalizes its
+    /// refs' `sourcePageIndex` to the live layout. Used when a structural operation makes
+    /// the old pristine mapping unrepresentable (cross-member page moves). Any baked edit
+    /// in the member becomes part of the pristine background from this point on.
+    private func rebasePristineToLiveBytes(memberID: UUID) {
+        guard let memberIndex = document.workspace.documents.firstIndex(where: { $0.id == memberID }),
+              let loaded = loadedPDFs.first(where: { $0.0.id == memberID }) else { return }
+        let liveBytes = PDFSerializer.data(from: loaded.1) ?? document.memberPDFData[memberID]
+        guard let liveBytes else { return }
+        originalMemberPDFData[memberID] = liveBytes
+        for (localIdx, refID) in document.workspace.documents[memberIndex].pageRefs.enumerated() {
+            if let orderIdx = document.workspace.pageOrder.firstIndex(where: { $0.id == refID }),
+               document.workspace.pageOrder[orderIdx].sourcePageIndex != localIdx {
+                document.workspace.pageOrder[orderIdx].sourcePageIndex = localIdx
+            }
+        }
+        for refID in document.workspace.documents[memberIndex].pageRefs {
+            textAnalysisCache.removeValue(forKey: refID)
+        }
     }
 
     /// Verifies that every page with committed edit operations actually SHOWS them in its
@@ -6072,6 +6156,20 @@ final class WorkspaceViewModel {
                 document.workspace.pageOrder.insert(duplicate, at: pageOrderIndex + 1)
             }
             loadedPDFs[lookup.loadedIndex].0 = document.workspace.documents[lookup.documentIndex]
+            // The copied page's bytes visibly include any baked inline edits, so the
+            // duplicate ref must own copies of the operations too — otherwise the first
+            // regeneration of the duplicate (any new edit on it) rebuilds pristine + only
+            // the new op, silently reverting the edits the copy visibly carried.
+            if let sourceState = document.workspace.pageEditStates.first(where: { $0.pageRefID == ref.id }),
+               !sourceState.operations.isEmpty {
+                let clonedOps = sourceState.operations.map { op -> PDFTextEditOperation in
+                    var clone = op
+                    clone.id = UUID()
+                    clone.pageRefID = duplicate.id
+                    return clone
+                }
+                document.workspace.pageEditStates.append(PageEditState(pageRefID: duplicate.id, operations: clonedOps))
+            }
         }
         rebuild()
         markWorkspaceModified()
@@ -6200,6 +6298,18 @@ final class WorkspaceViewModel {
                 loadedPDFs[loadedIndex].0 = updated
             }
         }
+        // A cross-member move breaks the pristine mapping on BOTH sides: the moved page
+        // has no representation in the target's pristine bytes at all (so
+        // `originalBasePage`/hit-testing would read a completely different page — the
+        // confirmed data-destroying case), and the source's pristine keeps a page its
+        // live layout no longer has. Rebase both members' pristine bases to their
+        // post-move live bytes and renormalize their refs' sourcePageIndex to the new
+        // layout. Trade-off: any already-baked edit in these members becomes part of the
+        // pristine background from here on (a re-edit erases over the bake instead of
+        // regenerating from the true original) — degraded but consistent, versus
+        // regenerating the wrong page's content entirely.
+        rebasePristineToLiveBytes(memberID: targetRef.memberDocId)
+        rebasePristineToLiveBytes(memberID: ref.memberDocId)
         selectedPageRefID = movedRef.id
         selectedPageRefIDs = [movedRef.id]
         rebuild()
@@ -6327,11 +6437,17 @@ final class WorkspaceViewModel {
             return cached
         }
         // Prefer original bytes so text-block hit-testing reflects the unedited PDF content,
-        // consistent with regeneration always starting from the original page.
+        // consistent with regeneration always starting from the original page. That also
+        // means indexing them by `sourcePageIndex` (the ref's position in the PRISTINE
+        // bytes), exactly like `originalBasePage` — the ref's CURRENT local position
+        // diverges from it after any in-session delete/reorder of an earlier page, and
+        // analyzing the wrong pristine page made click-to-edit open editors filled with a
+        // deleted page's text (and bake erase patches sized to it).
         let data = originalMemberPDFData[memberID] ?? document.memberPDFData[memberID] ?? currentPDFData()[memberID] ?? Data()
+        let pristineIndex = ref.sourcePageIndex >= 0 ? ref.sourcePageIndex : localIndex
         let analysis = textAnalysisEngine.analyze(
             data: data,
-            pageIndex: localIndex,
+            pageIndex: pristineIndex,
             pageRefID: ref.id,
             fallbackPage: page
         )

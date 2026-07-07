@@ -40672,6 +40672,47 @@
           }
         }
       }
+    },
+    "error.import.unreadableSavedMember": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part of this workspace couldn’t be read and was removed from view. The unreadable file’s data is preserved in the document, but its pages can’t be shown or edited."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer una parte de este espacio de trabajo y se quitó de la vista. Los datos del archivo ilegible se conservan en el documento, pero sus páginas no se pueden mostrar ni editar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une partie de cet espace de travail n’a pas pu être lue et a été retirée de l’affichage. Les données du fichier illisible sont conservées dans le document, mais ses pages ne peuvent pas être affichées ni modifiées."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस वर्कस्पेस का एक हिस्सा पढ़ा नहीं जा सका और उसे दृश्य से हटा दिया गया। अपठनीय फ़ाइल का डेटा दस्तावेज़ में सुरक्षित है, लेकिन उसके पृष्ठ दिखाए या संपादित नहीं किए जा सकते।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このワークスペースの一部を読み込めなかったため、表示から除外しました。読み込めなかったファイルのデータは書類内に保持されていますが、そのページの表示や編集はできません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取此工作区的一部分，已将其从视图中移除。无法读取的文件数据仍保留在文档中，但其页面无法显示或编辑。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
