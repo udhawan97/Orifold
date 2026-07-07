@@ -26938,6 +26938,47 @@
         }
       }
     },
+    "status.annotation.onlyNotesEditable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only notes and text boxes can be edited directly. Use delete to remove this markup."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo las notas y los cuadros de texto se pueden editar directamente. Usa eliminar para quitar esta marca."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seules les notes et les zones de texte peuvent être modifiées directement. Utilisez supprimer pour retirer cette annotation."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "केवल नोट्स और टेक्स्ट बॉक्स सीधे संपादित किए जा सकते हैं। इस मार्कअप को हटाने के लिए हटाएँ का उपयोग करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "直接編集できるのはメモとテキストボックスのみです。このマークアップを削除するには削除を使用してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "只能直接编辑备注和文本框。要移除此标记,请使用删除。"
+          }
+        }
+      }
+    },
     "status.import.alreadyInProgress": {
       "extractionState": "manual",
       "localizations": {
@@ -27016,6 +27057,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "导入已取消。"
+          }
+        }
+      }
+    },
+    "status.markup.clickToErase": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click a highlight, underline, or strikeout to erase it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic en un resaltado, subrayado o tachado para borrarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cliquez sur une surbrillance, un soulignement ou un barré pour l’effacer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उसे मिटाने के लिए किसी हाइलाइट, अंडरलाइन या स्ट्राइकआउट पर क्लिक करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ハイライト、下線、取り消し線をクリックすると消去できます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击高亮、下划线或删除线即可将其擦除。"
           }
         }
       }
@@ -27180,6 +27262,170 @@
           "stringUnit": {
             "state": "translated",
             "value": "现在可以在此文档中搜索和选择文本了。"
+          }
+        }
+      }
+    },
+    "status.page.editAccessFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not access the original page for editing."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo acceder a la página original para editarla."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu accéder à la page d’origine pour la modifier."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold संपादन के लिए मूल पेज तक नहीं पहुँच सका।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは編集のために元のページにアクセスできませんでした。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法访问原始页面进行编辑。"
+          }
+        }
+      }
+    },
+    "status.page.regenerateFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not regenerate that edited page. The original page is unchanged."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo regenerar esa página editada. La página original no ha cambiado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu régénérer cette page modifiée. La page d’origine reste inchangée."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold उस संपादित पेज को दोबारा जनरेट नहीं कर सका। मूल पेज अपरिवर्तित है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはその編集済みページを再生成できませんでした。元のページは変更されていません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法重新生成该已编辑页面。原始页面未发生变化。"
+          }
+        }
+      }
+    },
+    "status.page.restoreFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not restore that page. The edit was left in place."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo restaurar esa página. La edición se dejó tal como estaba."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu restaurer cette page. La modification a été conservée."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold उस पेज को पुनर्स्थापित नहीं कर सका। संपादन को यथावत छोड़ दिया गया।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはそのページを復元できませんでした。編集内容はそのまま残されています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法恢复该页面。相应编辑已被保留。"
+          }
+        }
+      }
+    },
+    "status.page.restoreSomeFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not restore some pages; their edits were left in place."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo restaurar algunas páginas; sus ediciones se dejaron tal como estaban."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu restaurer certaines pages ; leurs modifications ont été conservées."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold कुछ पेजों को पुनर्स्थापित नहीं कर सका; उनके संपादन यथावत छोड़ दिए गए।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは一部のページを復元できませんでした。該当ページの編集内容はそのまま残されています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法恢复部分页面;这些页面的编辑已被保留。"
           }
         }
       }
@@ -27672,6 +27918,416 @@
           "stringUnit": {
             "state": "translated",
             "value": "时间戳颁发机构不可用；已导出为不含可信时间戳的 PAdES B-B。"
+          }
+        }
+      }
+    },
+    "status.textEdit.copiedNearbyFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied nearby PDF text style. Click another text edit to paste it automatically, or press Paste style here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se copió el estilo de texto del PDF cercano. Haz clic en otra edición de texto para pegarlo automáticamente, o pulsa Pegar estilo aquí."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style de texte PDF voisin copié. Cliquez sur une autre modification de texte pour le coller automatiquement, ou appuyez sur Coller le style ici."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नज़दीकी PDF टेक्स्ट स्टाइल कॉपी की गई। इसे अपने आप पेस्ट करने के लिए किसी अन्य टेक्स्ट एडिट पर क्लिक करें, या यहाँ स्टाइल पेस्ट करें दबाएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近くのPDFテキストのスタイルをコピーしました。別のテキスト編集をクリックすると自動的に貼り付けられます。ここで「スタイルを貼り付け」を押すこともできます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已复制附近PDF文本的样式。点击另一处文本编辑即可自动粘贴,或在此处按“粘贴样式”。"
+          }
+        }
+      }
+    },
+    "status.textEdit.copyFormatFirst": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy a format first, then open another text edit and press Paste style."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Primero copia un formato y luego abre otra edición de texto y pulsa Pegar estilo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiez d’abord un format, puis ouvrez une autre modification de texte et appuyez sur Coller le style."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पहले एक फ़ॉर्मेट कॉपी करें, फिर किसी अन्य टेक्स्ट एडिट को खोलें और स्टाइल पेस्ट करें दबाएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まず書式をコピーしてから、別のテキスト編集を開いて「スタイルを貼り付け」を押してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请先复制一种格式,然后打开另一处文本编辑并按“粘贴样式”。"
+          }
+        }
+      }
+    },
+    "status.textEdit.formatMismatch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited text formatting does not match nearby document text. Use Match before Done to copy the nearby format."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El formato del texto editado no coincide con el texto cercano del documento. Usa Igualar antes de Listo para copiar el formato cercano."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le formatage du texte modifié ne correspond pas au texte voisin du document. Utilisez Faire correspondre avant Terminé pour copier le format voisin."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपादित टेक्स्ट की फ़ॉर्मेटिंग नज़दीकी दस्तावेज़ टेक्स्ट से मेल नहीं खाती। नज़दीकी फ़ॉर्मेट कॉपी करने के लिए हो गया से पहले मिलान करें का उपयोग करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集したテキストの書式が近くの文書テキストと一致していません。近くの書式をコピーするには、「完了」を押す前に「一致させる」を使用してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑后的文本格式与附近文档文本不一致。按“完成”前请使用“匹配”以复制附近的格式。"
+          }
+        }
+      }
+    },
+    "status.textEdit.matchedNearbyFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matched nearby text style, margins, and wrapping. Press Done to save it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se igualaron el estilo, los márgenes y el ajuste de texto cercanos. Pulsa Listo para guardarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style, marges et retour à la ligne du texte voisin appliqués. Appuyez sur Terminé pour enregistrer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नज़दीकी टेक्स्ट स्टाइल, मार्जिन और रैपिंग से मिलान किया गया। इसे सहेजने के लिए हो गया दबाएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近くのテキストのスタイル、余白、折り返しに合わせました。保存するには「完了」を押してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已匹配附近文本的样式、边距和换行方式。按“完成”以保存。"
+          }
+        }
+      }
+    },
+    "status.textEdit.nothingToUndo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to undo in this text box. Press Done or Cancel before undoing document changes."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No hay nada que deshacer en este cuadro de texto. Pulsa Listo o Cancelar antes de deshacer cambios del documento."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien à annuler dans cette zone de texte. Appuyez sur Terminé ou Annuler avant d’annuler les modifications du document."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस टेक्स्ट बॉक्स में पूर्ववत करने के लिए कुछ नहीं है। दस्तावेज़ में बदलाव पूर्ववत करने से पहले हो गया या रद्द करें दबाएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このテキストボックスには元に戻す操作がありません。文書の変更を元に戻す前に「完了」または「キャンセル」を押してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此文本框中没有可撤销的操作。撤销文档更改前,请先按“完成”或“取消”。"
+          }
+        }
+      }
+    },
+    "status.textEdit.pastedStyle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pasted copied style. Press Done to save it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo copiado pegado. Pulsa Listo para guardarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style copié collé. Appuyez sur Terminé pour enregistrer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कॉपी की गई स्टाइल पेस्ट की गई। इसे सहेजने के लिए हो गया दबाएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピーしたスタイルを貼り付けました。保存するには「完了」を押してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已粘贴复制的样式。按“完成”以保存。"
+          }
+        }
+      }
+    },
+    "status.textEdit.pastedStyleOntoEdit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pasted copied style onto this edit. Press Done to save it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se pegó el estilo copiado en esta edición. Pulsa Listo para guardarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style copié collé sur cette modification. Appuyez sur Terminé pour enregistrer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कॉपी की गई स्टाइल इस एडिट पर पेस्ट की गई। इसे सहेजने के लिए हो गया दबाएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コピーしたスタイルをこの編集に貼り付けました。保存するには「完了」を押してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已将复制的样式粘贴到此编辑内容上。按“完成”以保存。"
+          }
+        }
+      }
+    },
+    "status.textEdit.replacementCannotBeEmpty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replacement text cannot be empty. Use a text box or a future redaction tool for removal."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El texto de reemplazo no puede estar vacío. Usa un cuadro de texto o una futura herramienta de redacción para eliminarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le texte de remplacement ne peut pas être vide. Utilisez une zone de texte ou un futur outil de rédaction pour le supprimer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रतिस्थापन टेक्स्ट खाली नहीं हो सकता। हटाने के लिए टेक्स्ट बॉक्स या भविष्य के रिडैक्शन टूल का उपयोग करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置換テキストを空にすることはできません。削除するにはテキストボックスまたは今後追加される墨消しツールを使用してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "替换文本不能为空。如需删除,请使用文本框或未来推出的编辑遮盖工具。"
+          }
+        }
+      }
+    },
+    "status.textEdit.restoredOriginal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text restored to original. Press Done to save it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El texto se restauró al original. Pulsa Listo para guardarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texte restauré à l’original. Appuyez sur Terminé pour enregistrer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टेक्स्ट को मूल रूप में पुनर्स्थापित किया गया। इसे सहेजने के लिए हो गया दबाएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テキストを元の状態に復元しました。保存するには「完了」を押してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文本已恢复为原始状态。按“完成”以保存。"
+          }
+        }
+      }
+    },
+    "status.textEdit.selectTextBeforeComment": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select text before adding a comment."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selecciona texto antes de añadir un comentario."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sélectionnez du texte avant d’ajouter un commentaire."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टिप्पणी जोड़ने से पहले टेक्स्ट चुनें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントを追加する前にテキストを選択してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加批注前请先选择文本。"
           }
         }
       }

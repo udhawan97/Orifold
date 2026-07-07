@@ -1779,11 +1779,11 @@ final class WorkspaceViewModel {
     private func showReaderModeBlockedMessage(for tool: AnnotationTool) {
         switch tool {
         case .editText:
-            showEditMessage("Reader Mode keeps the document text locked. Turn it off to edit PDF text.", isError: false)
+            showEditMessage(L10n.string("status.readerMode.blockedEditText"), isError: false)
         case .signature:
-            showEditMessage("Reader Mode keeps signing locked. Turn it off to place or export signatures.", isError: false)
+            showEditMessage(L10n.string("status.readerMode.blockedSignature"), isError: false)
         default:
-            showEditMessage("Reader Mode keeps authoring tools locked.", isError: false)
+            showEditMessage(L10n.string("status.readerMode.blockedGeneric"), isError: false)
         }
     }
 
@@ -2505,7 +2505,7 @@ final class WorkspaceViewModel {
     ) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let basePage = originalBasePage(for: pageRef) else {
-            showEditMessage("Orifold could not access the original page for editing.", isError: true)
+            showEditMessage(L10n.string("status.page.editAccessFailed"), isError: true)
             return false
         }
 
@@ -2583,7 +2583,7 @@ final class WorkspaceViewModel {
         let operations = document.workspace.pageEditStates.first(where: { $0.pageRefID == pageRef.id })?.operations ?? []
         guard regenerateEditedPage(pageRef: pageRef, operations: operations) else {
             document.workspace.pageEditStates = previousSnapshot.editStates
-            showEditMessage("Orifold could not regenerate that edited page. The original page is unchanged.", isError: true)
+            showEditMessage(L10n.string("status.page.regenerateFailed"), isError: true)
             return false
         }
 
@@ -2717,7 +2717,7 @@ final class WorkspaceViewModel {
         }
         guard regenerateEditedPage(pageRef: pageRef, operations: remaining) else {
             document.workspace.pageEditStates = previousSnapshot.editStates
-            showEditMessage("Orifold could not restore that page. The edit was left in place.", isError: true)
+            showEditMessage(L10n.string("status.page.restoreFailed"), isError: true)
             return false
         }
         rebuild()
@@ -2759,7 +2759,7 @@ final class WorkspaceViewModel {
             // Keep the edits we could not visually revert so the document and the edit
             // list stay consistent.
             document.workspace.pageEditStates = states.filter { failedPageRefIDs.contains($0.pageRefID) }
-            showEditMessage("Orifold could not restore some pages; their edits were left in place.", isError: true)
+            showEditMessage(L10n.string("status.page.restoreSomeFailed"), isError: true)
         }
         rebuild()
         markWorkspaceModified()
@@ -3002,7 +3002,7 @@ final class WorkspaceViewModel {
     func eraseMarkupAnnotation(at pagePoint: CGPoint, on page: PDFPage) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let ann = erasableMarkupAnnotation(at: pagePoint, on: page) else {
-            showEditMessage("Click a highlight, underline, or strikeout to erase it.", isError: true)
+            showEditMessage(L10n.string("status.markup.clickToErase"), isError: true)
             return false
         }
         page.removeAnnotation(ann)

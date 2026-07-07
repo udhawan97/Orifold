@@ -566,7 +566,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             guard let pdfView,
                   let selection = pdfView.currentSelection,
                   !(selection.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) else {
-                viewModel.showEditMessage("Select text before adding a comment.", isError: false)
+                viewModel.showEditMessage(L10n.string("status.textEdit.selectTextBeforeComment"), isError: false)
                 return
             }
             createComment(from: selection)
@@ -924,7 +924,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             viewModel.selectedStampDecorationID = nil
             goToAnnotation(annotation, on: page, in: pdfView)
             guard annotation.type == "Text" || annotation.type == "FreeText" else {
-                viewModel.showEditMessage("Only notes and text boxes can be edited directly. Use delete to remove this markup.", isError: false)
+                viewModel.showEditMessage(L10n.string("status.annotation.onlyNotesEditable"), isError: false)
                 return
             }
             let rect = pdfView.convert(annotation.bounds, from: page)
@@ -2065,7 +2065,7 @@ final class NoteEditorViewController: NSViewController {
             changeHandler(annotation, originalSnapshot, editorTitle)
             return true
         case .rejectReplacement:
-            statusHandler("Replacement text cannot be empty. Use a text box or a future redaction tool for removal.", true)
+            statusHandler(L10n.string("status.textEdit.replacementCannotBeEmpty"), true)
             return false
         case .allow:
             break
@@ -3295,7 +3295,7 @@ final class NoteEditorViewController: NSViewController {
 
     @objc private func matchNearbyFormat() {
         applySourceFormat(markStyleChange: true)
-        viewModel?.showEditMessage("Matched nearby text style, margins, and wrapping. Press Done to save it.", severity: .success)
+        viewModel?.showEditMessage(L10n.string("status.textEdit.matchedNearbyFormat"), severity: .success)
         refocusEditor()
     }
 
@@ -3306,19 +3306,19 @@ final class NoteEditorViewController: NSViewController {
     @objc private func copyNearbyFormat() {
         viewModel?.copiedInlineTextFormat = sourceFormat
         viewModel?.isInlineTextFormatPainterArmed = true
-        viewModel?.showEditMessage("Copied nearby PDF text style. Click another text edit to paste it automatically, or press Paste style here.", severity: .success)
+        viewModel?.showEditMessage(L10n.string("status.textEdit.copiedNearbyFormat"), severity: .success)
         refocusEditor()
     }
 
     @objc private func applyCopiedFormat() {
         guard let format = viewModel?.copiedInlineTextFormat else {
-            viewModel?.showEditMessage("Copy a format first, then open another text edit and press Paste style.", severity: .warning)
+            viewModel?.showEditMessage(L10n.string("status.textEdit.copyFormatFirst"), severity: .warning)
             refocusEditor()
             return
         }
         apply(format: format, markStyleChange: true)
         viewModel?.isInlineTextFormatPainterArmed = false
-        viewModel?.showEditMessage("Pasted copied style. Press Done to save it.", severity: .success)
+        viewModel?.showEditMessage(L10n.string("status.textEdit.pastedStyle"), severity: .success)
         refocusEditor()
     }
 
@@ -3328,7 +3328,7 @@ final class NoteEditorViewController: NSViewController {
               let format = viewModel.copiedInlineTextFormat else { return }
         apply(format: format, markStyleChange: true)
         viewModel.isInlineTextFormatPainterArmed = false
-        viewModel.showEditMessage("Pasted copied style onto this edit. Press Done to save it.", severity: .success)
+        viewModel.showEditMessage(L10n.string("status.textEdit.pastedStyleOntoEdit"), severity: .success)
     }
 
     @objc private func restoreOriginalFormat() {
@@ -3336,7 +3336,7 @@ final class NoteEditorViewController: NSViewController {
         didChangeStyle = false
         didRestoreOriginalStyle = true
         viewModel?.isInlineTextFormatPainterArmed = false
-        viewModel?.showEditMessage("Text restored to original. Press Done to save it.", severity: .success)
+        viewModel?.showEditMessage(L10n.string("status.textEdit.restoredOriginal"), severity: .success)
         refocusEditor()
     }
 
@@ -3385,7 +3385,7 @@ final class NoteEditorViewController: NSViewController {
             textView.undoManager?.undo()
             resizeTextViewHeight()
         } else {
-            viewModel?.showEditMessage("Nothing to undo in this text box. Press Done or Cancel before undoing document changes.", isError: false)
+            viewModel?.showEditMessage(L10n.string("status.textEdit.nothingToUndo"), isError: false)
             refocusEditor()
         }
     }
@@ -3831,7 +3831,7 @@ final class NoteEditorViewController: NSViewController {
         )
         if formattingDiffersFromSource {
             viewModel?.showEditMessage(
-                "Edited text formatting does not match nearby document text. Use Match before Done to copy the nearby format.",
+                L10n.string("status.textEdit.formatMismatch"),
                 isError: false
             )
         }
@@ -3921,7 +3921,7 @@ final class NoteEditorViewController: NSViewController {
         guard !didFinish else { return }
         let viewModel = viewModel
         guard viewModel?.isReaderMode != true else {
-            viewModel?.showEditMessage("Reader Mode keeps signing locked. Turn it off to place signatures.", isError: false)
+            viewModel?.showEditMessage(L10n.string("status.readerMode.blockedSignature"), isError: false)
             refocusEditor()
             return
         }
