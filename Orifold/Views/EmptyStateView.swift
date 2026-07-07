@@ -5,6 +5,11 @@ import AppKit
 struct EmptyStateView: View {
     var viewModel: WorkspaceViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Unused directly, but its presence makes SwiftUI re-invoke this view's
+    // `body` (and thus its descendants, including EmptyStatePetIntro/PetPickerCard,
+    // whose text comes from PetSpecies' non-reactive L10n.string() properties)
+    // when the app's language changes while this screen is already on screen.
+    @Environment(\.locale) private var locale
     @State private var isDropTargeted = false
     @State private var hasIntroducedOptions = false
     @State private var optionGuidance: LocalizedStringKey?
@@ -38,6 +43,10 @@ struct EmptyStateView: View {
     ]
 
     var body: some View {
+        // Actually reading `locale` (not just declaring the @Environment property)
+        // is what registers the dependency — SwiftUI only re-invokes `body` on a
+        // locale change for views that read `\.locale` during the previous render.
+        let _ = locale
         ZStack(alignment: .topTrailing) {
             Color.dsCanvas.ignoresSafeArea()
             EmptyStateAmbientBackground()

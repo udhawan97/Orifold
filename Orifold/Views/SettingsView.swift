@@ -28,7 +28,7 @@ struct SettingsView: View {
 
             Picker("settings.appearance.label", selection: appearanceModeBinding) {
                 ForEach(AppAppearanceMode.allCases) { mode in
-                    Label(mode.title, systemImage: mode.systemImage).tag(mode)
+                    Label(mode.title(locale: languageManager.effectiveLocale), systemImage: mode.systemImage).tag(mode)
                 }
             }
         }

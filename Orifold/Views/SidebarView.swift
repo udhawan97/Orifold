@@ -139,6 +139,10 @@ private struct WorkspaceHeaderCard: View {
     var viewModel: WorkspaceViewModel
     @Binding var expandedDocs: Set<UUID>
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || viewModel.documentComfortSettings.reduceAnimations
@@ -150,11 +154,11 @@ private struct WorkspaceHeaderCard: View {
 
     private var metadataLine: String {
         var parts = [
-            "\(documentCount) " + L10n.string(documentCount == 1 ? "sidebar.metric.file" : "sidebar.metric.files"),
-            "\(pageCount) " + L10n.string(pageCount == 1 ? "sidebar.metric.page" : "sidebar.metric.pages"),
+            "\(documentCount) " + L10n.string(documentCount == 1 ? "sidebar.metric.file" : "sidebar.metric.files", locale: locale),
+            "\(pageCount) " + L10n.string(pageCount == 1 ? "sidebar.metric.page" : "sidebar.metric.pages", locale: locale),
         ]
         if commentCount > 0 {
-            parts.append("\(commentCount) " + L10n.string(commentCount == 1 ? "sidebar.metric.comment" : "sidebar.metric.comments"))
+            parts.append("\(commentCount) " + L10n.string(commentCount == 1 ? "sidebar.metric.comment" : "sidebar.metric.comments", locale: locale))
         }
         return parts.joined(separator: " · ")
     }
@@ -225,7 +229,7 @@ private struct WorkspaceHeaderCard: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("sidebar.overflow.help")
-        .accessibilityLabel(L10n.string("sidebar.overflow.help"))
+        .accessibilityLabel(L10n.string("sidebar.overflow.help", locale: locale))
     }
 }
 
