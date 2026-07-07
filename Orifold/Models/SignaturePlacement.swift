@@ -4,6 +4,7 @@ struct SignaturePlacement: Codable, Identifiable {
     enum Kind: String, Codable {
         case visualTyped
         case visualInitials
+        case visualDrawn
         case cryptographic
     }
 
@@ -20,10 +21,17 @@ struct SignaturePlacement: Codable, Identifiable {
     var contactInfo: String?
     var subFilter: String?
     var timestampApplied: Bool
+    /// Which persisted `DigitalCertificateProfile` (see `CertificateProfileStore`) this
+    /// cryptographic placement was signed with. Lets "Sign & Export" re-resolve the identity
+    /// from the Keychain after a workspace reload, instead of relying solely on the
+    /// in-memory `signingIdentitiesByPlacementID` cache, which does not survive a document
+    /// close/reopen.
+    var certificateProfileID: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id, pageRefId, imageData, rect, kind, signerName, signedAt
         case signerIdentityRef, reason, location, contactInfo, subFilter, timestampApplied
+        case certificateProfileID
     }
 
     init(id: UUID = UUID(),
@@ -38,7 +46,8 @@ struct SignaturePlacement: Codable, Identifiable {
          location: String? = nil,
          contactInfo: String? = nil,
          subFilter: String? = nil,
-         timestampApplied: Bool = false) {
+         timestampApplied: Bool = false,
+         certificateProfileID: UUID? = nil) {
         self.id = id
         self.pageRefId = pageRefId
         self.imageData = imageData
@@ -52,6 +61,7 @@ struct SignaturePlacement: Codable, Identifiable {
         self.contactInfo = contactInfo
         self.subFilter = subFilter
         self.timestampApplied = timestampApplied
+        self.certificateProfileID = certificateProfileID
     }
 
     init(from decoder: Decoder) throws {
@@ -70,6 +80,7 @@ struct SignaturePlacement: Codable, Identifiable {
         contactInfo = try c.decodeIfPresent(String.self, forKey: .contactInfo)
         subFilter = try c.decodeIfPresent(String.self, forKey: .subFilter)
         timestampApplied = try c.decodeIfPresent(Bool.self, forKey: .timestampApplied) ?? false
+        certificateProfileID = try c.decodeIfPresent(UUID.self, forKey: .certificateProfileID)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -87,6 +98,7 @@ struct SignaturePlacement: Codable, Identifiable {
         try c.encodeIfPresent(contactInfo, forKey: .contactInfo)
         try c.encodeIfPresent(subFilter, forKey: .subFilter)
         try c.encode(timestampApplied, forKey: .timestampApplied)
+        try c.encodeIfPresent(certificateProfileID, forKey: .certificateProfileID)
     }
 }
 

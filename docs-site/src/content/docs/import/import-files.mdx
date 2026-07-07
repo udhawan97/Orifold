@@ -1,0 +1,53 @@
+---
+title: Import files
+description: Bring PDFs, Word documents, images, scans, and more into an Orifold workspace — up to 50 files at once.
+keywords: [import, open files, drag and drop, supported formats, corrupt pdf]
+---
+
+import Callout from '../../../components/Callout.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
+import Kbd from '../../../components/Kbd.astro';
+import Figure from '../../../components/Figure.astro';
+
+<Callout variant="whentouse">
+	You have one or more files — PDFs, images, a Word doc, a scan — that need to become part of a workspace.
+</Callout>
+
+## Steps
+
+1. Drag files onto the empty-state screen or an open workspace, **or**
+2. Use **File → Open** (<Kbd>⇧⌘O</Kbd>) and select one or more files.
+
+<Figure alt="PLACEHOLDER for screenshots/import-files-overview.png — empty-state screen mid-drag, 2–3 demo files entering the drop zone — dark mode, 1600×1000, 2x" caption="Dropping files onto the empty-state screen." />
+
+## Supported formats
+
+PDF, Word documents, HTML, Markdown, plain text, CSV, JSON, XML, and common image formats (PNG, JPEG, and others).
+
+<Callout variant="note">
+	A workspace holds up to **50 files**. If you're consistently hitting that limit, split the job into two workspaces and export each separately.
+</Callout>
+
+<Callout variant="tip">
+	If a PDF is corrupted and the native reader gives up on it, Orifold tries a qpdf recovery pass automatically — files that Preview won't open are often worth trying here.
+</Callout>
+
+## What you should see
+
+Every imported file appears as its own document in the sidebar, ready to reorder, edit, or merge with the others.
+
+## Related
+
+<CardGrid>
+	<Card title="Combine files into one PDF" href="import/combine/">
+		Turning several imports into one export.
+	</Card>
+	<Card title="Recently viewed files" href="import/recently-viewed/">
+		Getting back to a file you had open before.
+	</Card>
+</CardGrid>
+
+## If something went wrong
+
+- [Import & file problems →](/Orifold/help/troubleshooting/import/)

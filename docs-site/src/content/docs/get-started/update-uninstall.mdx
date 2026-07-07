@@ -1,0 +1,48 @@
+---
+title: Update & uninstall
+description: Update Orifold with one double-click, or remove it cleanly with the uninstaller.
+keywords: [update, upgrade, uninstall, remove, delete orifold]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+<Callout variant="whentouse">
+	A new version of Orifold is out, or you want to remove the app entirely.
+</Callout>
+
+## Update
+
+Double-click **Orifold.command** on your Desktop. It checks the latest release before launching, and sweeps up any stray `Orifold.app` copies (for example, one dragged straight into `/Applications`) so only one install remains. That's the entire procedure.
+
+### Homebrew
+
+```zsh
+brew update
+brew upgrade --cask udhawan97/orifold/orifold
+```
+
+## Uninstall
+
+Double-click **Uninstall Orifold.command** on your Desktop. It removes the app, the Desktop helpers, the installer cache, and app data.
+
+### Homebrew
+
+```zsh
+brew uninstall --cask udhawan97/orifold/orifold
+```
+
+### Keep your data
+
+To uninstall but keep preferences, caches, and sandbox data:
+
+```zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/uninstall-mac.sh | zsh -s -- --keep-user-data
+```
+
+## What you should see
+
+After updating: the same Desktop helpers, a newer app version. After uninstalling: no `Orifold.app`, no Desktop helpers, and (unless you kept data) no app data remaining.
+
+## If something went wrong
+
+- [Installation problems →](/Orifold/help/troubleshooting/install/)

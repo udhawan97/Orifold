@@ -1,0 +1,40 @@
+---
+title: Add new text boxes
+description: Insert a new, movable text box anywhere on a PDF page.
+keywords: [add text, text box, insert text, new text]
+---
+
+import Callout from '../../../components/Callout.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
+
+<Callout variant="whentouse">
+	- The page has no existing text where you need it (a blank form field, a margin note, a stamp-like label).
+	- Editing detected text isn't activating, or the line you need doesn't exist yet.
+</Callout>
+
+<Callout variant="tip" label="Which do I want?">
+	Changing a word that's already on the page → [edit existing text](/Orifold/edit/edit-text/). Adding words where none exist → a text box, below.
+</Callout>
+
+## Steps
+
+1. Select the text box tool from the annotation toolbar.
+2. Click on the page where you want the box to start.
+3. Type your text.
+4. Drag the box's handles to move or resize it.
+
+## What you should see
+
+A new text box sits on the page exactly where you placed it, independent of the PDF's original content.
+
+## Related
+
+<CardGrid>
+	<Card title="Match, copy, paste & reset formatting" href="edit/formatting/">
+		Making a new text box look like the surrounding text.
+	</Card>
+	<Card title="Edit existing PDF text" href="edit/edit-text/">
+		Changing text that's already on the page.
+	</Card>
+</CardGrid>

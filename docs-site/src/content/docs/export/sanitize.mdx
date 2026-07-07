@@ -1,0 +1,34 @@
+---
+title: Sanitize before sharing
+description: Strip auto-run actions, embedded JavaScript, embedded files, and metadata before sending a PDF on.
+keywords: [sanitize pdf, remove metadata, strip javascript, clean pdf]
+badge: pro
+---
+
+import Badge from '../../../components/Badge.astro';
+import Callout from '../../../components/Callout.astro';
+
+<Badge variant="pro" />
+
+<Callout variant="whentouse">
+	The PDF came from somewhere you don't fully trust, or you're sending a file outside your organization and want to strip anything it's carrying that you didn't intend to send.
+</Callout>
+
+## Steps
+
+1. Choose Export, then enable the sanitize pass.
+2. Optionally include stripping document metadata (author, creation tool, and similar fields).
+3. Export as usual.
+
+## What it strips
+
+Catalog auto-run actions, embedded JavaScript, embedded files, and — opt-in — document metadata.
+
+## What you should see
+
+The exported PDF opens and displays identically, but carries none of the stripped content.
+
+## Related
+
+- [Password-protect a PDF](/Orifold/export/protect/)
+- [Privacy & local-first design](/Orifold/settings/privacy/)

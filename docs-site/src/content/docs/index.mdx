@@ -1,0 +1,89 @@
+---
+title: Orifold Docs
+description: Fold chaos into one clean PDF. Free, open-source, 100% local PDF workspace for macOS.
+template: splash
+hero:
+  tagline: Fold chaos into one clean PDF.
+  actions:
+    - text: Get started
+      link: get-started/what-is-orifold/
+      icon: right-arrow
+    - text: Install in 30 seconds
+      link: get-started/install/
+      variant: minimal
+---
+
+import Card from '../../components/Card.astro';
+import CardGrid from '../../components/CardGrid.astro';
+import TrustStrip from '../../components/TrustStrip.astro';
+import HeroReducedMotion from '../../components/HeroReducedMotion.astro';
+
+Orifold is a free, open-source PDF workspace for macOS. Import up to 50 messy files, edit, sign, and export one polished document — without anything ever leaving your Mac.
+
+<TrustStrip />
+
+<hr class="of-crease" />
+
+## Start here
+
+<CardGrid>
+	<Card title="Install Orifold" href="get-started/install/" icon="⚡">
+		One line in Terminal, or Homebrew if you prefer. No Xcode, no account.
+	</Card>
+	<Card title="Your first workspace" href="get-started/first-workspace/" icon="🗂️">
+		The 5-minute tour: launch, import, arrange, export.
+	</Card>
+	<Card title="The Orifold window" href="get-started/the-window/" icon="🖼️">
+		Sidebar, canvas, toolbar, and inspector — what everything does.
+	</Card>
+</CardGrid>
+
+## Popular workflows
+
+<CardGrid>
+	<Card title="Combine files into one PDF" href="import/combine/" icon="🗂️">
+		Merging isn't a separate step — arrange, then export once.
+	</Card>
+	<Card title="Edit existing PDF text" href="edit/edit-text/" icon="✏️">
+		Click detected text and edit it in place.
+	</Card>
+	<Card title="Sign a document" href="fill-sign/signatures/" icon="🖋️">
+		Draw a signature, place it, export — nothing leaves your Mac.
+	</Card>
+	<Card title="Fill a form" href="fill-sign/forms/" icon="📝">
+		Detect fields, type answers, lock them before sharing.
+	</Card>
+	<Card title="Compress a PDF for email" href="export/compress/" icon="🗜️">
+		Shrink oversized images, then losslessly repack the file.
+	</Card>
+	<Card title="Password-protect a PDF" href="export/protect/" icon="🔒">
+		Real AES-256 encryption, verified after every export.
+	</Card>
+	<Card title="Make a scan searchable (OCR)" href="edit/ocr/" icon="🔍">
+		Local Vision OCR — ⌘F finally works on that scanned form.
+	</Card>
+	<Card title="Change the app language" href="settings/language/" icon="🌐">
+		6 languages, switchable from the landing screen.
+	</Card>
+</CardGrid>
+
+<hr class="of-crease" />
+
+## Explore
+
+<CardGrid>
+	<Card title="Troubleshooting" href="help/troubleshooting/" icon="🔧">
+		Fixes for installation, import, and export problems.
+	</Card>
+	<Card title="FAQ" href="help/faq/" icon="❓">
+		Quick answers to the questions we hear most.
+	</Card>
+	<Card title="What's new in v7" href="releases/" icon="🆕">
+		Release notes, latest first.
+	</Card>
+	<Card title="For developers" href="developers/why-orifold/" icon="🏗️">
+		Architecture, the engines, building from source, contributing.
+	</Card>
+</CardGrid>
+
+<HeroReducedMotion />

@@ -1,0 +1,255 @@
+<svg viewBox="0 0 1080 536" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="heroTitle heroDesc">
+  <title id="heroTitle">Orifold — 50 messy files in, 1 polished PDF out</title>
+  <desc id="heroDesc">Fifty messy files flow into the Orifold app — merge, OCR, sign, compress, encrypt — inside a local-only boundary where nothing leaves your Mac, and one polished, searchable, password-protected PDF comes out. Up to 50 files per workspace, 0 files ever uploaded, 12+ PDF tools in one app, $0 forever.</desc>
+  <defs>
+    <linearGradient id="hPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A1628"/>
+      <stop offset="0.55" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#0A1A1A"/>
+    </linearGradient>
+    <linearGradient id="hCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#111C2E"/>
+      <stop offset="1" stop-color="#0C1424"/>
+    </linearGradient>
+    <linearGradient id="hFlow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="0.5" stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <linearGradient id="hApp" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <radialGradient id="hFade" cx="0.5" cy="0.42" r="0.9">
+      <stop offset="0.45" stop-color="#0A1628" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0A1628" stop-opacity="0.75"/>
+    </radialGradient>
+    <pattern id="hDots" x="24" y="24" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="12" r="1" fill="#334155" opacity="0.18"/>
+    </pattern>
+    <filter id="hGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <style>
+      .eye   { font: 700 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 1.2px; }
+      .code  { font: 500 9px ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.2px; }
+      .body  { font: 450 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #94A3B8; }
+      .chip  { font: 600 11px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.2px; }
+      .item  { font: 500 12px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #CBD5E1; }
+      .stat  { font: 700 26px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.3px; }
+      .lbl   { font: 500 11px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #94A3B8; }
+      .ico   { stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+
+      @keyframes bob    { 0%,100% { transform: translateY(0) }    50% { transform: translateY(-7px) } }
+      @keyframes bobLo  { 0%,100% { transform: translateY(0) }    50% { transform: translateY(-4px) } }
+      @keyframes flow   { to { stroke-dashoffset: -24 } }
+      @keyframes ants   { to { stroke-dashoffset: -28 } }
+      @keyframes breathe{ 0%,100% { opacity: 0.22 }               50% { opacity: 0.5 } }
+      @keyframes pillseq{ 0%,18%,100% { opacity: 0.5 }            6%,10% { opacity: 1 } }
+      @keyframes edge   { 0%,100% { opacity: 0.35 }               50% { opacity: 0.9 } }
+      @keyframes draw   { to { stroke-dashoffset: 0 } }
+      @keyframes fadeup { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+
+      .bob1 { animation: bob    6.2s ease-in-out infinite; }
+      .bob2 { animation: bobLo  7.4s ease-in-out infinite 0.8s; }
+      .bob3 { animation: bobLo  5.6s ease-in-out infinite 1.6s; }
+      .bob4 { animation: bob    6.8s ease-in-out infinite 2.4s; }
+      .bob5 { animation: bob    5.2s ease-in-out infinite 1.1s; }
+      .flowline { stroke-dasharray: 6 6; animation: flow 1.5s linear infinite; }
+      .boundary { stroke-dasharray: 7 7; animation: ants 2.8s linear infinite; }
+      .halo     { animation: breathe 4.5s ease-in-out infinite; }
+      .cardedge { animation: edge 4.5s ease-in-out infinite; }
+      .pill { animation: pillseq 7.5s ease-in-out infinite; opacity: 0.5; }
+      .p1 { animation-delay: 0s }   .p2 { animation-delay: 1.5s } .p3 { animation-delay: 3s }
+      .p4 { animation-delay: 4.5s } .p5 { animation-delay: 6s }
+      .tick { stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw 0.9s ease-out forwards; }
+      .t1 { animation-delay: 0.5s } .t2 { animation-delay: 0.9s } .t3 { animation-delay: 1.3s }
+      .rise { animation: fadeup 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+      .r1 { animation-delay: 0.15s } .r2 { animation-delay: 0.3s } .r3 { animation-delay: 0.45s } .r4 { animation-delay: 0.6s }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { animation: none !important; }
+        .pill { opacity: 1; }
+        .tick { stroke-dashoffset: 0; }
+        .particle { display: none; }
+      }
+    </style>
+  </defs>
+
+  <!-- stage -->
+  <rect width="1080" height="536" rx="28" fill="#020617"/>
+  <rect x="24" y="24" width="1032" height="488" rx="24" fill="url(#hPanel)"/>
+  <rect x="24" y="24" width="1032" height="488" rx="24" fill="url(#hDots)"/>
+  <rect x="24" y="24" width="1032" height="488" rx="24" fill="url(#hFade)"/>
+  <rect x="24" y="24" width="1032" height="488" rx="24" stroke="#1E293B" stroke-width="1.25" fill="none"/>
+
+  <!-- ===== left · messy file pile ===== -->
+  <g>
+    <g transform="translate(105 95) rotate(-10 48 62)"><g class="bob2">
+      <rect width="96" height="124" rx="10" fill="url(#hCard)" stroke="#26364E" stroke-width="1.25"/>
+      <path d="M74 1 L95 22 L74 22 Z" fill="#26364E" opacity="0.8"/>
+      <rect x="12" y="34" width="58" height="5" rx="2.5" fill="#26364E"/>
+      <rect x="12" y="46" width="70" height="5" rx="2.5" fill="#26364E"/>
+      <rect x="12" y="58" width="46" height="5" rx="2.5" fill="#26364E"/>
+      <text x="48" y="110" text-anchor="middle" class="code" fill="#64748B">scan_0042.jpg</text>
+    </g></g>
+    <g transform="translate(228 88) rotate(8 48 62)"><g class="bob3">
+      <rect width="96" height="124" rx="10" fill="url(#hCard)" stroke="#26364E" stroke-width="1.25"/>
+      <path d="M74 1 L95 22 L74 22 Z" fill="#26364E" opacity="0.8"/>
+      <rect x="12" y="34" width="72" height="40" rx="4" fill="#26364E" opacity="0.8"/>
+      <circle cx="26" cy="46" r="5" fill="#64748B" opacity="0.8"/>
+      <path d="M16 68 L36 52 L52 64 L66 55 L84 70" stroke="#64748B" stroke-width="2" fill="none" opacity="0.8"/>
+      <text x="48" y="110" text-anchor="middle" class="code" fill="#64748B">IMG_2941.png</text>
+    </g></g>
+    <g transform="translate(118 132) rotate(-4 48 62)"><g class="bob4">
+      <rect width="96" height="124" rx="10" fill="url(#hCard)" stroke="#26364E" stroke-width="1.25"/>
+      <path d="M74 1 L95 22 L74 22 Z" fill="#26364E" opacity="0.8"/>
+      <rect x="12" y="34" width="66" height="5" rx="2.5" fill="#26364E"/>
+      <rect x="12" y="46" width="54" height="5" rx="2.5" fill="#26364E"/>
+      <rect x="12" y="58" width="72" height="5" rx="2.5" fill="#26364E"/>
+      <text x="48" y="110" text-anchor="middle" class="code" fill="#64748B">notes.docx</text>
+    </g></g>
+    <g transform="translate(218 136) rotate(5 48 62)"><g class="bob5">
+      <rect width="96" height="124" rx="10" fill="url(#hCard)" stroke="#26364E" stroke-width="1.25"/>
+      <path d="M74 1 L95 22 L74 22 Z" fill="#26364E" opacity="0.8"/>
+      <rect x="12" y="34" width="62" height="5" rx="2.5" fill="#26364E"/>
+      <rect x="12" y="46" width="72" height="5" rx="2.5" fill="#26364E"/>
+      <rect x="12" y="58" width="42" height="5" rx="2.5" fill="#26364E"/>
+      <text x="48" y="110" text-anchor="middle" class="code" fill="#64748B">report_v2.md</text>
+    </g></g>
+    <g transform="translate(163 108) rotate(1 48 62)"><g class="bob1">
+      <rect width="96" height="124" rx="10" fill="url(#hCard)" stroke="#2DD4BF" stroke-opacity="0.75" stroke-width="1.25"/>
+      <path d="M74 1 L95 22 L74 22 Z" fill="#26364E"/>
+      <rect x="12" y="34" width="68" height="5" rx="2.5" fill="#334155"/>
+      <rect x="12" y="46" width="56" height="5" rx="2.5" fill="#334155"/>
+      <rect x="12" y="58" width="72" height="5" rx="2.5" fill="#334155"/>
+      <rect x="12" y="70" width="48" height="5" rx="2.5" fill="#334155"/>
+      <text x="48" y="110" text-anchor="middle" class="code" fill="#CCFBF1">final_ACTUAL.pdf</text>
+    </g></g>
+  </g>
+  <text x="212" y="330" text-anchor="middle" class="body"><tspan font-weight="700" fill="#38BDF8">50</tspan> messy files in</text>
+
+  <!-- ===== connectors in ===== -->
+  <path class="flowline" d="M304 142 C 360 130, 424 152, 486 168" stroke="#2DD4BF" stroke-opacity="0.4" stroke-width="1.75" fill="none"/>
+  <path class="flowline" d="M304 218 C 360 226, 424 200, 486 186" stroke="#38BDF8" stroke-opacity="0.4" stroke-width="1.75" fill="none"/>
+  <circle r="3" class="particle" fill="#5EEAD4">
+    <animateMotion dur="2.6s" repeatCount="indefinite" path="M304 142 C 360 130, 424 152, 486 168"/>
+  </circle>
+  <circle r="3" class="particle" fill="#7DD3FC">
+    <animateMotion dur="2.6s" begin="-1.3s" repeatCount="indefinite" path="M304 218 C 360 226, 424 200, 486 186"/>
+  </circle>
+
+  <!-- ===== local-only boundary ===== -->
+  <rect class="boundary" x="336" y="84" width="408" height="250" rx="18" stroke="#2DD4BF" stroke-opacity="0.4" stroke-width="1.5" fill="none"/>
+
+  <!-- ===== center · the app ===== -->
+  <ellipse class="halo" cx="540" cy="176" rx="72" ry="66" fill="url(#hApp)" opacity="0.3" filter="url(#hGlow)"/>
+  <text x="540" y="116" text-anchor="middle" class="eye" fill="#5EEAD4">O R I F O L D</text>
+  <g transform="translate(492 128)">
+    <rect width="96" height="96" rx="22" fill="url(#hApp)"/>
+    <rect width="96" height="96" rx="22" fill="#F8FAFC" opacity="0.06"/>
+    <path d="M30 28 a3 3 0 0 1 3 -3 H56 L70 39 V65 a3 3 0 0 1 -3 3 H33 a3 3 0 0 1 -3 -3 Z" fill="#F8FAFC"/>
+    <path d="M56 25 L70 39 H59 a3 3 0 0 1 -3 -3 Z" fill="#C7D2FE"/>
+    <rect x="37" y="47" width="26" height="3.4" rx="1.7" fill="#7C5CFB" opacity="0.5"/>
+    <rect x="37" y="55" width="19" height="3.4" rx="1.7" fill="#7C5CFB" opacity="0.5"/>
+  </g>
+
+  <!-- tool pills · one per engine layer color -->
+  <g>
+    <g class="pill p1">
+      <rect x="358" y="266" width="64" height="26" rx="13" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="390" y="283" text-anchor="middle" class="chip" fill="#BAE6FD">merge</text>
+    </g>
+    <g class="pill p2">
+      <rect x="432" y="266" width="52" height="26" rx="13" fill="#2DD4BF" fill-opacity="0.1" stroke="#2DD4BF" stroke-opacity="0.38"/>
+      <text x="458" y="283" text-anchor="middle" class="chip" fill="#CCFBF1">OCR</text>
+    </g>
+    <g class="pill p3">
+      <rect x="494" y="266" width="50" height="26" rx="13" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+      <text x="519" y="283" text-anchor="middle" class="chip" fill="#DDD6FE">sign</text>
+    </g>
+    <g class="pill p4">
+      <rect x="554" y="266" width="84" height="26" rx="13" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
+      <text x="596" y="283" text-anchor="middle" class="chip" fill="#FDE68A">compress</text>
+    </g>
+    <g class="pill p5">
+      <rect x="648" y="266" width="74" height="26" rx="13" fill="#FB7185" fill-opacity="0.08" stroke="#FB7185" stroke-opacity="0.32"/>
+      <text x="685" y="283" text-anchor="middle" class="chip" fill="#FECDD3">encrypt</text>
+    </g>
+  </g>
+
+  <!-- boundary tag -->
+  <g>
+    <rect x="425" y="321" width="230" height="26" rx="13" fill="#020617" stroke="#2DD4BF" stroke-opacity="0.45" stroke-width="1.25"/>
+    <g class="ico" stroke="#2DD4BF" stroke-width="1.5">
+      <rect x="440" y="331" width="10" height="8" rx="2"/>
+      <path d="M442 331 v-2.5 a3 3 0 0 1 6 0 V331"/>
+    </g>
+    <text x="459" y="338" class="eye" font-size="10" fill="#5EEAD4">NOTHING LEAVES YOUR MAC</text>
+  </g>
+
+  <!-- ===== connector out ===== -->
+  <path class="flowline" d="M748 190 H 782" stroke="url(#hFlow)" stroke-width="2.5" fill="none"/>
+  <polygon points="792,190 780,184 780,196" fill="#A78BFA"/>
+  <circle r="3" class="particle" fill="#C4B5FD">
+    <animateMotion dur="1.5s" repeatCount="indefinite" path="M746 190 H 786"/>
+  </circle>
+
+  <!-- ===== right · the one polished PDF ===== -->
+  <g>
+    <rect class="cardedge" x="796" y="60" width="232" height="262" rx="16" stroke="url(#hFlow)" stroke-width="2.5" fill="none" opacity="0.5"/>
+    <rect x="796" y="60" width="232" height="262" rx="16" fill="url(#hCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M813 61.25 H1011" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+
+    <rect x="816" y="78" width="46" height="22" rx="7" fill="#FB7185" fill-opacity="0.15" stroke="#FB7185" stroke-opacity="0.5"/>
+    <text x="839" y="93" text-anchor="middle" class="eye" font-size="10" fill="#FECDD3">PDF</text>
+    <rect x="874" y="80" width="82" height="6" rx="3" fill="#E2E8F0" opacity="0.85"/>
+    <rect x="874" y="92" width="58" height="5" rx="2.5" fill="#334155"/>
+    <path d="M816 116 H1008" stroke="#26364E"/>
+
+    <g class="ico" stroke="#2DD4BF">
+      <circle cx="830" cy="142" r="7"/>
+      <path class="tick t1" d="M835.5 147.5 L841 153"/>
+    </g>
+    <text x="854" y="147" class="item">Searchable — OCR&#8217;d</text>
+
+    <g class="ico" stroke="#2DD4BF">
+      <path d="M824 176 v-5 a6 6 0 0 1 12 0 v5"/>
+      <rect class="tick t2" x="821" y="176" width="18" height="13" rx="3"/>
+    </g>
+    <text x="854" y="186" class="item">Password-protected</text>
+
+    <circle cx="830" cy="220" r="9" fill="#2DD4BF" fill-opacity="0.12" stroke="#2DD4BF" stroke-opacity="0.6"/>
+    <polyline class="tick t3" points="825.5,220 829,223.5 835.5,216" stroke="#2DD4BF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="854" y="224" class="item">One clean file</text>
+
+    <path d="M816 248 H1008" stroke="#26364E"/>
+    <rect x="838" y="264" width="148" height="26" rx="13" fill="#0B1322" stroke="#26364E"/>
+    <text x="912" y="281" text-anchor="middle" class="code" font-size="10" fill="#94A3B8">actually-final.pdf</text>
+  </g>
+  <text x="912" y="352" text-anchor="middle" class="body"><tspan font-weight="700" fill="#A78BFA">1</tspan> polished PDF out</text>
+
+  <!-- ===== stat strip ===== -->
+  <path d="M80 388 H1000" stroke="#1E293B"/>
+  <g text-anchor="middle">
+    <g class="rise r1">
+      <text x="158" y="436" class="stat" fill="#38BDF8">50</text>
+      <text x="158" y="458" class="lbl">files per workspace</text>
+    </g>
+    <g class="rise r2">
+      <text x="412" y="436" class="stat" fill="#2DD4BF">0</text>
+      <text x="412" y="458" class="lbl">files ever uploaded</text>
+    </g>
+    <g class="rise r3">
+      <text x="668" y="436" class="stat" fill="#A78BFA">12+</text>
+      <text x="668" y="458" class="lbl">PDF tools, one app</text>
+    </g>
+    <g class="rise r4">
+      <text x="922" y="436" class="stat" fill="#F59E0B">$0</text>
+      <text x="922" y="458" class="lbl">forever</text>
+    </g>
+  </g>
+
+  <!-- footer strip -->
+  <text x="540" y="494" text-anchor="middle" class="eye" font-size="10" fill="#475569">SWIFTUI &#183; PDFKIT &#183; PDFIUM &#183; QPDF &#183; VISION OCR &#183; 6 LANGUAGES &#8212; 100% ON-DEVICE</text>
+</svg>

@@ -1,0 +1,29 @@
+---
+import Default from '@astrojs/starlight/components/MarkdownContent.astro';
+
+const { entry } = Astro.locals.starlightRoute;
+const keywords = (entry.data as { keywords?: string[] }).keywords;
+---
+
+{
+	keywords && keywords.length > 0 && (
+		<span class="sr-only" aria-hidden="true" data-pagefind-weight="8">
+			{keywords.join(', ')}
+		</span>
+	)
+}
+<Default><slot /></Default>
+
+<style>
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+</style>

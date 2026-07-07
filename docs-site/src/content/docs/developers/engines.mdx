@@ -1,0 +1,36 @@
+---
+title: The engines
+description: Why Orifold uses four local PDF engines, and what each one is responsible for.
+keywords: [pdfkit, pdfium, qpdf, vision ocr, engines, dependencies]
+---
+
+Orifold composes four local engines behind protocol seams, each doing the job it's best at — none of them a remote service.
+
+## PDFKit — composition
+
+Apple's native framework owns `PDFView`, `PDFDocument`, `PDFPage`, `PDFAnnotation`, selection, search, printing, and workspace page ownership. It's the UI and document engine everything else supports.
+
+## PDFium — validation
+
+A supplemental local processing backend behind `PDFProcessingEngine`, used for a non-blocking validation smoke check during import. If PDFium is unavailable or rejects a file PDFKit can open, the PDFKit import path still proceeds — PDFium never blocks an import PDFKit is willing to handle. Vendored at `Packages/PDFiumBinary` as a prebuilt macOS/iOS XCFramework (MIT), built from Chromium's PDFium.
+
+## qpdf — repair, encryption, sanitize, validation
+
+Apache-2.0, statically linked, vendored as a universal `arm64`/`x86_64` library at `Packages/QPDFBinary` — no external process, no network call. qpdf powers:
+
+- Repairing corrupt PDFs on import (reconstructing cross-reference tables).
+- Real AES-256 (PDF 2.0 / R6) password protection.
+- A lossless structural compression pass (object-stream repacking).
+- Sanitize-for-sharing (stripping auto-run actions, embedded JavaScript, embedded files).
+- The structural check gating every export.
+
+## Vision — OCR
+
+Apple's Vision framework recognizes text in scanned pages entirely on-device, writing it back as searchable text validated before it enters the workspace.
+
+## Related
+
+- [Architecture overview](/Orifold/developers/architecture/)
+- [OCR scanned pages](/Orifold/edit/ocr/)
+- [Compress a PDF](/Orifold/export/compress/)
+- [Password-protect a PDF](/Orifold/export/protect/)

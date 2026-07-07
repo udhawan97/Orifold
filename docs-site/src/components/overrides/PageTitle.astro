@@ -1,0 +1,78 @@
+---
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+
+// Minimal shape of Starlight's internal SidebarEntry — not part of its public
+// API surface, so we duplicate just the fields this component reads.
+interface SidebarLinkEntry {
+	type: 'link';
+	label: string;
+	isCurrent: boolean;
+}
+interface SidebarGroupEntry {
+	type: 'group';
+	label: string;
+	entries: SidebarEntry[];
+}
+type SidebarEntry = SidebarLinkEntry | SidebarGroupEntry;
+
+const { sidebar } = Astro.locals.starlightRoute;
+
+function findTrail(entries: SidebarEntry[], trail: string[] = []): string[] | null {
+	for (const item of entries) {
+		if (item.type === 'link' && item.isCurrent) return [...trail, item.label];
+		if (item.type === 'group') {
+			const found = findTrail(item.entries, [...trail, item.label]);
+			if (found) return found;
+		}
+	}
+	return null;
+}
+
+// The landing page isn't part of the sidebar tree, so this naturally
+// resolves to null there and no breadcrumb renders.
+const trail = findTrail(sidebar);
+---
+
+{
+	trail && (
+		<nav class="of-breadcrumbs" aria-label="Breadcrumb">
+			<ol>
+				<li><a href={import.meta.env.BASE_URL}>Docs</a></li>
+				{trail.map((label, i) => (
+					<li aria-current={i === trail.length - 1 ? 'page' : undefined}>{label}</li>
+				))}
+			</ol>
+		</nav>
+	)
+}
+<Default />
+
+<style>
+	@layer starlight.core {
+		.of-breadcrumbs ol {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.4rem;
+			list-style: none;
+			padding: 0;
+			margin: 0;
+			font-size: var(--sl-text-xs);
+			color: var(--of-text-2);
+		}
+		.of-breadcrumbs li:not(:last-child)::after {
+			content: '/';
+			margin-left: 0.4rem;
+			color: var(--of-text-3);
+		}
+		.of-breadcrumbs a {
+			color: var(--of-text-2);
+			text-decoration: none;
+		}
+		.of-breadcrumbs a:hover {
+			color: var(--of-accent);
+		}
+		.of-breadcrumbs li[aria-current='page'] {
+			color: var(--of-text-1);
+		}
+	}
+</style>

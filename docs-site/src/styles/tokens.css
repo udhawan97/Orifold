@@ -1,0 +1,40 @@
+/* Orifold docs design tokens — mapped 1:1 from Orifold/DesignSystem/DesignSystem.swift */
+
+:root,
+:root[data-theme='dark'] {
+	--of-canvas: #0a101c;
+	--of-surface: #111a29;
+	--of-card: #182434;
+	--of-accent: #4fc3e8;
+	--of-accent-bright: #7adef4;
+	--of-accent-soft: rgba(79, 195, 232, 0.2);
+	--of-text-1: #edf3fa;
+	--of-text-2: #afc2d6;
+	--of-text-3: #7c8fa3;
+	--of-separator: rgba(237, 243, 250, 0.12);
+	--of-warning: #f9c452;
+	--of-success: #74cda4;
+	--of-error: #f97a6d;
+	--of-signature: #f98c68;
+	--of-tancho: #f97a6d;
+	--of-fold-shade: rgba(237, 243, 250, 0.06);
+}
+
+:root[data-theme='light'] {
+	--of-canvas: #eef0f2;
+	--of-surface: #f8f8f8;
+	--of-card: #fffefc;
+	--of-accent: #0c67a6;
+	--of-accent-bright: #15a3c4;
+	--of-accent-soft: rgba(12, 103, 166, 0.12);
+	--of-text-1: #131f33;
+	--of-text-2: #44566b;
+	--of-text-3: #71808f;
+	--of-separator: rgba(19, 31, 51, 0.1);
+	--of-warning: #b37e0a;
+	--of-success: #38805d;
+	--of-error: #bf3227;
+	--of-signature: #bf442c;
+	--of-tancho: #bf3227;
+	--of-fold-shade: rgba(19, 31, 51, 0.04);
+}

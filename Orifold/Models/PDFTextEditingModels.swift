@@ -7,6 +7,30 @@ enum PDFTextEditConfidence: String, Codable {
     case low
 }
 
+/// Classifies how a detected (or synthesized) text region can actually be edited, so the
+/// click-to-edit UI and export can branch on it instead of treating every region as either
+/// "fully editable" or "blank white box". See docs/features/SMART_TEXT_EDIT_PLAN.md.
+enum PDFTextEditability: String, Codable {
+    /// Real glyphs with high-confidence bounds/font — edit in place, erase + redraw on export.
+    case direct
+    /// Text recovered (e.g. via PDFKit's line selections) but geometry/font are approximate —
+    /// edit in place; export covers the matching background before redrawing.
+    case replace
+    /// No text layer at all, but the page looks like a scanned/flattened image — the click
+    /// can't be bound to a known text region, so typed text is placed as new content rather
+    /// than silently pretending a real line was detected.
+    case overlayOnly
+    /// The click landed on genuinely blank space; the user is adding brand-new text.
+    case insertion
+}
+
+/// Where a block's text/geometry came from, for diagnostics and future OCR wiring.
+enum PDFTextSource: String, Codable {
+    case pdfiumGlyphs
+    case pdfKitString
+    case none
+}
+
 struct PDFTextRun: Codable, Identifiable, Equatable {
     var id: UUID = UUID()
     var text: String
@@ -42,6 +66,8 @@ struct EditableTextBlock: Codable, Identifiable, Equatable {
     var rotation: CGFloat
     var baseline: CGFloat
     var confidence: PDFTextEditConfidence
+    var editability: PDFTextEditability = .direct
+    var textSource: PDFTextSource = .pdfiumGlyphs
 }
 
 struct PDFTextEditOperation: Codable, Identifiable, Equatable {

@@ -20,16 +20,16 @@ enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
 
     var menuTitle: String {
         switch self {
-        case .pdf: return "PDF (.pdf)"
-        case .word: return "Word (.docx)"
-        case .legacyWord: return "Word 97-2004 (.doc)"
-        case .odt: return "OpenDocument Text (.odt)"
-        case .rtf: return "Rich Text (.rtf)"
-        case .text: return "Text (.txt)"
-        case .markdown: return "Markdown (.md)"
-        case .html: return "HTML (.html)"
-        case .png: return "PNG images (.png)"
-        case .jpeg: return "JPEG images (.jpg)"
+        case .pdf: return L10n.string("exportFormat.pdf.menuTitle")
+        case .word: return L10n.string("exportFormat.word.menuTitle")
+        case .legacyWord: return L10n.string("exportFormat.legacyWord.menuTitle")
+        case .odt: return L10n.string("exportFormat.odt.menuTitle")
+        case .rtf: return L10n.string("exportFormat.rtf.menuTitle")
+        case .text: return L10n.string("exportFormat.text.menuTitle")
+        case .markdown: return L10n.string("exportFormat.markdown.menuTitle")
+        case .html: return L10n.string("exportFormat.html.menuTitle")
+        case .png: return L10n.string("exportFormat.png.menuTitle")
+        case .jpeg: return L10n.string("exportFormat.jpeg.menuTitle")
         }
     }
 
@@ -298,6 +298,13 @@ final class WorkspaceViewModel {
     var selectedCommentID: UUID? = nil
     var commentFilter: CommentFilter = .open
     private(set) var commentRevision = 0
+    /// Bumped by `rebuild()` — every operation that changes which documents/pages are
+    /// loaded (import, remove, move, rotate, duplicate, delete, undo/redo restore) calls
+    /// `rebuild()`, so this catches structural changes that `commentRevision` alone would
+    /// miss (e.g. removing a document that has no anchored `WorkspaceComment`s but does
+    /// carry PDF-native sticky notes `pdfNoteComments` still needs to stop enumerating).
+    private(set) var structureRevision = 0
+    @ObservationIgnored private var pdfNoteCommentsCache: (commentRevision: Int, structureRevision: Int, notes: [PDFNoteComment])?
     var editingStatus: EditingStatus? = nil
     var copiedInlineTextFormat: PDFTextEditFormat? = nil
     var isInlineTextFormatPainterArmed = false
@@ -306,8 +313,7 @@ final class WorkspaceViewModel {
     var highlightFormFields = false
     var selectedFormFieldIndex: Int? = nil
     var appAppearanceMode: AppAppearanceMode = .system
-    var isNightModeEnabled = false
-    var nightModeSettings = NightModeSettings.default
+    var documentComfortSettings = DocumentComfortSettings.default
 
     var hasPendingSignaturePlacement: Bool {
         pendingSignatureData != nil && pendingSignatureOptions != nil
@@ -398,6 +404,16 @@ final class WorkspaceViewModel {
         let id = UUID()
         var fileName: String
         var message: String
+        /// Defaults to `.unknown` so existing call sites that only have a raw error
+        /// message keep compiling; call sites that know more (recents, export-reopen)
+        /// pass real classification for recovery-action rendering.
+        var kind: ImportFailureKind = .unknown
+        /// Set when this failure originated from a `RecentFileEntry`, so the alert can
+        /// offer "Remove from Recents".
+        var recentEntryID: UUID? = nil
+        /// The URL that failed to open, when known — used for "Show in Finder" and to
+        /// scope a "Choose File Again" panel to the right folder.
+        var sourceURL: URL? = nil
     }
 
     struct ExportError: Identifiable {
@@ -409,15 +425,6 @@ final class WorkspaceViewModel {
         let id = UUID()
         var url: URL
         var detail: String? = nil
-
-        var message: String {
-            let folderName = url.deletingLastPathComponent().lastPathComponent
-            var text = "\"\(url.lastPathComponent)\" was saved to \"\(folderName)\"."
-            if let detail, !detail.isEmpty {
-                text += " \(detail)"
-            }
-            return text
-        }
     }
 
     struct EditingStatus: Identifiable, Equatable {
@@ -469,6 +476,7 @@ final class WorkspaceViewModel {
         var contactInfo: String?
         var subFilter: String?
         var timestampRequested: Bool
+        var certificateProfileID: UUID?
 
         static var visualTyped: PendingSignaturePlacementOptions {
             PendingSignaturePlacementOptions(
@@ -479,7 +487,8 @@ final class WorkspaceViewModel {
                 location: nil,
                 contactInfo: nil,
                 subFilter: nil,
-                timestampRequested: false
+                timestampRequested: false,
+                certificateProfileID: nil
             )
         }
     }
@@ -536,7 +545,21 @@ final class WorkspaceViewModel {
     }
 
     var pdfNoteComments: [PDFNoteComment] {
-        _ = commentRevision
+        if let cache = pdfNoteCommentsCache,
+           cache.commentRevision == commentRevision,
+           cache.structureRevision == structureRevision {
+            return cache.notes
+        }
+        let notes = computePDFNoteComments()
+        pdfNoteCommentsCache = (commentRevision, structureRevision, notes)
+        return notes
+    }
+
+    /// The uncached scan behind `pdfNoteComments`. Walks every loaded PDF page's live
+    /// annotations, so this is O(total pages) — cheap for typical workspaces, but expensive
+    /// enough (e.g. from a sidebar row re-rendering on every hover) to be worth memoizing
+    /// above rather than calling this directly.
+    private func computePDFNoteComments() -> [PDFNoteComment] {
         var notes: [PDFNoteComment] = []
         for (member, pdf) in loadedPDFs {
             for localPageIndex in 0..<pdf.pageCount {
@@ -770,7 +793,9 @@ final class WorkspaceViewModel {
             let failure = failures[0]
             return ImportError(
                 fileName: failure.url.lastPathComponent,
-                message: String(localized: "Could not open \"\(failure.url.lastPathComponent)\". \(DocumentImportConverter.userMessage(for: failure.error))", locale: L10n.currentLocale)
+                message: String(localized: "Could not open \"\(failure.url.lastPathComponent)\". \(DocumentImportConverter.userMessage(for: failure.error))", locale: L10n.currentLocale),
+                kind: ImportFailureClassifier.classify(error: failure.error, url: failure.url),
+                sourceURL: failure.url
             )
         }
 
@@ -801,22 +826,49 @@ final class WorkspaceViewModel {
 
     private func importDocument(from url: URL, cancellation: OperationCancellationToken) async -> Result<AsyncImportedDocument, AsyncImportFailure> {
         await Task.detached(priority: .userInitiated) {
-            let fileName = url.lastPathComponent
             guard !cancellation.isCancelled, !Task.isCancelled else {
-                return .failure(AsyncImportFailure(url: URL(fileURLWithPath: fileName), error: CancellationError()))
+                return .failure(AsyncImportFailure(url: url, error: CancellationError()))
             }
             let isSecurityScoped = url.startAccessingSecurityScopedResource()
             defer {
                 if isSecurityScoped { url.stopAccessingSecurityScopedResource() }
             }
+            if let preflightKind = ImportFailureClassifier.preflight(url: url) {
+                ImportLog.recordAttempt(
+                    source: .openPanel,
+                    fileExtension: url.pathExtension,
+                    securityScopeGranted: isSecurityScoped,
+                    fileExists: preflightKind != .fileMissing,
+                    isReadable: false,
+                    parserResult: .failed
+                )
+                return .failure(AsyncImportFailure(url: url, error: preflightKind))
+            }
             do {
                 let document = try await DocumentImportConverter.importedDocumentAsync(from: url)
                 try Task.checkCancellation()
                 guard !cancellation.isCancelled else { throw CancellationError() }
+                ImportLog.recordAttempt(
+                    source: .openPanel,
+                    fileExtension: url.pathExtension,
+                    securityScopeGranted: isSecurityScoped,
+                    fileExists: true,
+                    isReadable: true,
+                    parserResult: .ok
+                )
                 return .success(AsyncImportedDocument(url: url, document: document))
             } catch {
-                let failedURL = URL(fileURLWithPath: fileName)
-                return .failure(AsyncImportFailure(url: failedURL, error: error))
+                ImportLog.recordAttempt(
+                    source: .openPanel,
+                    fileExtension: url.pathExtension,
+                    securityScopeGranted: isSecurityScoped,
+                    fileExists: true,
+                    isReadable: true,
+                    parserResult: .failed,
+                    errorDomain: (error as NSError).domain,
+                    errorCode: (error as NSError).code
+                )
+                return .failure(AsyncImportFailure(url: url, error: error))
             }
         }.value
     }
@@ -828,16 +880,54 @@ final class WorkspaceViewModel {
             if isSecurityScoped { url.stopAccessingSecurityScopedResource() }
         }
 
+        if let preflightKind = ImportFailureClassifier.preflight(url: url) {
+            ImportLog.recordAttempt(
+                source: .openPanel,
+                fileExtension: url.pathExtension,
+                securityScopeGranted: isSecurityScoped,
+                fileExists: preflightKind != .fileMissing,
+                isReadable: false,
+                parserResult: .failed
+            )
+            importError = ImportError(
+                fileName: fileName,
+                message: DocumentImportConverter.userMessage(for: preflightKind),
+                kind: preflightKind,
+                sourceURL: url
+            )
+            return
+        }
+
         let imported: DocumentImportConverter.ImportedDocument
         do {
             imported = try DocumentImportConverter.importedDocument(from: url)
         } catch {
+            ImportLog.recordAttempt(
+                source: .openPanel,
+                fileExtension: url.pathExtension,
+                securityScopeGranted: isSecurityScoped,
+                fileExists: true,
+                isReadable: true,
+                parserResult: .failed,
+                errorDomain: (error as NSError).domain,
+                errorCode: (error as NSError).code
+            )
             importError = ImportError(
                 fileName: fileName,
-                message: String(localized: "Could not open \"\(fileName)\". \(DocumentImportConverter.userMessage(for: error))", locale: L10n.currentLocale)
+                message: String(localized: "Could not open \"\(fileName)\". \(DocumentImportConverter.userMessage(for: error))", locale: L10n.currentLocale),
+                kind: ImportFailureClassifier.classify(error: error, url: url),
+                sourceURL: url
             )
             return
         }
+        ImportLog.recordAttempt(
+            source: .openPanel,
+            fileExtension: url.pathExtension,
+            securityScopeGranted: isSecurityScoped,
+            fileExists: true,
+            isReadable: true,
+            parserResult: .ok
+        )
         let pdf = imported.pdfDocument
         if pdf.isLocked {
             enqueuePasswordImport(pdf: pdf, url: url)
@@ -964,6 +1054,7 @@ final class WorkspaceViewModel {
         normalizePageSelection()
         refreshFormSummary()
         refreshScannedPageSummary()
+        structureRevision += 1
         // PDFSelections are bound to the old document; drop them so search navigation
         // doesn't jump to pages in a detached doc.
         searchResults = []
@@ -1066,6 +1157,45 @@ final class WorkspaceViewModel {
         rebuildPageOrder()
         rebuild()
         registerUndo(snapshot: snapshot, actionName: L10n.string("undo.removeDocument"))
+    }
+
+    // MARK: - Rename (with undo)
+
+    func renameDocument(_ member: MemberDocument, to newName: String) {
+        guard canPerformMutatingAction() else { return }
+        guard let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == member.id }),
+              let docIndex = document.workspace.documents.firstIndex(where: { $0.id == member.id }) else { return }
+        // Read the live current name rather than trusting the caller's possibly-stale
+        // `member` snapshot, so the no-op guard and the undo's captured "previous name"
+        // are always correct even if the view passed a value from an earlier render.
+        let currentName = document.workspace.documents[docIndex].displayName
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != currentName else { return }
+        applyRename(loadedIndex: loadedIndex, docIndex: docIndex, name: trimmed)
+        registerRenameUndo(memberID: member.id, previousName: currentName)
+    }
+
+    private func applyRename(loadedIndex: Int, docIndex: Int, name: String) {
+        document.workspace.documents[docIndex].displayName = name
+        loadedPDFs[loadedIndex].0.displayName = name
+        markWorkspaceModified()
+    }
+
+    /// Isolated (see `registerIsolatedUndo`) so two renames committed in the same run-loop
+    /// turn — e.g. correcting a typo and immediately refining the name again — don't
+    /// collapse into a single undo step; each rename steps back individually.
+    private func registerRenameUndo(memberID: UUID, previousName: String) {
+        registerIsolatedUndo {
+            undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation(),
+                      let loadedIndex = vm.loadedPDFs.firstIndex(where: { $0.0.id == memberID }),
+                      let docIndex = vm.document.workspace.documents.firstIndex(where: { $0.id == memberID }) else { return }
+                let currentName = vm.document.workspace.documents[docIndex].displayName
+                vm.applyRename(loadedIndex: loadedIndex, docIndex: docIndex, name: previousName)
+                vm.registerRenameUndo(memberID: memberID, previousName: currentName)
+            }
+            undoManager?.setActionName(L10n.string("undo.renameDocument"))
+        }
     }
 
     private struct OrderSnapshot: @unchecked Sendable {
@@ -1491,6 +1621,12 @@ final class WorkspaceViewModel {
         return workspaceCount + noteCount
     }
 
+    /// Total comment count across every page belonging to `member`, for the sidebar's
+    /// per-document metadata line.
+    func commentCount(for member: MemberDocument) -> Int {
+        member.pageRefs.reduce(0) { $0 + commentCount(for: $1) }
+    }
+
     func isCommentVisibleOnPage(_ comment: WorkspaceComment) -> Bool {
         filteredWorkspaceComments.contains { $0.id == comment.id }
     }
@@ -1646,11 +1782,11 @@ final class WorkspaceViewModel {
     private func showReaderModeBlockedMessage(for tool: AnnotationTool) {
         switch tool {
         case .editText:
-            showEditMessage("Reader Mode keeps the document text locked. Turn it off to edit PDF text.", isError: false)
+            showEditMessage(L10n.string("status.readerMode.blockedEditText"), isError: false)
         case .signature:
-            showEditMessage("Reader Mode keeps signing locked. Turn it off to place or export signatures.", isError: false)
+            showEditMessage(L10n.string("status.readerMode.blockedSignature"), isError: false)
         default:
-            showEditMessage("Reader Mode keeps authoring tools locked.", isError: false)
+            showEditMessage(L10n.string("status.readerMode.blockedGeneric"), isError: false)
         }
     }
 
@@ -2287,6 +2423,12 @@ final class WorkspaceViewModel {
             bounds.origin.y = pageBounds.maxY - height - 12
         }
         let nearbyStyle = nearbyTextStyle(near: pagePoint, in: nearbyBlocks)
+        // No block anywhere on the page AND the page itself looks like a scanned/flattened
+        // image (no text layer, but visible ink) — the click can't be bound to any known text
+        // region, so tell the user honestly instead of silently opening what looks like a
+        // normal "detected this line" editor. A page with a real (if sparse) text layer, or
+        // any genuinely blank spot on an otherwise-editable page, stays a plain `.insertion`.
+        let isOnFlattenedPage = nearbyBlocks.isEmpty && PDFOCRService.isLikelyScannedPage(page)
         return EditableTextBlock(
             pageRefID: pageRefID,
             text: "",
@@ -2299,7 +2441,9 @@ final class WorkspaceViewModel {
             alignment: nearbyStyle?.alignment,
             rotation: CGFloat(page.rotation),
             baseline: bounds.minY,
-            confidence: .medium
+            confidence: .medium,
+            editability: isOnFlattenedPage ? .overlayOnly : .insertion,
+            textSource: .none
         )
     }
 
@@ -2372,7 +2516,7 @@ final class WorkspaceViewModel {
     ) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let basePage = originalBasePage(for: pageRef) else {
-            showEditMessage("Orifold could not access the original page for editing.", isError: true)
+            showEditMessage(L10n.string("error.pageEdit.cannotAccessOriginal"), isError: true)
             return false
         }
 
@@ -2450,7 +2594,7 @@ final class WorkspaceViewModel {
         let operations = document.workspace.pageEditStates.first(where: { $0.pageRefID == pageRef.id })?.operations ?? []
         guard regenerateEditedPage(pageRef: pageRef, operations: operations) else {
             document.workspace.pageEditStates = previousSnapshot.editStates
-            showEditMessage("Orifold could not regenerate that edited page. The original page is unchanged.", isError: true)
+            showEditMessage(L10n.string("error.pageEdit.regenerateFailed"), isError: true)
             return false
         }
 
@@ -2584,7 +2728,7 @@ final class WorkspaceViewModel {
         }
         guard regenerateEditedPage(pageRef: pageRef, operations: remaining) else {
             document.workspace.pageEditStates = previousSnapshot.editStates
-            showEditMessage("Orifold could not restore that page. The edit was left in place.", isError: true)
+            showEditMessage(L10n.string("error.pageEdit.restoreFailed"), isError: true)
             return false
         }
         rebuild()
@@ -2626,7 +2770,7 @@ final class WorkspaceViewModel {
             // Keep the edits we could not visually revert so the document and the edit
             // list stay consistent.
             document.workspace.pageEditStates = states.filter { failedPageRefIDs.contains($0.pageRefID) }
-            showEditMessage("Orifold could not restore some pages; their edits were left in place.", isError: true)
+            showEditMessage(L10n.string("error.pageEdit.restoreSomeFailed"), isError: true)
         }
         rebuild()
         markWorkspaceModified()
@@ -2869,7 +3013,7 @@ final class WorkspaceViewModel {
     func eraseMarkupAnnotation(at pagePoint: CGPoint, on page: PDFPage) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let ann = erasableMarkupAnnotation(at: pagePoint, on: page) else {
-            showEditMessage("Click a highlight, underline, or strikeout to erase it.", isError: true)
+            showEditMessage(L10n.string("error.markup.eraseTargetMissing"), isError: true)
             return false
         }
         page.removeAnnotation(ann)
@@ -2983,7 +3127,8 @@ final class WorkspaceViewModel {
             location: nil,
             contactInfo: nil,
             subFilter: nil,
-            timestampRequested: false
+            timestampRequested: false,
+            certificateProfileID: nil
         )
         currentTool = .signature
         isShowingSignaturePalette = false
@@ -2998,7 +3143,8 @@ final class WorkspaceViewModel {
                                               location: String?,
                                               contactInfo: String?,
                                               timestampRequested: Bool,
-                                              identity: (any SigningIdentity)? = nil) {
+                                              identity: (any SigningIdentity)? = nil,
+                                              certificateProfileID: UUID? = nil) {
         guard canPerformSigningAction() else { return }
         pendingSignatureData = imageData
         pendingSigningIdentity = identity
@@ -3010,7 +3156,8 @@ final class WorkspaceViewModel {
             location: location,
             contactInfo: contactInfo,
             subFilter: "ETSI.CAdES.detached",
-            timestampRequested: timestampRequested
+            timestampRequested: timestampRequested,
+            certificateProfileID: certificateProfileID
         )
         currentTool = .signature
         isShowingSignaturePalette = false
@@ -3043,18 +3190,80 @@ final class WorkspaceViewModel {
         isShowingStampPalette = false
     }
 
-    func resolveSigningIdentity(reference: String, signerName: String) throws -> any SigningIdentity {
-        switch reference {
-        case "p12":
-            return try importPKCS12SigningIdentity()
-        case "keychain":
-            return try chooseKeychainSigningIdentity()
-        case "self-signed":
-            let request = SelfSignedIdentityRequest(commonName: signerName)
-            return try SelfSignedSigningIdentityProvider.generate(request: request)
-        default:
+    // MARK: - Certificate profiles (persistent digital IDs)
+
+    /// All persisted signing identities (self-signed, imported `.p12`, or Keychain
+    /// references) available for the Digital ID picker. Persistent — the same self-signed
+    /// certificate is offered every time, rather than a fresh one being minted per signature.
+    @MainActor
+    var certificateProfiles: [DigitalCertificateProfile] {
+        CertificateProfileStore.shared.profiles
+    }
+
+    /// Generates a self-signed certificate ONCE and registers it as a reusable profile. Call
+    /// this only from the "Create local self-signed ID…" flow — never per-signature — so the
+    /// resulting certificate stays stable enough for a recipient to eventually trust it.
+    @MainActor
+    func createSelfSignedCertificateProfile(commonName: String, emailAddress: String?, validityDays: Int) throws -> DigitalCertificateProfile {
+        let trimmedName = commonName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { throw SigningError.missingIdentity }
+        let identity = try SelfSignedSigningIdentityProvider.generate(
+            request: SelfSignedIdentityRequest(commonName: trimmedName, emailAddress: emailAddress, validityDays: validityDays)
+        )
+        return try CertificateProfileStore.shared.register(identity: identity, label: trimmedName, source: .selfSignedGenerated)
+    }
+
+    /// Opens a file picker for a `.p12`/`.pfx`. Returns nil if the user cancels.
+    func chooseCertificateFileURL() -> URL? {
+        let panel = NSOpenPanel()
+        panel.title = L10n.string("savePanel.importDigitalID.title")
+        panel.prompt = L10n.string("savePanel.import.prompt")
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = ["p12", "pfx"].compactMap { UTType(filenameExtension: $0) }
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url
+    }
+
+    /// Single-attempt `.p12`/`.pfx` import. Deliberately does not retry internally — the
+    /// caller (an in-app password sheet) owns the retry loop so it can show an inline
+    /// "wrong password" message and let the user try again without re-choosing the file.
+    @MainActor
+    func importCertificateProfile(fileURL: URL, passphrase: String, label: String) throws -> DigitalCertificateProfile {
+        let data = try Data(contentsOf: fileURL)
+        let identity = try PKCS12SigningIdentityProvider.importIdentity(from: data, passphrase: passphrase)
+        return try CertificateProfileStore.shared.register(
+            identity: identity,
+            label: label,
+            source: .importedP12(originalFilename: fileURL.lastPathComponent)
+        )
+    }
+
+    /// Registers every identity already present in the macOS login Keychain as a profile
+    /// (idempotent — an identity already registered is refreshed in place, not duplicated).
+    @discardableResult
+    @MainActor
+    func addKeychainCertificateProfiles() throws -> [DigitalCertificateProfile] {
+        let identities = try KeychainSigningIdentityProvider.identities()
+        guard !identities.isEmpty else { throw SigningError.missingIdentity }
+        return try CertificateProfileStore.shared.registerAll(
+            identities: identities,
+            label: { $0.commonName ?? L10n.string("signAlert.untitledDigitalID") },
+            source: .keychainReference
+        )
+    }
+
+    @MainActor
+    func removeCertificateProfile(id: UUID) {
+        CertificateProfileStore.shared.remove(id: id)
+    }
+
+    @MainActor
+    func resolveSigningIdentity(certificateProfileID: UUID) throws -> any SigningIdentity {
+        guard let profile = CertificateProfileStore.shared.profiles.first(where: { $0.id == certificateProfileID }) else {
             throw SigningError.missingIdentity
         }
+        return try CertificateProfileStore.shared.resolveIdentity(for: profile)
     }
 
     @discardableResult
@@ -3081,7 +3290,8 @@ final class WorkspaceViewModel {
             location: options.location,
             contactInfo: options.contactInfo,
             subFilter: options.subFilter,
-            timestampApplied: false
+            timestampApplied: false,
+            certificateProfileID: options.certificateProfileID
         )
         document.workspace.signatures.append(placement)
         if options.kind == .cryptographic, let identity {
@@ -3277,6 +3487,7 @@ final class WorkspaceViewModel {
         return result
     }
 
+    @MainActor
     func signAndExportCryptographicPDF(timestampRequested: Bool) {
         guard canPerformSigningAction() else { return }
         guard let placement = document.workspace.signatures.last(where: { $0.isCryptographic }) else {
@@ -3285,10 +3496,16 @@ final class WorkspaceViewModel {
         }
         let identity: any SigningIdentity
         do {
-            guard let resolvedIdentity = signingIdentitiesByPlacementID[placement.id] else {
+            if let resolvedIdentity = signingIdentitiesByPlacementID[placement.id] {
+                identity = resolvedIdentity
+            } else if let profileID = placement.certificateProfileID {
+                // The in-memory identity cache doesn't survive a document close/reopen —
+                // fall back to re-resolving from the persisted certificate profile so a
+                // cryptographic placement made in an earlier session can still be signed.
+                identity = try resolveSigningIdentity(certificateProfileID: profileID)
+            } else {
                 throw SigningError.missingIdentity
             }
-            identity = resolvedIdentity
         } catch SigningError.missingIdentity {
             exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
             return
@@ -3322,6 +3539,10 @@ final class WorkspaceViewModel {
         guard panel.runModal() == .OK, let chosenURL = panel.url else { return }
         targetURL = chosenURL
 
+        let estimatedDERBytes = try? CMSSignatureBuilder.estimatedMaxDEREncodedSize(
+            identity: identity,
+            includeTimestampSlack: timestampRequested
+        )
         let field = SignatureFieldSpec(
             pageIndex: pageIndex,
             rect: placement.rect,
@@ -3329,7 +3550,8 @@ final class WorkspaceViewModel {
             reason: placement.reason,
             location: placement.location,
             contactInfo: placement.contactInfo,
-            subFilter: placement.subFilter ?? "ETSI.CAdES.detached"
+            subFilter: placement.subFilter ?? "ETSI.CAdES.detached",
+            estimatedSignatureDERBytes: estimatedDERBytes
         )
         let appearance: PDFAppearanceStream?
         do {
@@ -3408,62 +3630,6 @@ final class WorkspaceViewModel {
         }
     }
 
-    private func importPKCS12SigningIdentity() throws -> any SigningIdentity {
-        let panel = NSOpenPanel()
-        panel.title = L10n.string("savePanel.importDigitalID.title")
-        panel.prompt = L10n.string("savePanel.import.prompt")
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = ["p12", "pfx"].compactMap { UTType(filenameExtension: $0) }
-        guard panel.runModal() == .OK, let url = panel.url else {
-            throw SigningError.missingIdentity
-        }
-        let passphrase = try promptForPKCS12Passphrase()
-        return try PKCS12SigningIdentityProvider.importIdentity(from: url) { passphrase }
-    }
-
-    private func chooseKeychainSigningIdentity() throws -> any SigningIdentity {
-        let identities = try KeychainSigningIdentityProvider.identities()
-        guard !identities.isEmpty else {
-            throw SigningError.missingIdentity
-        }
-        guard identities.count > 1 else {
-            return identities[0]
-        }
-
-        let alert = NSAlert()
-        alert.messageText = L10n.string("signAlert.chooseKeychainID.message")
-        alert.informativeText = L10n.string("signAlert.chooseKeychainID.info")
-        alert.addButton(withTitle: L10n.string("signAlert.choose.button"))
-        alert.addButton(withTitle: L10n.string("signAlert.cancel.button"))
-
-        let popup = NSPopUpButton(frame: CGRect(x: 0, y: 0, width: 360, height: 28), pullsDown: false)
-        for identity in identities {
-            popup.addItem(withTitle: identity.commonName ?? L10n.string("signAlert.untitledDigitalID"))
-        }
-        alert.accessoryView = popup
-
-        guard alert.runModal() == .alertFirstButtonReturn else {
-            throw SigningError.missingIdentity
-        }
-        return identities[max(0, popup.indexOfSelectedItem)]
-    }
-
-    private func promptForPKCS12Passphrase() throws -> String {
-        let alert = NSAlert()
-        alert.messageText = L10n.string("signAlert.digitalIDPassword.message")
-        alert.informativeText = L10n.string("signAlert.digitalIDPassword.info")
-        alert.addButton(withTitle: L10n.string("signAlert.unlock.button"))
-        alert.addButton(withTitle: L10n.string("signAlert.cancel.button"))
-
-        let field = NSSecureTextField(frame: CGRect(x: 0, y: 0, width: 320, height: 24))
-        alert.accessoryView = field
-
-        guard alert.runModal() == .alertFirstButtonReturn else {
-            throw SigningError.missingIdentity
-        }
-        return field.stringValue
-    }
 
     private func pageRefID(for page: PDFPage) -> UUID? {
         // Map the PDFPage back to a PageRef.id using position in combinedPDF.
@@ -4123,6 +4289,16 @@ final class WorkspaceViewModel {
             .joined(separator: " ")
         exportSuccess = ExportSuccess(url: url, detail: detail.isEmpty ? nil : detail)
         PetBuddyHook.trigger(.export)
+        // Persist a security-scoped bookmark for the exported destination so a later
+        // reopen (from Recents, or double-clicking the file in Finder) survives the
+        // sandbox boundary instead of hitting a bare, non-durable path URL — this is
+        // what actually closes the "exported edited.pdf can't be reopened" gap: a
+        // freshly-written export otherwise has no recorded access token at all.
+        if format == .pdf, FileManager.default.isReadableFile(atPath: url.path) {
+            Task { @MainActor in
+                RecentsStore.shared.recordOpen(url: url)
+            }
+        }
     }
 
     /// Writes export bytes to `targetURL`, preferring a crash-safe temp-file +

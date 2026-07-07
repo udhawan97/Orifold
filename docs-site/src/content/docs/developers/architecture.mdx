@@ -1,0 +1,49 @@
+---
+title: Architecture overview
+description: How Orifold is structured — views, workspace state, local engines, and a staged export pipeline.
+keywords: [architecture, how it works, swiftui, technical overview]
+---
+
+import Figure from '../../../components/Figure.astro';
+
+Orifold follows a unidirectional flow: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts.
+
+<Figure src="/Orifold/assets/orifold-v3-architecture-diagram.svg" alt="Orifold architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts inside a local-only boundary, guarded by a release gate" />
+
+## Layers
+
+| Layer | Responsibility |
+| --- | --- |
+| SwiftUI app | Document window, sidebar, canvas, annotation toolbar, search, inspector, password prompts, export controls, empty-state Recently Viewed shelf, language switcher |
+| Workspace state | Imported documents, page order, undo snapshots, comments, tags, signatures, form summaries, decorations, recent-file history |
+| PDF services | PDFKit composition, PDFium image compression, qpdf repair/AES-256/sanitize/structural validation, Vision OCR, form flattening, decoration baking, signing helpers |
+| Local storage | Saved PDF data, workspace metadata, source payloads, comments, signatures, page edit state |
+| Release tooling | One-line installer, package builder, Desktop update launcher, uninstaller, GitHub Actions release asset, validation tests |
+
+## Project layout
+
+```text
+Orifold/
+  App/             App entry point and command wiring
+  DesignSystem/    Shared visual tokens and styling
+  Document/        macOS document package read/write support
+  Engine/          PDF loading, repair, conversion, OCR, compression, encryption, sanitize, forms, export, Recently Viewed store
+  Models/          Workspace, page, annotation, comment, export, decoration, and recent-file models
+  Pet/             Gami & Ori, the in-app companions
+  Resources/       App metadata, entitlements, assets, Localizable.xcstrings (6 languages)
+  Signing/         Signing identities, CMS construction, timestamping, verification
+  ViewModels/      Workspace state, document operations, search, export, undo
+  Views/           SwiftUI interface components
+Packages/          Vendored binary engines — PDFiumBinary, QPDFBinary (universal static libs)
+Tests/             Test suites run in the release gate
+```
+
+## By the numbers
+
+Swift 5.9+, 100% SwiftUI. 61 source files, roughly 29,000 lines, 354 tests gating every release.
+
+## Related
+
+- [The engines](/Orifold/developers/engines/)
+- [Testing & the release gate](/Orifold/developers/release-gate/)
+- [Build from source](/Orifold/developers/build/)

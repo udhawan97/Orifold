@@ -144,6 +144,11 @@ struct SignatureFieldSpec {
     var contactInfo: String?
     /// `ETSI.CAdES.detached` for PAdES (goal) or `adbe.pkcs7.detached` (fallback).
     var subFilter: String
+    /// Best-effort estimate (bytes) of the final CMS DER blob, used to size the `/Contents`
+    /// hex placeholder wide enough for this identity's certificate chain (+ timestamp token,
+    /// if requested) before the real signature exists. Falls back to a proven-sufficient
+    /// default when nil (e.g. a trivial CMS callback in tests).
+    var estimatedSignatureDERBytes: Int?
 
     init(pageIndex: Int,
          rect: CGRect,
@@ -151,7 +156,8 @@ struct SignatureFieldSpec {
          reason: String? = nil,
          location: String? = nil,
          contactInfo: String? = nil,
-         subFilter: String = "ETSI.CAdES.detached") {
+         subFilter: String = "ETSI.CAdES.detached",
+         estimatedSignatureDERBytes: Int? = nil) {
         self.pageIndex = pageIndex
         self.rect = rect
         self.signerName = signerName
@@ -159,6 +165,7 @@ struct SignatureFieldSpec {
         self.location = location
         self.contactInfo = contactInfo
         self.subFilter = subFilter
+        self.estimatedSignatureDERBytes = estimatedSignatureDERBytes
     }
 }
 
@@ -320,7 +327,9 @@ private extension Array where Element == UInt8 {
 }
 
 private struct PDFIncrementalUpdatePlan {
-    private static let contentsHexDigits = 32_768
+    /// Proven-sufficient floor (16 KB DER) for a typical self-signed or single-intermediate
+    /// chain plus a timestamp token. Never shrink below this even when an estimate is smaller.
+    private static let defaultContentsHexDigits = 32_768
 
     private let original: Data
     private let field: SignatureFieldSpec
@@ -331,11 +340,29 @@ private struct PDFIncrementalUpdatePlan {
     private let originalCatalogBody: String
     private let pageObjectNumber: Int
     private let originalPageBody: String
+    /// Indirect refs ("N 0 R") of any signature/form fields already listed in an existing
+    /// `/AcroForm /Fields` array — from a prior Orifold signing pass or a pre-existing form.
+    /// Carried forward so a second signature (or a form PDF's fields) is never dropped.
+    private let existingAcroFormFieldRefs: [String]
 
     private let acroFormObjectNumber: Int
     private let fieldObjectNumber: Int
     private let signatureObjectNumber: Int
     private let appearanceObjectNumber: Int?
+
+    /// Hex-digit width of the `/Contents` placeholder, sized from the identity's estimated
+    /// DER size when supplied, floored at `defaultContentsHexDigits` and rounded up to the
+    /// next 1024-digit boundary so a large certificate chain (or TSA token) still fits.
+    private var contentsHexDigits: Int {
+        guard let estimatedBytes = field.estimatedSignatureDERBytes else {
+            return Self.defaultContentsHexDigits
+        }
+        let requiredHexDigits = estimatedBytes * 2
+        guard requiredHexDigits > Self.defaultContentsHexDigits else {
+            return Self.defaultContentsHexDigits
+        }
+        return ((requiredHexDigits + 1023) / 1024) * 1024
+    }
 
     init(pdf: Data, field: SignatureFieldSpec, appearance: PDFAppearanceStream?) throws {
         self.original = pdf
@@ -347,6 +374,7 @@ private struct PDFIncrementalUpdatePlan {
         self.previousStartXref = try Self.parsePreviousStartXref(from: text)
         self.maxObjectNumber = max(Self.parseMaxObjectNumber(from: text), try Self.parseTrailerSize(from: text) - 1)
         self.originalCatalogBody = try Self.parseObjectBody(objectNumber: rootObjectNumber, in: text)
+        self.existingAcroFormFieldRefs = Self.parseExistingAcroFormFieldRefs(catalogBody: originalCatalogBody, in: text)
         self.pageObjectNumber = try Self.parsePageObjectNumber(at: field.pageIndex, in: text)
         self.originalPageBody = try Self.parseObjectBody(objectNumber: pageObjectNumber, in: text)
 
@@ -366,19 +394,19 @@ private struct PDFIncrementalUpdatePlan {
 
         appendObject(
             number: rootObjectNumber,
-            body: catalogBody(),
+            body: Data(catalogBody().utf8),
             to: &output,
             offsets: &offsets
         )
         appendObject(
             number: pageObjectNumber,
-            body: pageBody(),
+            body: Data(pageBody().utf8),
             to: &output,
             offsets: &offsets
         )
         appendObject(
             number: acroFormObjectNumber,
-            body: "<< /SigFlags 3 /Fields [\(fieldObjectNumber) 0 R] >>",
+            body: acroFormBody(),
             to: &output,
             offsets: &offsets
         )
@@ -409,11 +437,13 @@ private struct PDFIncrementalUpdatePlan {
     }
 
     private func appendObject(number: Int,
-                              body: String,
+                              body: Data,
                               to output: inout Data,
                               offsets: inout [(objectNumber: Int, offset: Int)]) {
         offsets.append((number, output.count))
-        output.append(Data("\(number) 0 obj\n\(body)\nendobj\n".utf8))
+        output.append(Data("\(number) 0 obj\n".utf8))
+        output.append(body)
+        output.append(Data("\nendobj\n".utf8))
     }
 
     private func catalogBody() -> String {
@@ -443,55 +473,60 @@ private struct PDFIncrementalUpdatePlan {
         return updated
     }
 
-    private func fieldBody() -> String {
-        let rect = pdfArray(field.rect.pdfRectValues)
-        var entries = [
-            "/Type /Annot",
-            "/Subtype /Widget",
-            "/FT /Sig",
-            "/Rect \(rect)",
-            "/T \(pdfLiteralString("Signature \(signatureObjectNumber)"))",
-            "/F 132",
-            "/V \(signatureObjectNumber) 0 R"
-        ]
-        entries.append("/P \(pageObjectNumber) 0 R")
-        if let appearanceObjectNumber {
-            entries.append("/AP << /N \(appearanceObjectNumber) 0 R >>")
-        }
-        return "<< \(entries.joined(separator: " ")) >>"
+    /// Merges the new signature widget's ref into any `/Fields` already present (a prior
+    /// Orifold signature, or a pre-existing AcroForm on an imported form PDF) instead of
+    /// replacing them — losing them here would silently drop prior signatures/form fields
+    /// from the document's field tree even though their objects remain byte-intact.
+    private func acroFormBody() -> Data {
+        let fieldRefs = existingAcroFormFieldRefs + ["\(fieldObjectNumber) 0 R"]
+        return Data("<< /SigFlags 3 /Fields [\(fieldRefs.joined(separator: " "))] >>".utf8)
     }
 
-    private func signatureBody() -> String {
-        var entries = [
-            "/Type /Sig",
-            "/Filter /Adobe.PPKLite",
-            "/SubFilter /\(field.subFilter)",
-            "/ByteRange [0000000000 0000000000 0000000000 0000000000]",
-            "/Contents <\(String(repeating: "0", count: Self.contentsHexDigits))>",
-            "/M \(pdfLiteralString(pdfDateString(Date())))",
-            "/Name \(pdfLiteralString(field.signerName))"
-        ]
+    private func fieldBody() -> Data {
+        let rect = pdfArray(field.rect.pdfRectValues)
+        var body = Data("<< /Type /Annot /Subtype /Widget /FT /Sig /Rect \(rect) /T ".utf8)
+        body.append(pdfLiteralStringData("Signature \(signatureObjectNumber)"))
+        body.append(Data(" /F 132 /V \(signatureObjectNumber) 0 R /P \(pageObjectNumber) 0 R".utf8))
+        if let appearanceObjectNumber {
+            body.append(Data(" /AP << /N \(appearanceObjectNumber) 0 R >>".utf8))
+        }
+        body.append(Data(" >>".utf8))
+        return body
+    }
+
+    private func signatureBody() -> Data {
+        var body = Data("<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /\(field.subFilter)".utf8)
+        body.append(Data(" /ByteRange [0000000000 0000000000 0000000000 0000000000]".utf8))
+        body.append(Data(" /Contents <\(String(repeating: "0", count: contentsHexDigits))>".utf8))
+        body.append(Data(" /M ".utf8))
+        body.append(pdfLiteralStringData(pdfDateString(Date())))
+        body.append(Data(" /Name ".utf8))
+        body.append(pdfLiteralStringData(field.signerName))
         if let reason = field.reason, !reason.isEmpty {
-            entries.append("/Reason \(pdfLiteralString(reason))")
+            body.append(Data(" /Reason ".utf8))
+            body.append(pdfLiteralStringData(reason))
         }
         if let location = field.location, !location.isEmpty {
-            entries.append("/Location \(pdfLiteralString(location))")
+            body.append(Data(" /Location ".utf8))
+            body.append(pdfLiteralStringData(location))
         }
         if let contactInfo = field.contactInfo, !contactInfo.isEmpty {
-            entries.append("/ContactInfo \(pdfLiteralString(contactInfo))")
+            body.append(Data(" /ContactInfo ".utf8))
+            body.append(pdfLiteralStringData(contactInfo))
         }
-        return "<< \(entries.joined(separator: " ")) >>"
+        body.append(Data(" >>".utf8))
+        return body
     }
 
-    private func appearanceBody(_ appearance: PDFAppearanceStream) -> String {
-        let stream = String(decoding: appearance.xobject, as: UTF8.self)
+    private func appearanceBody(_ appearance: PDFAppearanceStream) -> Data {
         let bbox = pdfArray(appearance.bbox.pdfRectValues)
-        return """
-        << /Type /XObject /Subtype /Form /BBox \(bbox) /Length \(appearance.xobject.count) >>
-        stream
-        \(stream)
-        endstream
-        """
+        var body = Data("<< /Type /XObject /Subtype /Form /BBox \(bbox) /Length \(appearance.xobject.count) >>\nstream\n".utf8)
+        // Append the XObject stream bytes directly rather than decoding them through a
+        // Swift String first: any font-subset binary content would round-trip corrupted,
+        // since re-encoding via .utf8 does not reproduce arbitrary raw bytes byte-for-byte.
+        body.append(appearance.xobject)
+        body.append(Data("\nendstream".utf8))
+        return body
     }
 
     private func xrefSection(offsets: [(objectNumber: Int, offset: Int)], xrefOffset: Int) -> String {
@@ -611,13 +646,37 @@ private struct PDFIncrementalUpdatePlan {
         return maxObject
     }
 
+    /// Finds the most recent `"N 0 obj" ... "endobj"` revision of `objectNumber`. A plain
+    /// substring search is not enough: `"1 0 obj"` is itself a substring of `"21 0 obj"`, so
+    /// naively matching the header text can silently return an unrelated, larger object's
+    /// body. Guard every candidate match by requiring a non-digit (or start-of-string)
+    /// immediately before it, and keep searching earlier in the text past any false match.
     private static func parseObjectBody(objectNumber: Int, in text: String) throws -> String {
         let header = "\(objectNumber) 0 obj"
-        guard let headerRange = text.range(of: header, options: .backwards),
-              let endRange = text.range(of: "endobj", range: headerRange.upperBound..<text.endIndex) else {
-            throw SigningError.invalidPDF
+        var searchRange = text.startIndex..<text.endIndex
+        while let headerRange = text.range(of: header, options: .backwards, range: searchRange) {
+            let precededByDigit = headerRange.lowerBound > text.startIndex
+                && text[text.index(before: headerRange.lowerBound)].isNumber
+            if !precededByDigit,
+               let endRange = text.range(of: "endobj", range: headerRange.upperBound..<text.endIndex) {
+                return String(text[headerRange.upperBound..<endRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            searchRange = text.startIndex..<headerRange.lowerBound
         }
-        return String(text[headerRange.upperBound..<endRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+        throw SigningError.invalidPDF
+    }
+
+    private static func parseExistingAcroFormFieldRefs(catalogBody: String, in text: String) -> [String] {
+        guard let match = catalogBody.firstRegexMatch(#"/AcroForm\s+(\d+)\s+0\s+R"#),
+              let acroFormObjectNumber = Int(match[1]),
+              let acroFormBody = try? parseObjectBody(objectNumber: acroFormObjectNumber, in: text),
+              let fieldsRange = acroFormBody.range(of: #"/Fields\s*\[[^\]]*\]"#, options: .regularExpression) else {
+            return []
+        }
+        let fieldsText = String(acroFormBody[fieldsRange])
+        return fieldsText.allRegexMatches(#"(\d+)\s+0\s+R"#).compactMap { fieldMatch in
+            fieldMatch.count >= 2 ? "\(fieldMatch[1]) 0 R" : nil
+        }
     }
 
     private static func parsePageObjectNumber(at pageIndex: Int, in text: String) throws -> Int {
@@ -762,22 +821,51 @@ private func pdfNumber(_ value: CGFloat) -> String {
     return String(format: "%.4f", double)
 }
 
-private func pdfLiteralString(_ value: String) -> String {
+/// Encodes `value` as a PDF literal string (ISO 32000-1 §7.9.2.2), returning the exact bytes
+/// to splice into the file — never a `String` destined for `.utf8` re-encoding, which cannot
+/// reproduce arbitrary raw byte sequences (any Unicode scalar ≥ U+0080 always re-encodes to
+/// 2+ UTF-8 bytes, corrupting a single intended byte). Pure-ASCII text is written as-is
+/// (readable, and what every PDF viewer expects for plain names); anything else is written
+/// as UTF-16BE with the mandatory byte-order mark, matching how Acrobat itself encodes
+/// non-Latin signer names/reasons/locations.
+private func pdfLiteralStringData(_ value: String) -> Data {
+    // Escape at the CHARACTER level, before any byte encoding. Escaping raw encoded bytes
+    // instead would be wrong for UTF-16BE: a `(`/`)`/`\` byte value can appear as one half of
+    // an unrelated 2-byte code unit (common in CJK text), and inserting a backslash there
+    // splits that unit and corrupts the character. Escaping first means the inserted
+    // backslash becomes its own well-formed unit once encoded, leaving neighboring
+    // characters untouched.
     var escaped = ""
-    for byte in value.utf8 {
-        switch byte {
-        case UInt8(ascii: "("), UInt8(ascii: ")"), UInt8(ascii: "\\"):
+    for character in value {
+        switch character {
+        case "(", ")", "\\":
             escaped.append("\\")
-            escaped.append(Character(UnicodeScalar(byte)))
-        case 0x0A:
+            escaped.append(character)
+        case "\n":
             escaped.append("\\n")
-        case 0x0D:
+        case "\r":
             escaped.append("\\r")
         default:
-            escaped.append(Character(UnicodeScalar(byte)))
+            escaped.append(character)
         }
     }
-    return "(\(escaped))"
+
+    var raw = Data()
+    if escaped.utf8.allSatisfy({ $0 < 0x80 }) {
+        raw = Data(escaped.utf8)
+    } else {
+        raw.append(contentsOf: [0xFE, 0xFF])
+        for unit in escaped.utf16 {
+            raw.append(UInt8(unit >> 8))
+            raw.append(UInt8(unit & 0xFF))
+        }
+    }
+
+    var result = Data()
+    result.append(UInt8(ascii: "("))
+    result.append(raw)
+    result.append(UInt8(ascii: ")"))
+    return result
 }
 
 private func pdfDateString(_ date: Date) -> String {

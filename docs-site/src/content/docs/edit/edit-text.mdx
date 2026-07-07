@@ -1,0 +1,52 @@
+---
+title: Edit existing PDF text
+description: Click detected text in a PDF and edit it in place, without exporting to another format.
+keywords: [edit text, change text, fix typo, modify pdf text, edit pdf, how do I edit text, how do i edit pdf text]
+---
+
+import Callout from '../../../components/Callout.astro';
+import Figure from '../../../components/Figure.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
+
+<Callout variant="whentouse">
+	You need to fix a typo, update a date, or change a line of text directly on the PDF page.
+</Callout>
+
+## Steps
+
+1. Click on a line of text in the canvas. If Orifold detects it as editable text, it becomes an inline text field.
+2. Type your changes.
+3. Click elsewhere to commit the edit.
+
+<Figure alt="PLACEHOLDER for gifs/edit-text-workflow.gif — click a line of detected text, type a change, click away to commit — dark mode, 1600×1000, 2x" />
+
+<Callout variant="warning">
+	"Detected text" means text Orifold's reader can identify directly in the PDF's content stream. Scanned pages have no such text — run OCR first, then the recognized text becomes editable the same way.
+</Callout>
+
+<Callout variant="note">
+	Complex layouts (multi-column text, text wrapped around images) may not detect cleanly. If a line won't activate for editing, try [adding a new text box](/Orifold/edit/text-boxes/) over it instead.
+</Callout>
+
+## What you should see
+
+The edited text renders in place on the page, in a font as close to the original as Orifold's engine can match.
+
+## Related
+
+<CardGrid>
+	<Card title="Add new text boxes" href="edit/text-boxes/">
+		When editing detected text isn't the right tool.
+	</Card>
+	<Card title="OCR scanned pages" href="edit/ocr/">
+		Make scans searchable and editable.
+	</Card>
+	<Card title="Match, copy, paste & reset formatting" href="edit/formatting/">
+		Keeping new text visually consistent.
+	</Card>
+</CardGrid>
+
+## If something went wrong
+
+- [Import & file problems →](/Orifold/help/troubleshooting/import/)

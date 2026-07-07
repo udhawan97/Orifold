@@ -234,6 +234,138 @@ final class PDFIncrementalSignerStructureTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(text.components(separatedBy: "/Type /Sig").count
                                     + text.components(separatedBy: "/Type/Sig").count - 2, 2)
     }
+
+    func testSecondSignaturePreservesFirstFieldInAcroFormFieldsArray() throws {
+        let original = try onePagePDFData()
+        let field1 = SignatureFieldSpec(pageIndex: 0, rect: CGRect(x: 40, y: 60, width: 180, height: 50), signerName: "First")
+        let field2 = SignatureFieldSpec(pageIndex: 0, rect: CGRect(x: 360, y: 60, width: 180, height: 50), signerName: "Second")
+        let cms: (Data) throws -> Data = { _ in Data([0x30, 0x03, 0x02, 0x01, 0x00]) }
+
+        let once = try PDFIncrementalSigner().sign(pdf: original, field: field1, appearance: nil, cms: cms)
+        let twice = try PDFIncrementalSigner().sign(pdf: once, field: field2, appearance: nil, cms: cms)
+
+        let text = String(decoding: twice, as: UTF8.self)
+        let objects = pdfObjects(in: text)
+        let widgetObjectNumbers = objects.filter { $0.body.contains("/Subtype /Widget") }.map(\.number)
+        XCTAssertEqual(widgetObjectNumbers.count, 2, "both signature widgets must exist as objects")
+
+        // The LATEST /AcroForm revision (the one actually in effect after the second signing)
+        // must list both widgets — dropping the first would silently orphan its field from
+        // the document's field tree even though the field object itself remains byte-intact.
+        let acroFormMatches = try NSRegularExpression(pattern: #"/AcroForm\s+(\d+)\s+0\s+R"#)
+            .matches(in: text, range: NSRange(text.startIndex..., in: text))
+        let lastMatch = try XCTUnwrap(acroFormMatches.last)
+        let numberRange = try XCTUnwrap(Range(lastMatch.range(at: 1), in: text))
+        let acroFormObjectNumber = try XCTUnwrap(Int(text[numberRange]))
+        let acroFormObject = try XCTUnwrap(objects.last { $0.number == acroFormObjectNumber })
+
+        for widgetNumber in widgetObjectNumbers {
+            XCTAssertTrue(acroFormObject.body.contains("\(widgetNumber) 0 R"),
+                          "/AcroForm /Fields must retain widget \(widgetNumber) from the earlier signature")
+        }
+    }
+
+    func testManySuccessiveSignaturesAllRemainListedInAcroFormFields() throws {
+        // Regression pin for a substring false-match: "1 0 obj" is itself a substring of
+        // "21 0 obj", so a naive object-body lookup used while merging /AcroForm /Fields can
+        // silently return the WRONG (later, larger-numbered) object once numbering crosses
+        // into ambiguous territory. Sign enough times to push object numbers past 21 and
+        // verify every earlier widget survives in the final /AcroForm.
+        var pdf = try onePagePDFData()
+        let cms: (Data) throws -> Data = { _ in Data([0x30, 0x03, 0x02, 0x01, 0x00]) }
+        let signingCount = 25
+
+        for index in 0..<signingCount {
+            let field = SignatureFieldSpec(
+                pageIndex: 0,
+                rect: CGRect(x: 20, y: 20, width: 80, height: 30),
+                signerName: "Signer \(index)"
+            )
+            pdf = try PDFIncrementalSigner().sign(pdf: pdf, field: field, appearance: nil, cms: cms)
+        }
+
+        let text = String(decoding: pdf, as: UTF8.self)
+        let objects = pdfObjects(in: text)
+        let widgetObjectNumbers = objects.filter { $0.body.contains("/Subtype /Widget") }.map(\.number)
+        XCTAssertEqual(widgetObjectNumbers.count, signingCount, "every widget object must exist")
+        XCTAssertGreaterThan(
+            widgetObjectNumbers.max() ?? 0, 21,
+            "object numbers must grow past the known '1 0 obj' substring-of-'21 0 obj' collision point for this test to be meaningful"
+        )
+
+        let acroFormMatches = try NSRegularExpression(pattern: #"/AcroForm\s+(\d+)\s+0\s+R"#)
+            .matches(in: text, range: NSRange(text.startIndex..., in: text))
+        let lastMatch = try XCTUnwrap(acroFormMatches.last)
+        let numberRange = try XCTUnwrap(Range(lastMatch.range(at: 1), in: text))
+        let acroFormObjectNumber = try XCTUnwrap(Int(text[numberRange]))
+        let acroFormObject = try XCTUnwrap(objects.last { $0.number == acroFormObjectNumber })
+
+        for widgetNumber in widgetObjectNumbers {
+            XCTAssertTrue(
+                acroFormObject.body.contains("\(widgetNumber) 0 R"),
+                "/AcroForm /Fields must retain widget \(widgetNumber) even after many successive signings push object numbers past ambiguous substring boundaries"
+            )
+        }
+    }
+
+    func testNonASCIISignerNameIsEncodedAsUTF16BEWithByteOrderMark() throws {
+        let original = try onePagePDFData()
+        let signerName = "山田太郎"
+        let field = SignatureFieldSpec(pageIndex: 0, rect: CGRect(x: 40, y: 60, width: 180, height: 50), signerName: signerName)
+        let signed = try PDFIncrementalSigner().sign(pdf: original, field: field, appearance: nil) { _ in
+            Data([0x30, 0x03, 0x02, 0x01, 0x00])
+        }
+
+        var expectedBytes = Data([0xFE, 0xFF])
+        for unit in signerName.utf16 {
+            expectedBytes.append(UInt8(unit >> 8))
+            expectedBytes.append(UInt8(unit & 0xFF))
+        }
+
+        XCTAssertNotNil(signed.range(of: expectedBytes),
+                        "signer name must round-trip as UTF-16BE bytes with a BOM, not corrupted UTF-8-of-UTF-8 bytes")
+        XCTAssertNotNil(PDFDocument(data: signed))
+    }
+
+    func testEmbeddedNewlineAndCarriageReturnAreEscapedInLiteralStrings() throws {
+        let original = try onePagePDFData()
+        let field = SignatureFieldSpec(
+            pageIndex: 0,
+            rect: CGRect(x: 40, y: 60, width: 180, height: 50),
+            signerName: "Ada Lovelace",
+            reason: "Line one\nLine two\rLine three"
+        )
+        let signed = try PDFIncrementalSigner().sign(pdf: original, field: field, appearance: nil) { _ in
+            Data([0x30, 0x03, 0x02, 0x01, 0x00])
+        }
+
+        let text = String(decoding: signed, as: UTF8.self)
+        XCTAssertTrue(text.contains(#"Line one\nLine two\rLine three"#),
+                      "a literal newline/carriage-return inside a PDF string must be escaped as \\n / \\r, not written as a raw EOL byte")
+        // The raw bytes must never appear unescaped inside the /Reason value.
+        XCTAssertFalse(signed.range(of: Data("Line one\nLine two".utf8)) != nil,
+                       "an unescaped raw newline byte leaked into the signed PDF")
+        XCTAssertNotNil(PDFDocument(data: signed))
+    }
+
+    func testEstimatedSignatureDERBytesWidensContentsPlaceholderBeyondTheDefaultFloor() throws {
+        let original = try onePagePDFData()
+        let field = SignatureFieldSpec(
+            pageIndex: 0,
+            rect: CGRect(x: 40, y: 60, width: 180, height: 50),
+            signerName: "Wide Signer",
+            estimatedSignatureDERBytes: 20_000
+        )
+        let signed = try PDFIncrementalSigner().sign(pdf: original, field: field, appearance: nil) { _ in
+            Data([0x30, 0x03, 0x02, 0x01, 0x00])
+        }
+
+        let text = String(decoding: signed, as: UTF8.self)
+        let contentsRange = try XCTUnwrap(text.range(of: #"/Contents <[0-9a-fA-F]+>"#, options: .regularExpression))
+        let placeholderHexDigits = text[contentsRange].count - "/Contents <>".count
+        XCTAssertGreaterThan(placeholderHexDigits, 32_768,
+                             "a large estimated DER size must widen the placeholder beyond the default floor")
+    }
 }
 
 // MARK: - Module E: the export-survival bug (currently reproduces as data loss)

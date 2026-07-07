@@ -1,0 +1,9 @@
+{
+	"version": "v7",
+	"tests": 354,
+	"files": 61,
+	"loc": "~29,000",
+	"languages": 6,
+	"maxFilesPerWorkspace": 50,
+	"entitlements": 2
+}

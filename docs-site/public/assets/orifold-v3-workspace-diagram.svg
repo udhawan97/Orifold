@@ -1,0 +1,178 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Orifold Product Flow</title>
+  <desc id="desc">Three stages inside a local-only boundary: import mixed files, edit and finish them in one workspace, then export one clean file. Everything runs on your Mac.</desc>
+  <defs>
+    <linearGradient id="gPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A1628"/>
+      <stop offset="0.55" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#0A1A1A"/>
+    </linearGradient>
+    <linearGradient id="gCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#111C2E"/>
+      <stop offset="1" stop-color="#0C1424"/>
+    </linearGradient>
+    <linearGradient id="gHero" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E2A28"/>
+      <stop offset="1" stop-color="#0D1B2A"/>
+    </linearGradient>
+    <linearGradient id="gArrow1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+    <linearGradient id="gArrow2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <radialGradient id="gFade" cx="0.5" cy="0.42" r="0.85">
+      <stop offset="0.45" stop-color="#0A1628" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0A1628" stop-opacity="0.75"/>
+    </radialGradient>
+    <pattern id="dots" x="32" y="32" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="12" r="1" fill="#334155" opacity="0.18"/>
+    </pattern>
+    <style>
+      .t     { font: 700 30px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.4px; fill: #F8FAFC; }
+      .sub   { font: 450 15px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #94A3B8; }
+      .h2    { font: 650 19px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.2px; fill: #F8FAFC; }
+      .body  { font: 450 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #94A3B8; }
+      .eye   { font: 700 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 1.2px; }
+      .chip  { font: 600 11px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.2px; }
+      .tile  { font: 600 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+      .cap   { font: 500 11px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #64748B; }
+      .quiet { font: 500 11px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #94A3B8; }
+      .ico   { stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+    </style>
+  </defs>
+
+  <!-- canvas + stage -->
+  <rect width="1280" height="640" rx="28" fill="#020617"/>
+  <rect x="32" y="32" width="1216" height="576" rx="24" fill="url(#gPanel)"/>
+  <rect x="32" y="32" width="1216" height="576" rx="24" fill="url(#dots)"/>
+  <rect x="32" y="32" width="1216" height="576" rx="24" fill="url(#gFade)"/>
+  <rect x="32" y="32" width="1216" height="576" rx="24" stroke="#1E293B" stroke-width="1.25"/>
+
+  <!-- header -->
+  <g class="ico" stroke="#2DD4BF">
+    <path d="M462 70 h13 l9 9 v17 h-22 z"/>
+    <path d="M475 70 v9 h9"/>
+  </g>
+  <text x="640" y="92" text-anchor="middle" class="t">Orifold Product Flow</text>
+  <text x="640" y="122" text-anchor="middle" class="sub">Drop in a mess of files, do the work in one place, ship one clean PDF.</text>
+
+  <!-- local-only boundary frame -->
+  <rect x="56" y="152" width="1168" height="392" rx="20" stroke="#2DD4BF" stroke-opacity="0.35" stroke-width="1.5" stroke-dasharray="7 7"/>
+  <g>
+    <rect x="88" y="138" width="268" height="28" rx="14" fill="#020617" stroke="#2DD4BF" stroke-opacity="0.45" stroke-width="1.25"/>
+    <g class="ico" stroke="#2DD4BF" stroke-width="1.5">
+      <rect x="103" y="149" width="10" height="8" rx="2"/>
+      <path d="M105 149 v-2.5 a3 3 0 0 1 6 0 V149"/>
+    </g>
+    <text x="122" y="156" class="eye" fill="#5EEAD4">EVERYTHING RUNS ON YOUR MAC</text>
+  </g>
+  <text x="640" y="522" text-anchor="middle" class="cap">PDFKit · PDFium · qpdf · Vision OCR — everything on-device</text>
+
+  <!-- card 01 · import -->
+  <g transform="translate(88 190)">
+    <rect width="256" height="300" rx="16" fill="url(#gCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M17 1.25 H239" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <rect x="24" y="24" width="32" height="32" rx="9" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+    <g class="ico" stroke="#7DD3FC">
+      <path d="M40 31.5 v9"/>
+      <path d="M36.5 37 l3.5 3.5 3.5 -3.5"/>
+      <path d="M32 44.5 v2 a2.5 2.5 0 0 0 2.5 2.5 h11 a2.5 2.5 0 0 0 2.5 -2.5 v-2"/>
+    </g>
+    <text x="68" y="44" class="eye" fill="#BAE6FD">01 · IMPORT</text>
+    <text x="24" y="96" class="h2">Drop in anything</text>
+    <text x="24" y="122" class="body">Mixed files become</text>
+    <text x="24" y="142" class="body">one local workspace.</text>
+    <g>
+      <rect x="24" y="170" width="49" height="26" rx="13" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="48.5" y="187" text-anchor="middle" class="chip" fill="#BAE6FD">PDF</text>
+      <rect x="83" y="170" width="56" height="26" rx="13" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="111" y="187" text-anchor="middle" class="chip" fill="#BAE6FD">DOCX</text>
+      <rect x="149" y="170" width="56" height="26" rx="13" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="177" y="187" text-anchor="middle" class="chip" fill="#BAE6FD">HTML</text>
+      <rect x="24" y="206" width="69" height="26" rx="13" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="58.5" y="223" text-anchor="middle" class="chip" fill="#BAE6FD">Images</text>
+      <rect x="103" y="206" width="63" height="26" rx="13" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="134.5" y="223" text-anchor="middle" class="chip" fill="#BAE6FD">Scans</text>
+      <rect x="24" y="242" width="56" height="26" rx="13" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="52" y="259" text-anchor="middle" class="chip" fill="#BAE6FD">Text</text>
+      <rect x="90" y="242" width="56" height="26" rx="13" fill="#38BDF8" fill-opacity="0.1" stroke="#38BDF8" stroke-opacity="0.38"/>
+      <text x="118" y="259" text-anchor="middle" class="chip" fill="#BAE6FD">Data</text>
+    </g>
+  </g>
+
+  <!-- card 02 · work (hero) -->
+  <rect x="395" y="185" width="490" height="310" rx="19" stroke="#2DD4BF" stroke-opacity="0.07" stroke-width="10"/>
+  <rect x="397.5" y="187.5" width="485" height="305" rx="17" stroke="#2DD4BF" stroke-opacity="0.1" stroke-width="4"/>
+  <g transform="translate(400 190)">
+    <rect width="480" height="300" rx="16" fill="url(#gHero)" stroke="#2DD4BF" stroke-opacity="0.55" stroke-width="1.25"/>
+    <path d="M17 1.25 H463" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <rect x="24" y="24" width="32" height="32" rx="9" fill="#2DD4BF" fill-opacity="0.1" stroke="#2DD4BF" stroke-opacity="0.38"/>
+    <g class="ico" stroke="#5EEAD4">
+      <path d="M33 31 h8 l6 6 v12 h-14 z"/>
+      <path d="M41 31 v6 h6"/>
+    </g>
+    <text x="68" y="44" class="eye" fill="#CCFBF1">02 · WORK</text>
+    <text x="24" y="96" class="h2">Do everything in one place</text>
+    <g>
+      <rect x="24" y="116" width="136" height="56" rx="10" fill="#0B1322" stroke="#2DD4BF" stroke-opacity="0.3"/>
+      <text x="92" y="140" text-anchor="middle" class="tile" fill="#CCFBF1">Organize</text>
+      <text x="92" y="158" text-anchor="middle" class="cap">reorder &amp; rotate</text>
+      <rect x="172" y="116" width="136" height="56" rx="10" fill="#0B1322" stroke="#38BDF8" stroke-opacity="0.3"/>
+      <text x="240" y="140" text-anchor="middle" class="tile" fill="#BAE6FD">Annotate</text>
+      <text x="240" y="158" text-anchor="middle" class="cap">notes &amp; ink</text>
+      <rect x="320" y="116" width="136" height="56" rx="10" fill="#0B1322" stroke="#A78BFA" stroke-opacity="0.3"/>
+      <text x="388" y="140" text-anchor="middle" class="tile" fill="#DDD6FE">Forms</text>
+      <text x="388" y="158" text-anchor="middle" class="cap">fill &amp; lock</text>
+      <rect x="24" y="184" width="136" height="56" rx="10" fill="#0B1322" stroke="#38BDF8" stroke-opacity="0.3"/>
+      <text x="92" y="208" text-anchor="middle" class="tile" fill="#BAE6FD">OCR</text>
+      <text x="92" y="226" text-anchor="middle" class="cap">search scans</text>
+      <rect x="172" y="184" width="136" height="56" rx="10" fill="#0B1322" stroke="#F59E0B" stroke-opacity="0.3"/>
+      <text x="240" y="208" text-anchor="middle" class="tile" fill="#FDE68A">Stamps</text>
+      <text x="240" y="226" text-anchor="middle" class="cap">watermark · Bates</text>
+      <rect x="320" y="184" width="136" height="56" rx="10" fill="#0B1322" stroke="#FB7185" stroke-opacity="0.3"/>
+      <text x="388" y="208" text-anchor="middle" class="tile" fill="#FECDD3">Sign</text>
+      <text x="388" y="226" text-anchor="middle" class="cap">draw &amp; place</text>
+    </g>
+    <rect x="24" y="256" width="432" height="26" rx="13" fill="#0B1322" stroke="#26364E"/>
+    <text x="240" y="273" text-anchor="middle" class="quiet">Search · comments · tags · undo — always in sync</text>
+  </g>
+
+  <!-- card 03 · export -->
+  <g transform="translate(936 190)">
+    <rect width="256" height="300" rx="16" fill="url(#gCard)" stroke="#26364E" stroke-width="1.25"/>
+    <path d="M17 1.25 H239" stroke="#F8FAFC" stroke-opacity="0.06" stroke-width="1"/>
+    <rect x="24" y="24" width="32" height="32" rx="9" fill="#A78BFA" fill-opacity="0.1" stroke="#A78BFA" stroke-opacity="0.38"/>
+    <g class="ico" stroke="#C4B5FD">
+      <path d="M40 41.5 v-10"/>
+      <path d="M36.5 35 l3.5 -3.5 3.5 3.5"/>
+      <path d="M32 44.5 v2 a2.5 2.5 0 0 0 2.5 2.5 h11 a2.5 2.5 0 0 0 2.5 -2.5 v-2"/>
+    </g>
+    <text x="68" y="44" class="eye" fill="#DDD6FE">03 · EXPORT</text>
+    <text x="24" y="96" class="h2">One clean file</text>
+    <g>
+      <rect x="24" y="116" width="208" height="26" rx="9" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
+      <text x="38" y="133" class="chip" fill="#FDE68A">1 · Flatten forms</text>
+      <rect x="24" y="150" width="208" height="26" rx="9" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
+      <text x="38" y="167" class="chip" fill="#FDE68A">2 · Bake stamps</text>
+      <rect x="24" y="184" width="208" height="26" rx="9" fill="#F59E0B" fill-opacity="0.08" stroke="#F59E0B" stroke-opacity="0.32"/>
+      <text x="38" y="201" class="chip" fill="#FDE68A">3 · Compress</text>
+      <rect x="24" y="218" width="208" height="26" rx="9" fill="#FB7185" fill-opacity="0.08" stroke="#FB7185" stroke-opacity="0.32"/>
+      <text x="38" y="235" class="chip" fill="#FECDD3">4 · Protect &amp; verify</text>
+    </g>
+    <text x="24" y="266" class="cap">PDF · DOCX · MD · TXT</text>
+    <text x="24" y="284" class="cap">HTML · PNG · JPEG · Print</text>
+  </g>
+
+  <!-- connectors: always painted last, always in their own corridor -->
+  <g>
+    <path d="M348 340 H392" stroke="#2DD4BF" stroke-opacity="0.16" stroke-width="7" stroke-linecap="round"/>
+    <path d="M348 340 H386" stroke="url(#gArrow1)" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M387 332.5 L396 340 L387 347.5" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M884 340 H928" stroke="#A78BFA" stroke-opacity="0.16" stroke-width="7" stroke-linecap="round"/>
+    <path d="M884 340 H922" stroke="url(#gArrow2)" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M923 332.5 L932 340 L923 347.5" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

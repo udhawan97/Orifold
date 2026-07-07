@@ -116,28 +116,34 @@ import PDFKit
     /// Resolves the entry's URL, preferring the security-scoped bookmark (which
     /// survives a move/rename) over the raw path. Self-heals `path`/`bookmarkData`
     /// in place when the bookmark resolves to a different location or goes stale.
+    /// The returned URL's security scope is NOT held open — callers that actually
+    /// read/open the file must bracket it themselves with `SecurityScopedAccess`
+    /// (see `EmptyStateView.openRecentFile`, which holds the scope across the
+    /// asynchronous `NSDocumentController.openDocument` completion).
     func resolvedURL(for entry: RecentFileEntry) -> URL? {
         if let bookmarkData = entry.bookmarkData {
-            var isStale = false
-            if let resolved = try? URL(
-                resolvingBookmarkData: bookmarkData,
-                options: [.withSecurityScope],
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale
-            ) {
-                if isStale, let refreshed = try? resolved.bookmarkData(options: .withSecurityScope) {
-                    updateBookmark(id: entry.id, path: resolved.path, bookmarkData: refreshed)
-                } else if resolved.path != entry.path {
-                    updateBookmark(id: entry.id, path: resolved.path, bookmarkData: bookmarkData)
+            if let resolved = SecurityScopedAccess.resolve(bookmarkData) {
+                if resolved.wasStale, let refreshed = resolved.refreshedBookmark {
+                    updateBookmark(id: entry.id, path: resolved.url.path, bookmarkData: refreshed)
+                } else if resolved.url.path != entry.path {
+                    updateBookmark(id: entry.id, path: resolved.url.path, bookmarkData: bookmarkData)
                 }
-                return resolved
+                return resolved.url
             }
+            ImportLog.log(event: .bookmarkResolveFailed)
         }
         return FileManager.default.fileExists(atPath: entry.path) ? entry.url : nil
     }
 
+    /// True only when the file both exists AND the sandbox can actually read it —
+    /// `fileExists` alone can't tell a permission-denied file from a healthy one, which
+    /// is why stale bookmarks previously showed as "available" right up until the open
+    /// attempt failed.
     func isAvailable(_ entry: RecentFileEntry) -> Bool {
-        FileManager.default.fileExists(atPath: entry.path)
+        guard let url = resolvedURL(for: entry) else { return false }
+        return SecurityScopedAccess.withAccess(to: url) {
+            FileManager.default.isReadableFile(atPath: $0.path)
+        }
     }
 
     func thumbnailImage(for entry: RecentFileEntry) -> NSImage? {
@@ -159,7 +165,7 @@ import PDFKit
         } else {
             var entry = RecentFileEntry(
                 id: UUID(),
-                bookmarkData: try? url.bookmarkData(options: .withSecurityScope),
+                bookmarkData: SecurityScopedAccess.makeBookmark(for: url),
                 path: url.path,
                 displayName: url.deletingPathExtension().lastPathComponent,
                 lastOpened: Date(),

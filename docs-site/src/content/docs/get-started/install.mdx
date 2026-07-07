@@ -1,0 +1,72 @@
+---
+title: Install Orifold
+description: Install Orifold in 30 seconds with a one-line Terminal command, Homebrew, or a direct download.
+keywords: [install, download, setup, homebrew, unidentified developer, requirements]
+---
+
+import Callout from '../../../components/Callout.astro';
+import Badge from '../../../components/Badge.astro';
+
+<Badge variant="platform" />
+
+<Callout variant="whentouse">
+	You're setting up Orifold on a Mac for the first time, or reinstalling after uninstalling it.
+</Callout>
+
+## Requirements
+
+macOS 14 Sonoma or newer. That's the whole list — no Xcode, no GitHub account, no compile step.
+
+## Steps
+
+1. Open **Applications → Utilities → Terminal**.
+2. Paste this and press Return:
+
+   ```zsh
+   curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | zsh
+   ```
+
+3. The installer downloads the prebuilt app to `~/Applications/Orifold.app` and adds two helpers to your Desktop: **Orifold.command** (launch + auto-update) and **Uninstall Orifold.command**.
+
+<Callout variant="tip">
+	Never used Terminal before? Paste the line above exactly as written, then press Return. You're now a power user.
+</Callout>
+
+### If macOS warns about an unidentified developer
+
+Release builds are ad-hoc signed but not notarized. Right-click the app in Finder and choose **Open** from the security prompt — this only needs to happen once.
+
+## Prefer Homebrew?
+
+```zsh
+brew tap udhawan97/orifold https://github.com/udhawan97/Orifold
+brew install --cask udhawan97/orifold/orifold
+```
+
+This installs the same prebuilt app and clears the download quarantine automatically. The one-line installer is still the friendliest path — it also creates the Desktop launch/update and uninstall helpers.
+
+## Prefer a direct download?
+
+Grab `Orifold.zip` from the [latest release](https://github.com/udhawan97/Orifold/releases/latest), unzip it, and drag `Orifold.app` into Applications.
+
+## What you should see
+
+`Orifold.app` in `~/Applications`, plus **Orifold.command** and **Uninstall Orifold.command** on your Desktop. Double-clicking `Orifold.command` launches the app.
+
+## Related
+
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
+
+<CardGrid>
+	<Card title="Your first workspace" href="get-started/first-workspace/">
+		The 5-minute tour.
+	</Card>
+	<Card title="Update & uninstall" href="get-started/update-uninstall/">
+		Keeping Orifold current, or removing it cleanly.
+	</Card>
+</CardGrid>
+
+## If something went wrong
+
+- [Installation problems →](/Orifold/help/troubleshooting/install/)

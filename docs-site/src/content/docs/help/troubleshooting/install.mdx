@@ -1,0 +1,47 @@
+---
+title: Installation problems
+description: Fixes for common installer, unidentified-developer, and .command file issues.
+keywords: [install problem, wont open, unidentified developer, command not opening]
+---
+
+## Clicking the installer link opens a GitHub page instead of installing
+
+That's expected — README links open files in the browser; they don't execute installer scripts. Copy the install command into Terminal instead:
+
+```zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | zsh
+```
+
+## macOS warns the app is from an unidentified developer
+
+Release builds are ad-hoc signed but not notarized. The one-line installer and Homebrew cask clear the download quarantine automatically. If macOS still warns, right-click the app in Finder and choose **Open** from the security prompt.
+
+## Double-clicking a .command file says it cannot be opened
+
+Open Terminal in the project folder and run:
+
+```zsh
+chmod +x "Install or Update Orifold.command" "Uninstall Orifold.command" "Install or Update Orifold.app/Contents/MacOS/OrifoldInstaller" scripts/install-mac.sh scripts/install-mac.command scripts/uninstall-mac.sh
+```
+
+Then double-click **Install or Update Orifold.app** again from Finder.
+
+## The installer says no prebuilt release is available
+
+The GitHub release asset `Orifold.zip` hasn't been published yet, or couldn't be downloaded. Wait for the release workflow, then rerun the installer. If you need to build from source in the meantime:
+
+```zsh
+curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | ORIFOLD_ALLOW_SOURCE_BUILD=1 zsh
+```
+
+## Something failed and the Terminal window closed too fast
+
+Check `.build/install.log` in the project folder for build output, and `~/.orifold/prebuilt-install.log` for the prebuilt install attempt.
+
+## Still stuck?
+
+[Open an issue on GitHub](https://github.com/udhawan97/Orifold/issues).
+
+## Related
+
+- [Install Orifold](/Orifold/get-started/install/)
