@@ -120,6 +120,10 @@ struct ImportCertificatePasswordSheet: View {
     var onImported: (DigitalCertificateProfile) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    // Passed into L10n.format()/L10n.string() below so this view's `body`
+    // actually reads it — SwiftUI only re-invokes `body` on a locale change
+    // for views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
     @State private var password = ""
     @State private var errorMessage: String?
     @State private var attemptCount = 0
@@ -130,7 +134,7 @@ struct ImportCertificatePasswordSheet: View {
                 .font(.system(size: 15, weight: .semibold, design: .serif))
                 .foregroundStyle(Color.dsTextPrimary)
 
-            Text(L10n.format("certificateSheet.importPassword.fileName", fileURL.lastPathComponent))
+            Text(L10n.format("certificateSheet.importPassword.fileName", fileURL.lastPathComponent, locale: locale))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
 
@@ -189,6 +193,10 @@ struct ManageCertificatesSheet: View {
     var viewModel: WorkspaceViewModel
 
     @Environment(\.dismiss) private var dismiss
+    // Passed into L10n.string()/L10n.format() below so this view's `body`
+    // actually reads it — SwiftUI only re-invokes `body` on a locale change
+    // for views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
     @State private var pendingDeletion: DigitalCertificateProfile?
 
     var body: some View {
@@ -229,7 +237,7 @@ struct ManageCertificatesSheet: View {
         .frame(width: 480, height: 420)
         .background(Color.dsSurface)
         .alert(
-            L10n.string("certificateSheet.delete.confirmTitle"),
+            L10n.string("certificateSheet.delete.confirmTitle", locale: locale),
             isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } })
         ) {
             Button("certificateSheet.cancel.button", role: .cancel) { pendingDeletion = nil }
@@ -259,7 +267,7 @@ struct ManageCertificatesSheet: View {
                 CertificateStatusChip(profile: profile)
             }
 
-            Text(L10n.format("certificateSheet.manage.expiryDetail", Self.dateFormatter.string(from: profile.notAfter)))
+            Text(L10n.format("certificateSheet.manage.expiryDetail", Self.dateFormatter.string(from: profile.notAfter), locale: locale))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextTertiary)
 

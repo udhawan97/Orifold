@@ -266,7 +266,7 @@ private struct PetSpeciesCommandPicker: View {
             set: { buddy.selectSpecies($0) }
         )) {
             ForEach(PetSpecies.allCases, id: \.self) { species in
-                Text(verbatim: species.displayName).tag(species)
+                Text(verbatim: species.displayName(locale: locale)).tag(species)
             }
         }
         .disabled(!petEnabled)

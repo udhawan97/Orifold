@@ -389,6 +389,8 @@ struct ContentView: View {
                     viewModel: viewModel
                 )
                 .id(url)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
             }
         }
     }
@@ -578,7 +580,7 @@ struct ContentView: View {
                 if count == 1 {
                     Text("sidebar.deletePages.confirmation.messageSingular")
                 } else {
-                    Text(L10n.format("sidebar.removePages.confirmation.plural", count))
+                    Text(L10n.format("sidebar.removePages.confirmation.plural", count, locale: languageManager.effectiveLocale))
                 }
             }
 
@@ -884,6 +886,10 @@ private struct DocumentComfortPopover: View {
     @AppStorage("orifoldComfortAdvancedExpanded") private var isAdvancedExpanded = false
     @State private var pendingReset = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into AppAppearanceMode/PageMode/ComfortPreset's title(locale:) below
+    // so this view's `body` actually reads it — SwiftUI only re-invokes `body` on
+    // a locale change for views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || viewModel.documentComfortSettings.reduceAnimations
@@ -963,7 +969,7 @@ private struct DocumentComfortPopover: View {
             VStack(spacing: 4) {
                 Image(systemName: preset.systemImage)
                     .font(.system(size: 15))
-                Text(preset.title)
+                Text(preset.title(locale: locale))
                     .font(.dsCaption())
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -975,7 +981,7 @@ private struct DocumentComfortPopover: View {
         .buttonStyle(ComfortCardButtonStyle(isSelected: isSelected, shouldReduceMotion: shouldReduceMotion))
         .foregroundStyle(isSelected ? Color.dsAccent : Color.dsTextPrimary)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .help(preset.title)
+        .help(preset.title(locale: locale))
     }
 
     private func applyPreset(_ preset: ComfortPreset) {
@@ -999,7 +1005,7 @@ private struct DocumentComfortPopover: View {
             }
             Picker("contentView.nightModeControls.applicationAppearance.picker", selection: appAppearanceModeBinding) {
                 ForEach(AppAppearanceMode.allCases) { mode in
-                    Label(mode.title, systemImage: mode.systemImage)
+                    Label(mode.title(locale: locale), systemImage: mode.systemImage)
                         .tag(mode)
                 }
             }
@@ -1039,7 +1045,7 @@ private struct DocumentComfortPopover: View {
             VStack(spacing: 4) {
                 Image(systemName: mode.systemImage)
                     .font(.system(size: 15))
-                Text(mode.title)
+                Text(mode.title(locale: locale))
                     .font(.dsCaption())
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -1051,7 +1057,7 @@ private struct DocumentComfortPopover: View {
         .buttonStyle(ComfortCardButtonStyle(isSelected: isSelected, shouldReduceMotion: shouldReduceMotion))
         .foregroundStyle(isSelected ? Color.dsAccent : Color.dsTextPrimary)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .help(mode.title)
+        .help(mode.title(locale: locale))
     }
 
     // MARK: - Advanced (fine-tune) controls

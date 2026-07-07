@@ -119,6 +119,10 @@ private struct ScanBar: View {
 
 private struct FormBar: View {
     @Bindable var viewModel: WorkspaceViewModel
+    // Passed into L10n.format() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         HStack(spacing: .dsMD) {
@@ -130,7 +134,7 @@ private struct FormBar: View {
                         Text("readingCanvas.formBar.fillableFields.title")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Color.dsTextPrimary)
-                        Text(L10n.format("readingCanvas.formFieldCount", viewModel.formSummary.fieldCount))
+                        Text(L10n.format("readingCanvas.formFieldCount", viewModel.formSummary.fieldCount, locale: locale))
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsTextSecondary)
                     }

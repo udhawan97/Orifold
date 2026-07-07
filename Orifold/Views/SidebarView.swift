@@ -139,6 +139,10 @@ private struct WorkspaceHeaderCard: View {
     var viewModel: WorkspaceViewModel
     @Binding var expandedDocs: Set<UUID>
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || viewModel.documentComfortSettings.reduceAnimations
@@ -150,11 +154,11 @@ private struct WorkspaceHeaderCard: View {
 
     private var metadataLine: String {
         var parts = [
-            "\(documentCount) " + L10n.string(documentCount == 1 ? "sidebar.metric.file" : "sidebar.metric.files"),
-            "\(pageCount) " + L10n.string(pageCount == 1 ? "sidebar.metric.page" : "sidebar.metric.pages"),
+            "\(documentCount) " + L10n.string(documentCount == 1 ? "sidebar.metric.file" : "sidebar.metric.files", locale: locale),
+            "\(pageCount) " + L10n.string(pageCount == 1 ? "sidebar.metric.page" : "sidebar.metric.pages", locale: locale),
         ]
         if commentCount > 0 {
-            parts.append("\(commentCount) " + L10n.string(commentCount == 1 ? "sidebar.metric.comment" : "sidebar.metric.comments"))
+            parts.append("\(commentCount) " + L10n.string(commentCount == 1 ? "sidebar.metric.comment" : "sidebar.metric.comments", locale: locale))
         }
         return parts.joined(separator: " · ")
     }
@@ -225,7 +229,7 @@ private struct WorkspaceHeaderCard: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("sidebar.overflow.help")
-        .accessibilityLabel(L10n.string("sidebar.overflow.help"))
+        .accessibilityLabel(L10n.string("sidebar.overflow.help", locale: locale))
     }
 }
 
@@ -251,6 +255,10 @@ private struct SidebarDropZone: View {
     @State private var isHovered = false
     @State private var isTargeted = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || reduceAnimations
@@ -310,8 +318,8 @@ private struct SidebarDropZone: View {
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isHovered)
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.2), value: errorFlash)
         .help("sidebar.addFiles.help")
-        .accessibilityLabel(L10n.string("sidebar.addFiles.label"))
-        .accessibilityHint(L10n.string("sidebar.dropZone.accessibilityHint"))
+        .accessibilityLabel(L10n.string("sidebar.addFiles.label", locale: locale))
+        .accessibilityHint(L10n.string("sidebar.dropZone.accessibilityHint", locale: locale))
     }
 }
 
@@ -443,12 +451,12 @@ struct MemberDocRow: View {
         .accessibilityElement(children: isRenaming ? .contain : .combine)
         .accessibilityLabel(isRenaming ? "" : combinedAccessibilityLabel)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .accessibilityAction(named: Text(verbatim: L10n.string(isExpanded ? "sidebar.doc.collapse.accessibilityLabel" : "sidebar.doc.expand.accessibilityLabel"))) {
+        .accessibilityAction(named: Text(verbatim: L10n.string(isExpanded ? "sidebar.doc.collapse.accessibilityLabel" : "sidebar.doc.expand.accessibilityLabel", locale: locale))) {
             toggleExpanded()
         }
-        .accessibilityAction(named: Text(verbatim: L10n.string("sidebar.doc.menu.rename"))) { beginRename() }
-        .accessibilityAction(named: Text(verbatim: L10n.format("sidebar.export", member.displayName))) { exportDocument() }
-        .accessibilityAction(named: Text(verbatim: L10n.string("sidebar.removeDocument.contextMenu"))) {
+        .accessibilityAction(named: Text(verbatim: L10n.string("sidebar.doc.menu.rename", locale: locale))) { beginRename() }
+        .accessibilityAction(named: Text(verbatim: L10n.format("sidebar.export", member.displayName, locale: locale))) { exportDocument() }
+        .accessibilityAction(named: Text(verbatim: L10n.string("sidebar.removeDocument.contextMenu", locale: locale))) {
             guard viewModel.canRemoveDocuments else { return }
             viewModel.removeDocument(member)
         }
@@ -470,7 +478,7 @@ struct MemberDocRow: View {
                     guard !focused, isRenaming else { return }
                     commitRename()
                 }
-                .accessibilityLabel(L10n.string("sidebar.doc.rename.placeholder"))
+                .accessibilityLabel(L10n.string("sidebar.doc.rename.placeholder", locale: locale))
         } else {
             Text(member.displayName)
                 .font(.system(size: 13, weight: .semibold))
@@ -535,7 +543,7 @@ struct MemberDocRow: View {
                 .frame(width: 20, height: 20)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(L10n.string(isExpanded ? "sidebar.doc.collapse.accessibilityLabel" : "sidebar.doc.expand.accessibilityLabel"))
+        .accessibilityLabel(L10n.string(isExpanded ? "sidebar.doc.collapse.accessibilityLabel" : "sidebar.doc.expand.accessibilityLabel", locale: locale))
     }
 
     private var overflowMenu: some View {
@@ -551,8 +559,8 @@ struct MemberDocRow: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .focused($isOverflowMenuFocused)
-        .help(L10n.format("sidebar.doc.menu.help", member.displayName))
-        .accessibilityLabel(L10n.format("sidebar.doc.menu.help", member.displayName))
+        .help(L10n.format("sidebar.doc.menu.help", member.displayName, locale: locale))
+        .accessibilityLabel(L10n.format("sidebar.doc.menu.help", member.displayName, locale: locale))
     }
 
     @ViewBuilder private var menuItems: some View {
@@ -564,7 +572,7 @@ struct MemberDocRow: View {
         Button {
             exportDocument()
         } label: {
-            Label(L10n.format("sidebar.export", member.displayName), systemImage: "square.and.arrow.up")
+            Label(L10n.format("sidebar.export", member.displayName, locale: locale), systemImage: "square.and.arrow.up")
         }
         Button {
             openFilesInsertingAfterDocument()

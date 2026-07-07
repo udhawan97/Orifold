@@ -263,14 +263,22 @@ enum TimestampAuthorityFallbackChain {
 
         var lastError: Error = TimestampClientError.invalidResponse("no timestamp authority configured")
         for option in order {
-            // Without this, cancelling the enclosing signing operation only stops the
-            // CALLER from waiting on this loop (via `fetchTimestampSynchronously`'s polling
-            // wrapper) — the loop itself kept running, silently making further network
-            // requests to remaining TSAs nobody was going to use the result of.
+            // A cancelled request (whether caught here as `CancellationError` or as
+            // `URLError.cancelled`, which is what `URLSession`'s async API actually
+            // throws when the enclosing Task is cancelled mid-request) must stop the
+            // whole chain immediately — without this check, cancelling while the first
+            // TSA is hung only aborts that one request, then silently moves on to try
+            // the remaining (up to 3) TSAs in turn before this function ever returns,
+            // so "Cancel" can take several times longer than the user expects and keeps
+            // making network requests they explicitly asked to stop.
             try Task.checkCancellation()
             onAttempt?(option)
             do {
                 return try await client.fetchTimestamp(for: signatureValue, tsaURL: option.url)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let urlError as URLError where urlError.code == .cancelled {
+                throw urlError
             } catch {
                 lastError = error
             }

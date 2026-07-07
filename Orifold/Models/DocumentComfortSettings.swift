@@ -10,11 +10,11 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(locale: Locale) -> String {
         switch self {
-        case .system: return L10n.string("appAppearanceMode.system.title")
-        case .light: return L10n.string("appAppearanceMode.light.title")
-        case .dark: return L10n.string("appAppearanceMode.dark.title")
+        case .system: return L10n.string("appAppearanceMode.system.title", locale: locale)
+        case .light: return L10n.string("appAppearanceMode.light.title", locale: locale)
+        case .dark: return L10n.string("appAppearanceMode.dark.title", locale: locale)
         }
     }
 
@@ -55,14 +55,14 @@ enum PageMode: String, CaseIterable, Identifiable, Codable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(locale: Locale) -> String {
         switch self {
-        case .defaultMode: return L10n.string("pageMode.default.title")
-        case .light: return L10n.string("pageMode.light.title")
-        case .dark: return L10n.string("pageMode.dark.title")
-        case .sepia: return L10n.string("pageMode.sepia.title")
-        case .dim: return L10n.string("pageMode.dim.title")
-        case .highContrast: return L10n.string("pageMode.highContrast.title")
+        case .defaultMode: return L10n.string("pageMode.default.title", locale: locale)
+        case .light: return L10n.string("pageMode.light.title", locale: locale)
+        case .dark: return L10n.string("pageMode.dark.title", locale: locale)
+        case .sepia: return L10n.string("pageMode.sepia.title", locale: locale)
+        case .dim: return L10n.string("pageMode.dim.title", locale: locale)
+        case .highContrast: return L10n.string("pageMode.highContrast.title", locale: locale)
         }
     }
 
@@ -126,12 +126,12 @@ enum ComfortPreset: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    func title(locale: Locale) -> String {
         switch self {
-        case .defaultPreset: return L10n.string("documentComfort.preset.default.title")
-        case .night: return L10n.string("documentComfort.preset.night.title")
-        case .eyeCare: return L10n.string("documentComfort.preset.eyeCare.title")
-        case .focus: return L10n.string("documentComfort.preset.focus.title")
+        case .defaultPreset: return L10n.string("documentComfort.preset.default.title", locale: locale)
+        case .night: return L10n.string("documentComfort.preset.night.title", locale: locale)
+        case .eyeCare: return L10n.string("documentComfort.preset.eyeCare.title", locale: locale)
+        case .focus: return L10n.string("documentComfort.preset.focus.title", locale: locale)
         }
     }
 

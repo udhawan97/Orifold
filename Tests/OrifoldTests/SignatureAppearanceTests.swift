@@ -12,7 +12,7 @@ final class TypedSignatureFontStyleTests: XCTestCase {
     }
 
     func testDisplayNamesAreDistinctAndNonEmpty() {
-        let names = TypedSignatureFontStyle.allCases.map(\.displayName)
+        let names = TypedSignatureFontStyle.allCases.map { $0.displayName(locale: Locale(identifier: "en")) }
         XCTAssertEqual(Set(names).count, names.count, "font style display names must be distinct so the picker isn't ambiguous")
         XCTAssertTrue(names.allSatisfy { !$0.isEmpty })
     }

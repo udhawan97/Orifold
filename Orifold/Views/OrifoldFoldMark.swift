@@ -57,6 +57,10 @@ struct OrifoldFoldMark: View {
     private let excitementRampDuration: TimeInterval = 0.35
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into figure.accessibilityLabel(locale:) below so this view's `body`
+    // actually reads it — SwiftUI only re-invokes `body` on a locale change for
+    // views that read `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
     @State private var foldStart: Date?
     @State private var isFoldRunning = false
     @State private var hasScheduledFirstPlay = false
@@ -93,7 +97,7 @@ struct OrifoldFoldMark: View {
             }
         }
         .frame(width: size, height: size)
-        .accessibilityLabel(figure.accessibilityLabel)
+        .accessibilityLabel(figure.accessibilityLabel(locale: locale))
         .accessibilityHint(interactive && !shouldReduceMotion ? "orifoldFoldMark.replay.accessibilityHint" : "")
         .onAppear(perform: scheduleFirstPlay)
         .onChange(of: replayTrigger) { _, _ in replay() }
@@ -402,7 +406,7 @@ struct PaperFigure {
     /// Only the brand crane dissolves and hands off to the real app icon.
     fileprivate var resolvesToAppIcon: Bool { species == nil }
 
-    var accessibilityLabel: String { species?.accessibilityLabel ?? "Orifold" }
+    func accessibilityLabel(locale: Locale) -> String { species?.accessibilityLabel(locale: locale) ?? "Orifold" }
 
     static func forSpecies(_ species: PetSpecies) -> PaperFigure {
         switch species {

@@ -93,7 +93,7 @@ struct SignaturePalette: View {
 
             Picker("signaturePalette.typed.fontStyle.picker", selection: $typedFontStyle) {
                 ForEach(TypedSignatureFontStyle.allCases) { style in
-                    Text(style.displayName).tag(style)
+                    Text(style.displayName(locale: locale)).tag(style)
                 }
             }
             .pickerStyle(.menu)
@@ -293,19 +293,19 @@ struct SignaturePalette: View {
     }
 
     private var selectedCertificateProfileLabel: String {
-        selectedProfile?.label ?? L10n.string("signaturePalette.digitalId.noneSelected")
+        selectedProfile?.label ?? L10n.string("signaturePalette.digitalId.noneSelected", locale: locale)
     }
 
     private var hintText: String {
         guard let selectedProfile else {
-            return L10n.string("signaturePalette.digital.hint.chooseIdentity")
+            return L10n.string("signaturePalette.digital.hint.chooseIdentity", locale: locale)
         }
         if selectedProfile.isExpired {
-            return L10n.string("signaturePalette.digital.hint.expired")
+            return L10n.string("signaturePalette.digital.hint.expired", locale: locale)
         }
         return selectedProfile.isSelfSigned
-            ? L10n.string("signaturePalette.digital.hint.selfSigned")
-            : L10n.string("signaturePalette.digital.hint.caIssued")
+            ? L10n.string("signaturePalette.digital.hint.selfSigned", locale: locale)
+            : L10n.string("signaturePalette.digital.hint.caIssued", locale: locale)
     }
 
     private var canPlaceDigitalSignature: Bool {
@@ -315,12 +315,12 @@ struct SignaturePalette: View {
 
     private var placeDigitalSignatureHelp: String {
         if selectedProfile == nil {
-            return L10n.string("signaturePalette.digital.place.help.noIdentity")
+            return L10n.string("signaturePalette.digital.place.help.noIdentity", locale: locale)
         }
         if selectedProfile?.isExpired == true {
-            return L10n.string("signaturePalette.digital.place.help.expired")
+            return L10n.string("signaturePalette.digital.place.help.expired", locale: locale)
         }
-        return L10n.string("signaturePalette.digital.place.help.ready")
+        return L10n.string("signaturePalette.digital.place.help.ready", locale: locale)
     }
 
     private var typedSignatureData: Data? {
@@ -659,11 +659,11 @@ enum TypedSignatureFontStyle: String, CaseIterable, Identifiable, Codable {
 
     var id: String { rawValue }
 
-    var displayName: String {
+    func displayName(locale: Locale) -> String {
         switch self {
-        case .snellRoundhand: return L10n.string("signaturePalette.typed.fontStyle.snellRoundhand")
-        case .appleChancery: return L10n.string("signaturePalette.typed.fontStyle.appleChancery")
-        case .noteworthy: return L10n.string("signaturePalette.typed.fontStyle.noteworthy")
+        case .snellRoundhand: return L10n.string("signaturePalette.typed.fontStyle.snellRoundhand", locale: locale)
+        case .appleChancery: return L10n.string("signaturePalette.typed.fontStyle.appleChancery", locale: locale)
+        case .noteworthy: return L10n.string("signaturePalette.typed.fontStyle.noteworthy", locale: locale)
         }
     }
 
