@@ -36982,6 +36982,47 @@
           }
         }
       }
+    },
+    "search.replace.skippedEmpty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replacing this would leave the comment empty, so it was skipped."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reemplazar esto dejaría el comentario vacío, así que se omitió."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce remplacement laisserait le commentaire vide, il a donc été ignoré."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इसे बदलने से टिप्पणी खाली रह जाएगी, इसलिए इसे छोड़ दिया गया।"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此替换会使评论变为空白，因此已跳过。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この置換を行うとコメントが空になるため、スキップされました。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

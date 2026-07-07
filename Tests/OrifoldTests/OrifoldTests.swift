@@ -5537,6 +5537,42 @@ final class WorkspaceViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.document.workspace.comments[0].body, "Nothing relevant here")
     }
 
+    /// `updateCommentBody` rejects a rewrite that trims down to empty rather than leaving a
+    /// blank comment behind, so a replacement that empties out a whole-body match must be
+    /// reported as not-applied instead of silently claiming success.
+    func testReplaceMatchesReturnsFalseWhenResultWouldBeEmpty() {
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        viewModel.addComment("TODO")
+        let comment = viewModel.document.workspace.comments[0]
+
+        viewModel.searchQuery = "TODO"
+        viewModel.replaceText = ""
+
+        XCTAssertFalse(viewModel.replaceMatches(in: comment))
+        XCTAssertEqual(viewModel.document.workspace.comments[0].body, "TODO")
+    }
+
+    /// Mirrors the single-replace case above for Replace All: a match that would empty out
+    /// a comment must not be counted as changed, so the "Replaced N comments" total the UI
+    /// shows the user stays accurate.
+    func testReplaceAllCommentMatchesDoesNotCountReplacementsThatWouldEmptyAComment() {
+        let undoManager = UndoManager()
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        viewModel.undoManager = undoManager
+        viewModel.addComment("TODO")
+        viewModel.addComment("TODO: fix the header")
+        undoManager.removeAllActions()
+
+        viewModel.searchQuery = "TODO"
+        viewModel.replaceText = ""
+        let changedCount = viewModel.replaceAllCommentMatches()
+
+        XCTAssertEqual(changedCount, 1)
+        let bodies = Set(viewModel.document.workspace.comments.map(\.body))
+        XCTAssertTrue(bodies.contains("TODO"), "the whole-body match must be left untouched, not emptied")
+        XCTAssertTrue(bodies.contains(": fix the header"))
+    }
+
     func testPageCommentBadgeIncludesPDFStickyNotes() throws {
         let fixture = try makeMemberWithPDF(name: "Notes", pageTexts: ["Sticky note target"])
         let document = WorkspaceDocument()

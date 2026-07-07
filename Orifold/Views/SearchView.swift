@@ -8,6 +8,7 @@ struct SearchView: View {
     @FocusState private var fieldFocused: Bool
     @State private var isConfirmingReplaceAll = false
     @State private var replaceResultMessage: String?
+    @State private var replaceResultWasSkipped = false
 
     private enum Layout {
         static let width: CGFloat = 460
@@ -189,7 +190,7 @@ struct SearchView: View {
             if let replaceResultMessage {
                 Text(replaceResultMessage)
                     .font(.dsCaption())
-                    .foregroundStyle(Color.dsSuccessAccent)
+                    .foregroundStyle(replaceResultWasSkipped ? Color.dsWarningAccent : Color.dsSuccessAccent)
             } else if !viewModel.searchQuery.isEmpty {
                 Text(replaceStatusLabel)
                     .font(.dsCaption())
@@ -210,6 +211,7 @@ struct SearchView: View {
         ) {
             Button("search.replace.confirm.replace") {
                 let count = viewModel.replaceAllCommentMatches()
+                replaceResultWasSkipped = false
                 replaceResultMessage = L10n.format(count == 1 ? "search.replace.result.one" : "search.replace.result.other", count)
             }
             Button("search.replace.confirm.cancel", role: .cancel) {}
@@ -232,8 +234,11 @@ struct SearchView: View {
 
     private func replaceCurrentMatch() {
         guard let comment = viewModel.replaceableCommentMatches.first else { return }
-        viewModel.replaceMatches(in: comment)
-        replaceResultMessage = L10n.string("search.replace.result.one")
+        let didReplace = viewModel.replaceMatches(in: comment)
+        replaceResultWasSkipped = !didReplace
+        replaceResultMessage = didReplace
+            ? L10n.string("search.replace.result.one")
+            : L10n.string("search.replace.skippedEmpty")
     }
 }
 

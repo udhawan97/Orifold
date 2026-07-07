@@ -1489,17 +1489,23 @@ final class WorkspaceViewModel {
         undoManager?.setActionName(L10n.string("undo.removeComment"))
     }
 
-    func updateCommentBody(_ comment: WorkspaceComment, body rawBody: String) {
-        guard canPerformMutatingAction() else { return }
+    /// Returns whether the body was actually applied — callers that count successful
+    /// mutations (like Replace All) need this instead of assuming success, since a
+    /// rewrite that trims down to empty (e.g. replacing a whole-body match with "")
+    /// is intentionally rejected here rather than leaving a blank comment behind.
+    @discardableResult
+    func updateCommentBody(_ comment: WorkspaceComment, body rawBody: String) -> Bool {
+        guard canPerformMutatingAction() else { return false }
         let body = rawBody.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty,
               let index = document.workspace.comments.firstIndex(where: { $0.id == comment.id }),
               document.workspace.comments[index].body != body else {
-            return
+            return false
         }
         var updated = document.workspace.comments[index]
         updated.body = body
         replaceComment(at: index, with: updated, actionName: L10n.string("undo.editComment"))
+        return true
     }
 
     func updateCommentStyle(_ comment: WorkspaceComment, style: WorkspaceCommentStyle) {
@@ -3825,12 +3831,15 @@ final class WorkspaceViewModel {
 
     /// Replaces every match of `searchQuery` in `comment`'s body with `replaceText` and
     /// commits it through the existing comment-edit path, so undo naming and the
-    /// modified-document flag behave exactly like a manual comment edit.
-    func replaceMatches(in comment: WorkspaceComment) {
-        guard !searchQuery.isEmpty else { return }
+    /// modified-document flag behave exactly like a manual comment edit. Returns whether
+    /// the body actually changed — `updateCommentBody` rejects a rewrite that would leave
+    /// the comment blank, and callers need to know that rather than assuming success.
+    @discardableResult
+    func replaceMatches(in comment: WorkspaceComment) -> Bool {
+        guard !searchQuery.isEmpty else { return false }
         let updated = replacingAllOccurrences(of: searchQuery, with: replaceText, in: comment.body)
-        guard updated != comment.body else { return }
-        updateCommentBody(comment, body: updated)
+        guard updated != comment.body else { return false }
+        return updateCommentBody(comment, body: updated)
     }
 
     /// Replaces every match across every editable comment in one atomic undo step.
@@ -3844,8 +3853,9 @@ final class WorkspaceViewModel {
             for comment in matches {
                 let updated = replacingAllOccurrences(of: searchQuery, with: replaceText, in: comment.body)
                 guard updated != comment.body else { continue }
-                updateCommentBody(comment, body: updated)
-                changedCount += 1
+                if updateCommentBody(comment, body: updated) {
+                    changedCount += 1
+                }
             }
             if changedCount > 0 {
                 undoManager?.setActionName(L10n.string("undo.replaceText"))
