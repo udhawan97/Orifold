@@ -67,8 +67,8 @@ The same fold that opens Orifold's logo blossoms into a small companion that liv
 <table align="center">
   <tr>
     <td align="center" width="240"><img src="docs/assets/orifold-crane-fold.svg" alt="Animated: a sheet of paper folds into an origami crane, then becomes the app icon" width="200"></td>
-    <td align="center" width="240"><img src="docs/assets/orifold-dog-wag.svg" alt="Animated: Gami the origami Bernedoodle, tail wagging" width="200"></td>
-    <td align="center" width="240"><img src="docs/assets/orifold-cat-twitch.svg" alt="Animated: Ori the origami Siberian, front-facing with a cream ruff, tufted ears that twitch, and a long tail that wraps around her paws and sways" width="200"></td>
+    <td align="center" width="240"><img src="docs/assets/gami-figure.svg" alt="Gami the origami Bernedoodle: dark folded paper with a cream blaze and floppy ears" width="180"></td>
+    <td align="center" width="240"><img src="docs/assets/ori-figure.svg" alt="Ori the origami Siberian: slate folded paper with a cream ruff, tufted lynx-tip ears, and a tail curling around her paws" width="180"></td>
   </tr>
   <tr>
     <td align="center"><strong>The Fold</strong><br><sub>The brand mark folds into a crane — a quiet red tancho crown its only splash of color.</sub></td>

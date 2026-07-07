@@ -377,15 +377,10 @@ starlight-nav a[aria-current='page'],
 }
 .of-pettip-mark {
 	flex: 0 0 auto;
-	width: 30px;
-	height: 30px;
-	color: var(--of-accent);
-	margin-top: 0.05rem;
-}
-.of-pettip-mark svg {
-	width: 30px;
-	height: 30px;
+	width: 48px;
+	height: 48px;
 	display: block;
+	margin-top: 0.05rem;
 }
 .of-pettip-body > :first-child {
 	margin-top: 0;
@@ -399,17 +394,6 @@ starlight-nav a[aria-current='page'],
 	font-size: 0.8rem;
 	color: var(--of-text-2);
 	margin-bottom: 0.15rem;
-}
-@media (prefers-reduced-motion: no-preference) {
-	.of-pettip-mark svg {
-		animation: of-pet-idle 4.5s ease-in-out 1;
-		transform-origin: 50% 80%;
-	}
-}
-@keyframes of-pet-idle {
-	0%, 70%, 100% { transform: rotate(0deg); }
-	80% { transform: rotate(-6deg); }
-	90% { transform: rotate(6deg); }
 }
 
 /* ---- Homepage columns (Who it's for / What's different) ---- */
@@ -436,6 +420,34 @@ starlight-nav a[aria-current='page'],
 	color: var(--of-accent-bright);
 }
 
+/* ---- Companion figure pair (Gami & Ori) ---- */
+.of-pet-pair {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 1.5rem 2.5rem;
+	margin-block: 1.5rem;
+	padding: 1.25rem;
+	border: 1px solid var(--of-separator);
+	border-radius: 10px;
+	background: var(--of-card);
+}
+.of-pet-pair figure {
+	margin: 0;
+	text-align: center;
+}
+.of-pet-pair img {
+	width: 140px;
+	height: 140px;
+	display: block;
+	margin: 0 auto;
+}
+.of-pet-pair figcaption {
+	color: var(--of-text-2);
+	font-size: 0.85rem;
+	margin-top: 0.35rem;
+}
+
 /* ---- Media (video clip) ---- */
 .of-media .of-media-video {
 	display: block;
@@ -449,9 +461,6 @@ starlight-nav a[aria-current='page'],
 /* Reduced motion: kill any animated SVG frames */
 @media (prefers-reduced-motion: reduce) {
 	.of-animate {
-		animation: none !important;
-	}
-	.of-pettip-mark svg {
 		animation: none !important;
 	}
 }

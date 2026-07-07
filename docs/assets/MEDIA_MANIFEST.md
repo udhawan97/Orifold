@@ -16,6 +16,14 @@ export-save), swap the illustrated `gifs/*.svg` `<Figure>` for `<Media mp4=... p
 are captioned as illustrations, which beats an empty placeholder. Diagrams were also renamed from
 `orifold-v3-*` to `orifold-{architecture,workspace}-diagram.svg`.
 
+**Pet figures (real app geometry):** `gami-figure.svg` and `ori-figure.svg` are generated
+directly from the app's `PaperFigure` facet geometry in `Orifold/Views/OrifoldFoldMark.swift`
+(same vertices, same two-tone `tone(hi)`→`tone(lo)` shading the Canvas renderer uses). They are
+the real in-app companions, not illustrations, and now drive every pet appearance in the docs:
+`PetTip` marks, the companion page pair, and the README companion table. The old simplified
+head marks (`gami-mark.svg`/`ori-mark.svg`), the illustrated `companion-gami-ori.svg`, and the
+animated `orifold-{dog-wag,cat-twitch}.svg` are no longer referenced by the live docs.
+
 Captured for real (v0.8.1, dark mode, native window, no Dock/menu bar in frame):
 `first-workspace-empty-state.png`, `the-orifold-window-annotated.png`,
 `annotate-markup-tools.png`, `night-mode-comparison.png`, `reader-mode-toggle.png`,
