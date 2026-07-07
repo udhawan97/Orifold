@@ -40221,6 +40221,88 @@
           }
         }
       }
+    },
+    "textEdit.privacyNotice.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited text may still be recoverable"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El texto editado aún puede recuperarse"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le texte modifié peut encore être récupéré"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संशोधित टेक्स्ट अब भी पुनर्प्राप्त किया जा सकता है"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集したテキストは復元できる場合があります"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已编辑的文本仍可能被恢复"
+          }
+        }
+      }
+    },
+    "textEdit.privacyNotice.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replacing text here changes how the page looks, but the original wording can sometimes still be found in the exported PDF — through search, copy-paste, or accessibility tools. For sensitive content, review the exported file carefully before sharing it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reemplazar texto aquí cambia el aspecto de la página, pero el texto original puede seguir encontrándose en el PDF exportado, mediante búsqueda, copiar y pegar, o herramientas de accesibilidad. Para contenido sensible, revisa con cuidado el archivo exportado antes de compartirlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacer du texte ici modifie l’apparence de la page, mais le texte d’origine peut parfois encore être retrouvé dans le PDF exporté, via la recherche, le copier-coller ou des outils d’accessibilité. Pour un contenu sensible, vérifiez attentivement le fichier exporté avant de le partager."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यहां टेक्स्ट बदलने से पेज का दिखना बदल जाता है, लेकिन कभी-कभी मूल शब्द निर्यात की गई PDF में खोज, कॉपी-पेस्ट, या सुलभता साधनों के ज़रिए मिल सकता है। संवेदनशील सामग्री के लिए, साझा करने से पहले निर्यात की गई फ़ाइल को ध्यान से जांचें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここでテキストを差し替えるとページの見た目は変わりますが、元の文言は検索やコピー、アクセシビリティツールなどを通じて、書き出した PDF に依然として残っている場合があります。機密性のある内容の場合は、共有する前に書き出したファイルをよく確認してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在此处替换文本只会改变页面的视觉效果，但在导出的 PDF 中，原文有时仍可通过搜索、复制粘贴或辅助功能工具找到。对于敏感内容，请在共享导出文件前仔细检查。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
