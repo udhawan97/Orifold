@@ -10,6 +10,9 @@
 import '../styles/tokens.css';
 import '../styles/theme.css';
 import '../styles/landing.css';
+// Premium origami polish layer — scoped to body.landing, loaded only on this
+// route (NOT via tokens.css) so the docs pages stay untouched. Must come last.
+import '../styles/landing-premium.css';
 import site from '../data/site.json';
 import stats from '../data/stats.json';
 import { getRelease } from '../lib/release';
