@@ -76,8 +76,9 @@ Two related regressions in trusted-timestamp (RFC-3161) signing were found and f
 
 ### Engineering
 
-- Several CI-reliability fixes this cycle (project-file drift, test-fixture cleanup) plus three fixes switching specific tests from PDFKit `.string` extraction to PDFium-backed extraction, to avoid the Xcode 16.4 CI-only quirk noted in v0.8.1's Known Limitations.
-- Test suite: 589 tests, 0 failures, 9 intentionally skipped, verified on this release (on the development toolchain — see Known Limitations for CI's pinned-toolchain status).
+- **`ci.yml`'s full test-suite job — pinned to Xcode 16.4/macOS 15 — is fully green for the first time since v7.** v0.8.1 shipped with 3 of 503 tests failing there (all `PDFPage.string`/CoreText extraction quirks specific to that toolchain); this cycle's four extraction-path fixes (switching the affected assertions to PDFium-backed `PDFTextAnalysisEngine`) closed out the last of them. Confirmed on CI, not just locally.
+- Several other CI-reliability fixes (project-file drift, test-fixture cleanup).
+- Test suite: 589 tests, 0 failures, verified both locally and on CI's pinned toolchain.
 - Source size: 132 Swift files, ~57,000 lines.
 
 ---
@@ -85,7 +86,6 @@ Two related regressions in trusted-timestamp (RFC-3161) signing were found and f
 ## Known Limitations
 
 - Automated end-to-end UI smoke testing (beyond the headless PDF smoke test added in v0.8.1) remains on the roadmap.
-- `ci.yml`'s full test-suite job, pinned to Xcode 16.4, is still red: down to 1 of 589 tests failing (`testEraseIsVisualOnlyNotContentStreamRemoval`, the same `PDFPage.string`-extraction quirk as v0.8.1, which reported 3 failures) after this cycle's extraction-path fixes narrowed it. Does not affect this release's build — `release.yml` doesn't run the test suite.
 - Rotated-page decoration/form/signature baking, stable annotation-undo handles, and byte-identical unedited exports remain open engine-hardening items, tracked internally in the editing-hardening plan docs.
 
 ---
