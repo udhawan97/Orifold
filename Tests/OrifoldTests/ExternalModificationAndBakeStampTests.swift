@@ -10,6 +10,25 @@ import XCTest
 final class ExternalModificationAndBakeStampTests: XCTestCase {
     // MARK: - Fixture plumbing
 
+    /// Every sidecar directory created by `tempStore()`/`makeTempDirectory()` this test run,
+    /// removed in `tearDown()` — each store writes a real `workspace-fingerprints.json` under
+    /// `FileManager.default.temporaryDirectory`, which otherwise accumulates one leftover
+    /// directory per test run forever.
+    private var createdDirectories: [URL] = []
+
+    override func tearDown() {
+        for dir in createdDirectories { try? FileManager.default.removeItem(at: dir) }
+        createdDirectories = []
+        super.tearDown()
+    }
+
+    private func makeTempDirectory() -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("orifold-fpr-\(UUID().uuidString)", isDirectory: true)
+        createdDirectories.append(dir)
+        return dir
+    }
+
     private final class FixturePageView: NSView {
         private let text: String
         init(frame: CGRect, text: String) { self.text = text; super.init(frame: frame) }
@@ -44,9 +63,7 @@ final class ExternalModificationAndBakeStampTests: XCTestCase {
     }
 
     private func tempStore() -> WorkspaceFingerprintStore {
-        let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("orifold-fpr-\(UUID().uuidString)", isDirectory: true)
-        return WorkspaceFingerprintStore(directory: dir)
+        WorkspaceFingerprintStore(directory: makeTempDirectory())
     }
 
     @discardableResult
@@ -104,7 +121,7 @@ final class ExternalModificationAndBakeStampTests: XCTestCase {
     // MARK: - Fingerprint store unit
 
     func testFingerprintStoreRecordsRetrievesEvictsAndPersists() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("orifold-fpr-\(UUID().uuidString)", isDirectory: true)
+        let dir = makeTempDirectory()
         let store = WorkspaceFingerprintStore(directory: dir, maxEntries: 3)
         let ids = (0..<4).map { _ in UUID() }
         for (i, id) in ids.enumerated() { store.record(hash: "h\(i)", for: id) }
@@ -208,5 +225,57 @@ final class ExternalModificationAndBakeStampTests: XCTestCase {
         vm.document.workspace.pageEditStates[stateIdx].operations.append(mutated)
         XCTAssertGreaterThan(vm.reconcileCommittedEditsWithLoadedPages(), 0,
                              "a stamp that no longer matches the operation set forces regeneration")
+    }
+
+    /// Adversarial check for a claim that `BakeStamp.hash`'s identity fields (`id`,
+    /// `createdAt`, `modifiedAt`) churn on every re-edit — since `applyInlineTextEdit`
+    /// never carries them over from the existing op on a same-block re-edit (see its
+    /// merge block) — could cause a wrong reconcile decision (a stale-trusted or
+    /// wrongly-invalidated bake). It cannot: the stamp is always recomputed from, and
+    /// attached to, the SAME in-memory `operations` value in the SAME commit
+    /// (`regenerateEditedPage`), so bake-time and reconcile-time always see identical
+    /// identity fields for a given edit state. This locks in that real re-edits (not just
+    /// synthetic array mutation) still reconcile to zero regenerations right after each
+    /// commit, and that the identity fields do churn as claimed (proving the check isn't
+    /// vacuous).
+    func testReEditingTheSameBlockChurnsIdentityFieldsButReconcilesCleanly() throws {
+        let store = tempStore()
+        let vm = try makeViewModel(from: try makePDFData(pageTexts: ["Theta original paragraph text"]), name: "Theta", store: store)
+
+        let firstOp = try applyEdit(vm, pageIndex: 0, matching: "Theta original", replacement: "Theta first replacement token")
+        XCTAssertEqual(vm.reconcileCommittedEditsWithLoadedPages(), 0, "reconcile is a no-op right after the first commit")
+
+        // Re-edit the SAME block (find it again post-edit and edit again) — this exercises
+        // the real `applyInlineTextEdit` merge path, not a synthetic mutation.
+        let memberID = try XCTUnwrap(vm.loadedPDFs.first?.0.id)
+        let data = try XCTUnwrap(vm.document.memberPDFData[memberID])
+        let page = try XCTUnwrap(vm.loadedPDFs.first?.1.page(at: 0))
+        let analysis = PDFTextAnalysisEngine().analyze(data: data, pageIndex: 0, pageRefID: UUID(), fallbackPage: page)
+        let block = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Theta first replacement") })
+        let target = try XCTUnwrap(vm.editableTextBlock(
+            at: CGPoint(x: block.bounds.midX, y: block.bounds.midY), on: page, in: vm.combinedPDF))
+        XCTAssertTrue(vm.applyInlineTextEdit(
+            pageRef: target.pageRef, sourceBlock: target.block, replacementText: "Theta second replacement token",
+            editedBounds: target.block.bounds, fontName: target.block.fontName, fontSize: target.block.fontSize,
+            textColor: .black, alignment: .left))
+        let secondOp = try XCTUnwrap(vm.document.workspace.pageEditStates
+            .first(where: { $0.pageRefID == firstOp.pageRefID })?
+            .operations.first(where: { $0.sourceBlockID == firstOp.sourceBlockID }))
+
+        // The claim under test: identity fields are NOT carried over on a re-edit.
+        XCTAssertNotEqual(firstOp.id, secondOp.id, "id gets a fresh UUID on every re-edit (not carried over)")
+        XCTAssertNotEqual(firstOp.createdAt, secondOp.createdAt, "createdAt gets a fresh Date on every re-edit (not carried over)")
+        // Meaningful content DID change (this is a genuine re-edit), and the paired
+        // sourceBounds/originalFormat (the actually load-bearing fields) WERE preserved.
+        XCTAssertEqual(secondOp.replacementText, "Theta second replacement token")
+        XCTAssertEqual(secondOp.sourceBounds, firstOp.sourceBounds, "sourceBounds is carried over across the re-edit")
+        XCTAssertEqual(secondOp.originalFormat, firstOp.originalFormat, "originalFormat is carried over across the re-edit")
+
+        // Despite that identity churn, reconcile is STILL a clean no-op right after the
+        // second commit — the stamp and the hash of the current operations are computed
+        // from the same values in the same commit, so a fresh id/createdAt never causes a
+        // stale-trusted or wrongly-invalidated bake.
+        XCTAssertEqual(vm.reconcileCommittedEditsWithLoadedPages(), 0,
+                       "reconcile is still a no-op right after the re-edit commit, despite id/createdAt churn")
     }
 }

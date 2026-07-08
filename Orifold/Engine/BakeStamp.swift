@@ -27,8 +27,21 @@ enum BakeStamp {
 
     /// SHA-256 hex of a canonical, order-independent encoding of `operations`. Sorted by id
     /// so array ordering never affects the result; encoded with sorted JSON keys so the
-    /// encoding is stable across runs. Every persisted field participates — any change to an
-    /// operation that a save round-trips also changes the stamp.
+    /// encoding is stable across runs. Every persisted field participates, INCLUDING `id`,
+    /// `createdAt`, and `modifiedAt` — those three get fresh values on every re-edit rather
+    /// than being carried over from an existing op (see `applyInlineTextEdit`'s merge block
+    /// in `WorkspaceViewModel`), so in isolation this is not a hash of "meaningful content
+    /// changed," it also reflects "an edit was (re-)committed at all."
+    ///
+    /// That distinction is harmless in practice: the stamp is always recomputed from, and
+    /// attached to, this SAME `operations` value in the SAME commit that changes it
+    /// (`regenerateEditedPage` calls this immediately before writing the stamp), so
+    /// bake-time and every later reconcile-time read of `operations` — same session, saved
+    /// and reloaded, or restored from undo — always see identical id/timestamp fields for a
+    /// given edit state. There is no code path where the identity fields differ between
+    /// when the stamp was written and when it's later compared, so their churn never causes
+    /// a stale-trusted or wrongly-invalidated bake (see
+    /// `testReEditingTheSameBlockChurnsIdentityFieldsButReconcilesCleanly`).
     static func hash(for operations: [PDFTextEditOperation]) -> String {
         let sorted = operations.sorted { $0.id.uuidString < $1.id.uuidString }
         let encoder = JSONEncoder()

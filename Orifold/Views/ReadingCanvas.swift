@@ -3958,7 +3958,10 @@ final class NoteEditorViewController: NSViewController {
             if isMonospace { label += " · \(L10n.string("readingCanvas.detectedFont.mono"))" }
             if substituted { label += " \(L10n.string("readingCanvas.detectedFont.substituted"))" }
             let choice = DetectedFontChoice(menuTitle: label, family: family, size: roundedSize, bold: bold, italic: italic, isSubstituted: substituted, isMonospace: isMonospace)
-            guard !choices.contains(where: { $0.family == choice.family && abs($0.size - choice.size) < 0.3 && $0.bold == choice.bold && $0.italic == choice.italic }) else { return }
+            guard !choices.contains(where: {
+                $0.family == choice.family && abs($0.size - choice.size) < 0.3 &&
+                    $0.bold == choice.bold && $0.italic == choice.italic && $0.isMonospace == choice.isMonospace
+            }) else { return }
             choices.append(choice)
         }
         for line in block.lines { for run in line.runs { add(fontName: run.fontName, size: run.fontSize) } }

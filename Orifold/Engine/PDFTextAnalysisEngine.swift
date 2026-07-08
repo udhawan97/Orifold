@@ -1206,8 +1206,15 @@ final class PDFTextAnalysisEngine {
     /// content after the colon. Matches header rows like "Prepared for: Demo Client" and
     /// "Date: January 2026" without matching ordinary prose that merely contains a colon
     /// later in the line.
+    ///
+    /// Each label token allows digits as well as letters (`[A-Za-z0-9]`, not letters-only):
+    /// a letters-only class missed header fields like "Q1 2026 Revenue: 500000" or
+    /// "Section 2:" — a label is no less a label for containing a quarter/year/section
+    /// number, and the tight length/token-count caps already keep this from matching
+    /// ordinary prose (a sentence with an early colon reads past 3 short tokens or 14
+    /// characters before it, same as before).
     private static func startsWithLabelColon(_ text: String) -> Bool {
-        text.range(of: #"^[A-Z][A-Za-z]{0,14}( [A-Za-z]{1,14}){0,2}:\s+\S"#, options: .regularExpression) != nil
+        text.range(of: #"^[A-Z][A-Za-z0-9]{0,14}( [A-Za-z0-9]{1,14}){0,2}:\s+\S"#, options: .regularExpression) != nil
     }
 
     /// True when the upper line plausibly word-wrapped into the lower one. A wrapped
@@ -1240,13 +1247,23 @@ final class PDFTextAnalysisEngine {
         // A genuinely-wrapped line reaches near the column edge or fills most of it → merge.
         if reachesRightEdge || lineFill >= 0.7 { return true }
         // Otherwise it only counts as a table cell (veto the merge) when it is ALSO a short
-        // one/two-token line. A multi-word line that happens to fall a little short of a
-        // (pre-tighten, slightly-too-wide) column is still prose and must merge — this is
-        // what keeps genuinely-wrapped column paragraphs intact while splitting rule-less
-        // table columns of single-word cells.
+        // line of a few tokens or fewer. A longer multi-word line that happens to fall a
+        // little short of a (pre-tighten, slightly-too-wide) column is still prose and must
+        // merge — this is what keeps genuinely-wrapped column paragraphs intact while
+        // splitting rule-less table columns of short cells.
+        //
+        // The threshold is 3 tokens, not 2: a real table cell can itself be a short phrase
+        // ("Net Income Total", "Prepared for client") that still falls well short of a
+        // reliably-narrowed column (fill well under 0.7) — a 2-word cap let exactly that
+        // 3-word cell escape the veto and fuse into the block above it, regardless of how
+        // little of the column it actually filled. Calibrated against
+        // `testPDFTextAnalysisMergesWrappedLinesWithinInterleavedColumns`, whose genuinely-
+        // wrapped continuation lines run 4-5 tokens at a similar (0.54-0.62) fill ratio —
+        // those must still merge, so the cap sits just above them rather than at the bug's
+        // own 3-token report.
         let wordCount = (lastLine?.text ?? previous.text)
             .split(whereSeparator: { $0.isWhitespace }).count
-        return wordCount > 2
+        return wordCount > 3
     }
 
     private func fontsMatch(_ lhs: EditableTextBlock, _ rhs: EditableTextBlock) -> Bool {
