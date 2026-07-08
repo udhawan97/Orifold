@@ -262,8 +262,19 @@ final class PDFTextAnalysisEngine {
         guard !candidates.isEmpty else { return nil }
 
         let tightHits = candidates.filter { $0.bounds.insetBy(dx: -tolerance, dy: -tolerance).contains(point) }
-        if let best = smallestBlock(among: tightHits) {
-            return best
+        if !tightHits.isEmpty {
+            // Prefer a block one of whose actual LINES contains the point, over one that only
+            // matches via its (possibly tall, multi-line) bounding box — so a click in a
+            // paragraph's inter-line gap that also falls inside an overlapping neighbor's
+            // union box still resolves to the block whose text is actually under the cursor.
+            // Among those, and otherwise, the smallest block wins (a dense-table cell beats
+            // the row/paragraph that contains it).
+            let lineHits = tightHits.filter { block in
+                block.lines.contains { $0.bounds.insetBy(dx: -tolerance, dy: -tolerance).contains(point) }
+            }
+            if let best = smallestBlock(among: lineHits) ?? smallestBlock(among: tightHits) {
+                return best
+            }
         }
 
         let bandHits = candidates.filter { block in

@@ -68,6 +68,7 @@
 		7344BC0C4A0D7F78202BD928 /* DocumentComfortSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 028C0B2009643AE40F91C654 /* DocumentComfortSettings.swift */; };
 		7599C2E975D393EA20D2FA69 /* PDFSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9224708EB7D2E14889CE70DD /* PDFSmokeTests.swift */; };
 		76608177C6C509B1EF326829 /* StyleFidelityMatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8D88306DEE5D03C5D18D492 /* StyleFidelityMatchTests.swift */; };
+		7A063DF542F678E4BDF735AA /* HitTestAndDetectedFontTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139641A52D9029CE0E58AC0C /* HitTestAndDetectedFontTests.swift */; };
 		7CD5EBE525B76390B0B5F46E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67111D76700765A6BF5F41B /* SettingsView.swift */; };
 		7D15A5DADAC698BED688D415 /* PDFSerializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF484D9AFAB5E2501794A81D /* PDFSerializer.swift */; };
 		7D6801E3556E6E8527CD0CEF /* FolderImportOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9C91D6D2AFE88185E49589 /* FolderImportOrchestratorTests.swift */; };
@@ -167,6 +168,7 @@
 		0F9E00DDE55F7DBE48F02468 /* ShortcutsCheatSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsCheatSheet.swift; sourceTree = "<group>"; };
 		1266C3696FD74416769B9575 /* Phase0TrappedFixtureValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase0TrappedFixtureValidationTests.swift; sourceTree = "<group>"; };
 		12772EF49E3A2300AD720F50 /* PasswordPromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordPromptView.swift; sourceTree = "<group>"; };
+		139641A52D9029CE0E58AC0C /* HitTestAndDetectedFontTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HitTestAndDetectedFontTests.swift; sourceTree = "<group>"; };
 		144E694787595BA401D105FB /* OrifoldApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrifoldApp.swift; sourceTree = "<group>"; };
 		19CDDDF856BFA65B068B9DCE /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		1E5B1F2242D9F71CD242E475 /* SigningErrorMessageClarityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningErrorMessageClarityTests.swift; sourceTree = "<group>"; };
@@ -564,6 +566,7 @@
 				23595CBF96CD0BF48124C05A /* FontSizeUnanimityTests.swift */,
 				8FBFB64EEA799AA0871E98D5 /* GamiPlacementResolverTests.swift */,
 				927342208F7BE337241FD22C /* HeaderLineSegmentationTests.swift */,
+				139641A52D9029CE0E58AC0C /* HitTestAndDetectedFontTests.swift */,
 				B33B1489093613AA9D68BBAA /* ImportPermissionTests.swift */,
 				27E5E2F3AEAD36290772F4E7 /* ImportStressTests.swift */,
 				0C32DFABAB97BCFBB21D16EB /* InlineEditExportHardeningTests.swift */,
@@ -764,6 +767,7 @@
 				FDCF2C70A6DAC45999F2FC9C /* FontSizeUnanimityTests.swift in Sources */,
 				D62E26008825260BFC09E65E /* GamiPlacementResolverTests.swift in Sources */,
 				1A275C9B33483F2FE009C69D /* HeaderLineSegmentationTests.swift in Sources */,
+				7A063DF542F678E4BDF735AA /* HitTestAndDetectedFontTests.swift in Sources */,
 				BC09B0BC88579A472AD023B6 /* ImportPermissionTests.swift in Sources */,
 				3649F47473DBE15AF94B6806 /* ImportStressTests.swift in Sources */,
 				F0D7E78E07639F85F0E962CC /* InlineEditExportHardeningTests.swift in Sources */,
