@@ -2756,6 +2756,7 @@ final class NoteEditorViewController: NSViewController {
         }
         moveHandle.onDragStateChanged = { [weak self] isDragging in
             self?.setSelectionBorderActive(isDragging)
+            self?.setPatchDimmedForInteraction(isDragging)
             if isDragging {
                 self?.dismissMoveHandleHint(animated: true)
             }
@@ -2764,6 +2765,9 @@ final class NoteEditorViewController: NSViewController {
 
         resizeHandle.onDrag = { [weak self] delta in
             self?.resizeEditor(by: delta)
+        }
+        resizeHandle.onDragStateChanged = { [weak self] isDragging in
+            self?.setPatchDimmedForInteraction(isDragging)
         }
         addSubview(resizeHandle)
 
@@ -3356,6 +3360,20 @@ final class NoteEditorViewController: NSViewController {
     /// it never touches font, layout, or the text frame itself, and is never exported.
     private func setSelectionBorderActive(_ active: Bool) {
         textView.isSelectionActive = active
+    }
+
+    /// While the user is dragging to move/resize the box, drop the erase-patch backing to
+    /// a low opacity so the surrounding page content stays visible for alignment (the
+    /// committed export still fully covers the old text). Restored to full opacity when the
+    /// drag ends. No-op for insertions (which have no patch). Exposed for tests.
+    private(set) var isPatchDimmedForInteraction = false
+    func setPatchDimmedForInteraction(_ dimmed: Bool) {
+        guard !isInsertionBlock else { return }
+        isPatchDimmedForInteraction = dimmed
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.12
+            patchView.animator().alphaValue = dimmed ? 0.22 : 1.0
+        }
     }
 
     private func moveEditor(by delta: CGPoint) {
@@ -4685,6 +4703,7 @@ final class InlineMoveHandleHint: NSView {
 
 final class InlineResizeHandle: NSView {
     var onDrag: ((CGPoint) -> Void)?
+    var onDragStateChanged: ((Bool) -> Void)?
     private var lastPoint: CGPoint?
 
     override init(frame frameRect: NSRect) {
@@ -4704,6 +4723,7 @@ final class InlineResizeHandle: NSView {
 
     override func mouseDown(with event: NSEvent) {
         lastPoint = superview?.convert(event.locationInWindow, from: nil)
+        onDragStateChanged?(true)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -4717,6 +4737,7 @@ final class InlineResizeHandle: NSView {
 
     override func mouseUp(with event: NSEvent) {
         lastPoint = nil
+        onDragStateChanged?(false)
     }
 }
 

@@ -719,6 +719,16 @@ final class PDFTextAnalysisEngine {
                    graphics.verticalRuleSplittingGap(leftMaxX: prev, rightMinX: bounds.minX, yBand: band) != nil {
                     shouldSplit = true
                 }
+                // Peel a leading list/bullet marker off the line into its own segment even
+                // on a small gap, so the bullet becomes a separate (un-edited) block and
+                // editing the paragraph text never shifts the marker (WP-5). Only fires when
+                // the current segment so far IS exactly a standalone marker and there's a
+                // real gap before the following text (≈0.3em), and only at the START of the
+                // line (segments still empty) to avoid splitting mid-sentence punctuation.
+                if !shouldSplit, segments.isEmpty, !current.isEmpty, gap >= medianHeight * 0.3,
+                   Self.isStandaloneMarkerSegment(current) {
+                    shouldSplit = true
+                }
                 if shouldSplit {
                     segments.append(current)
                     current = []
@@ -732,6 +742,13 @@ final class PDFTextAnalysisEngine {
         }
         if !current.isEmpty { segments.append(current) }
         return segments
+    }
+
+    private static func isStandaloneMarkerSegment(_ samples: [CharacterSample]) -> Bool {
+        let text = String(String.UnicodeScalarView(samples.map(\.scalar)))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text.count <= 3 else { return false }
+        return text.isLikelyStandaloneListMarker
     }
 
     private func buildBlock(from segment: [CharacterSample], pageRefID: UUID?, confidence: PDFTextEditConfidence, sourcePage: PDFPage?, graphics: PageGraphicsIndex = .empty) -> EditableTextBlock? {
@@ -1116,14 +1133,10 @@ final class PDFTextAnalysisEngine {
         let previousLastLine = previous.lines.last?.bounds ?? previous.bounds
         let verticalGap = previousLastLine.minY - next.bounds.maxY
         let lineHeight = max(previousLastLine.height, next.bounds.height, previous.fontSize, next.fontSize)
-        let sameBaseline = abs(previousLastLine.midY - next.bounds.midY) <= lineHeight * 0.45
-        let horizontalGap = next.bounds.minX - previous.bounds.maxX
-        if sameBaseline,
-           horizontalGap >= 0,
-           horizontalGap <= max(30, lineHeight * 3),
-           previous.text.trimmingCharacters(in: .whitespacesAndNewlines).isLikelyStandaloneListMarker {
-            return true
-        }
+        // NB: a standalone leading list/bullet marker is deliberately NOT merged back into
+        // the following text here (WP-5). `splitIntoColumns` peels the marker into its own
+        // block so editing the paragraph text never shifts the bullet; re-merging it would
+        // undo that and reintroduce the "bullet moved after edit" bug.
         // Rows separated by more than typical single-spaced leading (chip rows, padded
         // labels, loose layouts) are standalone elements, not a wrapped continuation.
         guard verticalGap >= -lineHeight * 0.35, verticalGap <= lineHeight * 0.9 else { return false }
