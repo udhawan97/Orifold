@@ -33,6 +33,7 @@ export default defineConfig({
 				Hero: './src/components/overrides/Hero.astro',
 				MarkdownContent: './src/components/overrides/MarkdownContent.astro',
 				PageTitle: './src/components/overrides/PageTitle.astro',
+				TableOfContents: './src/components/overrides/TableOfContents.astro',
 			},
 			// English ships first. Locale roadmap — uncomment as translations land.
 			defaultLocale: 'root',

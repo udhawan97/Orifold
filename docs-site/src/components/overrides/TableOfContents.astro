@@ -1,0 +1,44 @@
+---
+import Default from '@astrojs/starlight/components/TableOfContents.astro';
+---
+
+<Default {...Astro.props} />
+
+<script>
+	// Starlight's scrollspy marks a heading active when it crosses a thin band
+	// near the top of the viewport. If the content after the last heading is
+	// shorter than the viewport, the page hits max scroll before that band ever
+	// reaches it, so the last heading never gets highlighted. Force it active
+	// once the user has scrolled to the bottom of the page.
+	//
+	// We go through <starlight-toc>'s own `current` setter (not direct
+	// aria-current attribute edits) so its internal "last known active link"
+	// cache stays in sync — otherwise scrolling back up afterwards leaves the
+	// highlight stuck or racing with the component's own IntersectionObserver.
+	function fixLastHeadingHighlight() {
+		const toc = document.querySelector('starlight-toc') as
+			| (HTMLElement & { current: HTMLAnchorElement })
+			| null;
+		if (!toc) return;
+		const links = Array.from(toc.querySelectorAll('a')) as HTMLAnchorElement[];
+		const lastLink = links[links.length - 1];
+		if (!lastLink) return;
+
+		const atBottom = () => {
+			const { scrollHeight, clientHeight } = document.scrollingElement || document.documentElement;
+			return window.scrollY + clientHeight >= scrollHeight - 2;
+		};
+
+		const apply = () => {
+			if (atBottom()) toc.current = lastLink;
+		};
+
+		document.addEventListener('scroll', apply, { passive: true });
+		window.addEventListener('resize', apply);
+		apply();
+	}
+
+	fixLastHeadingHighlight();
+	// Defensive: re-run if the site ever adopts Astro's View Transitions router.
+	document.addEventListener('astro:page-load', fixLastHeadingHighlight);
+</script>
