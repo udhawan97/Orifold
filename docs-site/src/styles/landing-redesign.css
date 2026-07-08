@@ -50,6 +50,28 @@ html body.landing .fine-print {
 	line-height: 1.65;
 	color: var(--of-text-3);
 }
+/* ---- subtle "Beta" status note (Shape/edit section): a low-emphasis fine-print
+   line with a small accent-tinted pill. Deliberately quiet — it flags that inline
+   editing is still maturing without a scary banner or blocking warning. -------- */
+html body.landing .beta-note {
+	margin-top: 1rem;
+}
+html body.landing .beta-tag {
+	display: inline-flex;
+	align-items: center;
+	margin-right: 0.5rem;
+	padding: 0.12rem 0.5rem;
+	border: 1px solid color-mix(in srgb, var(--act-accent) 32%, transparent);
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--act-accent) 12%, transparent);
+	color: var(--act-accent);
+	font-size: 0.66rem;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	line-height: 1;
+	vertical-align: 0.06em;
+}
 /* section acts get generous, even breathing room */
 html body.landing .fold {
 	padding-block: clamp(6rem, 13vh, 11rem);
