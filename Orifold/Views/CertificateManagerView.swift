@@ -51,8 +51,11 @@ struct CreateSelfSignedCertificateSheet: View {
     @State private var email: String = ""
     @State private var validityYears: Int = 2
     @State private var errorMessage: String?
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         VStack(alignment: .leading, spacing: .dsMD) {
             Text(L10n.string("certificateSheet.createSelfSigned.title"))
                 .font(.system(size: 15, weight: .semibold, design: .serif))

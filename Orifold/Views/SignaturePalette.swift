@@ -539,8 +539,11 @@ private struct CertificateTrustPopover: View {
 
 private struct CertificateGuideSheet: View {
     @Environment(\.dismiss) private var dismiss
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         VStack(spacing: 0) {
             HStack {
                 Text(L10n.string("signaturePalette.certificateGuide.title"))

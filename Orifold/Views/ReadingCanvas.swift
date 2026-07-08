@@ -66,8 +66,13 @@ struct ReadingCanvas: View {
 
 private struct SignaturePlacementBanner: View {
     var cancel: () -> Void
+    // Read so SwiftUI re-invokes `body` when the app language changes; without a
+    // read of `\.locale`, this banner's `L10n.string` text would stay in the
+    // previous language until some unrelated state change forced a rebuild.
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         HStack(spacing: .dsSM) {
             Image(systemName: "signature")
                 .foregroundStyle(Color.dsSignatureAccent)
@@ -91,8 +96,11 @@ private struct SignaturePlacementBanner: View {
 
 private struct ScanBar: View {
     @Bindable var viewModel: WorkspaceViewModel
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         HStack(spacing: .dsMD) {
             Image(systemName: "doc.text.viewfinder")
                 .foregroundStyle(Color.dsAccent)
@@ -187,6 +195,9 @@ private struct FormBar: View {
 private struct EditingStatusBanner: View {
     var status: WorkspaceViewModel.EditingStatus
     var dismiss: () -> Void
+    // Read so SwiftUI re-invokes `body` when the app language changes (refreshes
+    // the dismiss tooltip; `status.message` is resolved by the view model).
+    @Environment(\.locale) private var locale
 
     private var iconName: String {
         switch status.severity {
@@ -207,6 +218,7 @@ private struct EditingStatusBanner: View {
     }
 
     var body: some View {
+        let _ = locale
         HStack(spacing: .dsSM) {
             Image(systemName: iconName)
                 .foregroundStyle(tint)
@@ -242,8 +254,11 @@ private struct ZoomPageBar: View {
     @Bindable var viewModel: WorkspaceViewModel
     @State private var pageInput: String = ""
     @FocusState private var pageFieldFocused: Bool
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         HStack(spacing: .dsSM) {
             // Zoom controls
             Button { viewModel.zoomOut() } label: {

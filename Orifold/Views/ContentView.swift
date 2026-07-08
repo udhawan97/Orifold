@@ -29,6 +29,8 @@ private struct ExportSuccessPanel: View {
 
     @State private var finderFailed = false
     @FocusState private var doneButtonFocused: Bool
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     private var fileName: String { success.url.lastPathComponent }
     private var folderName: String {
@@ -38,6 +40,7 @@ private struct ExportSuccessPanel: View {
     private var hasFolderPath: Bool { !folderName.isEmpty }
 
     var body: some View {
+        let _ = locale
         ZStack {
             Color.black.opacity(0.22)
                 .ignoresSafeArea()
@@ -1568,12 +1571,15 @@ private struct WorkspaceOperationProgressView: View {
     var cancel: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isBreathing = false
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
     var body: some View {
+        let _ = locale
         HStack(spacing: .dsMD) {
             ZStack {
                 Circle()
@@ -1640,6 +1646,9 @@ private struct AnnotationToolPicker: View {
     @State private var isShowingMarkupOptions = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var selectionNamespace
+    // Read so SwiftUI re-invokes `body` when the app language changes (refreshes the
+    // per-tool accessibility labels and hover tooltips).
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -1670,6 +1679,7 @@ private struct AnnotationToolPicker: View {
     }
 
     var body: some View {
+        let _ = locale
         // At full width the capsule shows every tool; when the window can't fit it,
         // ViewThatFits falls back to a single menu button rather than letting the whole
         // tool picker silently disappear (the previous behavior when a lone .principal
@@ -2242,6 +2252,8 @@ private struct AnnotationColorButton: View {
     @Bindable var viewModel: WorkspaceViewModel
     @State private var showPalette = false
     @State private var isHovered = false
+    // Read so SwiftUI re-invokes `body` when the app language changes (refreshes the tooltip).
+    @Environment(\.locale) private var locale
 
     private var displayColor: Color {
         viewModel.currentTool.usesInkColor
@@ -2263,7 +2275,7 @@ private struct AnnotationColorButton: View {
         }
         .buttonStyle(ToolButtonStyle(isHovered: isHovered || showPalette))
         .onHover { isHovered = $0 }
-        .help(L10n.string("contentView.annotationColorButton.help"))
+        .help(L10n.string("contentView.annotationColorButton.help", locale: locale))
         .popover(isPresented: $showPalette, arrowEdge: .bottom) {
             AnnotationPalettePopover(viewModel: viewModel)
         }
@@ -3087,8 +3099,11 @@ private struct ToolbarMoreMenu: View {
 /// than a button that opens something.
 private struct MoreReaderModeRow: View {
     var readerMode: Binding<Bool>
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         HStack(spacing: 11) {
             MoreIconTile(systemImage: readerMode.wrappedValue ? "book.fill" : "book", isActive: readerMode.wrappedValue)
             VStack(alignment: .leading, spacing: 1) {

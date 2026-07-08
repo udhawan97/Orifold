@@ -5,6 +5,10 @@ import AppKit
 struct InspectorView: View {
     @Bindable var viewModel: WorkspaceViewModel
     @Binding var selectedTab: Tab
+    // Read so SwiftUI re-invokes `body` when the app language changes; the
+    // inspector's inputs are otherwise stable (a class-reference view model), so
+    // without a `\.locale` read its localized text would stay in the old language.
+    @Environment(\.locale) private var locale
 
     enum Tab: String, CaseIterable {
         case info = "Info"
@@ -24,9 +28,28 @@ struct InspectorView: View {
             case .ocr: return "doc.text.viewfinder"
             }
         }
+
+        /// Translation key for the tab's display name. The `rawValue` is a stable,
+        /// non-localized identifier (persisted/compared in code); the label shown to
+        /// the user must come from the catalog so non-English users see their language.
+        private var titleKey: String {
+            switch self {
+            case .info: return "inspector.tab.info"
+            case .tags: return "inspector.tab.tags"
+            case .comments: return "inspector.tab.comments"
+            case .markup: return "inspector.tab.markup"
+            case .decorate: return "inspector.tab.decorate"
+            case .ocr: return "inspector.tab.ocr"
+            }
+        }
+
+        func title(locale: Locale) -> String {
+            L10n.string(forKey: titleKey, locale: locale)
+        }
     }
 
     var body: some View {
+        let _ = locale
         VStack(spacing: 0) {
             // Header
             HStack {
@@ -64,6 +87,8 @@ struct InspectorView: View {
 
 private struct InspectorTabPicker: View {
     @Binding var selectedTab: InspectorView.Tab
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     private let columns = [
         GridItem(.flexible(), spacing: 6),
@@ -80,7 +105,7 @@ private struct InspectorTabPicker: View {
                         Image(systemName: tab.iconName)
                             .font(.system(size: 12, weight: .semibold))
                             .frame(width: 14, height: 14)
-                        Text(tab.rawValue)
+                        Text(tab.title(locale: locale))
                             .font(.system(size: 12, weight: .semibold))
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
@@ -111,6 +136,8 @@ private struct InspectorTabPicker: View {
 
 private struct InspectorInfoView: View {
     var viewModel: WorkspaceViewModel
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     private var visualSignatureCount: Int {
         viewModel.document.workspace.signatures.filter { !$0.isCryptographic }.count
@@ -121,15 +148,16 @@ private struct InspectorInfoView: View {
     }
 
     var body: some View {
+        let _ = locale
         VStack(alignment: .leading, spacing: .dsLG) {
-            InspectorRow(label: "Documents",   value: "\(viewModel.document.workspace.documents.count)")
-            InspectorRow(label: "Total pages", value: "\(viewModel.document.workspace.pageOrder.count)")
-            InspectorRow(label: "Signatures",  value: "\(viewModel.document.workspace.signatures.count)")
-            InspectorRow(label: "Visual",      value: "\(visualSignatureCount)")
-            InspectorRow(label: "Digital",     value: "\(digitalSignatureCount)")
-            InspectorRow(label: "Tags",        value: "\(viewModel.document.workspace.tags.count)")
-            InspectorRow(label: "Comments",    value: "\(viewModel.totalCommentCount)")
-            InspectorRow(label: "Created",     value: viewModel.document.workspace.createdAt.formatted(
+            InspectorRow(label: L10n.string("inspector.info.documents", locale: locale),   value: "\(viewModel.document.workspace.documents.count)")
+            InspectorRow(label: L10n.string("inspector.info.totalPages", locale: locale),  value: "\(viewModel.document.workspace.pageOrder.count)")
+            InspectorRow(label: L10n.string("inspector.info.signatures", locale: locale),  value: "\(viewModel.document.workspace.signatures.count)")
+            InspectorRow(label: L10n.string("inspector.info.visual", locale: locale),      value: "\(visualSignatureCount)")
+            InspectorRow(label: L10n.string("inspector.info.digital", locale: locale),     value: "\(digitalSignatureCount)")
+            InspectorRow(label: L10n.string("inspector.info.tags", locale: locale),        value: "\(viewModel.document.workspace.tags.count)")
+            InspectorRow(label: L10n.string("inspector.info.comments", locale: locale),    value: "\(viewModel.totalCommentCount)")
+            InspectorRow(label: L10n.string("inspector.info.created", locale: locale),     value: viewModel.document.workspace.createdAt.formatted(
                 date: .abbreviated, time: .omitted))
         }
         .padding(.horizontal, .dsLG)
@@ -159,8 +187,11 @@ private struct InspectorRow: View {
 private struct InspectorTagsView: View {
     @Bindable var viewModel: WorkspaceViewModel
     @State private var draftTag = ""
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         VStack(alignment: .leading, spacing: .dsMD) {
             HStack(spacing: .dsSM) {
                 TextField(L10n.string("inspector.tags.addTag.placeholder"), text: $draftTag)
@@ -202,8 +233,12 @@ private struct InspectorTagsView: View {
 private struct TagChip: View {
     var tag: String
     var onRemove: () -> Void
+    // Read so SwiftUI re-invokes `body` when the app language changes (refreshes
+    // the remove-button tooltip).
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         HStack(spacing: 5) {
             Text(tag)
                 .font(.dsCaption())
@@ -284,7 +319,7 @@ private struct InspectorWorkspaceCommentsView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: .dsMD) {
                     if !workspaceComments.isEmpty {
-                        InspectorSectionHeader(title: "Workspace", count: workspaceComments.count)
+                        InspectorSectionHeader(title: L10n.string("inspector.comments.section.workspace", locale: locale), count: workspaceComments.count)
                         ForEach(workspaceComments) { comment in
                             WorkspaceCommentRow(viewModel: viewModel, comment: comment)
                         }
@@ -293,7 +328,7 @@ private struct InspectorWorkspaceCommentsView: View {
                     }
 
                     if !noteComments.isEmpty {
-                        InspectorSectionHeader(title: "PDF Notes", count: noteComments.count)
+                        InspectorSectionHeader(title: L10n.string("inspector.comments.section.pdfNotes", locale: locale), count: noteComments.count)
                         ForEach(noteComments) { note in
                             PDFNoteCommentRow(note: note) {
                                 viewModel.jumpToNoteComment(note)
@@ -1147,6 +1182,8 @@ private struct InspectorOCRView: View {
 
 private struct InspectorMarkupView: View {
     @Bindable var viewModel: WorkspaceViewModel
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     private var allAnnotations: [(page: PDFPage, annotation: PDFAnnotation, memberName: String)] {
         var result: [(PDFPage, PDFAnnotation, String)] = []
@@ -1168,6 +1205,7 @@ private struct InspectorMarkupView: View {
     }
 
     var body: some View {
+        let _ = locale
         // Compute the (expensive) cross-document annotation walk and the text-edit
         // list ONCE per render, not per property access. `allAnnotations` iterates
         // every loaded PDF × every page × every annotation; reading it separately for
@@ -1240,11 +1278,14 @@ private struct InspectorMarkupView: View {
 private struct InspectorTextEditsSection: View {
     @Bindable var viewModel: WorkspaceViewModel
     var textEdits: [WorkspaceViewModel.InlineTextEditListItem]
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: .dsSM) {
-                InspectorSectionHeader(title: "Text Edits", count: textEdits.count)
+                InspectorSectionHeader(title: L10n.string("inspector.textEdit.section.title", locale: locale), count: textEdits.count)
                 Spacer()
                 Button(L10n.string("inspector.textEdit.revertAll.button")) {
                     viewModel.revertAllInlineTextEdits()
@@ -1368,10 +1409,13 @@ private struct InspectorTextEditRow: View {
 
 private struct InspectorEditingDetails: View {
     var ann: PDFAnnotation
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     private var isEditableText: Bool { ann.type == "FreeText" || ann.type == "Text" }
 
     var body: some View {
+        let _ = locale
         VStack(alignment: .leading, spacing: .dsSM) {
             HStack(spacing: .dsSM) {
                 Image(systemName: "slider.horizontal.3")

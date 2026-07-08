@@ -11,12 +11,17 @@ struct SidebarView: View {
     @State private var isImportDropTargeted = false
     @State private var dropZoneErrorFlash = false
     @State private var dropZoneErrorFlashWorkItem: DispatchWorkItem?
+    // Read so SwiftUI re-invokes `body` when the app language changes; the sidebar's
+    // inputs are otherwise stable, so without a `\.locale` read its localized text
+    // (and that of its child rows) would stay in the previous language.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || viewModel.documentComfortSettings.reduceAnimations
     }
 
     var body: some View {
+        let _ = locale
         VStack(spacing: 0) {
             WorkspaceHeaderCard(viewModel: viewModel, expandedDocs: $expandedDocs)
                 .padding(.horizontal, 10)

@@ -643,12 +643,15 @@ private struct PetPicker: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @State private var hasAppeared = false
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
     var body: some View {
+        let _ = locale
         VStack(alignment: .leading, spacing: .dsMD) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(L10n.string("petPicker.title"))

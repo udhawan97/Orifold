@@ -153,8 +153,11 @@ struct ShortcutsCheatSheetView: View {
 struct ShortcutsFirstRunPopover: View {
     @Binding var isPresented: Bool
     var onSeeAll: () -> Void
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        let _ = locale
         VStack(alignment: .leading, spacing: .dsMD) {
             Text(L10n.string("shortcuts.firstRun.title"))
                 .font(.dsBody())

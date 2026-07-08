@@ -17,6 +17,9 @@ struct GamiHintBubble: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    // Read so SwiftUI re-invokes `body` when the app language changes (refreshes the
+    // dismiss accessibility label; `message` is supplied by PetBuddy).
+    @Environment(\.locale) private var locale
 
     private var feedbackURL: URL? {
         guard message.contains("umangdhawan97@gmail.com") else { return nil }
@@ -28,6 +31,7 @@ struct GamiHintBubble: View {
     private static let notchSize = CGSize(width: 10, height: 5)
 
     var body: some View {
+        let _ = locale
         HStack(alignment: .top, spacing: .dsSM) {
             Group {
                 if let feedbackURL {
