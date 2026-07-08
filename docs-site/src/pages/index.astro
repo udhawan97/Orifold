@@ -190,7 +190,10 @@ const icoClipboard =
 								Not notarized yet — first launch takes one calm extra step. <a class="arrow-link" href="#final-fold">Here's how<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
 							</p>
 						</div>
-						<div class="hero-crane" id="hero-crane" set:html={craneFold}></div>
+						<div class="hero-crane" id="hero-crane">
+							<div class="crane-art" set:html={craneFold}></div>
+							<span class="crane-sheen" aria-hidden="true"></span>
+						</div>
 					</div>
 				</div>
 			</section>
@@ -327,7 +330,7 @@ const icoClipboard =
 						<div class="stat"><b>0</b><span>The app asks the network for nothing.</span></div>
 						<div class="stat"><b>AES-256</b><span>Real encryption, not a "protected" flag a reader can ignore.</span></div>
 						<div class="stat"><b>Sanitize</b><span>A file that carries nothing you didn't intend to send.</span></div>
-						<div class="stat"><b>{stats.tests}</b><span>tests gate every release.</span></div>
+						<div class="stat"><b>{stats.tests ?? '—'}</b><span>tests gate every release.</span></div>
 						<div class="stat"><b>MIT</b><span>Free forever, open source.</span></div>
 						<div class="stat"><b>6</b><span>languages, everything on-device.</span></div>
 					</div>
@@ -433,7 +436,7 @@ const icoClipboard =
 								<p>Orifold is free and open source, so builds aren't notarized by Apple yet. One-time first launch:</p>
 								<p><b>macOS 14:</b> right-click Orifold → Open → Open.</p>
 								<p><b>macOS 15:</b> open Orifold once (it's blocked), then System Settings → Privacy &amp; Security → <b>Open Anyway</b> → password.</p>
-								<p>Prefer zero dialogs? The one-line installer below clears quarantine for you.</p>
+								<p>Prefer zero dialogs? Install with Homebrew below — it handles Gatekeeper for you.</p>
 							</div>
 
 							<details class="details">
@@ -445,8 +448,7 @@ const icoClipboard =
 									</button>
 								</div>
 								<p class="fine-print" style="margin-top:0.8rem">
-									Or the one-line installer (no dialogs — it clears quarantine automatically), or the
-									direct <a href={rel.zipUrl}>.zip</a>. <a class="arrow-link" href={rel.allReleasesUrl}>All releases<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
+									Or the direct <a href={rel.zipUrl}>.zip</a>. <a class="arrow-link" href={rel.allReleasesUrl}>All releases<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
 								</p>
 							</details>
 						</div>
@@ -476,8 +478,8 @@ const icoClipboard =
 				<p class="row">
 					<strong>Folded by hand. MIT licensed.</strong>
 					<span class="marks" aria-hidden="true">
-						<img src={`${base}/assets/gami-mark.svg`} alt="" />
-						<img src={`${base}/assets/ori-mark.svg`} alt="" />
+						<img src={`${base}/assets/gami-mark.svg`} width="24" height="24" alt="" />
+						<img src={`${base}/assets/ori-mark.svg`} width="24" height="24" alt="" />
 					</span>
 				</p>
 				<p class="row">
@@ -616,14 +618,42 @@ const icoClipboard =
 				var heroCraneSvg = heroCrane && heroCrane.querySelector('svg');
 				if (heroCraneSvg && heroCraneSvg.pauseAnimations) {
 					var settleTime = 3.2;
+					var craneSettled = false;
+					// Snap to the held crane pose and freeze there, exactly once. Called both
+					// from the rAF poll below (the normal foreground-load path) AND from a
+					// visibilitychange listener (see below) — requestAnimationFrame is fully
+					// suspended while a tab is backgrounded, so a page that loads/stays in a
+					// background tab (a common case: middle-click/cmd-click "open in new tab")
+					// may never get a single rAF callback while hidden, leaving the crane's
+					// SMIL loop running untouched until the tab is actually viewed. Jumping
+					// straight to settleTime on becoming visible guarantees a correct,
+					// crown-visible pose the instant the user actually looks at the tab,
+					// regardless of wherever the clock happened to land while hidden.
+					var settleCrane = function () {
+						if (craneSettled) return;
+						try {
+							if (heroCraneSvg.getCurrentTime() !== settleTime) heroCraneSvg.setCurrentTime(settleTime);
+							heroCraneSvg.pauseAnimations();
+						} catch (e) {
+							return;
+						}
+						craneSettled = true;
+						// The crane has reached its held, crown-visible pose: light the tancho
+						// crest once (CSS one-shot on #hero-crane.crest-lit), a quiet "the seal
+						// inks" beat that foreshadows the hanko red down in #seal. This is the
+						// ONLY scripted use of the one reserved red on the page, and only under
+						// normal motion — the reduce branch below leaves the crown statically at
+						// rest with no bloom.
+						if (heroCrane) heroCrane.classList.add('crest-lit');
+					};
 					if (reduce) {
-						heroCraneSvg.setCurrentTime(settleTime);
-						heroCraneSvg.pauseAnimations();
+						settleCrane();
 					} else {
 						(function watchSettle() {
+							if (craneSettled) return;
 							try {
 								if (heroCraneSvg.getCurrentTime() >= settleTime) {
-									heroCraneSvg.pauseAnimations();
+									settleCrane();
 									return;
 								}
 							} catch (e) {
@@ -631,26 +661,91 @@ const icoClipboard =
 							}
 							requestAnimationFrame(watchSettle);
 						})();
+						document.addEventListener('visibilitychange', function () {
+							if (!document.hidden) settleCrane();
+						});
 					}
 				}
 
+				// ── hero crane: cursor spotlight (desktop, fine-pointer, motion-ok only) ─
+				// A delegated, rAF-coalesced pointer glow on the (frozen) crane panel. The
+				// move handler ONLY writes two custom props (--mx/--my), as PIXEL offsets
+				// from the panel's top-left, and never reads layout — the rect is cached
+				// on enter/resize — so it can't trigger a per-frame reflow. The CSS sprite
+				// (landing-redesign.css) reads these as a `transform: translate3d(...)` —
+				// compositor-only, no per-frame gradient repaint. Gated to fine-pointer
+				// desktops >=900px (parity with the fixed-decor cutoff) and off under
+				// reduced motion; everywhere else the sheen stays a static, centered
+				// lit-material wash via its CSS default --mx/--my, so touch/mobile
+				// visitors still get lit material, zero JS.
+				if (
+					heroCrane &&
+					!reduce &&
+					window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
+					window.innerWidth >= 900
+				) {
+					var craneRect = null;
+					var craneRaf = false;
+					var cpX = 0;
+					var cpY = 0;
+					var measureCrane = function () { craneRect = heroCrane.getBoundingClientRect(); };
+					var applyCrane = function () {
+						craneRaf = false;
+						if (!craneRect || !craneRect.width) return;
+						var mx = cpX - craneRect.left;
+						var my = cpY - craneRect.top;
+						heroCrane.style.setProperty('--mx', mx.toFixed(1) + 'px');
+						heroCrane.style.setProperty('--my', my.toFixed(1) + 'px');
+					};
+					heroCrane.addEventListener('pointerenter', measureCrane);
+					heroCrane.addEventListener('pointermove', function (ev) {
+						cpX = ev.clientX;
+						cpY = ev.clientY;
+						if (!craneRaf) { craneRaf = true; requestAnimationFrame(applyCrane); }
+					});
+					window.addEventListener('resize', function () { if (craneRect) measureCrane(); }, { passive: true });
+					// getBoundingClientRect() is viewport-relative, so scrolling the page while
+					// the pointer stays put over the panel (wheel/trackpad/PageDown with a
+					// stationary cursor) shifts the panel's real position without firing
+					// pointermove/pointerenter/resize — re-measure so the glow doesn't drift.
+					window.addEventListener('scroll', function () { if (craneRect) measureCrane(); }, { passive: true });
+				}
+
 				// ── copy buttons ─────────────────────────────────────────────
+				// Only claim success once navigator.clipboard.writeText actually resolves —
+				// it can be unavailable (non-secure origin, restrictive Permissions-Policy,
+				// older WebKit) or reject (document not focused, embedded iframe), and a
+				// fire-and-forget call would show "Copied" either way, leaving the user with
+				// nothing on their clipboard.
 				document.querySelectorAll('.copy-btn').forEach(function (btn) {
 					var icon = btn.querySelector('.btn-ico');
 					var label = btn.querySelector('.copy-btn-label');
 					var originalIcon = icon ? icon.outerHTML : '';
 					var originalLabel = label ? label.textContent : 'Copy';
-					btn.addEventListener('click', function () {
-						var txt = btn.getAttribute('data-copy');
-						if (navigator.clipboard) navigator.clipboard.writeText(txt);
-						if (icon) icon.outerHTML = '<svg class="btn-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 10.5 8 14l7.5-8.5"/></svg>';
-						icon = btn.querySelector('.btn-ico');
-						if (label) label.textContent = 'Copied';
+					var revert = function () {
 						setTimeout(function () {
 							if (icon) icon.outerHTML = originalIcon;
 							icon = btn.querySelector('.btn-ico');
 							if (label) label.textContent = originalLabel;
 						}, 1400);
+					};
+					var showCopied = function () {
+						if (icon) icon.outerHTML = '<svg class="btn-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 10.5 8 14l7.5-8.5"/></svg>';
+						icon = btn.querySelector('.btn-ico');
+						if (label) label.textContent = 'Copied';
+						revert();
+					};
+					var showFailed = function () {
+						if (label) label.textContent = 'Copy failed';
+						revert();
+					};
+					btn.addEventListener('click', function () {
+						var txt = btn.getAttribute('data-copy');
+						if (navigator.clipboard && navigator.clipboard.writeText) {
+							navigator.clipboard.writeText(txt).then(showCopied, showFailed);
+						} else {
+							showFailed();
+						}
 					});
 				});
 
@@ -687,6 +782,15 @@ const icoClipboard =
 										span.textContent = '· ' + mb;
 										kindLabel.insertAdjacentElement('afterend', span);
 									}
+									// The hero/final CTA .btn-sub is baked in at build time as
+									// "macOS 14+ · vX.Y.Z[ · N MB]" — the size segment is only
+									// present if the build-time release lookup had a dmg size. If
+									// it didn't (e.g. a zip-only fallback), the version-only regex
+									// above leaves it permanently missing even after this client
+									// fetch confirms a real, sized dmg. Backfill it once here.
+									document.querySelectorAll('.btn-sub').forEach(function (el) {
+										if (el.textContent.indexOf(' MB') === -1) el.textContent += ' · ' + mb;
+									});
 								}
 							}
 						});

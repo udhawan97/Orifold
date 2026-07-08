@@ -302,8 +302,23 @@ html body.landing #sheet .hero-grid {
 
 html body.landing #sheet .hero-copy {
 	max-width: 790px;
-	animation: orifold-hero-rise 0.92s var(--ease-fold) both;
 }
+
+/* Hero entry sequence: instead of the whole copy column rising as one slab, its
+   parts arrive a beat apart (eyebrow -> headline -> sub -> CTA -> meta -> notice)
+   — the canonical Apple hero cadence that walks the eye down to the primary
+   action, then hands off to the crane (whose stage-in delay below is nudged so it
+   settles right as the CTA lands). Targeted by class, not :nth-child, because a
+   <script is:inline> sits among these children and must not consume a beat. */
+html body.landing #sheet .hero-copy > :is(.eyebrow, h1, .sub, .btn-row, .meta-row, .inoc) {
+	animation: orifold-hero-rise 0.7s var(--ease-fold) both;
+}
+html body.landing #sheet .hero-copy > .eyebrow { animation-delay: 0ms; }
+html body.landing #sheet .hero-copy > h1 { animation-delay: 80ms; }
+html body.landing #sheet .hero-copy > .sub { animation-delay: 160ms; }
+html body.landing #sheet .hero-copy > .btn-row { animation-delay: 240ms; }
+html body.landing #sheet .hero-copy > .meta-row { animation-delay: 320ms; }
+html body.landing #sheet .hero-copy > .inoc { animation-delay: 400ms; }
 
 html body.landing #sheet .eyebrow {
 	display: inline-flex;
@@ -448,7 +463,9 @@ html body.landing .hero-crane {
 		radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--of-accent) 18%, transparent), transparent 43%),
 		linear-gradient(150deg, color-mix(in srgb, var(--of-text-1) 10%, transparent), color-mix(in srgb, var(--of-surface) 42%, transparent));
 	box-shadow: var(--premium-shadow);
-	animation: orifold-crane-stage 900ms var(--ease-fold) 120ms both;
+	/* Delay nudged 120ms -> 220ms so the crane resolves (~1.12s) just as the hero
+	   copy cascade lands on its primary CTA — the eye reads copy, then the crane. */
+	animation: orifold-crane-stage 900ms var(--ease-fold) 220ms both;
 	/* No backdrop-filter here: this 505px panel simultaneously plays the entrance
 	   transform (translateY + scale + rotate), so a live blur would force the
 	   compositor to re-sample the backdrop behind a moving half-megapixel element
@@ -952,6 +969,7 @@ html body.landing .landing-footer .wrap {
 	}
 
 	html body.landing #sheet .hero-copy,
+	html body.landing #sheet .hero-copy > *,
 	html body.landing .hero-crane {
 		animation: none !important;
 	}

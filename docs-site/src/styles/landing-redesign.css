@@ -331,9 +331,12 @@ html body.landing .copy-btn .btn-ico {
 }
 
 /* ---- nav: scroll-linked active-section state ------------------------------ */
+/* The underline is a sliding ::after bar (see §"motion polish" below), not a hard
+   box-shadow snap — navIO keeps exactly one link active, so the outgoing bar
+   retracts as the incoming one grows: a hand-off, not a jump. Here we only carry
+   the color bump; the bar mechanics live with the rest of the motion layer. */
 html body.landing .nav .links a.is-active {
 	color: var(--of-text-1);
-	box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--of-text-1) 55%, transparent);
 }
 
 /* Guides go column/centered strictly BELOW the 2-col breakpoint (min-width:720px
@@ -393,5 +396,260 @@ html body.landing .nav .links a.is-active {
 				transform: none;
 			}
 		}
+	}
+}
+
+/* ============================================================================
+   Rev 7 — Apple-grade motion polish (design judge-panel synthesis).
+   Every effect below is compositor-only (transform/opacity, or a CSS
+   scroll/view timeline), reuses a mechanism already trusted on this page, and
+   collapses cleanly under prefers-reduced-motion / no-JS. The one reserved red
+   (--of-tancho) appears exactly once, at the crane crest — everything else is
+   the cool accent. Effects: (1) per-child crease cascade on the repeater grids,
+   (3) cursor spotlight on the frozen crane panel, (4) primary-CTA gloss sweep +
+   press-depth, (5) crease-line score draw-in, (7) tancho crest ignition,
+   (8) sliding nav underline, (9) focus-visible halo where it can't clobber a
+   signature shadow. (Screenshot parallax and act-head/hero-copy double-motion
+   were deliberately dropped — they collided with transforms already in flight.)
+   ============================================================================ */
+
+/* ---- (1) per-child crease cascade — repeater grids ripple in, item by item -
+   Reuses the existing IntersectionObserver that already toggles .is-revealed on
+   each .crease and then unobserves it (index.astro) — zero new JS, no re-trigger.
+   The three targets ARE (stat-row, guides) or CONTAIN (feature-band) the grid, so
+   the child rule keys off the block's own .is-revealed. Pre-state is html.js-gated
+   so no-JS renders everything visible. --i (index) and --stagger (interval) are
+   pure CSS; the delay is one multiply, computed once. */
+html.js body.landing .feature-band .of-card,
+html.js body.landing #keep .stat-row .stat,
+html.js body.landing .guides .guide {
+	opacity: 0;
+	transform: translateY(14px) scale(0.992);
+	transform-origin: top center;
+}
+html body.landing .feature-band .of-card { --stagger: 62ms; }
+html body.landing #keep .stat-row .stat { --stagger: 46ms; }
+html body.landing .guides .guide { --stagger: 90ms; }
+html body.landing .feature-band .of-card:nth-child(1),
+html body.landing #keep .stat-row .stat:nth-child(1),
+html body.landing .guides .guide:nth-child(1) { --i: 0; }
+html body.landing .feature-band .of-card:nth-child(2),
+html body.landing #keep .stat-row .stat:nth-child(2),
+html body.landing .guides .guide:nth-child(2) { --i: 1; }
+html body.landing .feature-band .of-card:nth-child(3),
+html body.landing #keep .stat-row .stat:nth-child(3) { --i: 2; }
+html body.landing .feature-band .of-card:nth-child(4),
+html body.landing #keep .stat-row .stat:nth-child(4) { --i: 3; }
+html body.landing .feature-band .of-card:nth-child(5),
+html body.landing #keep .stat-row .stat:nth-child(5) { --i: 4; }
+html body.landing .feature-band .of-card:nth-child(6),
+html body.landing #keep .stat-row .stat:nth-child(6) { --i: 5; }
+html.js body.landing .feature-band.is-revealed .of-card,
+html.js body.landing #keep .stat-row.is-revealed .stat,
+html.js body.landing .guides.is-revealed .guide {
+	opacity: 1;
+	transform: none;
+	transition:
+		opacity 0.58s var(--ease-fold),
+		transform 0.58s var(--ease-fold);
+	transition-delay: calc(var(--i, 0) * var(--stagger, 60ms));
+}
+/* Once revealed, restore the card's own snappy hover transition (the cascade rule
+   above would otherwise leave the 0.58s timing on the hover lift). */
+html.js body.landing .feature-band.is-revealed .of-card:hover {
+	transition:
+		transform 320ms var(--ease-fold),
+		border-color 320ms ease,
+		box-shadow 320ms ease;
+}
+
+/* ---- (3) cursor spotlight on the frozen crane panel ------------------------
+   A soft accent glow that follows the pointer across the hero crane. The panel's
+   SMIL is frozen at settle, so this re-lights a STATIC surface — no live blur, no
+   competing animation. JS (index.astro) rAF-writes --mx/--my as PIXEL offsets
+   (gated to fine-pointer desktops >=900px, off under reduced motion); everywhere
+   else the sheen holds its default centered position as a quiet lit-material
+   wash. Cool accent only — no red.
+
+   The glow itself is a small (220px) sprite on ::before, positioned via
+   `transform: translate` — NOT by animating the gradient's `at <position>`. A
+   gradient position is a paint property (moving it forces a re-rasterize of
+   whatever area it covers, every frame the cursor moves); a transform is
+   compositor-only. Keeping the sprite small (not inset:0 across the whole ~540px
+   panel) also shrinks the soft-light blend area the compositor has to re-mix on
+   every frame from the full panel down to one circle. */
+html body.landing .hero-crane .crane-art {
+	position: relative;
+	z-index: 1;
+	display: block;
+}
+html body.landing .hero-crane .crane-sheen {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	border-radius: inherit;
+	overflow: hidden;
+	pointer-events: none;
+}
+html body.landing .hero-crane .crane-sheen::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 220px;
+	height: 220px;
+	margin: -110px 0 0 -110px;
+	border-radius: 50%;
+	background: radial-gradient(circle, color-mix(in srgb, var(--of-accent-bright) 26%, transparent), transparent 60%);
+	transform: translate3d(var(--mx, 50%), var(--my, 35%), 0);
+	opacity: 0.3;
+	mix-blend-mode: soft-light;
+	will-change: transform;
+	transition: opacity 260ms var(--ease-fold);
+}
+html body.landing .hero-crane:hover .crane-sheen::before {
+	opacity: 1;
+}
+
+/* ---- (4) primary-CTA gloss sweep + press-depth -----------------------------
+   A single light streak wipes across the primary buttons on hover/focus (never a
+   loop), and the button dips slightly on press. The gradient is rasterized once;
+   only its translateX animates on the compositor — the button face never
+   repaints. White-over-accent via overlay blend adds light, not a new hue
+   (matches the existing inset white highlight on this button). Ghost button is
+   never touched. */
+html body.landing a.btn-primary {
+	position: relative;
+	overflow: hidden;
+	isolation: isolate;
+}
+html body.landing a.btn-primary > * {
+	position: relative;
+	z-index: 1;
+}
+html body.landing a.btn-primary::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.45) 50%, transparent 60%);
+	transform: translateX(-140%);
+	mix-blend-mode: overlay;
+	transition: transform 620ms var(--ease-fold);
+}
+html body.landing a.btn-primary:hover::after,
+html body.landing a.btn-primary:focus-visible::after {
+	transform: translateX(140%);
+}
+html body.landing a.btn-primary:active {
+	transform: translateY(0) scale(0.985);
+	transition: transform 90ms var(--ease-fold);
+}
+@media (prefers-reduced-motion: reduce) {
+	html body.landing a.btn-primary:active {
+		transform: none !important;
+	}
+}
+
+/* ---- (8) sliding nav underline ---------------------------------------------
+   navIO keeps exactly one link .is-active, so the outgoing bar retracts while the
+   incoming one grows — a scaleX hand-off, not a snap. currentColor keeps it on
+   palette (the active link already bumps to --of-text-1). */
+html body.landing .nav .links a {
+	position: relative;
+}
+html body.landing .nav .links a::after {
+	content: '';
+	position: absolute;
+	left: 0.78rem;
+	right: 0.78rem;
+	bottom: 5px;
+	height: 2px;
+	border-radius: 2px;
+	background: color-mix(in srgb, currentColor 55%, transparent);
+	transform: scaleX(0);
+	transform-origin: left center;
+	transition: transform 260ms var(--ease-fold);
+	pointer-events: none;
+}
+html body.landing .nav .links a.is-active::after {
+	transform: scaleX(1);
+}
+
+/* ---- (9) focus-visible halo — keyboard UX as craft --------------------------
+   Scoped to interactive elements that carry NO signature box-shadow (adding one
+   here can't clobber a real shadow); .btn and .of-card keep their existing outline
+   ring untouched. The instant outline (theme.css) is always the a11y ring; this
+   only blooms a soft accent halo around it. */
+html body.landing .nav .links a:focus-visible,
+html body.landing .copy-btn:focus-visible,
+html body.landing .details summary:focus-visible {
+	box-shadow: 0 0 0 4px color-mix(in srgb, var(--of-accent) 20%, transparent);
+	transition: box-shadow 180ms var(--ease-fold);
+}
+
+/* ---- (5) crease-line score draw-in + (7) tancho crest ignition -------------
+   Both scroll/motion-gated. (5): each divider's gradient already fades to
+   transparent at both ends, so a center-out reveal reads as a fold line being
+   scored outward from the spine as it scrolls in — reversible with the
+   scrollbar, timed off-main-thread via view(). Driven by `transform: scaleX`
+   (compositor-only), NOT clip-path (clip-path is a paint property — animating it
+   still repaints on the main thread even though view() moves the *timing* off
+   it). The keyframe composes the divider's own static `skewY(-0.6deg)`
+   (landing.css) since a CSS animation on `transform` replaces the whole property,
+   not just the scale component. (7): when the crane reaches its held pose,
+   index.astro adds .crest-lit and the crown (the one sanctioned red) ignites
+   once, foreshadowing the hanko in #seal. Targeted by attribute selector so the
+   shared brand SVG is not modified. Only `filter` is animated — the crown's
+   opacity is already SMIL-driven (orifold-crane-fold.svg's own <animate>, frozen
+   at the held pose), and a CSS animation cannot out-compete a running SMIL
+   animation on the same property, so an opacity keyframe here would either be
+   silently ignored or fight the frozen value. Ends at `filter: none` — a true
+   one-shot ignite-then-settle, no permanent standing filter. */
+@supports (animation-timeline: view()) {
+	@media (prefers-reduced-motion: no-preference) {
+		html body.landing .crease-line {
+			transform-origin: center;
+			animation: crease-score linear both;
+			animation-timeline: view();
+			animation-range: entry 5% entry 55%;
+		}
+		@keyframes crease-score {
+			from { transform: skewY(-0.6deg) scaleX(0); opacity: 0.15; }
+			to { transform: skewY(-0.6deg) scaleX(1); opacity: 0.82; }
+		}
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	/* No fill-mode: with `both`/`forwards`, the browser holds the *interpolated*
+	   end value, which for a filter-list->none animation resolves to an
+	   equivalent-but-explicit zero-value filter (visually identical to none, but
+	   still technically "has a filter") rather than truly reverting to the
+	   cascade's unset value — the standing-filter risk this was written to avoid.
+	   Without a fill-mode, the keyframe values only apply while the animation is
+	   running; once its 640ms are up, the crown's filter reverts to its real,
+	   unset initial value. The class add has no animation-delay, so there is
+	   nothing for "backwards" fill to have covered anyway. */
+	html body.landing #hero-crane.crest-lit polygon[fill="url(#crownGrad)"] {
+		animation: tancho-ignite 640ms var(--ease-fold);
+	}
+	@keyframes tancho-ignite {
+		0% { filter: drop-shadow(0 0 0 transparent); }
+		55% { filter: drop-shadow(0 0 11px color-mix(in srgb, var(--of-tancho) 55%, transparent)); }
+		100% { filter: none; }
+	}
+}
+
+/* ---- reduced-motion: neutralize the crease cascade pre-state ----------------
+   The landing.css blanket already kills transitions; this forces the cascade's
+   html.js opacity:0 children back to fully visible so nothing stays hidden. */
+@media (prefers-reduced-motion: reduce) {
+	html.js body.landing .feature-band .of-card,
+	html.js body.landing #keep .stat-row .stat,
+	html.js body.landing .guides .guide {
+		opacity: 1 !important;
+		transform: none !important;
 	}
 }

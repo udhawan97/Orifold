@@ -304,116 +304,6 @@ figure.shot figcaption {
 	color: var(--of-text-2);
 }
 
-/* ---- macOS download CTA (icon + stacked label) ---------------------------
-   Only the icon+label ROW layout lives here; the pill shape, gradient fill,
-   shadow, and hover lift come from the shared button rules (base .btn +
-   landing-premium.css), so the download CTA stays visually consistent with
-   every other button on the page. */
-.landing a.btn-primary.dl-btn {
-	flex-direction: row;
-	justify-content: center;
-	gap: 0.65rem;
-}
-.landing a.btn-primary.dl-btn:active {
-	transform: translateY(0);
-	filter: brightness(0.94);
-}
-.dl-btn .btn-icon {
-	flex: none;
-	width: 20px;
-	height: 20px;
-}
-.dl-btn .btn-label {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 1px;
-	line-height: 1.15;
-}
-.dl-btn .btn-main {
-	font-size: 1rem;
-	font-weight: 650;
-}
-.dl-btn .btn-sub {
-	min-width: 18ch;
-	text-align: left;
-}
-
-.file-details {
-	margin-top: 1rem;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.3rem;
-	font-size: 0.85rem;
-	color: var(--of-text-2);
-}
-.dl-helper {
-	margin-top: 0.7rem;
-	font-size: 0.85rem;
-	color: var(--of-text-2);
-}
-.dl-helper[hidden] {
-	display: none;
-}
-
-/* ---- install steps band (#install) --------------------------------------- */
-.install-band {
-	margin-top: clamp(3rem, 8vh, 5rem);
-	max-width: 760px;
-	margin-inline: auto;
-	text-align: left;
-}
-.install-title {
-	font-size: 1.25rem;
-	margin-bottom: 1.4rem;
-	text-align: center;
-}
-.install-steps {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: grid;
-	gap: 1rem;
-}
-.install-steps li {
-	display: flex;
-	gap: 0.9rem;
-	align-items: flex-start;
-}
-.install-steps .num {
-	flex: none;
-	display: grid;
-	place-items: center;
-	width: 40px;
-	height: 40px;
-	border-radius: 8px;
-	background: var(--of-paper);
-	color: var(--of-paper-ink);
-	border: 1px solid var(--of-paper-edge);
-	font-weight: 700;
-}
-.install-steps li > div b {
-	display: block;
-}
-.install-steps li > div p {
-	margin: 0.2rem 0 0;
-	font-size: 0.9rem;
-	color: var(--of-text-2);
-}
-.install-note {
-	margin-top: 1.4rem;
-	font-size: 0.9rem;
-	color: var(--of-text-2);
-}
-.alt-list {
-	margin: 0.4rem 0 0;
-	padding-left: 1.1rem;
-	font-size: 0.9rem;
-	color: var(--of-text-2);
-	display: grid;
-	gap: 0.35rem;
-}
-
 /* ---- hero (Fold 0) -------------------------------------------------------- */
 #sheet {
 	padding-block-start: clamp(3rem, 8vh, 6rem);
@@ -616,17 +506,6 @@ html.js .crease.is-revealed {
 	margin-top: 1.2rem;
 	color: var(--of-text-2);
 	font-size: 1.05rem;
-}
-#ma .ma-pets {
-	margin-top: 3rem;
-	display: flex;
-	justify-content: center;
-	gap: 3rem;
-	opacity: 0.9;
-}
-#ma .ma-pets img {
-	width: 88px;
-	height: auto;
 }
 
 /* ---- pets ----------------------------------------------------------------- */
