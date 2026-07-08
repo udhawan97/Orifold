@@ -1,0 +1,83 @@
+---
+/**
+ * ThemeSelect override — a two-state light ⇄ dark toggle.
+ *
+ * Replaces Starlight's stock three-way Auto/Light/Dark <select> with a single
+ * toggle button, matching the landing page's nav toggle. Dropping "Auto" is
+ * deliberate: the site is paper-first (see ThemeProvider override) and never
+ * follows the OS scheme, so there is no auto state to expose. The button shows the
+ * icon of the theme it will switch TO (moon on light, sun on dark) and persists to
+ * the shared 'starlight-theme' key. Styling lives in src/styles/theme.css.
+ *
+ * The initial `data-theme` is already resolved pre-paint by ThemeProvider, so this
+ * script (bundled, runs after paint) only labels the button and wires the click —
+ * no FOUC. ThemeSelect renders in both the header and the mobile menu, so two
+ * toggles can coexist; `sync()` updates every instance and each wires its own click.
+ */
+const label = 'Switch to dark mode';
+---
+
+<starlight-theme-toggle>
+	<button type="button" class="theme-toggle" aria-pressed="false" aria-label={label} title={label}>
+		<svg
+			class="ico-sun"
+			viewBox="0 0 20 20"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.6"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<circle cx="10" cy="10" r="3.4"></circle>
+			<path d="M10 2.2v2.1M10 15.7v2.1M2.2 10h2.1M15.7 10h2.1M4.5 4.5l1.5 1.5M14 14l1.5 1.5M15.5 4.5 14 6M6 14l-1.5 1.5"></path>
+		</svg>
+		<svg
+			class="ico-moon"
+			viewBox="0 0 20 20"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.6"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M16.2 11.8A6.5 6.5 0 0 1 8.2 3.8a6.5 6.5 0 1 0 8 8Z"></path>
+		</svg>
+	</button>
+</starlight-theme-toggle>
+
+<script>
+	const KEY = 'starlight-theme';
+
+	const currentTheme = (): 'light' | 'dark' =>
+		document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+
+	function sync(theme: 'light' | 'dark') {
+		document.querySelectorAll('starlight-theme-toggle button').forEach((btn) => {
+			const label = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+			btn.setAttribute('aria-label', label);
+			btn.setAttribute('title', label);
+			btn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+		});
+	}
+
+	function apply(theme: 'light' | 'dark') {
+		document.documentElement.dataset.theme = theme;
+		try {
+			localStorage.setItem(KEY, theme);
+		} catch {}
+		sync(theme);
+	}
+
+	class StarlightThemeToggle extends HTMLElement {
+		constructor() {
+			super();
+			sync(currentTheme());
+			this.querySelector('button')?.addEventListener('click', () => {
+				apply(currentTheme() === 'dark' ? 'light' : 'dark');
+			});
+		}
+	}
+	customElements.define('starlight-theme-toggle', StarlightThemeToggle);
+</script>

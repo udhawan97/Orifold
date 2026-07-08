@@ -1,0 +1,28 @@
+---
+/**
+ * ThemeProvider override — paper-first default.
+ *
+ * Orifold's visual metaphor is paper/origami, so every surface opens "on paper":
+ * the default theme on a first visit is LIGHT, and we deliberately do NOT follow
+ * the OS `prefers-color-scheme`. Only an explicit stored choice of 'dark' departs
+ * from light. This mirrors the landing page's pre-paint gate and shares the
+ * 'starlight-theme' localStorage key, so the docs and the marketing home stay in
+ * lockstep. Inlined pre-paint to avoid a flash of the wrong theme (FOUC).
+ *
+ * The custom ThemeSelect (a two-state toggle) is what reads/writes this key, so
+ * `updatePickers` — the hook Starlight's stock ThemeSelect used — is an intentional
+ * no-op here; it only exists to satisfy the global `StarlightThemeProvider` type.
+ */
+---
+
+<script is:inline>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme = storedTheme === 'dark' ? 'dark' : 'light';
+		document.documentElement.dataset.theme = theme;
+		return {
+			updatePickers() {},
+		};
+	})();
+</script>

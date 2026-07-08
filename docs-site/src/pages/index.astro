@@ -60,6 +60,15 @@ const icoChevron =
 	'<svg class="arrow-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>';
 const icoClipboard =
 	'<svg class="btn-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 3.5h5a1 1 0 0 1 1 1V5h1.5a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1H6.5V4.5a1 1 0 0 1 1-1Z"/><path d="M7.5 4.5v-1a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1"/></svg>';
+// Theme-toggle glyphs. The toggle shows the icon of the theme it will switch TO
+// (moon while in light, sun while in dark); CSS in landing-premium.css swaps them
+// on [data-theme]. Both are always in the DOM so the swap is paint-only, no reflow.
+const icoSun =
+	'<svg class="ico-sun" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="3.4"/><path d="M10 2.2v2.1M10 15.7v2.1M2.2 10h2.1M15.7 10h2.1M4.5 4.5l1.5 1.5M14 14l1.5 1.5M15.5 4.5 14 6M6 14l-1.5 1.5"/></svg>';
+const icoMoon =
+	'<svg class="ico-moon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.2 11.8A6.5 6.5 0 0 1 8.2 3.8a6.5 6.5 0 1 0 8 8Z"/></svg>';
+const icoNoteClose =
+	'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
 // The "Copied" check glyph is a literal <svg> inline in the copy-button script
 // below (~line 648), not a frontmatter const: <script is:inline> is a static
 // string, not an Astro expression context, so it can't reference frontmatter
@@ -84,10 +93,23 @@ const icoClipboard =
 				var d = document.documentElement;
 				d.classList.add('js');
 				try {
+					// Orifold's metaphor is paper/origami, so the site opens "on paper":
+					// LIGHT by default on a first visit, deliberately NOT following the OS
+					// color scheme. Only an explicit prior choice of 'dark' departs from
+					// light; the shared 'starlight-theme' key keeps the landing page and the
+					// Starlight docs in lockstep. data-theme is always resolved here (never
+					// left unset) so the first paint is already the correct theme — no flash.
 					var t = localStorage.getItem('starlight-theme');
-					if (t === 'light' || t === 'dark') d.dataset.theme = t;
-					else if (window.matchMedia('(prefers-color-scheme: light)').matches) d.dataset.theme = 'light';
-				} catch (e) {}
+					d.dataset.theme = t === 'dark' ? 'dark' : 'light';
+					// The first-visit theme note shows only until the visitor makes a choice
+					// (toggles a theme) or dismisses it — resolved pre-paint so returning
+					// visitors never get a flash of the note.
+					var chosen = t === 'light' || t === 'dark';
+					var dismissed = localStorage.getItem('orifold-theme-note') === 'dismissed';
+					if (!chosen && !dismissed) d.classList.add('theme-unchosen');
+				} catch (e) {
+					d.dataset.theme = 'light';
+				}
 				try {
 					var p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
 					var isMac = /mac/i.test(p) && !(navigator.maxTouchPoints > 1);
@@ -133,6 +155,16 @@ const icoClipboard =
 				<a class="only-wide" href="#final-fold">Download</a>
 				<a href={`${base}/get-started/what-is-orifold/`}>Docs</a>
 				<a href={site.repoUrl}>GitHub</a>
+				<button
+					type="button"
+					class="theme-toggle"
+					aria-label="Switch to dark mode"
+					aria-pressed="false"
+					title="Switch to dark mode"
+				>
+					<Fragment set:html={icoSun} />
+					<Fragment set:html={icoMoon} />
+				</button>
 			</div>
 		</nav>
 
@@ -188,6 +220,19 @@ const icoClipboard =
 							</p>
 							<p class="inoc">
 								Not notarized yet — first launch takes one calm extra step. <a class="arrow-link" href="#final-fold">Here's how<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
+							</p>
+							<!-- First-visit theme note. Hidden by default; the pre-paint script in
+							     <head> reveals it (html.theme-unchosen) only for visitors who have
+							     not yet picked a theme or dismissed it, so there is no flash for
+							     returning visitors and it never nags. -->
+							<p class="theme-note" role="note">
+								<span
+									>Origami starts on paper, so we start in light mode. Prefer saving your retinas?
+									Dark mode is up top.</span
+								>
+								<button type="button" class="theme-note-dismiss" aria-label="Dismiss this note">
+									<Fragment set:html={icoNoteClose} />
+								</button>
 							</p>
 						</div>
 						<div class="hero-crane" id="hero-crane">
@@ -504,6 +549,41 @@ const icoClipboard =
 				var d = document.documentElement;
 				var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 				var body = document.body;
+
+				// ── theme toggle (light ⇄ dark) ────────────────────────────
+				// The initial theme was already resolved pre-paint in <head>; this only
+				// wires the nav toggle and persists changes to the shared 'starlight-theme'
+				// key (so the choice carries into the Starlight docs too). Picking a theme
+				// also retires the first-visit note — a choice has been made.
+				var themeToggle = document.querySelector('.theme-toggle');
+				function syncToggle(theme) {
+					if (!themeToggle) return;
+					var toDark = theme !== 'dark';
+					var label = toDark ? 'Switch to dark mode' : 'Switch to light mode';
+					themeToggle.setAttribute('aria-label', label);
+					themeToggle.setAttribute('title', label);
+					themeToggle.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+				}
+				function setTheme(theme) {
+					d.dataset.theme = theme;
+					try { localStorage.setItem('starlight-theme', theme); } catch (e) {}
+					d.classList.remove('theme-unchosen');
+					syncToggle(theme);
+				}
+				syncToggle(d.dataset.theme === 'dark' ? 'dark' : 'light');
+				if (themeToggle) {
+					themeToggle.addEventListener('click', function () {
+						setTheme(d.dataset.theme === 'dark' ? 'light' : 'dark');
+					});
+				}
+				// Dismissing the note (without picking a theme) also hides it for good.
+				var noteDismiss = document.querySelector('.theme-note-dismiss');
+				if (noteDismiss) {
+					noteDismiss.addEventListener('click', function () {
+						try { localStorage.setItem('orifold-theme-note', 'dismissed'); } catch (e) {}
+						d.classList.remove('theme-unchosen');
+					});
+				}
 
 				// ── reveal observer ──────────────────────────────────────────
 				if ('IntersectionObserver' in window && !reduce) {

@@ -34,6 +34,10 @@ export default defineConfig({
 				MarkdownContent: './src/components/overrides/MarkdownContent.astro',
 				PageTitle: './src/components/overrides/PageTitle.astro',
 				TableOfContents: './src/components/overrides/TableOfContents.astro',
+				// Paper-first theming: default to light (never the OS scheme) and swap
+				// Starlight's 3-way Auto/Light/Dark select for a 2-state light⇄dark toggle.
+				ThemeProvider: './src/components/overrides/ThemeProvider.astro',
+				ThemeSelect: './src/components/overrides/ThemeSelect.astro',
 			},
 			// English ships first. Locale roadmap — uncomment as translations land.
 			defaultLocale: 'root',

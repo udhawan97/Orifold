@@ -51,6 +51,53 @@
 	--sl-color-hairline-shade: var(--of-separator);
 }
 
+/* ---- Theme toggle (docs header + mobile menu) ----
+   The custom two-state light⇄dark toggle that replaces Starlight's stock
+   ThemeSelect (see src/components/overrides/ThemeSelect.astro). Lives here in the
+   docs theme rather than in the component so it sits alongside the rest of the
+   Starlight token mapping. `starlight-theme-toggle` only ever renders in the docs
+   chrome, so there is no collision with the landing page's own `.theme-toggle`. */
+starlight-theme-toggle button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	padding: 0;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--sl-color-gray-1);
+	cursor: pointer;
+	transition:
+		background-color 180ms ease,
+		color 180ms ease,
+		border-color 180ms ease;
+}
+starlight-theme-toggle button:hover {
+	background: var(--sl-color-gray-6);
+	color: var(--sl-color-white);
+	border-color: var(--of-accent);
+}
+starlight-theme-toggle svg {
+	width: 1.25rem;
+	height: 1.25rem;
+	display: block;
+}
+/* Show the icon for the theme we'd switch TO: moon on light, sun on dark. */
+starlight-theme-toggle .ico-moon {
+	display: none;
+}
+starlight-theme-toggle .ico-sun {
+	display: block;
+}
+:root[data-theme='light'] starlight-theme-toggle .ico-moon {
+	display: block;
+}
+:root[data-theme='light'] starlight-theme-toggle .ico-sun {
+	display: none;
+}
+
 /* Content column rhythm */
 .sl-markdown-content {
 	max-width: 72ch;
