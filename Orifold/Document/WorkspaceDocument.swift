@@ -706,6 +706,32 @@ final class WorkspaceDocument: ReferenceFileDocument {
         return removed
     }
 
+    /// Strips ALL Orifold-embedded metadata from `data` for the "Sanitize for sharing"
+    /// export path: the invisible `/OrifoldWorkspaceComments` JSON blob (which embeds the
+    /// full editable workspace — every edit operation's text, base64 member bytes, extracted
+    /// source-document text, and every comment) AND the baked visible workspace-comment
+    /// sticky notes. qpdf's `sanitized` (which only touches `/Info`, `/Metadata`, actions,
+    /// and JavaScript) never removed these, so a "sanitized" file leaked the entire editing
+    /// history and source content. Returns `data` unchanged when nothing was stripped or the
+    /// bytes can't be re-serialized (fail-safe: better an unstripped export than a corrupt
+    /// one — the caller still runs qpdf sanitize afterwards).
+    static func dataStrippedOfOrifoldMetadata(_ data: Data) -> Data {
+        guard let pdf = PDFDocument(data: data) else { return data }
+        var removed = removeMetadataAnnotations(from: pdf)
+        for pageIndex in 0..<pdf.pageCount {
+            guard let page = pdf.page(at: pageIndex) else { continue }
+            for annotation in Array(page.annotations) {
+                if annotation.value(forAnnotationKey: bakedWorkspaceCommentAnnotationKey) != nil ||
+                    annotation.value(forAnnotationKey: legacyBakedWorkspaceCommentAnnotationKey) != nil {
+                    page.removeAnnotation(annotation)
+                    removed = true
+                }
+            }
+        }
+        guard removed, let result = PDFSerializer.data(from: pdf) else { return data }
+        return result
+    }
+
     func fileWrapper(snapshot: WorkspacePackage, configuration: WriteConfiguration) throws -> FileWrapper {
         guard configuration.contentType.conforms(to: .pdf) else {
             throw CocoaError(.fileWriteUnknown)

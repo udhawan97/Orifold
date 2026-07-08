@@ -4430,7 +4430,14 @@ final class WorkspaceViewModel {
     /// would be worse than failing the export outright.
     static func sanitized(_ data: Data, options: PDFSanitizationOptions?) throws -> Data {
         guard let options else { return data }
-        guard let result = QPDFService.sanitized(data, removingMetadata: options.removesMetadata) else {
+        // Strip Orifold's own embedded metadata FIRST when removing metadata — qpdf's
+        // sanitize never touches annotations, so without this the invisible
+        // /OrifoldWorkspaceComments blob (full edit history, base64 member bytes, extracted
+        // source text, all comments) survived into a supposedly-sanitized share.
+        let preStripped = options.removesMetadata
+            ? WorkspaceDocument.dataStrippedOfOrifoldMetadata(data)
+            : data
+        guard let result = QPDFService.sanitized(preStripped, removingMetadata: options.removesMetadata) else {
             throw PDFSanitizationError.sanitizationFailed
         }
         return result
