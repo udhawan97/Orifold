@@ -6,6 +6,13 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
 	site: 'https://udhawan97.github.io',
 	base: '/Orifold',
+	// The site root is now the custom landing page (src/pages/index.astro); /docs
+	// is the docs front door (WEBSITE_PLAN.md §1).
+	redirects: {
+		// Redirect targets are emitted verbatim (Astro does not prepend `base`),
+		// so the base is included here for a correct GitHub Pages redirect.
+		'/docs': '/Orifold/get-started/workflows/',
+	},
 	integrations: [
 		starlight({
 			title: 'Orifold Docs',
@@ -42,6 +49,7 @@ export default defineConfig({
 					label: 'Get Started',
 					items: [
 						{ label: 'What is Orifold?', slug: 'get-started/what-is-orifold' },
+						{ label: 'Popular workflows', slug: 'get-started/workflows' },
 						{ label: 'Install Orifold', slug: 'get-started/install' },
 						{ label: 'Your first workspace', slug: 'get-started/first-workspace' },
 						{ label: 'The Orifold window', slug: 'get-started/the-window' },

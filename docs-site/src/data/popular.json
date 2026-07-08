@@ -5,6 +5,7 @@
 	{ "title": "Fill a form", "href": "fill-sign/forms/" },
 	{ "title": "Compress a PDF for email", "href": "export/compress/" },
 	{ "title": "Password-protect a PDF", "href": "export/protect/" },
+	{ "title": "Stamps & Bates numbering", "href": "annotate/stamps/" },
 	{ "title": "Make a scan searchable (OCR)", "href": "edit/ocr/" },
 	{ "title": "Change the app language", "href": "settings/language/" }
 ]
