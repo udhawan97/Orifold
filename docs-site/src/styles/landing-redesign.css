@@ -265,7 +265,13 @@ html.js body.landing .pet .pet-arrive-target {
 /* ---- download crane sits smaller, centered -------------------------------- */
 html body.landing .final-crane {
 	width: min(58%, 260px);
-	margin: 0 auto clamp(2rem, 4vw, 3rem);
+	/* Bottom floor raised from 2rem to 3rem: the icon's drop-shadow (landing-
+	   premium.css: offset 18px + blur 28px) visually reaches ~46px past the box
+	   edge, which exceeded the old 32px floor at viewport widths just above the
+	   900px breakpoint (2-col layout, narrow enough that 4vw undercuts the old
+	   3rem ceiling) — close enough that the shadow's soft edge could graze the
+	   download panel below. 3rem/48px clears it with margin at every width. */
+	margin: 0 auto clamp(3rem, 4vw, 3.5rem);
 }
 
 /* ---- footer sig ----------------------------------------------------------- */
