@@ -32315,37 +32315,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Requests a free trusted timestamp so the signing time remains provable even if this certificate later expires."
+            "value": "Requests a free trusted timestamp over the internet so the signing time remains provable even if this certificate later expires. Only a fingerprint of the signature is sent — never your document."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solicita una marca de tiempo confiable gratuita para que la hora de firma siga siendo demostrable aunque este certificado caduque más adelante."
+            "value": "Solicita por internet una marca de tiempo confiable gratuita para que la hora de firma siga siendo demostrable aunque este certificado caduque más adelante. Solo se envía una huella de la firma, nunca su documento."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demande un horodatage fiable gratuit afin que l'heure de signature reste prouvable même si ce certificat expire plus tard."
+            "value": "Demande via Internet un horodatage fiable gratuit afin que l'heure de signature reste prouvable même si ce certificat expire plus tard. Seule une empreinte de la signature est envoyée — jamais votre document."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "एक निःशुल्क विश्वसनीय टाइमस्टैम्प का अनुरोध करता है ताकि यह प्रमाणपत्र बाद में समाप्त होने पर भी हस्ताक्षर का समय सिद्ध किया जा सके।"
+            "value": "इंटरनेट के माध्यम से एक निःशुल्क विश्वसनीय टाइमस्टैम्प का अनुरोध करता है ताकि यह प्रमाणपत्र बाद में समाप्त होने पर भी हस्ताक्षर का समय सिद्ध किया जा सके। केवल हस्ताक्षर का फ़िंगरप्रिंट भेजा जाता है — आपका दस्तावेज़ कभी नहीं।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この証明書が後で失効しても署名時刻を証明できるよう、無料の信頼できるタイムスタンプを要求します。"
+            "value": "この証明書が後で失効しても署名時刻を証明できるよう、インターネット経由で無料の信頼できるタイムスタンプを要求します。送信されるのは署名のフィンガープリントのみで、文書自体は送信されません。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请求一个免费的可信时间戳，这样即使此证书日后过期，签名时间仍可证明。"
+            "value": "通过互联网请求一个免费的可信时间戳，这样即使此证书日后过期，签名时间仍可证明。仅发送签名的指纹，绝不发送您的文档。"
           }
         }
       }
@@ -40351,37 +40351,775 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Replacing text here changes how the page looks, but the original wording can sometimes still be found in the exported PDF — through search, copy-paste, or accessibility tools. For sensitive content, review the exported file carefully before sharing it."
+            "value": "Editing or deleting text here changes how the page looks, but the original wording can sometimes still be found in the exported PDF — through search, copy-paste, or accessibility tools. For sensitive content, review the exported file carefully before sharing it."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reemplazar texto aquí cambia el aspecto de la página, pero el texto original puede seguir encontrándose en el PDF exportado, mediante búsqueda, copiar y pegar, o herramientas de accesibilidad. Para contenido sensible, revisa con cuidado el archivo exportado antes de compartirlo."
+            "value": "Editar o eliminar texto aquí cambia el aspecto de la página, pero el texto original a veces todavía puede encontrarse en el PDF exportado, mediante búsqueda, copiar y pegar o herramientas de accesibilidad. Para contenido sensible, revisa cuidadosamente el archivo exportado antes de compartirlo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remplacer du texte ici modifie l’apparence de la page, mais le texte d’origine peut parfois encore être retrouvé dans le PDF exporté, via la recherche, le copier-coller ou des outils d’accessibilité. Pour un contenu sensible, vérifiez attentivement le fichier exporté avant de le partager."
+            "value": "Modifier ou supprimer du texte ici change l’apparence de la page, mais le texte d’origine peut parfois encore être retrouvé dans le PDF exporté — via la recherche, le copier-coller ou les outils d’accessibilité. Pour un contenu sensible, vérifiez soigneusement le fichier exporté avant de le partager."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "यहां टेक्स्ट बदलने से पेज का दिखना बदल जाता है, लेकिन कभी-कभी मूल शब्द निर्यात की गई PDF में खोज, कॉपी-पेस्ट, या सुलभता साधनों के ज़रिए मिल सकता है। संवेदनशील सामग्री के लिए, साझा करने से पहले निर्यात की गई फ़ाइल को ध्यान से जांचें।"
+            "value": "यहाँ टेक्स्ट संपादित या हटाने से पृष्ठ का स्वरूप बदल जाता है, लेकिन मूल शब्द कभी-कभी निर्यात किए गए PDF में खोज, कॉपी-पेस्ट या एक्सेसिबिलिटी टूल के ज़रिए अब भी मिल सकते हैं। संवेदनशील सामग्री के लिए, साझा करने से पहले निर्यात की गई फ़ाइल को ध्यान से जाँचें।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここでテキストを差し替えるとページの見た目は変わりますが、元の文言は検索やコピー、アクセシビリティツールなどを通じて、書き出した PDF に依然として残っている場合があります。機密性のある内容の場合は、共有する前に書き出したファイルをよく確認してください。"
+            "value": "ここでテキストを編集または削除するとページの見た目は変わりますが、元の文言は検索・コピー＆ペースト・アクセシビリティツールを通じて書き出したPDFから見つかる場合があります。機密性の高い内容は、共有する前に書き出したファイルをよく確認してください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在此处替换文本只会改变页面的视觉效果，但在导出的 PDF 中，原文有时仍可通过搜索、复制粘贴或辅助功能工具找到。对于敏感内容，请在共享导出文件前仔细检查。"
+            "value": "在此编辑或删除文本会改变页面的外观，但原始文字有时仍可通过搜索、复制粘贴或辅助功能工具在导出的 PDF 中找到。对于敏感内容，请在分享前仔细检查导出的文件。"
+          }
+        }
+      }
+    },
+    "more.contents.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jump to sections"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ir a las secciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accéder aux sections"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सेक्शन पर जाएँ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跳转到章节"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セクションへ移動"
+          }
+        }
+      }
+    },
+    "more.documentComfort.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warm tint, spacing, contrast"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tono cálido, espaciado y contraste"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teinte chaude, espacement, contraste"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गर्म रंग, स्पेसिंग, कंट्रास्ट"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暖色调、间距、对比度"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暖色・間隔・コントラスト"
+          }
+        }
+      }
+    },
+    "more.guide.label": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold guide"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guía de Orifold"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guide d’Orifold"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold गाइड"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 指南"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold ガイド"
+          }
+        }
+      }
+    },
+    "more.readerMode.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Distraction-free reading"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lectura sin distracciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture sans distraction"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिना ध्यान भटकाए पढ़ें"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无干扰阅读"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "集中して読める表示"
+          }
+        }
+      }
+    },
+    "more.section.pages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pages"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Páginas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pages"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पृष्ठ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "页面"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページ"
+          }
+        }
+      }
+    },
+    "more.section.view": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vista"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affichage"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "व्यू"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "视图"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示"
+          }
+        }
+      }
+    },
+    "annotationTool.markup.options": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markup options"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opciones de marcado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Options d’annotation"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मार्कअप विकल्प"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标注选项"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マークアップオプション"
+          }
+        }
+      }
+    },
+    "error.import.unreadableSavedMember": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part of this workspace couldn’t be read and was removed from view. The unreadable file’s data is preserved in the document, but its pages can’t be shown or edited."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer una parte de este espacio de trabajo y se quitó de la vista. Los datos del archivo ilegible se conservan en el documento, pero sus páginas no se pueden mostrar ni editar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une partie de cet espace de travail n’a pas pu être lue et a été retirée de l’affichage. Les données du fichier illisible sont conservées dans le document, mais ses pages ne peuvent pas être affichées ni modifiées."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस वर्कस्पेस का एक हिस्सा पढ़ा नहीं जा सका और उसे दृश्य से हटा दिया गया। अपठनीय फ़ाइल का डेटा दस्तावेज़ में सुरक्षित है, लेकिन उसके पृष्ठ दिखाए या संपादित नहीं किए जा सकते।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このワークスペースの一部を読み込めなかったため、表示から除外しました。読み込めなかったファイルのデータは書類内に保持されていますが、そのページの表示や編集はできません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取此工作区的一部分，已将其从视图中移除。无法读取的文件数据仍保留在文档中，但其页面无法显示或编辑。"
+          }
+        }
+      }
+    },
+    "status.textEdit.editorLostPage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This page changed while you were editing, so the edit couldn’t be applied. Click the text again to edit it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta página cambió mientras editabas, por lo que no se pudo aplicar la edición. Haz clic en el texto de nuevo para editarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette page a changé pendant votre modification, l’édition n’a donc pas pu être appliquée. Cliquez à nouveau sur le texte pour le modifier."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपादन के दौरान यह पृष्ठ बदल गया, इसलिए संपादन लागू नहीं किया जा सका। इसे संपादित करने के लिए फिर से टेक्स्ट पर क्लिक करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集中にこのページが変更されたため、編集を適用できませんでした。編集するにはテキストをもう一度クリックしてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑时此页面已更改，因此无法应用编辑。请再次点击文本以进行编辑。"
+          }
+        }
+      }
+    },
+    "readingCanvas.formatting.deleteText.tooltip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this text (visual only — the original may still be recoverable from the exported PDF)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar este texto (solo visual: el original aún podría recuperarse del PDF exportado)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer ce texte (visuel uniquement — l’original peut encore être récupérable dans le PDF exporté)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह टेक्स्ट हटाएँ (केवल दृश्य — मूल टेक्स्ट निर्यात किए गए PDF से अब भी पुनर्प्राप्त किया जा सकता है)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このテキストを削除（表示のみ — 元のテキストは書き出したPDFから復元できる場合があります）"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除此文本（仅视觉效果——原文仍可能从导出的 PDF 中恢复）"
+          }
+        }
+      }
+    },
+    "readingCanvas.formatting.deleteText.accessibilityDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete text"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar texto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer le texte"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टेक्स्ट हटाएँ"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テキストを削除"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除文本"
+          }
+        }
+      }
+    },
+    "readingCanvas.detectedFont.prefix": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detected:"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detectado:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Détecté :"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पहचाना गया:"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検出:"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检测到："
+          }
+        }
+      }
+    },
+    "readingCanvas.detectedFont.substituted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(substituted)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(sustituido)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(substitué)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(प्रतिस्थापित)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（代替）"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（替代）"
+          }
+        }
+      }
+    },
+    "inspector.textEdit.kind.added": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouté"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जोड़ा गया"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已添加"
+          }
+        }
+      }
+    },
+    "inspector.textEdit.kind.deleted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleted"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हटाया गया"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除"
+          }
+        }
+      }
+    },
+    "inspector.textEdit.kind.restyled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restyled"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reestilizado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restylé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पुनः शैलीकृत"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スタイル変更"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已改样式"
+          }
+        }
+      }
+    },
+    "inspector.textEdit.kind.edited": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifié"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपादित"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已编辑"
+          }
+        }
+      }
+    },
+    "inspector.textEdit.orderOnPage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "edit %1$d of %2$d"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "edición %1$d de %2$d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "modif. %1$d sur %2$d"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपादन %1$d/%2$d"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集 %1$d/%2$d"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %1$d/%2$d 处编辑"
           }
         }
       }

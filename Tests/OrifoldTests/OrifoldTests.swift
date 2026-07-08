@@ -497,6 +497,7 @@ final class PDFTextEditingRedesignTests: XCTestCase {
             pageRef: pageRef, block: row0, sourceFormat: PDFTextEditFormat(block: row0)
         ) { result in
             if case .commit(let edit) = result { committed = edit }
+            return true
         }
         pdfView.addSubview(overlay)
         overlay.layoutSubtreeIfNeeded()
@@ -1121,12 +1122,17 @@ final class PDFTextEditingRedesignTests: XCTestCase {
 
         let analysis = engine.analyze(data: data, pageIndex: 0, pageRefID: UUID(), fallbackPage: page)
         let block = try XCTUnwrap(analysis.blocks.first { $0.text.contains("Scaled") })
-        let inkHeight = try XCTUnwrap(block.lines.first?.runs.first?.bounds.height)
 
         XCTAssertLessThan(block.fontSize, nominalFontSize * 0.8)
-        let helveticaUnitFont = try XCTUnwrap(NSFont(name: "Helvetica", size: 1))
-        let helveticaInkRatio = helveticaUnitFont.capHeight - helveticaUnitFont.descender
-        XCTAssertEqual(block.fontSize, max(4, inkHeight / helveticaInkRatio), accuracy: 1.0)
+        // Assert against the TRUE visible size (24pt drawn at 0.5 scale = 12pt), not
+        // against the internal ink-ratio formula's own output. The original expectation
+        // mirrored the formula (inkHeight / (capHeight - descender)), which for this
+        // descender-less line ("Scaled inline text" has no g/j/p/q/y ink below the
+        // baseline) undersized the visible text by ~20% — the same character-blind
+        // modeling bug that made "maximus ultricies." detect at 8.6pt inside a 10.7pt
+        // paragraph. The character-aware extents now land within ~6% of visible truth.
+        let visibleFontSize = nominalFontSize * 0.5
+        XCTAssertEqual(block.fontSize, visibleFontSize, accuracy: visibleFontSize * 0.08)
     }
 
     func testPDFTextAnalysisUsesVisibleFontSizeForModeratelyScaledText() throws {
@@ -3087,7 +3093,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
         let overlay = InlineTextEditorOverlay(
             frame: pdfView.bounds, viewModel: viewModel, pdfView: pdfView, page: page,
             pageRef: pageRef, block: block, sourceFormat: PDFTextEditFormat(block: block)
-        ) { _ in }
+        ) { _ in true }
         pdfView.addSubview(overlay)
         overlay.layoutSubtreeIfNeeded()
 
@@ -3555,7 +3561,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
             pageRef: pageRef,
             block: sourceBlock,
             sourceFormat: PDFTextEditFormat(block: sourceBlock)
-        ) { _ in }
+        ) { _ in true }
         pdfView.addSubview(sourceOverlay)
         sourceOverlay.layoutSubtreeIfNeeded()
         let copyButton = try XCTUnwrap(inlineEditorButton(in: sourceOverlay, identifier: "inlineEditor.copyNearbyFormat"))
@@ -3580,6 +3586,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
             sourceFormat: PDFTextEditFormat(block: targetBlock)
         ) { completion in
             if case .commit(let edit) = completion { committedTarget = edit }
+            return true
         }
         pdfView.addSubview(targetOverlay)
         targetOverlay.layoutSubtreeIfNeeded()
@@ -3677,6 +3684,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
             sourceFormat: PDFTextEditFormat(block: largeFormatSourceBlock)
         ) { completion in
             if case .commit(let edit) = completion { largeOverlayCommit = edit }
+            return true
         }
         pdfView.addSubview(largeOverlay)
         largeOverlay.layoutSubtreeIfNeeded()
@@ -3702,6 +3710,7 @@ final class InlineTextEditPlacementTests: XCTestCase {
             sourceFormat: smallSourceFormat
         ) { completion in
             if case .commit(let edit) = completion { committedSmall = edit }
+            return true
         }
         pdfView.addSubview(smallOverlay)
         smallOverlay.layoutSubtreeIfNeeded()
@@ -8249,6 +8258,7 @@ private func makeInlineEditorFixture(
         if case .commit(let edit) = completion {
             committed = edit
         }
+        return true
     }
     pdfView.addSubview(overlay)
     overlay.layoutSubtreeIfNeeded()

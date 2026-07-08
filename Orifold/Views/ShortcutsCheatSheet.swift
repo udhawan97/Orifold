@@ -81,7 +81,7 @@ private struct ShortcutCategorySection: View {
 
 /// The full keyboard-shortcuts cheat sheet: a "Most Useful" summary up top,
 /// then every remaining shortcut grouped by category.
-private struct ShortcutsCheatSheetView: View {
+struct ShortcutsCheatSheetView: View {
     @Binding var isPresented: Bool
 
     var body: some View {
@@ -140,7 +140,7 @@ private struct ShortcutsCheatSheetView: View {
 
 /// A one-time, dismissible nudge introducing the shortcuts cheat sheet, shown
 /// the first time a workspace opens. Mirrors `GuideButton`'s autoShow pattern.
-private struct ShortcutsFirstRunPopover: View {
+struct ShortcutsFirstRunPopover: View {
     @Binding var isPresented: Bool
     var onSeeAll: () -> Void
 

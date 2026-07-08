@@ -194,7 +194,7 @@ Feature-by-feature plan (major features; columns = summary / media / common mist
 | Recently viewed (`import/recently-viewed`) | The shelf remembers; thumbnails are local. | Real capture (needs persisted history to shoot) | Privacy worry → answer inline: cached locally only | — | — |
 | Document Comfort (`reading/night-mode`) | Four presets + warmth/brightness/contrast. ✎ verify preset names in-app. | Real capture (exists) | Confusing app dark mode vs. page rendering | Link from new Accessibility page | — |
 | Language (`settings/language`) | 6 languages, switchable on the landing screen. | Real capture (exists) | — | — | localization guide |
-| Export & save (`export/export-save`) | ⇧⌘E → pick format → done. "Where did my file go?" answered inline. | **Video #4** | Expecting live sync to source files | — | Dev FAQ: export pipeline |
+| Export & save (`export/export-save`) | ⌘E → pick format → done. "Where did my file go?" answered inline. | **Video #4** | Expecting live sync to source files | — | Dev FAQ: export pipeline |
 | Companion (`get-started/companion`) | ✎ simplify top; fold-craft prose into `<Details>`; document switching, hover showcase, Hide Tips, Reduce Motion behavior. | Real capture of both pets (needs companion-switch reset) | Thinking the pet is mandatory (it's optional — lead with that) | Showcase respects Reduce Motion — say so | — |
 | Accessibility (`settings/accessibility`) ✚ | What the app offers: Reduce Motion support, Reader Mode, Document Comfort, keyboard coverage, VoiceOver status (be honest about gaps). | None or 1 screenshot | — | This page is the note | — |
 
@@ -285,7 +285,7 @@ Reuse existing assets only (`gami-mark.svg`, `ori-mark.svg`, wag/twitch SVGs). N
 | combine | import/combine | Two demo docs in sidebar → drag a page across → Export → one file | 4–6s | Yes | "Arrange, then export once." | Poster |
 | edit-text | edit/edit-text | Click detected line → type change → click away → text commits | 3–5s | Yes | "Click, type, done." | Poster |
 | sign | fill-sign/signatures | Draw signature → place on demo line → export | 4–6s | Yes | "Drawn and placed locally." | Poster |
-| export-save | export/export-save | ⇧⌘E → format picker → save panel → confirmation | 3–5s | Yes | "One shortcut to a finished file." | Poster |
+| export-save | export/export-save | ⌘E → format picker → save panel → confirmation | 3–5s | Yes | "One shortcut to a finished file." | Poster |
 
 Second tier (only if capture is cheap): ocr, forms-lock, document-comfort presets, companion-switch, recently-viewed. Everything else stays static.
 

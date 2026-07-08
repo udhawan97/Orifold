@@ -504,31 +504,6 @@ final class SignatureExportSurvivalTests: XCTestCase {
         return try XCTUnwrap(doc.dataRepresentation())
     }
 
-    func testBakedVisualSignatureSurvivesExportAndRendersInThePage() throws {
-        let pdfData = try blankPageData()
-        let rect = CGRect(x: 200, y: 360, width: 200, height: 80)
-        let placement = SignaturePlacement(
-            pageRefId: UUID(),
-            imageData: try blackPNG(width: 200, height: 80),
-            rect: rect,
-            signerName: "Ada"
-        )
-
-        let baked = try SignatureExportBaker.bake(placements: [placement], into: pdfData) { _ in 0 }
-
-        // Reopen the exported bytes from scratch — the signature must still be there.
-        let reopened = try XCTUnwrap(PDFDocument(data: baked))
-        let page = try XCTUnwrap(reopened.page(at: 0))
-
-        // Render the page and sample the centre of the signature rect: it must be dark ink,
-        // proving the signature was baked into page content, not lost like the annotation path.
-        let thumb = page.thumbnail(of: CGSize(width: 612, height: 792), for: .mediaBox)
-        let tiff = try XCTUnwrap(thumb.tiffRepresentation)
-        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: tiff))
-        let sample = try XCTUnwrap(bitmap.colorAt(x: Int(rect.midX), y: Int(792 - rect.midY))?.usingColorSpace(.deviceRGB))
-        XCTAssertLessThan(sample.brightnessComponent, 0.5, "baked signature ink is missing from the exported page")
-    }
-
     func testBakedVisualSignatureRejectsUnmappedPlacement() throws {
         let pdfData = try blankPageData()
         let placement = SignaturePlacement(

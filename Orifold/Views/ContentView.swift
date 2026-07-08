@@ -182,9 +182,19 @@ struct ContentView: View {
     @State private var isConfirmingOverflowDelete = false
     @State private var isShowingDocumentComfortPopover = false
     @State private var isShowingShortcutsCheatSheet = false
+    @State private var isShowingShortcutsFirstRun = false
+    @State private var isShowingGuide = false
+    @State private var isShowingMoreMenu = false
+    // Set when a More-menu row wants to open a surface that presents its own popover/dialog.
+    // We stash the intent, let the More popover finish dismissing, then present the target on
+    // the next runloop — presenting a popover directly out of another popover's button is what
+    // makes macOS drop/flicker it.
+    @State private var pendingMoreRoute: MoreRoute?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
+    @AppStorage("Orifold.hasSeenGuidePopover") private var hasSeenGuidePopover = false
+    @AppStorage("Orifold.hasSeenShortcutsHint") private var hasSeenShortcutsHint = false
     @AppStorage("orifoldAppAppearanceMode") private var persistedAppAppearanceMode = AppAppearanceMode.system.rawValue
     @AppStorage("orifoldDocumentComfortSettings") private var persistedDocumentComfortSettingsData = Data()
     @Environment(\.undoManager) private var undoManager
@@ -314,6 +324,7 @@ struct ContentView: View {
             viewModel.undoManager = undoManager
             setAppAppearanceMode(persistedAppAppearanceModeValue)
             viewModel.documentComfortSettings = persistedDocumentComfortSettings
+            maybeAutoShowOnboarding()
         }
         .onChange(of: undoManager) { _, um in viewModel.undoManager = um }
         .onChange(of: viewModel.appAppearanceMode) { _, mode in
@@ -359,6 +370,25 @@ struct ContentView: View {
             .environmentObject(languageManager)
             .environment(\.locale, languageManager.effectiveLocale)
         }
+        // Document comfort, shortcuts, and the guide used to be self-contained toolbar buttons
+        // that owned their own popovers; now that they live behind the More overflow, their
+        // presentation is hoisted to the scene root, bundled into one modifier (both to keep
+        // the More hand-off logic in one place and to keep this already-large body under the
+        // Swift type-checker's expression-complexity ceiling).
+        .modifier(ToolbarOverflowPresentations(
+            viewModel: viewModel,
+            languageManager: languageManager,
+            isShowingDocumentComfortPopover: $isShowingDocumentComfortPopover,
+            isShowingShortcutsCheatSheet: $isShowingShortcutsCheatSheet,
+            isShowingShortcutsFirstRun: $isShowingShortcutsFirstRun,
+            isShowingGuide: $isShowingGuide,
+            isConfirmingOverflowDelete: $isConfirmingOverflowDelete,
+            isShowingMoreMenu: $isShowingMoreMenu,
+            pendingMoreRoute: $pendingMoreRoute,
+            showTOC: $showTOC,
+            onToggleReaderMode: { toggleReaderMode() },
+            onAutoShowOnboarding: { maybeAutoShowOnboarding() }
+        ))
         .alert("contentView.importError.title", isPresented: Binding(
             get: { viewModel.importError != nil },
             set: { if !$0 { viewModel.importError = nil } }
@@ -410,17 +440,6 @@ struct ContentView: View {
             .keyboardShortcut("o", modifiers: [.command, .shift])
         }
 
-        // Header navigation: keep document structure near the title.
-        ToolbarItem(placement: .navigation) {
-            ToolbarIconButton(labelKey: "toolbar.contents.label", systemImage: "list.bullet.rectangle.portrait", helpKey: "toolbar.contents.help") {
-                showTOC.toggle()
-            }
-            .acceptsImportDrops { providers in
-                handleDrop(providers: providers)
-            }
-            .keyboardShortcut("1", modifiers: [.command, .option])
-        }
-
         // Center: annotation tools + color swatch
         ToolbarItem(placement: .principal) {
             AnnotationToolPicker(viewModel: viewModel)
@@ -459,23 +478,6 @@ struct ContentView: View {
             // center capsule's `groupDivider`) is unambiguous regardless of ambient layout.
             ToolbarVerticalDivider(height: 18, horizontalPadding: 4)
 
-            ToolbarIconButton(
-                labelKey: "toolbar.readerMode.label",
-                systemImage: viewModel.isReaderMode ? "book.fill" : "book",
-                helpKey: viewModel.isReaderMode ? "toolbar.readerMode.exit.help" : "toolbar.readerMode.enter.help",
-                isActive: viewModel.isReaderMode
-            ) {
-                viewModel.isReaderMode.toggle()
-                if viewModel.isReaderMode {
-                    inspectorTab = .comments
-                    showInspector = true
-                }
-            }
-            .acceptsImportDrops { providers in
-                handleDrop(providers: providers)
-            }
-            .keyboardShortcut("r", modifiers: [.command, .shift])
-
             ToolbarIconButton(labelKey: "toolbar.search.label", systemImage: "magnifyingglass", helpKey: "toolbar.search.help") {
                 viewModel.isShowingSearch.toggle()
             }
@@ -483,40 +485,6 @@ struct ContentView: View {
                 handleDrop(providers: providers)
             }
             .keyboardShortcut("f", modifiers: .command)
-
-            ToolbarIconButton(
-                labelKey: "toolbar.inspector.label",
-                systemImage: "sidebar.right",
-                helpKey: "toolbar.inspector.help",
-                isActive: showInspector,
-                iconInset: 2
-            ) {
-                showInspector.toggle()
-            }
-            .acceptsImportDrops { providers in
-                handleDrop(providers: providers)
-            }
-            .keyboardShortcut("i", modifiers: [.command, .option])
-
-            ToolbarIconButton(
-                labelKey: "toolbar.documentComfort.label",
-                systemImage: "eyeglasses",
-                helpKey: "toolbar.documentComfort.help",
-                isActive: !viewModel.documentComfortSettings.isAtDefault,
-                iconInset: 2
-            ) {
-                isShowingDocumentComfortPopover.toggle()
-            }
-            .acceptsImportDrops { providers in
-                handleDrop(providers: providers)
-            }
-            .accessibilityLabel(Text("toolbar.documentComfort.accessibilityLabel"))
-            .popover(isPresented: $isShowingDocumentComfortPopover, arrowEdge: .top) {
-                DocumentComfortPopover(viewModel: viewModel)
-                    .frame(width: 360)
-                    .environmentObject(languageManager)
-                    .environment(\.locale, languageManager.effectiveLocale)
-            }
 
             Menu {
                 Button("toolbar.export.menuItem.export") {
@@ -537,78 +505,67 @@ struct ContentView: View {
             .help("toolbar.export.help")
             .keyboardShortcut("e", modifiers: .command)
 
-            Menu {
-                Menu("more.pages.submenu") {
-                    let selection = viewModel.currentSelectionPageRefs
-                    if selection.isEmpty {
-                        Text("more.pages.noSelection")
-                    } else {
-                        Button("more.pages.rotateLeft") {
-                            viewModel.rotatePages(selection, by: -90)
-                        }
-                        Button("more.pages.rotateRight") {
-                            viewModel.rotatePages(selection, by: 90)
-                        }
-                        Button("more.pages.duplicate") {
-                            viewModel.duplicatePages(selection)
-                        }
-                        Divider()
-                        Button("more.pages.delete", role: .destructive) {
-                            isConfirmingOverflowDelete = true
-                        }
-                    }
-                }
-                Divider()
-                Button("more.print") {
-                    NotificationCenter.default.post(name: .orifoldPrint, object: nil)
-                }
-                Divider()
-                Button("more.settings") { openSettings() }
-                Button("more.about") { openWindow(id: "about-orifold") }
-            } label: {
-                ToolbarMenuGlyph(labelKey: "toolbar.more.label", systemImage: "ellipsis.circle")
+            ToolbarIconButton(
+                labelKey: "toolbar.inspector.label",
+                systemImage: "sidebar.right",
+                helpKey: "toolbar.inspector.help",
+                isActive: showInspector,
+                iconInset: 2
+            ) {
+                showInspector.toggle()
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("toolbar.more.help")
-            .confirmationDialog(
-                "sidebar.deletePages.confirmation.title",
-                isPresented: $isConfirmingOverflowDelete,
-                titleVisibility: .visible
+            .keyboardShortcut("i", modifiers: [.command, .option])
+
+            // Everything secondary now folds into one calm overflow. Its own active tint is the
+            // *soft* variant, not the full accent pill Inspector uses — a persistent solid-accent
+            // ellipsis while reading would shout; a soft wash just says "a mode is on in here."
+            ToolbarIconButton(
+                labelKey: "toolbar.more.label",
+                systemImage: "ellipsis",
+                helpKey: "toolbar.more.help",
+                isActive: viewModel.isReaderMode || !viewModel.documentComfortSettings.isAtDefault,
+                activeStyle: .soft
             ) {
-                Button("sidebar.deletePages.confirmation.delete", role: .destructive) {
-                    viewModel.deletePages(viewModel.currentSelectionPageRefs)
-                }
-                Button("sidebar.deletePages.confirmation.cancel", role: .cancel) {}
-            } message: {
-                let count = viewModel.currentSelectionPageRefs.count
-                if count == 1 {
-                    Text("sidebar.deletePages.confirmation.messageSingular")
-                } else {
-                    Text(L10n.format("sidebar.removePages.confirmation.plural", count, locale: languageManager.effectiveLocale))
-                }
+                isShowingMoreMenu.toggle()
             }
-
-            ShortcutsCheatSheetButton(isPresented: $isShowingShortcutsCheatSheet, autoShow: true)
-                .buttonStyle(.plain)
-                .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
-                .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
-                .contentShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
-                .acceptsImportDrops { providers in
-                    handleDrop(providers: providers)
-                }
-
-            GuideButton(autoShow: true)
-                .buttonStyle(.plain)
-                .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
-                .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
-                .contentShape(RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous))
-                .acceptsImportDrops { providers in
-                    handleDrop(providers: providers)
-                }
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
+            .popover(isPresented: $isShowingMoreMenu, arrowEdge: .top) {
+                ToolbarMoreMenu(
+                    viewModel: viewModel,
+                    readerMode: Binding(
+                        get: { viewModel.isReaderMode },
+                        set: { setReaderMode($0) }
+                    ),
+                    onRoute: { requestMoreRoute($0) },
+                    onRotateLeft: {
+                        viewModel.rotatePages(viewModel.currentSelectionPageRefs, by: -90)
+                        isShowingMoreMenu = false
+                    },
+                    onRotateRight: {
+                        viewModel.rotatePages(viewModel.currentSelectionPageRefs, by: 90)
+                        isShowingMoreMenu = false
+                    },
+                    onDuplicate: {
+                        viewModel.duplicatePages(viewModel.currentSelectionPageRefs)
+                        isShowingMoreMenu = false
+                    },
+                    onSettings: {
+                        isShowingMoreMenu = false
+                        openSettings()
+                    },
+                    onAbout: {
+                        isShowingMoreMenu = false
+                        openWindow(id: "about-orifold")
+                    }
+                )
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+            }
         }
     }
 
@@ -637,6 +594,45 @@ struct ContentView: View {
 
     private func applyAppAppearanceMode(_ mode: AppAppearanceMode) {
         NSApp.appearance = mode.nsAppearance
+    }
+
+    // MARK: - Toolbar / More-menu coordination
+
+    /// The single source of truth for entering/leaving reader mode, shared by the switch row in
+    /// the More popover and the ⌘⇧R View-menu command. Entering reader mode also surfaces the
+    /// comments inspector, matching the old toolbar button's behavior.
+    private func setReaderMode(_ on: Bool) {
+        viewModel.isReaderMode = on
+        if on {
+            inspectorTab = .comments
+            showInspector = true
+        }
+    }
+
+    private func toggleReaderMode() {
+        guard !viewModel.memberDocuments.isEmpty else { return }
+        setReaderMode(!viewModel.isReaderMode)
+    }
+
+    /// Stash a route and close the More popover; the actual presentation happens on the next
+    /// runloop in the `onChange(of: isShowingMoreMenu)` handler, so we never stack one popover
+    /// directly on top of another (which macOS drops/flickers).
+    private func requestMoreRoute(_ route: MoreRoute) {
+        pendingMoreRoute = route
+        isShowingMoreMenu = false
+    }
+
+    /// First-run onboarding that used to ride on the (now-removed) Guide and Shortcuts toolbar
+    /// buttons. Shows at most one nudge per launch, only once a document is open.
+    private func maybeAutoShowOnboarding() {
+        guard !viewModel.memberDocuments.isEmpty else { return }
+        if !hasSeenGuidePopover {
+            hasSeenGuidePopover = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { isShowingGuide = true }
+        } else if !hasSeenShortcutsHint {
+            hasSeenShortcutsHint = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { isShowingShortcutsFirstRun = true }
+        }
     }
 
     private func syncPersistedAppAppearanceMode() {
@@ -1638,12 +1634,21 @@ private struct AnnotationToolPicker: View {
     @State private var hoveredTool: AnnotationTool?
     @State private var tooltipTool: AnnotationTool?
     @State private var tooltipTask: Task<Void, Never>?
+    // Which markup tool the collapsed cluster reactivates on a plain click, so highlight →
+    // underline → strikeout stays a one-click switch once chosen, not always a reset to highlight.
+    @State private var lastMarkupTool: AnnotationTool = .highlight
+    @State private var isShowingMarkupOptions = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var selectionNamespace
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
+
+    // The text-markup family collapses into one cluster (a primary button for the active/last
+    // markup tool + a disclosure for the rest) so the capsule reads as a short row of distinct
+    // services instead of a long undifferentiated strip of markup glyphs.
+    private let markupTools: [AnnotationTool] = [.highlight, .underline, .strikeout, .eraser]
 
     // Keep the highest-frequency creation tools up front as distinct services,
     // then selection, text markup (+ eraser), and free-form page content.
@@ -1681,8 +1686,12 @@ private struct AnnotationToolPicker: View {
                 if groupIndex > 0 {
                     groupDivider
                 }
-                ForEach(visibleToolGroups[groupIndex]) { tool in
-                    toolButton(tool, shouldReduceMotion: shouldReduceMotion)
+                if visibleToolGroups[groupIndex].contains(.highlight) {
+                    markupCluster(visibleToolGroups[groupIndex], shouldReduceMotion: shouldReduceMotion)
+                } else {
+                    ForEach(visibleToolGroups[groupIndex]) { tool in
+                        toolButton(tool, shouldReduceMotion: shouldReduceMotion)
+                    }
                 }
             }
 
@@ -1803,6 +1812,104 @@ private struct AnnotationToolPicker: View {
         .accessibilityHint(tool.helpText)
     }
 
+    /// The collapsed markup control: a primary button that activates the active-or-last markup
+    /// tool (one click), plus a disclosure that reveals the full family. It joins the same
+    /// `selectionNamespace`, so when a markup tool is active the selection pill lives here and
+    /// slides in/out exactly like every other tool — the capsule keeps one pill, never two.
+    @ViewBuilder
+    private func markupCluster(_ tools: [AnnotationTool], shouldReduceMotion: Bool) -> some View {
+        let active = markupPrimary(in: tools)
+        let isActive = tools.contains(viewModel.currentTool)
+        let isHovered = hoveredTool == active
+
+        HStack(spacing: 0) {
+            Button {
+                select(active)
+            } label: {
+                ZStack {
+                    if isActive {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Color.dsAccent)
+                            .matchedGeometryEffect(id: "selectedTool", in: selectionNamespace)
+                    }
+                    toolIcon(active, isSelected: isActive)
+                        .foregroundStyle(isActive ? Color.dsSurface : Color.dsTextSecondary)
+                }
+                .frame(width: 28, height: 28)
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            }
+            .buttonStyle(ToolButtonStyle(isHovered: isHovered, isSelected: isActive, hoverFill: Color.dsAccentSoft, reduceMotion: shouldReduceMotion))
+            .anchorPreference(key: ToolBoundsKey.self, value: .bounds) { [active: $0] }
+            .onHover { hovering in
+                if hovering {
+                    hoveredTool = active
+                } else if hoveredTool == active {
+                    hoveredTool = nil
+                }
+            }
+            .accessibilityLabel(active.label)
+            .accessibilityHint(active.helpText)
+
+            if tools.count > 1 {
+                Button {
+                    isShowingMarkupOptions.toggle()
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundStyle(isActive ? Color.dsAccent : Color.dsTextSecondary.opacity(0.7))
+                        .frame(width: 13, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("annotationTool.markup.options"))
+                .popover(isPresented: $isShowingMarkupOptions, arrowEdge: .bottom) {
+                    markupOptions(tools)
+                }
+            }
+        }
+    }
+
+    private func markupOptions(_ tools: [AnnotationTool]) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(tools) { tool in
+                Button {
+                    select(tool)
+                    isShowingMarkupOptions = false
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: tool.iconName)
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 20)
+                            .foregroundStyle(viewModel.currentTool == tool ? Color.dsAccent : Color.dsTextSecondary)
+                        Text(tool.label)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.dsTextPrimary)
+                        Spacer(minLength: 16)
+                        if viewModel.currentTool == tool {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color.dsAccent)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(MarkupOptionButtonStyle())
+            }
+        }
+        .padding(6)
+        .frame(width: 208)
+    }
+
+    /// The markup tool the primary button represents: the active one if a markup tool is
+    /// selected, otherwise the last markup used, otherwise the family's first (highlight).
+    private func markupPrimary(in tools: [AnnotationTool]) -> AnnotationTool {
+        if tools.contains(viewModel.currentTool) { return viewModel.currentTool }
+        if tools.contains(lastMarkupTool) { return lastMarkupTool }
+        return tools.first ?? .highlight
+    }
+
     private func toolAccent(for tool: AnnotationTool) -> Color {
         switch tool {
         case .editText:
@@ -1826,6 +1933,11 @@ private struct AnnotationToolPicker: View {
     }
 
     private func select(_ tool: AnnotationTool) {
+        // Remember the last markup tool so the collapsed cluster's primary button reactivates
+        // the user's actual choice, not always highlight.
+        if markupTools.contains(tool) {
+            lastMarkupTool = tool
+        }
         // A copied-but-unused Format Painter style should never silently linger past an
         // explicit switch away from Edit Text — the user leaving the tool is a clear signal
         // they're done with that copy, so it doesn't surprise-apply to some unrelated
@@ -1904,6 +2016,21 @@ private struct ToolTipBubble: View {
     }
 }
 
+/// Row style for the markup-options popover: a quiet hover wash, matching the More menu's rows.
+private struct MarkupOptionButtonStyle: ButtonStyle {
+    @State private var hovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(hovering ? 0.08 : 0))
+            )
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+    }
+}
+
 private struct ToolButtonStyle: ButtonStyle {
     var isHovered: Bool
     var isSelected: Bool = false
@@ -1964,10 +2091,19 @@ private enum ToolbarIconMetrics {
 /// filled-pill "selected" treatment used for the active annotation tool, rather than a
 /// `.tint()` approximation.
 private struct ToolbarIconButton: View {
+    /// How an `isActive` button paints its "on" state.
+    /// - `.prominent`: the full accent-fill pill with a knocked-out glyph — for panel/mode
+    ///   toggles the user flips directly (Inspector, night mode).
+    /// - `.soft`: a quiet accent wash behind an accent glyph — for a control that merely
+    ///   *contains* something active (the More overflow when reader mode/comfort is on), where
+    ///   a persistent solid-accent fill would shout over the calm bar.
+    enum ActiveStyle { case prominent, soft }
+
     var labelKey: LocalizedStringKey
     var systemImage: String
     var helpKey: LocalizedStringKey
     var isActive: Bool = false
+    var activeStyle: ActiveStyle = .prominent
     /// Extra inset between the glyph and the hit-area edge, for symbols (e.g. wide
     /// two-lobed shapes like "sidebar.right" or "eyeglasses") that otherwise draw
     /// close enough to the frame edge that the active-state fill looks like it
@@ -1984,6 +2120,9 @@ private struct ToolbarIconButton: View {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
+    private var activeFill: Color { activeStyle == .soft ? Color.dsAccentSoft : Color.dsAccent }
+    private var activeGlyph: Color { activeStyle == .soft ? Color.dsAccent : Color.dsSurface }
+
     var body: some View {
         Button(action: action) {
             ZStack {
@@ -1993,13 +2132,13 @@ private struct ToolbarIconButton: View {
                 // fill can never be caught mid-insertion rendering past the button's rounded
                 // shape. `.clipShape` below is the hard guarantee regardless.
                 RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous)
-                    .fill(Color.dsAccent)
+                    .fill(activeFill)
                     .opacity(isActive ? 1 : 0)
                 Label(labelKey, systemImage: systemImage)
                     .labelStyle(.iconOnly)
                     .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
                     .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(isActive ? Color.dsSurface : Color.dsTextSecondary)
+                    .foregroundStyle(isActive ? activeGlyph : Color.dsTextSecondary)
                     .padding(iconInset)
             }
             .frame(width: ToolbarIconMetrics.hitSize, height: ToolbarIconMetrics.hitSize)
@@ -2727,5 +2866,311 @@ private struct ImportDropTargetModifier: ViewModifier {
                 isTargeted: isTargeted,
                 perform: perform
             )
+    }
+}
+
+// MARK: - Toolbar overflow ("More")
+
+/// Bundles every presentation the More overflow can trigger — the comfort/shortcuts/guide
+/// popovers, the delete confirmation, the More→target route hand-off, and the reader-mode /
+/// table-of-contents menu-command receivers — into a single modifier. This both centralizes the
+/// hand-off logic and keeps `ContentView.body` under the Swift type-checker's expression ceiling.
+private struct ToolbarOverflowPresentations: ViewModifier {
+    let viewModel: WorkspaceViewModel
+    let languageManager: LanguageManager
+    @Binding var isShowingDocumentComfortPopover: Bool
+    @Binding var isShowingShortcutsCheatSheet: Bool
+    @Binding var isShowingShortcutsFirstRun: Bool
+    @Binding var isShowingGuide: Bool
+    @Binding var isConfirmingOverflowDelete: Bool
+    @Binding var isShowingMoreMenu: Bool
+    @Binding var pendingMoreRoute: MoreRoute?
+    @Binding var showTOC: Bool
+    let onToggleReaderMode: () -> Void
+    let onAutoShowOnboarding: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .popover(isPresented: $isShowingDocumentComfortPopover, arrowEdge: .top) {
+                DocumentComfortPopover(viewModel: viewModel)
+                    .frame(width: 360)
+                    .environmentObject(languageManager)
+                    .environment(\.locale, languageManager.effectiveLocale)
+            }
+            .popover(isPresented: $isShowingShortcutsCheatSheet, arrowEdge: .top) {
+                ShortcutsCheatSheetView(isPresented: $isShowingShortcutsCheatSheet)
+                    .environment(\.locale, languageManager.effectiveLocale)
+            }
+            .popover(isPresented: $isShowingShortcutsFirstRun, arrowEdge: .top) {
+                ShortcutsFirstRunPopover(isPresented: $isShowingShortcutsFirstRun) {
+                    isShowingShortcutsCheatSheet = true
+                }
+                .environment(\.locale, languageManager.effectiveLocale)
+            }
+            .popover(isPresented: $isShowingGuide, arrowEdge: .top) {
+                GuidePopover(isPresented: $isShowingGuide)
+                    .environmentObject(languageManager)
+                    .environment(\.locale, languageManager.effectiveLocale)
+            }
+            .confirmationDialog(
+                "sidebar.deletePages.confirmation.title",
+                isPresented: $isConfirmingOverflowDelete,
+                titleVisibility: .visible
+            ) {
+                Button("sidebar.deletePages.confirmation.delete", role: .destructive) {
+                    viewModel.deletePages(viewModel.currentSelectionPageRefs)
+                }
+                Button("sidebar.deletePages.confirmation.cancel", role: .cancel) {}
+            } message: {
+                let count = viewModel.currentSelectionPageRefs.count
+                if count == 1 {
+                    Text("sidebar.deletePages.confirmation.messageSingular")
+                } else {
+                    Text(L10n.format("sidebar.removePages.confirmation.plural", count, locale: languageManager.effectiveLocale))
+                }
+            }
+            .onChange(of: isShowingMoreMenu) { _, isOpen in
+                guard !isOpen, let route = pendingMoreRoute else { return }
+                pendingMoreRoute = nil
+                // One runloop hop lets the More popover fully tear down before the next
+                // presents, which keeps the hand-off from flickering or being swallowed.
+                DispatchQueue.main.async {
+                    switch route {
+                    case .comfort: isShowingDocumentComfortPopover = true
+                    case .outline: showTOC = true
+                    case .shortcuts: isShowingShortcutsCheatSheet = true
+                    case .guide: isShowingGuide = true
+                    case .deletePages: isConfirmingOverflowDelete = true
+                    }
+                }
+            }
+            .onChange(of: viewModel.memberDocuments.isEmpty) { _, isEmpty in
+                if !isEmpty { onAutoShowOnboarding() }
+            }
+            // Reader mode and the outline lost their always-visible toolbar buttons, so their
+            // shortcuts now live as real View-menu commands (ViewToggleCommandButtons), which
+            // reach back here through these notifications — menu-bar-discoverable, not invisible
+            // responder-chain buttons.
+            .onReceive(NotificationCenter.default.publisher(for: .orifoldToggleReaderMode)) { _ in
+                onToggleReaderMode()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .orifoldToggleTableOfContents)) { _ in
+                guard !viewModel.memberDocuments.isEmpty else { return }
+                showTOC.toggle()
+            }
+    }
+}
+
+/// Secondary destinations that live behind the toolbar's "More" overflow. Presenting one of
+/// these means *first* dismissing the More popover, *then* presenting the target on the next
+/// runloop tick — never a popover inside a popover (which macOS renders unreliably). The
+/// coordinator for that lives in `ContentView` (`pendingMoreRoute` + `onChange`).
+enum MoreRoute: Equatable {
+    case comfort
+    case outline
+    case shortcuts
+    case guide
+    case deletePages
+}
+
+/// The toolbar overflow: one calm, labeled panel that absorbs every secondary control so the
+/// visible bar can stay down to the few actions used on almost every document. Rows are dense,
+/// native, and self-describing (icon + label, a live switch for reader mode, a ⌘-hint, chevrons
+/// for the things that open their own surface) — the "keep a place that tells the user what it
+/// does" requirement, without a wall of subtitles.
+private struct ToolbarMoreMenu: View {
+    @Bindable var viewModel: WorkspaceViewModel
+    var readerMode: Binding<Bool>
+    var onRoute: (MoreRoute) -> Void
+    var onRotateLeft: () -> Void
+    var onRotateRight: () -> Void
+    var onDuplicate: () -> Void
+    var onSettings: () -> Void
+    var onAbout: () -> Void
+
+    private var selectionEmpty: Bool { viewModel.currentSelectionPageRefs.isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            sectionHeader("more.section.view")
+
+            MoreReaderModeRow(readerMode: readerMode)
+
+            MoreMenuRow(
+                systemImage: "eyeglasses",
+                titleKey: "toolbar.documentComfort.label",
+                subtitleKey: "more.documentComfort.subtitle",
+                trailing: { MoreChevron() },
+                action: { onRoute(.comfort) }
+            )
+
+            MoreMenuRow(
+                systemImage: "list.bullet.rectangle.portrait",
+                titleKey: "toolbar.contents.label",
+                subtitleKey: "more.contents.subtitle",
+                trailing: { MoreChevron() },
+                action: { onRoute(.outline) }
+            )
+
+            divider
+
+            sectionHeader("more.section.pages")
+
+            MoreMenuRow(systemImage: "rotate.left", titleKey: "more.pages.rotateLeft", action: onRotateLeft)
+                .disabled(selectionEmpty)
+            MoreMenuRow(systemImage: "rotate.right", titleKey: "more.pages.rotateRight", action: onRotateRight)
+                .disabled(selectionEmpty)
+            MoreMenuRow(systemImage: "plus.square.on.square", titleKey: "more.pages.duplicate", action: onDuplicate)
+                .disabled(selectionEmpty)
+            MoreMenuRow(systemImage: "trash", titleKey: "more.pages.delete", isDestructive: true) {
+                onRoute(.deletePages)
+            }
+            .disabled(selectionEmpty)
+
+            divider
+
+            MoreMenuRow(systemImage: "keyboard", titleKey: "shortcuts.cheatSheet.title") { onRoute(.shortcuts) }
+            MoreMenuRow(systemImage: "questionmark.circle", titleKey: "more.guide.label") { onRoute(.guide) }
+
+            divider
+
+            MoreMenuRow(systemImage: "gearshape", titleKey: "more.settings", trailing: { MoreShortcut("⌘,") }, action: onSettings)
+            MoreMenuRow(systemImage: "info.circle", titleKey: "more.about", action: onAbout)
+        }
+        .padding(6)
+        .frame(width: 288)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.dsSeparator.opacity(0.5))
+            .frame(height: 0.5)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+    }
+
+    private func sectionHeader(_ key: LocalizedStringKey) -> some View {
+        Text(key)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(Color.dsTextSecondary)
+            .padding(.horizontal, 9)
+            .padding(.top, 5)
+            .padding(.bottom, 3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// Reader mode is the one persistent-mode toggle in the panel, so it reads as a switch row
+/// (native `Toggle` → free VoiceOver "on/off" semantics, no extra localized strings) rather
+/// than a button that opens something.
+private struct MoreReaderModeRow: View {
+    var readerMode: Binding<Bool>
+
+    var body: some View {
+        HStack(spacing: 11) {
+            MoreIconTile(systemImage: readerMode.wrappedValue ? "book.fill" : "book", isActive: readerMode.wrappedValue)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("toolbar.readerMode.label")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text("more.readerMode.subtitle")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.dsTextSecondary)
+            }
+            Spacer(minLength: 8)
+            Toggle("", isOn: readerMode)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .controlSize(.mini)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct MoreMenuRow<Trailing: View>: View {
+    let systemImage: String
+    let titleKey: LocalizedStringKey
+    var subtitleKey: LocalizedStringKey?
+    var isDestructive: Bool = false
+    @ViewBuilder var trailing: () -> Trailing
+    let action: () -> Void
+
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 11) {
+                MoreIconTile(systemImage: systemImage, isDestructive: isDestructive)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(titleKey)
+                        .font(.system(size: 13))
+                        .foregroundStyle(isDestructive ? Color.red : Color.dsTextPrimary)
+                    if let subtitleKey {
+                        Text(subtitleKey)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.dsTextSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 8)
+                trailing()
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.primary.opacity(hovering && isEnabled ? 0.08 : 0))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.38)
+        .onHover { hovering = $0 }
+    }
+}
+
+extension MoreMenuRow where Trailing == EmptyView {
+    init(systemImage: String, titleKey: LocalizedStringKey, subtitleKey: LocalizedStringKey? = nil, isDestructive: Bool = false, action: @escaping () -> Void) {
+        self.init(systemImage: systemImage, titleKey: titleKey, subtitleKey: subtitleKey, isDestructive: isDestructive, trailing: { EmptyView() }, action: action)
+    }
+}
+
+private struct MoreIconTile: View {
+    let systemImage: String
+    var isActive: Bool = false
+    var isDestructive: Bool = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(isActive ? Color.dsAccentSoft : Color.primary.opacity(0.06))
+            .frame(width: 28, height: 28)
+            .overlay {
+                Image(systemName: systemImage)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(isDestructive ? Color.red : (isActive ? Color.dsAccent : Color.dsTextSecondary))
+            }
+    }
+}
+
+private struct MoreChevron: View {
+    var body: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(Color.dsTextSecondary.opacity(0.7))
+    }
+}
+
+private struct MoreShortcut: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, design: .rounded))
+            .foregroundStyle(Color.dsTextSecondary)
     }
 }

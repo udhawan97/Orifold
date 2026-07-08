@@ -192,7 +192,7 @@ struct GuideButton: View {
     }
 }
 
-private struct GuidePopover: View {
+struct GuidePopover: View {
     @Binding var isPresented: Bool
 
     var body: some View {

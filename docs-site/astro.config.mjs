@@ -129,11 +129,11 @@ export default defineConfig({
 					label: 'Release Notes',
 					items: [
 						{ label: "What's new", slug: 'releases' },
-						{ label: 'v7', slug: 'releases/v7' },
-						{ label: 'v6', slug: 'releases/v6' },
-						{ label: 'v5', slug: 'releases/v5' },
-						{ label: 'v4', slug: 'releases/v4' },
-						{ label: 'v3', slug: 'releases/v3' },
+						{ label: 'v0.7', slug: 'releases/v7' },
+						{ label: 'v0.6', slug: 'releases/v6' },
+						{ label: 'v0.5', slug: 'releases/v5' },
+						{ label: 'v0.4', slug: 'releases/v4' },
+						{ label: 'v0.3', slug: 'releases/v3' },
 					],
 				},
 				{

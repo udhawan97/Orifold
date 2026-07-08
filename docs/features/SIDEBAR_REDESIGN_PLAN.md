@@ -104,7 +104,7 @@ Distilled rules applied below:
 | Group documents into sections | **Rejected for v1** | Same; the DOCUMENTS section + reorder is enough organization at this scale |
 | Recently viewed files | **Stays on EmptyStateView** + File ▸ Open Recent | Sidebar lists members of the *open* workspace; mixing external recents muddies the local-first model |
 | Reveal in Finder | **Rejected for members** | Imported sources are embedded in the workspace document, not filesystem files. Recents cards already have it where it makes sense |
-| Export/share workspace | **Stays in toolbar** (⇧⌘E menu exists) | Duplication = clutter |
+| Export/share workspace | **Stays in toolbar** (⌘E menu exists) | Duplication = clutter |
 | Comments entry point | **Indirect only** — comment counts on cards/pages navigate on click; the Inspector owns the panel | |
 | Document health indicators | **Deferred (v2)** | VM tracks `scannedPageCount`/OCR only workspace-wide today; per-doc status needs engine work |
 | Unsaved changes indicator | **Rejected** | Document-based app: the window titlebar already shows the native edited state |

@@ -648,6 +648,7 @@ final class WorkspaceViewModel {
         self.processingEngine = processingEngine
 
         // Reconstruct loadedPDFs from saved package data (document open path)
+        var unreadableMemberIDs: Set<UUID> = []
         for member in document.workspace.documents {
             if let data = document.memberPDFData[member.id],
                let pdf = PDFDocument(data: data) {
@@ -655,8 +656,50 @@ final class WorkspaceViewModel {
                 sanitizeInkAnnotations(in: pdf)
                 loadedPDFs.append((member, pdf))
                 // Capture original (pre-edit) bytes exactly once for clean regeneration.
-                originalMemberPDFData[member.id] = data
+                // A workspace saved WITH committed edit operations persists its true
+                // pristine bytes separately (`restoredOriginalMemberPDFData`) — the loaded
+                // member bytes already contain the baked edits in that case and must not
+                // be mistaken for a pristine base, or every re-edit would erase/redraw on
+                // top of the previous bake instead of regenerating from the original.
+                if let pristine = document.restoredOriginalMemberPDFData[member.id] {
+                    originalMemberPDFData[member.id] = pristine
+                } else {
+                    originalMemberPDFData[member.id] = data
+                    // With no separately-persisted pristine payload, the pristine base IS
+                    // the loaded bytes — whose page layout mirrors member.pageRefs, not
+                    // whatever sourcePageIndex each ref carried when it was first
+                    // imported. Structural ops (delete/reorder/duplicate) before the save
+                    // left refs pointing at stale indices; keeping them would make every
+                    // regeneration/hit-test read a NEIGHBORING page of the new base
+                    // (data-destroying). Renormalize to the layout the base actually has.
+                    for (localIdx, refID) in member.pageRefs.enumerated() {
+                        if let orderIdx = document.workspace.pageOrder.firstIndex(where: { $0.id == refID }),
+                           document.workspace.pageOrder[orderIdx].sourcePageIndex != localIdx {
+                            document.workspace.pageOrder[orderIdx].sourcePageIndex = localIdx
+                        }
+                    }
+                }
+            } else {
+                unreadableMemberIDs.insert(member.id)
             }
+        }
+        // A member whose bytes fail to parse must not linger in the workspace structure:
+        // pageOrder/pageCount would keep counting its pages while combinedPDF omits them,
+        // so every later page's click/marker/export index resolves to the WRONG PageRef.
+        // Drop it from the in-memory structure too (bytes stay in memberPDFData untouched
+        // in case a later build can recover them) and tell the user.
+        if !unreadableMemberIDs.isEmpty {
+            let names = document.workspace.documents
+                .filter { unreadableMemberIDs.contains($0.id) }
+                .map(\.displayName)
+                .joined(separator: ", ")
+            NSLog("[Orifold] Warning: dropping unreadable member document(s) from the workspace structure: %@", names)
+            document.workspace.documents.removeAll { unreadableMemberIDs.contains($0.id) }
+            document.workspace.pageOrder.removeAll { unreadableMemberIDs.contains($0.memberDocId) }
+            importError = ImportError(
+                fileName: names,
+                message: L10n.string("error.import.unreadableSavedMember")
+            )
         }
 
         // Snapshot hook: bake live annotation state before each save
@@ -664,6 +707,18 @@ final class WorkspaceViewModel {
             guard let self else { return [:] }
             return try self.currentPDFDataForExport()
         }
+        // Snapshot hook: persist pristine bytes for members with committed edits so a
+        // fresh session can always regenerate f(pristine, operations) exactly.
+        document.currentOriginalPDFDataProvider = { [weak self] in
+            guard let self else { return [:] }
+            return self.pristineDataForMembersWithCommittedEdits()
+        }
+
+        // A freshly-opened workspace must SHOW its committed edits — never trust that the
+        // saved bytes and the saved operations agree (a historical divergence otherwise
+        // stays trapped forever: the editor "remembers" the edit while the page and every
+        // export silently miss it).
+        reconcileCommittedEditsWithLoadedPages()
 
         if !loadedPDFs.isEmpty { rebuild() }
     }
@@ -1233,6 +1288,12 @@ final class WorkspaceViewModel {
         var pageRotations: [UUID: Int]
         var pdfData: [UUID: Data]
         var sourcePayloads: [UUID: SourceDocumentPayload]
+        /// Captured together with `pdfData` because the two must move as a unit: the PDF
+        /// bytes contain the BAKED result of these operations. Restoring bytes from one
+        /// point in time with operations from another leaves an edit that the editor
+        /// "remembers" but the page/export doesn't show (or vice versa, ghost ink with no
+        /// backing operation).
+        var pageEditStates: [PageEditState]
     }
 
     private struct InlineTextEditSnapshot {
@@ -1251,11 +1312,23 @@ final class WorkspaceViewModel {
             signatureIdentities: signingIdentitiesByPlacementID,
             pageRotations: currentPageRotations(),
             pdfData: currentPDFData(),
-            sourcePayloads: document.sourcePayloads
+            sourcePayloads: document.sourcePayloads,
+            pageEditStates: document.workspace.pageEditStates
         )
     }
 
     private func restore(_ snapshot: OrderSnapshot) {
+        // Register the inverse so the restore itself is redoable — undo closures that
+        // register nothing leave NSUndoManager's redo stack empty, which silently made
+        // every order-snapshot operation (page delete/move/duplicate, document reorder,
+        // OCR, form reset) un-redoable after its undo.
+        let inverse = captureOrderSnapshot()
+        registerIsolatedUndo {
+            undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation() else { return }
+                vm.restore(inverse)
+            }
+        }
         document.workspace.documents = snapshot.documents
         document.workspace.pageOrder = snapshot.pageOrder
         document.workspace.comments = snapshot.comments
@@ -1264,11 +1337,13 @@ final class WorkspaceViewModel {
         signingIdentitiesByPlacementID = snapshot.signatureIdentities
         document.memberPDFData = snapshot.pdfData
         document.sourcePayloads = snapshot.sourcePayloads
+        document.workspace.pageEditStates = snapshot.pageEditStates
         loadedPDFs = snapshot.documents.compactMap { member in
             guard let data = snapshot.pdfData[member.id],
                   let pdf = PDFDocument(data: data) else { return nil }
             return (member, pdf)
         }
+        textAnalysisCache.removeAll()
         applyPageRotations(snapshot.pageRotations)
         rebuild()
     }
@@ -1341,9 +1416,17 @@ final class WorkspaceViewModel {
     private func restoreInlineTextEditSnapshot(_ snapshot: InlineTextEditSnapshot, actionName: String) {
         let inverse = captureInlineTextEditSnapshot()
         document.workspace.pageEditStates = snapshot.editStates
-        document.memberPDFData = snapshot.pdfData
+        // Merge rather than replace: members imported AFTER this snapshot was captured
+        // have no entry in it, and wholesale replacement silently dropped them from
+        // loadedPDFs/memberPDFData (vanishing from the canvas and every export) while
+        // they remained in the workspace structure.
+        var mergedPDFData = document.memberPDFData
+        for (memberID, data) in snapshot.pdfData {
+            mergedPDFData[memberID] = data
+        }
+        document.memberPDFData = mergedPDFData
         loadedPDFs = document.workspace.documents.compactMap { member in
-            guard let data = snapshot.pdfData[member.id],
+            guard let data = mergedPDFData[member.id],
                   let pdf = PDFDocument(data: data) else { return nil }
             return (member, pdf)
         }
@@ -2099,6 +2182,11 @@ final class WorkspaceViewModel {
     private func applyOCRResult(_ result: PDFOCRResult) {
         for (memberID, data) in result.dataByMemberID {
             document.memberPDFData[memberID] = data
+            // The OCR'd bytes are the member's new pristine base. Leaving the pre-OCR
+            // base in place meant every later page regeneration (inline edit, revert,
+            // reconcile) rebuilt from the pre-OCR scan — silently stripping the freshly
+            // added text layer page by page as the user edited.
+            originalMemberPDFData[memberID] = data
         }
         loadedPDFs = document.workspace.documents.compactMap { member in
             guard let data = result.dataByMemberID[member.id] ?? document.memberPDFData[member.id],
@@ -2356,7 +2444,7 @@ final class WorkspaceViewModel {
 
     // MARK: - Annotations
 
-    func editableTextBlock(at pagePoint: CGPoint, on page: PDFPage, in pdfDocument: PDFDocument?) -> (pageRef: PageRef, block: EditableTextBlock, sourceFormat: PDFTextEditFormat)? {
+    func editableTextBlock(at pagePoint: CGPoint, on page: PDFPage, in pdfDocument: PDFDocument?) -> (pageRef: PageRef, block: EditableTextBlock, sourceFormat: PDFTextEditFormat, matchFormat: PDFTextEditFormat)? {
         guard let ref = pageRef(for: page, in: pdfDocument),
               let lookup = memberPDF(for: ref),
               let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex) else {
@@ -2397,11 +2485,104 @@ final class WorkspaceViewModel {
                 baseline: syntheticBounds.minY,
                 confidence: .high
             )
-            return (ref, syntheticBlock, sourceFormat)
+            let matchFormat = inferredNearbyMatchFormat(around: syntheticBlock, in: analysis, fallback: sourceFormat)
+            return (ref, syntheticBlock, sourceFormat, matchFormat)
         }
         let block = textAnalysisEngine.hitTest(pagePoint, in: analysis) ??
             insertionTextBlock(at: pagePoint, pageRefID: ref.id, page: page, nearbyBlocks: analysis.blocks)
-        return (ref, block, PDFTextEditFormat(block: block))
+        let ownFormat = PDFTextEditFormat(block: block)
+        let matchFormat = inferredNearbyMatchFormat(around: block, in: analysis, fallback: ownFormat)
+        return (ref, block, ownFormat, matchFormat)
+    }
+
+    /// Infers the style Match Format should adopt: the dominant nearby BODY paragraph
+    /// style around `target`, deliberately NOT the target's own style (that is what Reset
+    /// restores). Ranking mirrors the plan's precedence — same column and vertically
+    /// adjacent wins first, then the dominant body-text cluster on the page — while
+    /// excluding the target itself, headings (much larger than the local body size), and
+    /// tiny footer/caption text. Falls back to `fallback` when nothing suitable is nearby.
+    private func inferredNearbyMatchFormat(
+        around target: EditableTextBlock,
+        in analysis: PDFTextPageAnalysis,
+        fallback: PDFTextEditFormat
+    ) -> PDFTextEditFormat {
+        let targetBounds = target.bounds.standardized
+        let graphics = analysis.graphics
+        // When the edit target is NOT itself inside a ruled grid, table cells must not win
+        // as the body-style source (the user is editing prose, not a cell).
+        let targetInGrid = graphics.isInsideRuledGrid(targetBounds)
+        let candidates = analysis.blocks.filter { block in
+            guard block.id != target.id,
+                  block.editability != .insertion,
+                  !block.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  block.fontSize > 0 else { return false }
+            // Exclude clearly-invisible OCR/low-visibility layers — matching them would
+            // hand the edit an invisible style.
+            guard block.editability != .hiddenOCRLayer, block.editability != .lowVisibility else { return false }
+            // Exclude a standalone list/bullet marker (its "style" is a glyph, not body text).
+            let trimmed = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.range(of: #"^([•\-–—*·▪◦]|\(?[0-9A-Za-z]{1,2}\)|[0-9A-Za-z]{1,2}[.)])$"#, options: .regularExpression) != nil {
+                return false
+            }
+            // Exclude table cells when editing outside any grid.
+            if !targetInGrid, graphics.isInsideRuledGrid(block.bounds.standardized) { return false }
+            return true
+        }
+        guard !candidates.isEmpty else { return fallback }
+
+        // The page's dominant body size: the median size of the mass of text, which
+        // headings sit well above and footnotes/captions below.
+        let sizes = candidates.map(\.fontSize).sorted()
+        let bodySize = sizes[sizes.count / 2]
+        // Body-like = within ~25% of the dominant size (excludes headings and micro-text).
+        let bodyLike = candidates.filter { abs($0.fontSize - bodySize) <= bodySize * 0.25 }
+        let pool = bodyLike.isEmpty ? candidates : bodyLike
+
+        func sameColumn(_ block: EditableTextBlock) -> Bool {
+            guard let column = block.columnBounds?.standardized else { return false }
+            return targetBounds.midX >= column.minX - 4 && targetBounds.midX <= column.maxX + 4
+        }
+        let sameColumnPool = pool.filter(sameColumn)
+        var rankingPool = sameColumnPool.isEmpty ? pool : sameColumnPool
+
+        // Restrict to the DOMINANT local body style cluster before ranking by proximity, so
+        // a lone italic caption / off-style neighbor sitting a little closer to the click
+        // can't win over the surrounding body text. A style signature is (family, bold,
+        // italic); the most common signature is the body, and proximity only tie-breaks
+        // WITHIN that cluster. Skipped when there's no clear majority (all singletons).
+        struct StyleKey: Hashable { let family: String; let bold: Bool; let italic: Bool }
+        func styleKey(_ block: EditableTextBlock) -> StyleKey {
+            let lower = block.fontName.lowercased()
+            return StyleKey(
+                family: Self.fontFamilyRoot(block.fontName),
+                bold: lower.contains("bold") || lower.contains("black") || lower.contains("heavy") || lower.contains("semibold"),
+                italic: lower.contains("italic") || lower.contains("oblique")
+            )
+        }
+        let counts = Dictionary(grouping: rankingPool, by: styleKey).mapValues(\.count)
+        if let (dominantKey, dominantCount) = counts.max(by: { $0.value < $1.value }), dominantCount >= 2 {
+            let dominantCluster = rankingPool.filter { styleKey($0) == dominantKey }
+            if !dominantCluster.isEmpty { rankingPool = dominantCluster }
+        }
+
+        let ranked = rankingPool.min { lhs, rhs in
+            let lDist = abs(lhs.bounds.standardized.midY - targetBounds.midY)
+            let rDist = abs(rhs.bounds.standardized.midY - targetBounds.midY)
+            return lDist < rDist
+        }
+        guard let best = ranked else { return fallback }
+        return PDFTextEditFormat(block: best)
+    }
+
+    /// The family root of a PDF font name (strips a subset tag and any style suffix), used
+    /// to cluster style signatures for Match inference. "ABCDEF+Helvetica-Bold" → "helvetica".
+    private static func fontFamilyRoot(_ name: String) -> String {
+        var base = name
+        if let plus = base.firstIndex(of: "+"), base.distance(from: base.startIndex, to: plus) == 6 {
+            base = String(base[base.index(after: plus)...])
+        }
+        if let dash = base.firstIndex(of: "-") { base = String(base[..<dash]) }
+        return base.lowercased()
     }
 
     private func reopenedBounds(for operation: PDFTextEditOperation) -> CGRect {
@@ -2571,6 +2752,8 @@ final class WorkspaceViewModel {
             sourceBlockID: sourceBlock.id,
             sourceBounds: sourceBlock.bounds,
             sourceLineBounds: sourceBlock.lines.map(\.bounds),
+            sourceUnderlineBounds: sourceBlock.underlineBounds,
+            sourcePreserveRuleBounds: sourceBlock.protectedRuleBounds,
             sourceText: sourceBlock.text,
             editedBounds: editedBounds,
             columnBounds: sourceBlock.columnBounds,
@@ -2607,6 +2790,8 @@ final class WorkspaceViewModel {
            let existingOp = document.workspace.pageEditStates[stateIndex].operations.first(where: { $0.sourceBlockID == sourceBlock.id }) {
             operation.sourceBounds = existingOp.sourceBounds
             operation.sourceLineBounds = existingOp.sourceLineBounds
+            operation.sourceUnderlineBounds = existingOp.sourceUnderlineBounds
+            operation.sourcePreserveRuleBounds = existingOp.sourcePreserveRuleBounds
             operation.didApplyMatchedGeometry = operation.didApplyMatchedGeometry || existingOp.didApplyMatchedGeometry
             operation.sourceText = existingOp.sourceText.isEmpty ? operation.sourceText : existingOp.sourceText
             operation.columnBounds = operation.columnBounds ?? existingOp.columnBounds
@@ -2708,7 +2893,110 @@ final class WorkspaceViewModel {
         return true
     }
 
+    // MARK: - Committed edit ↔ page byte reconciliation
+
+    /// Pristine (pre-edit) bytes for every member that currently has committed inline
+    /// text edit operations — what the save path persists so future sessions can always
+    /// regenerate `f(pristine, operations)` exactly.
+    private func pristineDataForMembersWithCommittedEdits() -> [UUID: Data] {
+        var result: [UUID: Data] = [:]
+        for state in document.workspace.pageEditStates where !state.operations.isEmpty {
+            guard let ref = document.workspace.pageOrder.first(where: { $0.id == state.pageRefID }),
+                  result[ref.memberDocId] == nil,
+                  let pristine = originalMemberPDFData[ref.memberDocId] else { continue }
+            result[ref.memberDocId] = pristine
+        }
+        return result
+    }
+
+    /// Adopts a member's CURRENT live bytes as its new pristine base and renormalizes its
+    /// refs' `sourcePageIndex` to the live layout. Used when a structural operation makes
+    /// the old pristine mapping unrepresentable (cross-member page moves). Any baked edit
+    /// in the member becomes part of the pristine background from this point on.
+    private func rebasePristineToLiveBytes(memberID: UUID) {
+        guard let memberIndex = document.workspace.documents.firstIndex(where: { $0.id == memberID }),
+              let loaded = loadedPDFs.first(where: { $0.0.id == memberID }) else { return }
+        let liveBytes = PDFSerializer.data(from: loaded.1) ?? document.memberPDFData[memberID]
+        guard let liveBytes else { return }
+        originalMemberPDFData[memberID] = liveBytes
+        for (localIdx, refID) in document.workspace.documents[memberIndex].pageRefs.enumerated() {
+            if let orderIdx = document.workspace.pageOrder.firstIndex(where: { $0.id == refID }),
+               document.workspace.pageOrder[orderIdx].sourcePageIndex != localIdx {
+                document.workspace.pageOrder[orderIdx].sourcePageIndex = localIdx
+            }
+        }
+        for refID in document.workspace.documents[memberIndex].pageRefs {
+            textAnalysisCache.removeValue(forKey: refID)
+        }
+    }
+
+    /// Verifies that every page with committed edit operations actually SHOWS them in its
+    /// current bytes, regenerating the page from its pristine base when it doesn't. This is
+    /// the self-healing half of the "operations are the source of truth" contract: the ops
+    /// live in workspace state while the visible/exported result lives in `memberPDFData`,
+    /// and any historical divergence between the two (e.g. a file saved by an older build
+    /// with ops but no bake) would otherwise persist forever — the editor "remembers" the
+    /// edit while the page and every export silently miss it.
+    ///
+    /// Detection is text-presence-based (see `pageVisiblyReflects`), so a style-only edit
+    /// whose bake went missing is not detectable here — a documented residual limitation;
+    /// the divergence vectors themselves are closed separately (OrderSnapshot now carries
+    /// `pageEditStates`; commits regenerate atomically).
+    @discardableResult
+    func reconcileCommittedEditsWithLoadedPages() -> Int {
+        var regeneratedPages = 0
+        for state in document.workspace.pageEditStates where !state.operations.isEmpty {
+            guard let ref = document.workspace.pageOrder.first(where: { $0.id == state.pageRefID }) else { continue }
+            if pageVisiblyReflects(operations: state.operations, ref: ref) { continue }
+            if regenerateEditedPage(pageRef: ref, operations: state.operations) {
+                regeneratedPages += 1
+            } else {
+                NSLog("[Orifold] Warning: page %@ has committed text edits its bytes don't show, and regeneration failed — the edit remains invisible.", ref.id.uuidString)
+            }
+        }
+        return regeneratedPages
+    }
+
+    /// True when the page's CURRENT bytes visibly contain every operation's replacement
+    /// text. Whitespace-collapsed comparison, because the committed replacement wraps into
+    /// lines during rendering and extraction re-inserts line breaks at arbitrary points.
+    /// Style-only operations (replacement text equal to the source, or empty) are treated
+    /// as reflected — text presence can't distinguish their bake.
+    private func pageVisiblyReflects(operations: [PDFTextEditOperation], ref: PageRef) -> Bool {
+        guard let lookup = memberPDF(for: ref),
+              let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex),
+              let page = lookup.pdf.page(at: localIdx) else {
+            // No page to check against — nothing sensible to regenerate either.
+            return true
+        }
+        // `.attributedString`, not `.string`: PDFKit's `.string` interleaves characters for
+        // overlapping text runs on the CI toolchain (see
+        // [[ci-xcode164-pdfkit-string-extraction-quirk]] / UserFlowRegressionTests) — and an
+        // edited page is exactly that shape (replacement drawn over the covered original).
+        let pageText = Self.collapsedWhitespace(page.attributedString?.string ?? "")
+        for operation in operations {
+            let replacement = Self.collapsedWhitespace(operation.replacementText)
+            let source = Self.collapsedWhitespace(operation.sourceText)
+            guard !replacement.isEmpty, replacement != source else { continue }
+            if !pageText.contains(replacement) { return false }
+        }
+        return true
+    }
+
+    private static func collapsedWhitespace(_ text: String) -> String {
+        text.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
     // MARK: - Inline text edit revert
+
+    enum InlineTextEditKind: String, Equatable {
+        case insertion   // brand-new text
+        case deletion    // text emptied
+        case styleOnly   // same text, restyled
+        case edit        // text changed
+    }
 
     struct InlineTextEditListItem: Identifiable, Equatable {
         var id: UUID
@@ -2718,6 +3006,11 @@ final class WorkspaceViewModel {
         var originalText: String
         var replacementText: String
         var isInsertion: Bool
+        var kind: InlineTextEditKind
+        /// 1-based position among the edits ON THIS PAGE (for "edit 2 of 3 on p.4").
+        var orderOnPage: Int
+        /// Total edits on this page (the "of N" in the label above).
+        var totalOnPage: Int
     }
 
     var hasInlineTextEdits: Bool {
@@ -2737,7 +3030,22 @@ final class WorkspaceViewModel {
         for (index, ref) in document.workspace.pageOrder.enumerated() {
             guard let state = document.workspace.pageEditStates.first(where: { $0.pageRefID == ref.id }) else { continue }
             let memberName = document.workspace.documents.first(where: { $0.id == ref.memberDocId })?.displayName ?? ""
-            for operation in state.operations {
+            // Stable order for "edit N of M on this page": by creation time.
+            let ordered = state.operations.sorted { $0.createdAt < $1.createdAt }
+            let total = ordered.count
+            for (opIndex, operation) in ordered.enumerated() {
+                let trimmedReplacement = operation.replacementText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmedSource = operation.sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let kind: InlineTextEditKind
+                if operation.isInsertion {
+                    kind = .insertion
+                } else if trimmedReplacement.isEmpty {
+                    kind = .deletion
+                } else if trimmedReplacement == trimmedSource {
+                    kind = .styleOnly
+                } else {
+                    kind = .edit
+                }
                 items.append(InlineTextEditListItem(
                     id: operation.id,
                     pageRefID: ref.id,
@@ -2745,7 +3053,10 @@ final class WorkspaceViewModel {
                     memberName: memberName,
                     originalText: operation.sourceText,
                     replacementText: operation.replacementText,
-                    isInsertion: operation.isInsertion
+                    isInsertion: operation.isInsertion,
+                    kind: kind,
+                    orderOnPage: opIndex + 1,
+                    totalOnPage: total
                 ))
             }
         }
@@ -4156,10 +4467,15 @@ final class WorkspaceViewModel {
         if (options.encryption != nil || options.sanitization != nil), hasCryptographicSignaturePlacement {
             throw PDFEncryptionError.digitalSignatureConflict
         }
+        // Belt-and-braces against any in-session ops↔bytes divergence: exported bytes must
+        // reflect every committed edit operation, so verify (and self-heal) right before
+        // they leave the app rather than trusting accumulated state.
+        reconcileCommittedEditsWithLoadedPages()
         let snapshot = WorkspacePackage(
             workspace: document.workspace,
             memberPDFData: try currentPDFDataForExport(),
-            sourcePayloads: document.sourcePayloads
+            sourcePayloads: document.sourcePayloads,
+            originalMemberPDFData: pristineDataForMembersWithCommittedEdits()
         )
         let pdfData = try document.exportedPDFDataThrowing(from: snapshot, options: options)
         let reducedData: Data
@@ -4187,7 +4503,14 @@ final class WorkspaceViewModel {
     /// would be worse than failing the export outright.
     static func sanitized(_ data: Data, options: PDFSanitizationOptions?) throws -> Data {
         guard let options else { return data }
-        guard let result = QPDFService.sanitized(data, removingMetadata: options.removesMetadata) else {
+        // Strip Orifold's own embedded metadata FIRST when removing metadata — qpdf's
+        // sanitize never touches annotations, so without this the invisible
+        // /OrifoldWorkspaceComments blob (full edit history, base64 member bytes, extracted
+        // source text, all comments) survived into a supposedly-sanitized share.
+        let preStripped = options.removesMetadata
+            ? WorkspaceDocument.dataStrippedOfOrifoldMetadata(data)
+            : data
+        guard let result = QPDFService.sanitized(preStripped, removingMetadata: options.removesMetadata) else {
             throw PDFSanitizationError.sanitizationFailed
         }
         return result
@@ -5967,6 +6290,20 @@ final class WorkspaceViewModel {
                 document.workspace.pageOrder.insert(duplicate, at: pageOrderIndex + 1)
             }
             loadedPDFs[lookup.loadedIndex].0 = document.workspace.documents[lookup.documentIndex]
+            // The copied page's bytes visibly include any baked inline edits, so the
+            // duplicate ref must own copies of the operations too — otherwise the first
+            // regeneration of the duplicate (any new edit on it) rebuilds pristine + only
+            // the new op, silently reverting the edits the copy visibly carried.
+            if let sourceState = document.workspace.pageEditStates.first(where: { $0.pageRefID == ref.id }),
+               !sourceState.operations.isEmpty {
+                let clonedOps = sourceState.operations.map { op -> PDFTextEditOperation in
+                    var clone = op
+                    clone.id = UUID()
+                    clone.pageRefID = duplicate.id
+                    return clone
+                }
+                document.workspace.pageEditStates.append(PageEditState(pageRefID: duplicate.id, operations: clonedOps))
+            }
         }
         rebuild()
         markWorkspaceModified()
@@ -6095,6 +6432,18 @@ final class WorkspaceViewModel {
                 loadedPDFs[loadedIndex].0 = updated
             }
         }
+        // A cross-member move breaks the pristine mapping on BOTH sides: the moved page
+        // has no representation in the target's pristine bytes at all (so
+        // `originalBasePage`/hit-testing would read a completely different page — the
+        // confirmed data-destroying case), and the source's pristine keeps a page its
+        // live layout no longer has. Rebase both members' pristine bases to their
+        // post-move live bytes and renormalize their refs' sourcePageIndex to the new
+        // layout. Trade-off: any already-baked edit in these members becomes part of the
+        // pristine background from here on (a re-edit erases over the bake instead of
+        // regenerating from the true original) — degraded but consistent, versus
+        // regenerating the wrong page's content entirely.
+        rebasePristineToLiveBytes(memberID: targetRef.memberDocId)
+        rebasePristineToLiveBytes(memberID: ref.memberDocId)
         selectedPageRefID = movedRef.id
         selectedPageRefIDs = [movedRef.id]
         rebuild()
@@ -6222,11 +6571,17 @@ final class WorkspaceViewModel {
             return cached
         }
         // Prefer original bytes so text-block hit-testing reflects the unedited PDF content,
-        // consistent with regeneration always starting from the original page.
+        // consistent with regeneration always starting from the original page. That also
+        // means indexing them by `sourcePageIndex` (the ref's position in the PRISTINE
+        // bytes), exactly like `originalBasePage` — the ref's CURRENT local position
+        // diverges from it after any in-session delete/reorder of an earlier page, and
+        // analyzing the wrong pristine page made click-to-edit open editors filled with a
+        // deleted page's text (and bake erase patches sized to it).
         let data = originalMemberPDFData[memberID] ?? document.memberPDFData[memberID] ?? currentPDFData()[memberID] ?? Data()
+        let pristineIndex = ref.sourcePageIndex >= 0 ? ref.sourcePageIndex : localIndex
         let analysis = textAnalysisEngine.analyze(
             data: data,
-            pageIndex: localIndex,
+            pageIndex: pristineIndex,
             pageRefID: ref.id,
             fallbackPage: page
         )

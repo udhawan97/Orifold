@@ -612,14 +612,24 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 }
             case .editText:
                 inlineEditor?.finishForHandoff()
-                if let target = viewModel.editableTextBlock(at: pagePoint, on: page, in: pdfView.document) {
+                // Re-resolve the page from the CURRENT document: finishForHandoff may have
+                // committed the previous editor, which synchronously swaps pdfView.document
+                // and deallocates the `page`/`pagePoint` captured above. Using the stale
+                // page made the follow-up hit-test resolve to no PageRef (NSNotFound),
+                // silently swallowing the click so the second editor never opened.
+                guard let liveView = self.pdfView,
+                      let livePage = liveView.page(for: viewPoint, nearest: true),
+                      !(livePage is BoundaryPage) else { return }
+                let livePagePoint = liveView.convert(viewPoint, to: livePage)
+                if let target = viewModel.editableTextBlock(at: livePagePoint, on: livePage, in: liveView.document) {
                     announceEditability(of: target.block)
                     showInlineTextEditor(
                         for: target.block,
                         pageRef: target.pageRef,
                         sourceFormat: target.sourceFormat,
-                        on: page,
-                        in: pdfView
+                        matchFormat: target.matchFormat,
+                        on: livePage,
+                        in: liveView
                     )
                 }
             case .signature:
@@ -768,6 +778,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             for block: EditableTextBlock,
             pageRef: PageRef,
             sourceFormat: PDFTextEditFormat,
+            matchFormat: PDFTextEditFormat,
             on page: PDFPage,
             in pdfView: OrifoldPDFView
         ) {
@@ -784,12 +795,17 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 pageRef: pageRef,
                 block: block,
                 sourceFormat: sourceFormat,
+                matchFormat: matchFormat,
                 isExistingEdit: isExistingEdit
-            ) { [weak self, weak pdfView] result in
-                guard let self else { return }
+            ) { [weak self, weak pdfView] result -> Bool in
+                guard let self else { return true }
+                // Returns whether the result was ACCEPTED. On a rejected commit the overlay
+                // keeps itself installed and reopens for editing, so `inlineEditor` must stay
+                // pointing at it — only clear the reference on an accepted outcome.
+                let accepted: Bool
                 switch result {
                 case .commit(let edit):
-                    self.mutateDocumentPreservingViewport(in: pdfView) {
+                    accepted = self.mutateDocumentPreservingViewport(in: pdfView) {
                         self.viewModel.applyInlineTextEdit(
                             pageRef: edit.pageRef,
                             sourceBlock: edit.block,
@@ -809,13 +825,17 @@ struct PDFViewRepresentable: NSViewRepresentable {
                         )
                     }
                 case .revertToOriginal:
-                    self.mutateDocumentPreservingViewport(in: pdfView) {
+                    _ = self.mutateDocumentPreservingViewport(in: pdfView) {
                         self.viewModel.revertInlineTextEdit(pageRefID: pageRef.id, sourceBlockID: block.id)
                     }
+                    accepted = true
                 case .cancel:
-                    break
+                    accepted = true
                 }
-                inlineEditor = nil
+                if accepted {
+                    inlineEditor = nil
+                }
+                return accepted
             }
             editor.autoresizingMask = [.width, .height]
             inlineEditor = editor
@@ -826,10 +846,14 @@ struct PDFViewRepresentable: NSViewRepresentable {
         /// Runs a document-regenerating mutation while pinning the scroll viewport.
         /// Captures the actual scroll origin first — in continuous mode PDFKit's
         /// currentPage can be a different page than the mutation target, so page-based
-        /// restoration alone can visibly jump after the document is regenerated.
-        private func mutateDocumentPreservingViewport(in pdfView: OrifoldPDFView?, _ mutation: () -> Bool) {
-            guard mutation() else { return }
+        /// restoration alone can visibly jump after the document is regenerated. Returns
+        /// whether the mutation itself succeeded (so a rejected commit can keep the editor
+        /// open instead of silently discarding the user's text).
+        @discardableResult
+        private func mutateDocumentPreservingViewport(in pdfView: OrifoldPDFView?, _ mutation: () -> Bool) -> Bool {
+            guard mutation() else { return false }
             syncDocumentPreservingViewport(pdfView, newDocument: viewModel.combinedPDF)
+            return true
         }
 
         /// Swaps `pdfView.document` to `newDocument` (if it actually changed) while
@@ -2379,8 +2403,23 @@ final class NoteEditorViewController: NSViewController {
     private let pageRef: PageRef
     private let block: EditableTextBlock
     private let sourceFormat: PDFTextEditFormat
+    /// The style Match Format applies: the INFERRED nearby/dominant body style computed
+    /// at click time (see `WorkspaceViewModel.inferredNearbyMatchFormat`), distinct from
+    /// `sourceFormat` (this block's own original style, which is what Reset restores).
+    /// Previously Match applied `sourceFormat` — a visual no-op that still flagged the
+    /// session as style-changed and committed a spurious re-render on Done.
+    private let matchFormat: PDFTextEditFormat
     private let isExistingEdit: Bool
-    private let completion: (Completion) -> Void
+    /// Returns whether the result was actually accepted. A `.commit` can be rejected
+    /// (busy import/compression/OCR, missing pristine base) — the editor then stays open
+    /// so the user's typed text is never silently discarded.
+    private let completion: (Completion) -> Bool
+    /// Editor-local undo scope. Without this, `textView.undoManager` resolved through
+    /// the responder chain to the shared WINDOW undo manager — the same stack every
+    /// document operation registers on — so Cmd-Z inside the editor could undo a page
+    /// delete (swapping the document underneath the open editor), and discarded typing
+    /// groups lingered on the document stack after Done/Cancel.
+    private let editorUndoManager = UndoManager()
     private let patchView = NSView()
     private let toolbar = NSView()
     private let textView = InlineEditableTextView()
@@ -2477,6 +2516,22 @@ final class NoteEditorViewController: NSViewController {
         var isDetected: Bool
     }
 
+    /// A detected font candidate surfaced in the font menu, mirroring detected COLORS:
+    /// family + size + traits harvested from the page's analysis so the user can one-click
+    /// adopt "Detected: Helvetica Bold 13" instead of only picking a bare family. `menuTitle`
+    /// is the display string; `postScriptName` is the resolved (possibly substituted) face.
+    private struct DetectedFontChoice: Equatable {
+        var menuTitle: String
+        var family: String
+        var size: CGFloat
+        var bold: Bool
+        var italic: Bool
+        var isSubstituted: Bool
+    }
+    /// Detected font candidates for this edit's page, computed once at open. The family
+    /// popup lists these (with a separator) above the plain family list.
+    private let detectedFontChoices: [DetectedFontChoice]
+
     /// Mirrors `PDFTextEditOperation.isInsertion` (empty source text AND no detected lines):
     /// a brand-new spot has nothing underneath to hide, so the live editor should show no
     /// patch at all rather than a colored placeholder rectangle.
@@ -2514,8 +2569,9 @@ final class NoteEditorViewController: NSViewController {
         pageRef: PageRef,
         block: EditableTextBlock,
         sourceFormat: PDFTextEditFormat,
+        matchFormat: PDFTextEditFormat? = nil,
         isExistingEdit: Bool = false,
-        completion: @escaping (Completion) -> Void
+        completion: @escaping (Completion) -> Bool
     ) {
         self.viewModel = viewModel
         self.pdfView = pdfView
@@ -2523,6 +2579,7 @@ final class NoteEditorViewController: NSViewController {
         self.pageRef = pageRef
         self.block = block
         self.sourceFormat = sourceFormat
+        self.matchFormat = matchFormat ?? sourceFormat
         self.isExistingEdit = isExistingEdit
         self.completion = completion
         // Preserve the ORIGINAL detected point size so edited text renders at the same size
@@ -2536,6 +2593,7 @@ final class NoteEditorViewController: NSViewController {
         editorFontTraits = NSFontManager.shared.traits(of: initialFont).intersection([.boldFontMask, .italicFontMask])
         editorTextColor = Self.initialTextColor(for: block)
         textColorChoices = Self.textColorChoices(for: block, document: pdfView.document, initialColor: editorTextColor)
+        detectedFontChoices = Self.detectedFontChoices(for: block, document: pdfView.document)
         editorAlignment = block.alignment?.nsTextAlignment ?? .left
         editorUnderline = block.underline
         originalText = block.text
@@ -2577,7 +2635,7 @@ final class NoteEditorViewController: NSViewController {
         // make Undo see no undo manager (or a different one) than the one that actually
         // recorded the edit, reporting "nothing to undo" even immediately after one.
         pdfView?.window?.makeFirstResponder(pdfView)
-        completion(.cancel)
+        _ = completion(.cancel)
     }
 
     func containsInteractivePoint(_ pdfViewPoint: CGPoint) -> Bool {
@@ -2628,7 +2686,7 @@ final class NoteEditorViewController: NSViewController {
         super.viewWillMove(toWindow: newWindow)
         if newWindow == nil, !didFinish {
             didFinish = true
-            completion(.cancel)
+            _ = completion(.cancel)
         }
     }
 
@@ -2648,6 +2706,7 @@ final class NoteEditorViewController: NSViewController {
         addSubview(patchView)
 
         textView.delegate = self
+        textView.isolatedUndoManager = editorUndoManager
         textView.string = block.text
         textView.isRichText = false
         textView.isEditable = true
@@ -2697,6 +2756,7 @@ final class NoteEditorViewController: NSViewController {
         }
         moveHandle.onDragStateChanged = { [weak self] isDragging in
             self?.setSelectionBorderActive(isDragging)
+            self?.setPatchDimmedForInteraction(isDragging)
             if isDragging {
                 self?.dismissMoveHandleHint(animated: true)
             }
@@ -2705,6 +2765,9 @@ final class NoteEditorViewController: NSViewController {
 
         resizeHandle.onDrag = { [weak self] delta in
             self?.resizeEditor(by: delta)
+        }
+        resizeHandle.onDragStateChanged = { [weak self] isDragging in
+            self?.setPatchDimmedForInteraction(isDragging)
         }
         addSubview(resizeHandle)
 
@@ -2808,6 +2871,15 @@ final class NoteEditorViewController: NSViewController {
     private func setupToolbar() {
         let cursor = ToolbarLayoutCursor(toolbar: toolbar, edgeInset: 8, controlHeight: 26, controlY: 8)
 
+        // Detected font candidates (family + size + traits) first, then a separator, then
+        // the plain family list. Selecting a detected entry adopts its full style in one
+        // step (see `changeFamily`); selecting a plain family changes only the family.
+        for choice in detectedFontChoices {
+            familyPopup.addItem(withTitle: choice.menuTitle)
+        }
+        if !detectedFontChoices.isEmpty {
+            familyPopup.menu?.addItem(NSMenuItem.separator())
+        }
         let families = Self.fontFamilyMenuItems(originalFamily: editorFontFamily)
         familyPopup.addItems(withTitles: families)
         if let match = families.first(where: { editorFontFamily.localizedCaseInsensitiveCompare($0) == .orderedSame }) {
@@ -2947,6 +3019,21 @@ final class NoteEditorViewController: NSViewController {
         // `layoutActionGroup(inWidth:)` can pin it to the toolbar's right edge, keeping it
         // reachable even when the toolbar is clamped narrower than its full content.
         actionGroupItems = []
+        // "Delete text": clears this block's text and commits — a VISUAL deletion (the
+        // original glyphs remain in the content stream, not secure redaction; see the
+        // privacy notice). Offered whenever there is real text to delete, so the user has a
+        // one-click way to remove text rather than having to select-all + backspace + Done.
+        if !originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let deleteText = NSButton(title: "", target: self, action: #selector(deleteTextButton))
+            deleteText.image = NSImage(systemSymbolName: "text.badge.minus", accessibilityDescription: L10n.string("readingCanvas.formatting.deleteText.accessibilityDescription"))
+            deleteText.imagePosition = .imageOnly
+            deleteText.bezelStyle = .rounded
+            deleteText.contentTintColor = .systemRed
+            deleteText.toolTip = L10n.string("readingCanvas.formatting.deleteText.tooltip")
+            deleteText.identifier = NSUserInterfaceItemIdentifier("inlineEditor.deleteText")
+            toolbar.addSubview(deleteText)
+            actionGroupItems.append((deleteText, 30, 0))
+        }
         if isExistingEdit {
             let revert = NSButton(title: "", target: self, action: #selector(revertButton))
             revert.image = NSImage(systemSymbolName: "trash", accessibilityDescription: L10n.string("readingCanvas.formatting.removeEdit.accessibilityDescription"))
@@ -3275,6 +3362,20 @@ final class NoteEditorViewController: NSViewController {
         textView.isSelectionActive = active
     }
 
+    /// While the user is dragging to move/resize the box, drop the erase-patch backing to
+    /// a low opacity so the surrounding page content stays visible for alignment (the
+    /// committed export still fully covers the old text). Restored to full opacity when the
+    /// drag ends. No-op for insertions (which have no patch). Exposed for tests.
+    private(set) var isPatchDimmedForInteraction = false
+    func setPatchDimmedForInteraction(_ dimmed: Bool) {
+        guard !isInsertionBlock else { return }
+        isPatchDimmedForInteraction = dimmed
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.12
+            patchView.animator().alphaValue = dimmed ? 0.22 : 1.0
+        }
+    }
+
     private func moveEditor(by delta: CGPoint) {
         guard delta.x.isFinite, delta.y.isFinite else { return }
         didManuallyReposition = true
@@ -3291,11 +3392,16 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func resizeEditor(by delta: CGPoint) {
-        didManuallyResizeWidth = true
-        didManuallyResizeHeight = true
         var frame = textView.frame
-        frame.size.width = max(48, frame.width + delta.x)
-        frame.size.height = max(max(24, ceil(displayFontSize * 1.55)), frame.height - delta.y)
+        let newWidth = max(48, frame.width + delta.x)
+        let newHeight = max(max(24, ceil(displayFontSize * 1.55)), frame.height - delta.y)
+        // Flag only the axis the drag actually changed: a purely horizontal drag that
+        // also set the height flag froze auto-growth, so text typed afterwards silently
+        // clipped against the accidentally-frozen height.
+        if abs(newWidth - frame.width) > 0.5 { didManuallyResizeWidth = true }
+        if abs(newHeight - frame.height) > 0.5 { didManuallyResizeHeight = true }
+        frame.size.width = newWidth
+        frame.size.height = newHeight
         frame.origin.y = editorTopY - frame.height
         textView.frame = frame
         updateTextContainerWidth()
@@ -3313,7 +3419,19 @@ final class NoteEditorViewController: NSViewController {
     }
 
     @objc private func changeFamily(_ sender: NSPopUpButton) {
-        editorFontFamily = sender.titleOfSelectedItem ?? editorFontFamily
+        let title = sender.titleOfSelectedItem ?? editorFontFamily
+        // A detected-font entry adopts family + size + traits together; a plain family
+        // entry changes only the family (unchanged legacy behavior).
+        if let choice = detectedFontChoices.first(where: { $0.menuTitle == title }) {
+            editorFontFamily = choice.family
+            documentFontSize = choice.size
+            var traits: NSFontTraitMask = []
+            if choice.bold { traits.insert(.boldFontMask) }
+            if choice.italic { traits.insert(.italicFontMask) }
+            editorFontTraits = traits
+        } else {
+            editorFontFamily = title
+        }
         didChangeStyle = true
         applyFormatting()
         refocusEditor()
@@ -3432,10 +3550,18 @@ final class NoteEditorViewController: NSViewController {
     }
 
     @objc private func matchNearbyFormat() {
-        // "Match Nearby Format" intentionally also adopts the nearby paragraph's own
-        // bounds/column (its whole purpose is lining this edit up with that paragraph),
-        // unlike Copy/Paste Style below.
-        applySourceFormat(markStyleChange: true, applyGeometry: true)
+        // "Match Nearby Format" applies the INFERRED nearby/dominant body style computed
+        // at click time — not this block's own `sourceFormat` (that's Reset's job), which
+        // made Match a visual no-op that still committed a spurious re-render on Done.
+        // It intentionally also adopts the matched paragraph's bounds/column (its whole
+        // purpose is lining this edit up with that paragraph) — EXCEPT for insertions,
+        // whose box must stay where the user clicked: adopting a neighbor's footprint
+        // teleported the new text on top of that neighbor's ink.
+        var format = matchFormat
+        if isInsertionBlock {
+            format.bounds = nil
+        }
+        apply(format: format, markStyleChange: true, applyGeometry: true)
         viewModel?.showEditMessage(L10n.string("status.textEdit.matchedNearbyFormat"), severity: .success)
         refocusEditor()
     }
@@ -3500,12 +3626,13 @@ final class NoteEditorViewController: NSViewController {
         // Deliberately does NOT call the shared `disarmFormatPainter()`: Restore is a
         // per-block action with no inherent connection to Format Painter, and a pinned copy
         // may have been armed from a DIFFERENT, already-closed editor and is still pending a
-        // paste elsewhere — wiping `copiedInlineTextFormat`/`isFormatPainterPinned` here would
-        // silently discard that unrelated, not-yet-used copy just because the user reverted
-        // an unrelated style tweak in THIS editor. Only clear this editor's own armed flag if
-        // IT happens to be the one currently armed (Copy Style was clicked in this same
-        // session) — never a pin/copy that belongs to another block.
-        viewModel?.isInlineTextFormatPainterArmed = false
+        // paste elsewhere — wiping the pin here would silently discard that unrelated,
+        // not-yet-used copy just because the user reverted an unrelated style tweak in
+        // THIS editor. A PINNED painter therefore stays armed; only a plain (one-shot)
+        // armed copy is cleared.
+        if viewModel?.isFormatPainterPinned != true {
+            viewModel?.isInlineTextFormatPainterArmed = false
+        }
         viewModel?.showEditMessage(L10n.string("status.textEdit.restoredOriginal"), severity: .success)
         refocusEditor()
     }
@@ -3523,6 +3650,10 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func apply(format: PDFTextEditFormat, markStyleChange: Bool, applyGeometry: Bool) {
+        let previousStyle = (
+            editorFontFamily, documentFontSize, editorTextColor,
+            editorAlignment, editorUnderline, editorFontTraits
+        )
         documentFontSize = format.fontSize > 0 ? format.fontSize : originalFontSize
         let sourceFont = NSFont(name: format.fontName, size: documentFontSize) ?? .systemFont(ofSize: documentFontSize)
         editorFontFamily = Self.editingFamilyName(for: sourceFont, fallback: format.fontName)
@@ -3533,7 +3664,18 @@ final class NoteEditorViewController: NSViewController {
         if applyGeometry {
             applyParagraphGeometry(from: format)
         }
-        if markStyleChange {
+        // Only flag a style change when something actually changed — flagging a no-op
+        // application (e.g. matching a style identical to the current one) defeated
+        // `shouldCancelWithoutCommit`, so pressing Done with zero real changes still
+        // baked a re-rendered replacement in an approximated font.
+        let styleActuallyChanged =
+            previousStyle.0 != editorFontFamily ||
+            abs(previousStyle.1 - documentFontSize) >= 0.01 ||
+            !Self.colorsApproximatelyEqual(previousStyle.2, editorTextColor, tolerance: 0.005) ||
+            previousStyle.3 != editorAlignment ||
+            previousStyle.4 != editorUnderline ||
+            previousStyle.5 != editorFontTraits
+        if markStyleChange, styleActuallyChanged {
             didChangeStyle = true
             didRestoreOriginalStyle = false
         }
@@ -3543,6 +3685,25 @@ final class NoteEditorViewController: NSViewController {
 
     private func applyParagraphGeometry(from format: PDFTextEditFormat) {
         guard !didManuallyResizeWidth else { return }
+        // Adopting geometry identical to this block's own footprint is not a "matched
+        // geometry" event — flagging it made the renderer erase the destination box for
+        // what was effectively a no-op, and made Done commit spuriously.
+        let ownBounds = block.bounds.standardized
+        let newBounds = format.bounds?.standardized
+        let boundsDiffer = newBounds.map { candidate in
+            abs(candidate.minX - ownBounds.minX) > 1 ||
+            abs(candidate.maxY - ownBounds.maxY) > 1 ||
+            abs(candidate.width - ownBounds.width) > 2
+        } ?? false
+        let ownColumn = block.columnBounds?.standardized
+        let newColumn = format.columnBounds?.standardized
+        let columnsDiffer: Bool
+        if let newColumn, let ownColumn {
+            columnsDiffer = abs(newColumn.minX - ownColumn.minX) > 1 || abs(newColumn.maxX - ownColumn.maxX) > 1
+        } else {
+            columnsDiffer = (newColumn != nil) != (ownColumn != nil)
+        }
+        guard boundsDiffer || columnsDiffer else { return }
         matchedFormatBounds = format.bounds
         matchedFormatColumnBounds = format.columnBounds
         didApplyMatchedGeometry = true
@@ -3770,6 +3931,47 @@ final class NoteEditorViewController: NSViewController {
         return colors
     }
 
+    /// Harvests detected font candidates for the font menu, mirroring detected colors:
+    /// the clicked block's own runs first, then the dominant faces across the page. Each
+    /// candidate records family/size/traits and whether the resolved face was substituted
+    /// (the exact embedded/subsetted font wasn't installed). Capped and de-duplicated.
+    private static func detectedFontChoices(for block: EditableTextBlock, document: PDFDocument?) -> [DetectedFontChoice] {
+        var choices: [DetectedFontChoice] = []
+        func add(fontName: String, size: CGFloat) {
+            guard size > 0 else { return }
+            let resolvedFont = NSFont(name: fontName, size: size)
+            let substituted = resolvedFont == nil
+            let font = resolvedFont ?? .systemFont(ofSize: size)
+            let traits = NSFontManager.shared.traits(of: font).intersection([.boldFontMask, .italicFontMask])
+            let bold = traits.contains(.boldFontMask) || fontName.lowercased().contains("bold")
+            let italic = traits.contains(.italicFontMask) || fontName.lowercased().contains("italic") || fontName.lowercased().contains("oblique")
+            let family = Self.editingFamilyName(for: font, fallback: fontName)
+            let roundedSize = (size * 10).rounded() / 10
+            var label = "\(L10n.string("readingCanvas.detectedFont.prefix")) \(family)"
+            if bold { label += " Bold" }
+            if italic { label += " Italic" }
+            label += String(format: " %.1f", roundedSize)
+            if substituted { label += " \(L10n.string("readingCanvas.detectedFont.substituted"))" }
+            let choice = DetectedFontChoice(menuTitle: label, family: family, size: roundedSize, bold: bold, italic: italic, isSubstituted: substituted)
+            guard !choices.contains(where: { $0.family == choice.family && abs($0.size - choice.size) < 0.2 && $0.bold == choice.bold && $0.italic == choice.italic }) else { return }
+            choices.append(choice)
+        }
+        for line in block.lines { for run in line.runs { add(fontName: run.fontName, size: run.fontSize) } }
+        add(fontName: block.fontName, size: block.fontSize)
+        if let document, let data = document.dataRepresentation() {
+            let engine = PDFTextAnalysisEngine()
+            let scanned = min(document.pageCount, maxScannedPagesForDetectedColors)
+            outer: for pageIndex in 0..<scanned {
+                let page = document.page(at: pageIndex)
+                for b in engine.analyze(data: data, pageIndex: pageIndex, fallbackPage: page).blocks {
+                    add(fontName: b.fontName, size: b.fontSize)
+                    if choices.count >= 12 { break outer }
+                }
+            }
+        }
+        return Array(choices.prefix(12))
+    }
+
     private static func computeDetectedDocumentTextColors(in document: PDFDocument) -> [NSColor] {
         var colors: [NSColor] = []
         let scannedPageCount = min(document.pageCount, maxScannedPagesForDetectedColors)
@@ -3945,7 +4147,21 @@ final class NoteEditorViewController: NSViewController {
     }
 
     @objc fileprivate func commitButton() {
-        guard !didFinish, let pdfView, let page else { return }
+        guard !didFinish else { return }
+        guard let pdfView, let page else {
+            // The document was swapped/reloaded underneath this editor (undo, inspector
+            // revert, OCR, …) and the weak page reference died: the pending geometry can
+            // no longer be converted to page space. Tear down LOUDLY — a silent return
+            // left a zombie overlay whose Done button did nothing, whose box floated
+            // over arbitrary content, and which tripped the one-editor assertion on the
+            // next click.
+            didFinish = true
+            removeFromSuperview()
+            pdfView?.window?.makeFirstResponder(pdfView)
+            viewModel?.showEditMessage(L10n.string("status.textEdit.editorLostPage"), isError: true)
+            _ = completion(.cancel)
+            return
+        }
         _ = commitSizeFieldValue()
         if shouldCancelWithoutCommit {
             cancel()
@@ -4001,6 +4217,15 @@ final class NoteEditorViewController: NSViewController {
             didApplyMatchedGeometry: didApplyMatchedGeometry,
             didRestoreOriginalStyle: didRestoreOriginalStyle
         )
+        // Apply FIRST, tear down only on acceptance: applyInlineTextEdit legitimately
+        // rejects commits (busy import/compression/OCR, missing pristine base), and
+        // tearing the editor down before knowing that silently discarded everything the
+        // user typed with only a status toast left behind.
+        guard completion(.commit(result)) else {
+            didFinish = false
+            refocusEditor()
+            return
+        }
         if formattingDiffersFromSource {
             viewModel?.showEditMessage(L10n.string("status.textEdit.formatMismatch"), isError: false)
         }
@@ -4008,7 +4233,6 @@ final class NoteEditorViewController: NSViewController {
         // See the comment in `cancel()`: restores a stable first responder so the document
         // undo manager resolves correctly right after committing.
         pdfView.window?.makeFirstResponder(pdfView)
-        completion(.commit(result))
     }
 
     private var formattingDiffersFromSource: Bool {
@@ -4029,13 +4253,22 @@ final class NoteEditorViewController: NSViewController {
     }
 
     private func preferredPageOriginX() -> CGFloat {
-        if let columnBounds = effectiveColumnBounds?.standardized {
-            return columnBounds.minX
-        }
-        if let bounds = matchedFormatBounds?.standardized {
+        // Explicitly matched geometry (Match Format) wins: lining up with that paragraph
+        // is the point of the action.
+        if let bounds = matchedFormatBounds?.standardized, bounds.width > 0 {
             return bounds.minX
         }
-        return block.bounds.standardized.minX
+        let ownX = block.bounds.standardized.minX
+        if let columnBounds = effectiveColumnBounds?.standardized {
+            // Snap to the column's left edge only when this block actually sits on it.
+            // Insertions and PDFKit-fallback lines carry a page-wide column whose minX
+            // is the page margin — snapping there teleported the committed text to the
+            // far-left margin, away from where the live editor showed it.
+            if abs(ownX - columnBounds.minX) <= max(8, documentFontSize) {
+                return columnBounds.minX
+            }
+        }
+        return ownX
     }
 
     private var committedFormatBounds: CGRect? {
@@ -4058,7 +4291,13 @@ final class NoteEditorViewController: NSViewController {
 
     private var shouldCancelWithoutCommit: Bool {
         let trimmed = textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return true }
+        if trimmed.isEmpty {
+            // Emptying a block that HAD text is a deletion — a real, committable operation
+            // that removes the visible text (see `isDeletionCommit`). Only treat empty as
+            // cancel when there was nothing to delete to begin with (an insertion the user
+            // opened and left blank, or already-blank source).
+            return originalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
         return textView.string == originalText &&
             editorFontFamily == originalFontFamily &&
             abs(documentFontSize - originalFontSize) < 0.01 &&
@@ -4069,11 +4308,25 @@ final class NoteEditorViewController: NSViewController {
             !didManuallyReposition &&
             !didManuallyResizeWidth &&
             !didManuallyResizeHeight &&
-            !didChangeStyle
+            !didChangeStyle &&
+            // A genuine matched-geometry adoption (Match Format lining this edit up with a
+            // different paragraph's column) is a real change even when the text and style
+            // attributes are unchanged — it must commit, not silently cancel.
+            !didApplyMatchedGeometry
     }
 
     @objc private func cancelButton() {
         cancel()
+    }
+
+    /// Clears the block's text and commits it — a visual deletion of the original text.
+    /// The empty replacement is what `shouldCancelWithoutCommit` now recognizes as a
+    /// deletion (rather than a cancel) for a block that had text.
+    @objc private func deleteTextButton() {
+        guard !didFinish else { return }
+        textView.string = ""
+        resizeTextViewHeight()
+        commitButton()
     }
 
     @objc private func revertButton() {
@@ -4083,7 +4336,7 @@ final class NoteEditorViewController: NSViewController {
         // See the comment in `cancel()`: restores a stable first responder so the document
         // undo manager resolves correctly right after reverting.
         pdfView?.window?.makeFirstResponder(pdfView)
-        completion(.revertToOriginal)
+        _ = completion(.revertToOriginal)
     }
 
     @objc private func addSignatureBox() {
@@ -4101,6 +4354,14 @@ final class NoteEditorViewController: NSViewController {
 }
 
 final class InlineEditableTextView: NSTextView {
+    /// A dedicated undo manager for typing inside the editor. Without this override,
+    /// `NSTextView.undoManager` resolves through the responder chain to the shared
+    /// WINDOW undo manager — the same stack every document mutation registers on — so
+    /// Cmd-Z in the editor could undo a page delete (swapping the document underneath
+    /// the editor) and every typing group leaked onto the document stack after Done.
+    var isolatedUndoManager: UndoManager?
+    override var undoManager: UndoManager? { isolatedUndoManager ?? super.undoManager }
+
     var onMoveDrag: ((CGPoint) -> Void)?
     var onEscape: (() -> Void)?
     var onUndoShortcut: (() -> Void)?
@@ -4191,14 +4452,11 @@ final class InlineEditableTextView: NSTextView {
             }
         }
         if key == "z", !event.modifierFlags.intersection([.command, .control]).isEmpty {
-            // ⌘⇧Z redoes, ⌘Z undoes — matching TextEdit/Word. Previously any "z" with a
-            // command/control modifier (including the redo chord) routed to undo, so redo
-            // was impossible inside the editor.
-            if event.modifierFlags.contains(.shift) {
-                onRedoShortcut?()
-            } else {
-                onUndoShortcut?()
-            }
+            onUndoShortcut?()
+            return
+        }
+        if key == "y", !event.modifierFlags.intersection([.command, .control]).isEmpty {
+            onRedoShortcut?()
             return
         }
         super.keyDown(with: event)
@@ -4445,6 +4703,7 @@ final class InlineMoveHandleHint: NSView {
 
 final class InlineResizeHandle: NSView {
     var onDrag: ((CGPoint) -> Void)?
+    var onDragStateChanged: ((Bool) -> Void)?
     private var lastPoint: CGPoint?
 
     override init(frame frameRect: NSRect) {
@@ -4464,6 +4723,7 @@ final class InlineResizeHandle: NSView {
 
     override func mouseDown(with event: NSEvent) {
         lastPoint = superview?.convert(event.locationInWindow, from: nil)
+        onDragStateChanged?(true)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -4477,6 +4737,7 @@ final class InlineResizeHandle: NSView {
 
     override func mouseUp(with event: NSEvent) {
         lastPoint = nil
+        onDragStateChanged?(false)
     }
 }
 

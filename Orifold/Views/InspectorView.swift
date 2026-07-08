@@ -1269,32 +1269,70 @@ private struct InspectorTextEditRow: View {
     @Environment(\.locale) private var locale
 
     private var changeSummary: String {
-        if item.isInsertion || item.originalText.isEmpty {
+        switch item.kind {
+        case .insertion:
             return "Added \u{201C}\(item.replacementText)\u{201D}"
+        case .deletion:
+            return "Deleted \u{201C}\(item.originalText)\u{201D}"
+        case .styleOnly:
+            return "Restyled \u{201C}\(item.originalText)\u{201D}"
+        case .edit:
+            return "\u{201C}\(item.originalText)\u{201D} \u{2192} \u{201C}\(item.replacementText)\u{201D}"
         }
-        return "\u{201C}\(item.originalText)\u{201D} \u{2192} \u{201C}\(item.replacementText)\u{201D}"
+    }
+
+    private var kindBadge: (title: LocalizedStringKey, color: Color, icon: String) {
+        switch item.kind {
+        case .insertion: return ("inspector.textEdit.kind.added", .dsAccent, "plus.square")
+        case .deletion: return ("inspector.textEdit.kind.deleted", Color(nsColor: .systemRed), "text.badge.minus")
+        case .styleOnly: return ("inspector.textEdit.kind.restyled", Color(nsColor: .systemPurple), "paintbrush")
+        case .edit: return ("inspector.textEdit.kind.edited", Color(nsColor: .systemTeal), "character.cursor.ibeam")
+        }
+    }
+
+    private var contextLabel: String {
+        var label = L10n.format("inspector.versionHistory.pageLabel", item.pageNumber, locale: locale)
+        if item.totalOnPage > 1 {
+            label += " · " + L10n.format("inspector.textEdit.orderOnPage", item.orderOnPage, item.totalOnPage, locale: locale)
+        }
+        if !item.memberName.isEmpty {
+            label += " · \(item.memberName)"
+        }
+        return label
     }
 
     var body: some View {
+        let badge = kindBadge
         HStack(alignment: .top, spacing: .dsXS) {
             Button(action: onSelect) {
                 HStack(alignment: .top, spacing: .dsSM) {
-                    Image(systemName: item.isInsertion ? "plus.square" : "character.cursor.ibeam")
+                    Image(systemName: badge.icon)
                         .font(.system(size: 11))
-                        .foregroundStyle(Color.dsTextTertiary)
+                        .foregroundStyle(badge.color)
                         .frame(width: 16)
                         .padding(.top, 2)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(badge.title)
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(badge.color)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(badge.color.opacity(0.14), in: Capsule())
                         Text(changeSummary)
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsTextPrimary)
-                            .lineLimit(3)
-                        Text(L10n.format("inspector.versionHistory.pageLabel", item.pageNumber, locale: locale) + (item.memberName.isEmpty ? "" : " · \(item.memberName)"))
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(contextLabel)
                             .font(.system(size: 11))
                             .foregroundStyle(Color.dsTextTertiary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                     Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
             .help("inspector.textEdit.showThisPage.help")
