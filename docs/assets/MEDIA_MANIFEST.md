@@ -1,6 +1,6 @@
 # Docs media capture manifest
 
-**Status: 11 of 14 slots are real photographic captures; 3 remain illustrated SVGs.** Real
+**Status: 13 of 14 slots are real photographic captures; 1 remains an illustrated SVG.** Real
 captures live in `docs-site/public/assets/screenshots/` and `docs-site/public/assets/gifs/` and
 are wired into their pages' `<Figure src="...">` prop; the `Figure` component's
 dashed-placeholder fallback (see `docs-site/src/components/Figure.astro`) is not in use anywhere
@@ -38,18 +38,22 @@ Captured for real (v0.8.1 source build, dark mode, no Dock/menu bar/recording-bo
 `first-workspace-empty-state.png`, `the-orifold-window-annotated.png`,
 `annotate-markup-tools.png`, `night-mode-comparison.png`, `reader-mode-toggle.png`,
 `language-switcher.png`, `edit-text-workflow.png`, `sign-document-digital.png`,
-`export-save-confirmation.png`, `combine-reorder-pages.png`, `reorder-rotate-delete-pages.png`.
+`export-save-confirmation.png`, `combine-reorder-pages.png`, `reorder-rotate-delete-pages.png`,
+`import-files-overview.png`, `recently-viewed-shelf.png`.
 
-Still illustrated SVGs (open work — replace per the standards below when captured):
-`import-files-overview.svg`, `recently-viewed-shelf.svg`, `sign-document-workflow-visual.svg`
-(the Draw/Type/Initials flow — distinct from the Digital signing capture above, which already
-has a real screenshot). `import-files-overview` and `recently-viewed-shelf` both need either a
-persisted recent-files list or a mid-drag moment to capture for real — not just opening the app
-once. `sign-document-workflow-visual` is wired through the `Media` component
-(`docs-site/src/components/Media.astro`) with the illustrated SVG as the video `poster`, so
-dropping in a real clip later is a one-line change — add `mp4="/Orifold/assets/gifs/<name>.mp4"`
-next to the existing `poster=` and the still is replaced by an autoplaying, muted, looping,
-reduced-motion-aware `<video>`:
+`import-files-overview.png` catches a real mid-drag moment ("Release to import files," drop zone
+highlighted, a demo PDF hovering above it). `recently-viewed-shelf.png` shows a real one-file
+shelf entry (a "Resume · p. 1" badge, "6h ago · 1 page") — the alt text was corrected to describe
+one real thumbnail rather than the "3–4 demo thumbnails" the illustration implied.
+`combine-reorder-pages.png` was upgraded from a two-document to a three-document sidebar capture.
+
+Still illustrated SVG (open work — replace per the standards below when captured):
+`sign-document-workflow-visual.svg` (the Draw/Type/Initials flow — distinct from the Digital
+signing capture above, which already has a real screenshot). It's wired through the `Media`
+component (`docs-site/src/components/Media.astro`) with the illustrated SVG as the video
+`poster`, so dropping in a real clip later is a one-line change — add
+`mp4="/Orifold/assets/gifs/<name>.mp4"` next to the existing `poster=` and the still is replaced
+by an autoplaying, muted, looping, reduced-motion-aware `<video>`:
 
 | Page | `Media` on page | Target clip |
 | --- | --- | --- |
@@ -85,8 +89,8 @@ reference; the Astro site serves only from `docs-site/public/assets/`.
 
 | Filename | Type | Status | Page | Shows |
 | --- | --- | --- | --- | --- |
-| `import-files-overview.svg` | screenshot | illustrated | [import/import-files](../../docs-site/src/content/docs/import/import-files.mdx) | Empty-state screen mid-drag, 2–3 demo files entering the drop zone |
-| `combine-reorder-pages.png` | screenshot | **real** | [import/combine](../../docs-site/src/content/docs/import/combine.mdx) | Two documents in the sidebar, both expanded to show page thumbnails |
+| `import-files-overview.png` | screenshot | **real** | [import/import-files](../../docs-site/src/content/docs/import/import-files.mdx) | Empty-state screen mid-drag: "Release to import files," a demo PDF hovering over the highlighted drop zone |
+| `combine-reorder-pages.png` | screenshot | **real** | [import/combine](../../docs-site/src/content/docs/import/combine.mdx) | Three documents in the sidebar, each expanded to show page thumbnails |
 | `reorder-rotate-delete-pages.png` | screenshot | **real** | [import/organize-pages](../../docs-site/src/content/docs/import/organize-pages.mdx) | The `···` menu's Pages section: Rotate Left, Rotate Right, Duplicate Page, Delete Page |
 | `edit-text-workflow.png` | screenshot | **real** | [edit/edit-text](../../docs-site/src/content/docs/edit/edit-text.mdx) | A sentence selected in detected text, with the floating format toolbar open |
 | `annotate-markup-tools.png` | screenshot | **real** | [annotate/markup](../../docs-site/src/content/docs/annotate/markup.mdx) | Highlight tool active in the toolbar, one yellow highlight placed on demo text |
@@ -94,14 +98,14 @@ reference; the Astro site serves only from `docs-site/public/assets/`.
 | `sign-document-digital.png` | screenshot | **real** | [fill-sign/signatures](../../docs-site/src/content/docs/fill-sign/signatures.mdx) | The Digital signing palette: self-signed identity, timestamp provider picker, signature preview |
 | `export-save-confirmation.png` | screenshot | **real** | [export/export-save](../../docs-site/src/content/docs/export/export-save.mdx) | The Export dialog: format picker, password/compress/sanitize options |
 | `language-switcher.png` | screenshot | **real** | [settings/language](../../docs-site/src/content/docs/settings/language.mdx) | Landing-screen language switcher open, all 6 languages visible |
-| `recently-viewed-shelf.svg` | screenshot | illustrated | [import/recently-viewed](../../docs-site/src/content/docs/import/recently-viewed.mdx) | Empty-state screen with the Recently Viewed shelf, 3–4 demo-file thumbnails |
+| `recently-viewed-shelf.png` | screenshot | **real** | [import/recently-viewed](../../docs-site/src/content/docs/import/recently-viewed.mdx) | Empty-state screen with the Recently Viewed shelf: a "Sample Proposal" thumbnail with a "Resume · p. 1" badge |
 | `night-mode-comparison.png` | screenshot | **real** | [reading/night-mode](../../docs-site/src/content/docs/reading/night-mode.mdx) | The Document Comfort popover open: presets, application/page mode, fine-tune sliders |
 | `reader-mode-toggle.png` | screenshot | **real** | [reading/reader-mode](../../docs-site/src/content/docs/reading/reader-mode.mdx) | Reader Mode on: the Reader pill, the explanatory banner, and the View menu's toggle |
 | `first-workspace-empty-state.png` | screenshot | **real** | [get-started/first-workspace](../../docs-site/src/content/docs/get-started/first-workspace.mdx) | The empty-state screen just after picking a companion (Gami shown) |
 | `the-orifold-window-annotated.png` | screenshot | **real** | [get-started/the-window](../../docs-site/src/content/docs/get-started/the-window.mdx) | Sidebar, toolbar, and canvas with the Sample Proposal doc open |
 
 Each target page's `alt` text describes the exact framing above, so whoever captures the
-remaining slots can grep the docs source for a filename and know precisely what to shoot.
+remaining slot can grep the docs source for the filename and know precisely what to shoot.
 
 ## After capturing a real asset
 
