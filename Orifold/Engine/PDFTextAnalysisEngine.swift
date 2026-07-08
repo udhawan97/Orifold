@@ -1299,14 +1299,35 @@ final class PDFTextAnalysisEngine {
             guard lineText.unicodeScalars.contains(where: { CharacterSet.alphanumerics.contains($0) }) else {
                 return reported
             }
-            let upperPlausible = inkEstimatedSize * 1.08
-            let lowerPlausible = inkEstimatedSize * 0.85
-            if reported > upperPlausible || reported < lowerPlausible {
-                return inkEstimatedSize
+            return Self.resolvedSize(reported: reported, sampleCount: validSizes.count,
+                                     spread: (validSizes.max() ?? reported) - (validSizes.min() ?? reported),
+                                     inkEstimate: inkEstimatedSize)
+        }
+        return inkEstimatedSize > 0 ? inkEstimatedSize : 12
+    }
+
+    /// Decides the resolved size from a PDFium-reported size and the ink-derived estimate.
+    /// Pure/static so it can be unit-tested directly (generated CoreText fixtures carry no
+    /// reported sizes, so the reported-size logic can't be exercised end-to-end).
+    ///
+    /// - When many glyphs agree tightly (WP-B.3 "unanimous"), trust the reported size unless
+    ///   it contradicts the ink estimate CATASTROPHICALLY (>1.35× either way) — that catches
+    ///   content-stream-scaled text (nominal Tf size ≠ visible size) while accepting the
+    ///   correct reported size for ordinary text whose ink model is merely a few % off.
+    /// - Otherwise apply the historical narrow plausibility band around the ink estimate.
+    static func resolvedSize(reported: CGFloat, sampleCount: Int, spread: CGFloat, inkEstimate: CGFloat) -> CGFloat {
+        guard inkEstimate > 0 else { return reported }
+        let unanimous = sampleCount >= 4 && spread <= max(0.2, reported * 0.02)
+        if unanimous {
+            if reported > inkEstimate * 1.35 || reported < inkEstimate / 1.35 {
+                return inkEstimate
             }
             return reported
         }
-        return inkEstimatedSize > 0 ? inkEstimatedSize : 12
+        if reported > inkEstimate * 1.08 || reported < inkEstimate * 0.85 {
+            return inkEstimate
+        }
+        return reported
     }
 
     /// Ratio of a line's rendered ink height to its point size, cached per PostScript
