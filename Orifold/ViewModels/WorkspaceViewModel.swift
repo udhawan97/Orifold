@@ -2991,6 +2991,13 @@ final class WorkspaceViewModel {
 
     // MARK: - Inline text edit revert
 
+    enum InlineTextEditKind: String, Equatable {
+        case insertion   // brand-new text
+        case deletion    // text emptied
+        case styleOnly   // same text, restyled
+        case edit        // text changed
+    }
+
     struct InlineTextEditListItem: Identifiable, Equatable {
         var id: UUID
         var pageRefID: UUID
@@ -2999,6 +3006,11 @@ final class WorkspaceViewModel {
         var originalText: String
         var replacementText: String
         var isInsertion: Bool
+        var kind: InlineTextEditKind
+        /// 1-based position among the edits ON THIS PAGE (for "edit 2 of 3 on p.4").
+        var orderOnPage: Int
+        /// Total edits on this page (the "of N" in the label above).
+        var totalOnPage: Int
     }
 
     var hasInlineTextEdits: Bool {
@@ -3018,7 +3030,22 @@ final class WorkspaceViewModel {
         for (index, ref) in document.workspace.pageOrder.enumerated() {
             guard let state = document.workspace.pageEditStates.first(where: { $0.pageRefID == ref.id }) else { continue }
             let memberName = document.workspace.documents.first(where: { $0.id == ref.memberDocId })?.displayName ?? ""
-            for operation in state.operations {
+            // Stable order for "edit N of M on this page": by creation time.
+            let ordered = state.operations.sorted { $0.createdAt < $1.createdAt }
+            let total = ordered.count
+            for (opIndex, operation) in ordered.enumerated() {
+                let trimmedReplacement = operation.replacementText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmedSource = operation.sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let kind: InlineTextEditKind
+                if operation.isInsertion {
+                    kind = .insertion
+                } else if trimmedReplacement.isEmpty {
+                    kind = .deletion
+                } else if trimmedReplacement == trimmedSource {
+                    kind = .styleOnly
+                } else {
+                    kind = .edit
+                }
                 items.append(InlineTextEditListItem(
                     id: operation.id,
                     pageRefID: ref.id,
@@ -3026,7 +3053,10 @@ final class WorkspaceViewModel {
                     memberName: memberName,
                     originalText: operation.sourceText,
                     replacementText: operation.replacementText,
-                    isInsertion: operation.isInsertion
+                    isInsertion: operation.isInsertion,
+                    kind: kind,
+                    orderOnPage: opIndex + 1,
+                    totalOnPage: total
                 ))
             }
         }
