@@ -12,7 +12,7 @@ struct EmptyStateView: View {
     @Environment(\.locale) private var locale
     @State private var isDropTargeted = false
     @State private var hasIntroducedOptions = false
-    @State private var optionGuidance: LocalizedStringKey?
+    @State private var optionGuidance: String?
     @State private var chooseFilesNudge = 0
     @State private var recentsStore = RecentsStore.shared
     @State private var draggedKind: ImportDragKind?
@@ -29,10 +29,10 @@ struct EmptyStateView: View {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
-    // Stores translation *keys*, not resolved strings: `Text`/`Label` re-resolve a
-    // `LocalizedStringKey` against the current environment locale on every render,
-    // whereas a pre-resolved `String` (e.g. via `L10n.string()`) is frozen at
-    // whatever language was active when this array was built and never updates.
+    // Stores translation *keys*, not resolved strings: this array is a `let` built
+    // once, before any environment is available, so each consumer resolves the key
+    // via `L10n.string(_:locale:)` at render time (reading its own `\.locale`) instead
+    // of freezing text at whatever language was active when the array was built.
     private let featureOptions: [EmptyStateOption] = [
         EmptyStateOption(icon: "square.stack.3d.down.right", titleKey: "emptyState.option.assemble.title", accent: .dsAccent, guidanceKey: "emptyState.option.assemble.guidance"),
         EmptyStateOption(icon: "highlighter", titleKey: "emptyState.option.markUp.title", accent: .dsAnnotationSky, guidanceKey: "emptyState.option.markUp.guidance"),
@@ -61,10 +61,10 @@ struct EmptyStateView: View {
                             Text(verbatim: "Orifold")
                                 .font(.dsDisplay(size: 36))
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("emptyState.headline")
+                            Text(L10n.string("emptyState.headline"))
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsTextPrimary)
-                            Text("emptyState.subheadline")
+                            Text(L10n.string("emptyState.subheadline"))
                                 .font(.dsBody())
                                 .foregroundStyle(Color.dsTextSecondary)
                                 .multilineTextAlignment(.center)
@@ -99,7 +99,7 @@ struct EmptyStateView: View {
                                     .foregroundStyle(Color.dsAccent)
                                     .transition(.opacity)
                             } else {
-                                Text("emptyState.dropZone.supportedTypes")
+                                Text(L10n.string("emptyState.dropZone.supportedTypes"))
                                     .font(.dsCaption())
                                     .foregroundStyle(Color.dsTextTertiary)
                             }
@@ -127,7 +127,7 @@ struct EmptyStateView: View {
                             .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isDropTargeted)
                     }
                     .dsElevation()
-                    .help("emptyState.dropZone.tooltip")
+                    .help(L10n.string("emptyState.dropZone.tooltip"))
 
                     RecentFilesSection(store: recentsStore, onOpen: openRecentFile)
                 }
@@ -191,18 +191,18 @@ struct EmptyStateView: View {
             Button(folderImportOverLimitImportFirstLabel(count: maximumImportBatchSize)) {
                 confirmOverLimitImport(batch)
             }
-            Button("folderImport.overLimit.cancel", role: .cancel) {
+            Button(L10n.string("folderImport.overLimit.cancel"), role: .cancel) {
                 pendingFolderBatch = nil
             }
         } message: { batch in
             if batch.wasTruncated {
-                Text("folderImport.overLimit.truncatedNote")
+                Text(L10n.string("folderImport.overLimit.truncatedNote"))
             }
         }
     }
 
     private func showGuidance(for option: EmptyStateOption) {
-        optionGuidance = option.guidanceKey
+        optionGuidance = L10n.string(forKey: option.guidanceKey, locale: locale)
         chooseFilesNudge += 1
         guard !shouldReduceMotion else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
@@ -220,7 +220,7 @@ struct EmptyStateView: View {
             Button {
                 openFiles()
             } label: {
-                Label("emptyState.chooseFiles.label", systemImage: "folder.badge.plus")
+                Label(L10n.string("emptyState.chooseFiles.label"), systemImage: "folder.badge.plus")
                     .frame(minWidth: 140)
             }
             .controlSize(.large)
@@ -229,20 +229,20 @@ struct EmptyStateView: View {
             .scaleEffect(chooseFilesNudge.isMultiple(of: 2) || shouldReduceMotion ? 1 : 1.045)
             .shadow(color: Color.dsAccent.opacity(chooseFilesNudge.isMultiple(of: 2) ? 0 : 0.24), radius: 12, x: 0, y: 5)
             .animation(shouldReduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.48), value: chooseFilesNudge)
-            .help("emptyState.chooseFiles.tooltip")
-            .accessibilityHint("emptyState.chooseFiles.tooltip")
+            .help(L10n.string("emptyState.chooseFiles.tooltip"))
+            .accessibilityHint(L10n.string("emptyState.chooseFiles.tooltip"))
 
             Button {
                 openFolder()
             } label: {
-                Label("emptyState.chooseFolder.label", systemImage: "folder")
+                Label(L10n.string("emptyState.chooseFolder.label"), systemImage: "folder")
                     .frame(minWidth: 140)
             }
             .controlSize(.large)
             .buttonStyle(.bordered)
             .tint(Color.dsAccent)
-            .help("emptyState.chooseFolder.tooltip")
-            .accessibilityHint("emptyState.chooseFolder.tooltip")
+            .help(L10n.string("emptyState.chooseFolder.tooltip"))
+            .accessibilityHint(L10n.string("emptyState.chooseFolder.tooltip"))
         }
     }
 
@@ -250,7 +250,7 @@ struct EmptyStateView: View {
         HStack(alignment: .top, spacing: .dsXS) {
             Image(systemName: "info.circle")
                 .font(.system(size: 11, weight: .medium))
-            Text("emptyState.folderAccessHint.message")
+            Text(L10n.string("emptyState.folderAccessHint.message"))
                 .font(.dsCaption())
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -261,7 +261,7 @@ struct EmptyStateView: View {
                     .font(.system(size: 9, weight: .semibold))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("emptyState.folderAccessHint.dismiss.accessibilityLabel")
+            .accessibilityLabel(L10n.string("emptyState.folderAccessHint.dismiss.accessibilityLabel"))
         }
         .foregroundStyle(Color.dsTextTertiary)
         .padding(.horizontal, .dsMD)
@@ -270,20 +270,20 @@ struct EmptyStateView: View {
         .transition(.opacity)
     }
 
-    private var dropZoneHeadlineKey: LocalizedStringKey {
+    private var dropZoneHeadlineKey: String {
         switch draggedKind {
-        case .files: return "emptyState.dropZone.releaseFiles"
-        case .folder: return "emptyState.dropZone.releaseFolder"
-        case .mixed: return "emptyState.dropZone.releaseMixed"
-        case nil: return "emptyState.dropZone.dropFilesOrFolders"
+        case .files: return L10n.string("emptyState.dropZone.releaseFiles", locale: locale)
+        case .folder: return L10n.string("emptyState.dropZone.releaseFolder", locale: locale)
+        case .mixed: return L10n.string("emptyState.dropZone.releaseMixed", locale: locale)
+        case nil: return L10n.string("emptyState.dropZone.dropFilesOrFolders", locale: locale)
         }
     }
 
-    private var scanStatusKey: LocalizedStringKey? {
+    private var scanStatusKey: String? {
         switch scanPhase {
         case .idle: return nil
-        case .scanning: return "folderImport.scanning"
-        case .finding: return "folderImport.findingSupported"
+        case .scanning: return L10n.string("folderImport.scanning", locale: locale)
+        case .finding: return L10n.string("folderImport.findingSupported", locale: locale)
         }
     }
 
@@ -464,9 +464,9 @@ struct EmptyStateView: View {
 
 private struct EmptyStateOption: Identifiable {
     var icon: String
-    var titleKey: LocalizedStringKey
+    var titleKey: String
     var accent: Color
-    var guidanceKey: LocalizedStringKey
+    var guidanceKey: String
 
     var id: String { icon }
 }
@@ -478,6 +478,10 @@ private struct EmptyStatePill: View {
     var reduceMotion: Bool
     var action: () -> Void
 
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
     @State private var isHovered = false
     @State private var glintOffset: CGFloat = -54
 
@@ -493,7 +497,7 @@ private struct EmptyStatePill: View {
                     .symbolRenderingMode(.hierarchical)
                     .rotationEffect(reduceMotion || !isHovered ? .zero : .degrees(-5))
                     .symbolEffect(.bounce, value: reduceMotion ? false : isHovered)
-                Text(option.titleKey)
+                Text(L10n.string(forKey: option.titleKey, locale: locale))
                     .font(.system(size: 11, weight: .medium))
             }
             .padding(.horizontal, 10)
@@ -560,8 +564,8 @@ private struct EmptyStatePill: View {
             }
         }
         .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.82).delay(entranceDelay), value: isIntroduced)
-        .accessibilityLabel(Text(option.titleKey))
-        .accessibilityHint("emptyState.pill.accessibilityHint")
+        .accessibilityLabel(Text(L10n.string(forKey: option.titleKey, locale: locale)))
+        .accessibilityHint(L10n.string("emptyState.pill.accessibilityHint"))
     }
 }
 
@@ -647,10 +651,10 @@ private struct PetPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("petPicker.title")
+                Text(L10n.string("petPicker.title"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
-                Text("petPicker.subtitle")
+                Text(L10n.string("petPicker.subtitle"))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -722,7 +726,7 @@ private struct PetPickerCard: View {
             .frame(maxWidth: .infinity)
 
             Button(action: onChoose) {
-                Text("petPicker.choose")
+                Text(L10n.string("petPicker.choose"))
                     .font(.system(size: 12, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
@@ -756,7 +760,11 @@ private struct EmptyStateAmbientBackground: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 18.0, paused: shouldReduceMotion)) { timeline in
+        // The glows drift on a ~28s period, so a low tick rate is visually identical
+        // to a high one but far cheaper — this Canvas covers the whole window and runs
+        // for as long as the empty state is on screen, so its frame rate is pure idle
+        // CPU. 10fps keeps the drift smooth while roughly halving that cost.
+        TimelineView(.animation(minimumInterval: 1.0 / 10.0, paused: shouldReduceMotion)) { timeline in
             Canvas(opaque: false, rendersAsynchronously: true) { context, size in
                 drawBackground(in: &context, size: size, date: timeline.date)
             }

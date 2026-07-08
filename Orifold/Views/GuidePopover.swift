@@ -27,7 +27,7 @@ struct AppIconButton: View {
             AppIconMark(size: size)
         }
         .buttonStyle(.plain)
-        .help("guide.aboutOrifold.help")
+        .help(L10n.string("guide.aboutOrifold.help"))
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             AppAboutPopover()
                 .environmentObject(languageManager)
@@ -40,10 +40,13 @@ struct AppBrandLockup: View {
     var iconSize: CGFloat = 28
     var titleSize: CGFloat = 14
     var subtitleSize: CGFloat = 11
-    // A `LocalizedStringKey`, not a resolved `String`: `Text` re-resolves it
-    // against the current environment locale on every render, so language
-    // switches take effect immediately without needing this view to re-run.
-    var subtitle: LocalizedStringKey? = "appBrandLockup.subtitle.default"
+    /// A translation *key*, not resolved text — resolved via `L10n.string(_:locale:)`
+    /// in `body`, which reads `\.locale`, so language switches take effect immediately.
+    var subtitle: String? = "appBrandLockup.subtitle.default"
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         HStack(spacing: .dsSM) {
@@ -54,7 +57,7 @@ struct AppBrandLockup: View {
                     .tracking(.dsWordmarkTracking)
                     .foregroundStyle(Color.dsTextPrimary)
                 if let subtitle {
-                    Text(subtitle)
+                    Text(L10n.string(forKey: subtitle, locale: locale))
                         .font(.system(size: subtitleSize, weight: .medium))
                         .foregroundStyle(Color.dsTextSecondary)
                         .lineLimit(2)
@@ -79,6 +82,8 @@ struct AppBrandLockup: View {
 
 struct AppAboutPopover: View {
     @Environment(\.dismiss) private var dismiss
+    // Read so `body` re-runs on a live language switch while the popover is open.
+    @Environment(\.locale) private var locale
 
     private var versionString: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.0"
@@ -101,7 +106,7 @@ struct AppAboutPopover: View {
                         .font(.system(size: 17, weight: .semibold, design: .serif))
                         .tracking(.dsWordmarkTracking)
                         .foregroundStyle(Color.dsTextPrimary)
-                    Text("appBrandLockup.subtitle.default")
+                    Text(L10n.string("appBrandLockup.subtitle.default", locale: locale))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.dsTextSecondary)
                 }
@@ -113,12 +118,12 @@ struct AppAboutPopover: View {
                 .frame(height: 1)
 
             VStack(alignment: .leading, spacing: .dsSM) {
-                Text("appAbout.description.chores")
+                Text(L10n.string("appAbout.description.chores", locale: locale))
                     .font(.dsBody())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("appAbout.description.noCeremony")
+                Text(L10n.string("appAbout.description.noCeremony", locale: locale))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextTertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -127,7 +132,7 @@ struct AppAboutPopover: View {
 
             HStack {
                 Spacer()
-                Button("appAbout.close.button") { dismiss() }
+                Button(L10n.string("appAbout.close.button", locale: locale)) { dismiss() }
                     .keyboardShortcut(.cancelAction)
             }
         }
@@ -173,7 +178,7 @@ struct GuideButton: View {
         } label: {
             Image(systemName: "questionmark.circle")
         }
-        .help("guide.showQuickGuide.help")
+        .help(L10n.string("guide.showQuickGuide.help"))
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             GuidePopover(isPresented: $isPresented)
                 .environmentObject(languageManager)
@@ -194,12 +199,16 @@ struct GuideButton: View {
 
 struct GuidePopover: View {
     @Binding var isPresented: Bool
+    // Read so `body` re-runs on a live language switch while the popover is open —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsLG) {
             VStack(alignment: .leading, spacing: .dsSM) {
                 AppBrandLockup(iconSize: 40, titleSize: 15, subtitle: "guidePopover.subtitle")
-                Text("guidePopover.description")
+                Text(L10n.string("guidePopover.description", locale: locale))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -222,11 +231,11 @@ struct GuidePopover: View {
             .frame(maxHeight: 420)
 
             HStack {
-                Link("help.viewDocumentation.button", destination: OrifoldLinks.documentation)
+                Link(L10n.string("help.viewDocumentation.button", locale: locale), destination: OrifoldLinks.documentation)
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                 Spacer()
-                Button("guidePopover.gotIt.button") { isPresented = false }
+                Button(L10n.string("guidePopover.gotIt.button", locale: locale)) { isPresented = false }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.dsAccent)
                     .keyboardShortcut(.defaultAction)
@@ -268,12 +277,12 @@ private struct PopoverAuroraBackground: View {
 private struct GuideFeature: Identifiable {
     var id: String { icon }
     var icon: String
-    // Translation *keys*, not resolved strings: `Text` re-resolves a
-    // `LocalizedStringKey` against the current environment locale on every
-    // render, whereas a pre-resolved `String` (e.g. via `L10n.string()`) is
-    // frozen at whatever language was active when this array was built.
-    var titleKey: LocalizedStringKey
-    var detailKey: LocalizedStringKey
+    // Translation *keys*, not resolved strings: `static let all` below is built
+    // once, before any environment is available, so `GuideFeatureTile` resolves
+    // each key via `L10n.string(_:locale:)` at render time instead of freezing
+    // text at whatever language was active when this array was built.
+    var titleKey: String
+    var detailKey: String
     var tint: Color
     var iconIsDark: Bool = false
 
@@ -325,16 +334,20 @@ private struct FeatureIconTile: View {
 
 private struct GuideFeatureTile: View {
     var feature: GuideFeature
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         HStack(alignment: .top, spacing: .dsMD) {
             FeatureIconTile(systemName: feature.icon, tint: feature.tint, iconIsDark: feature.iconIsDark)
             VStack(alignment: .leading, spacing: .dsXS) {
-                Text(feature.titleKey)
+                Text(L10n.string(forKey: feature.titleKey, locale: locale))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(feature.detailKey)
+                Text(L10n.string(forKey: feature.detailKey, locale: locale))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .lineSpacing(2)

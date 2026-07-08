@@ -71,13 +71,13 @@ private struct SignaturePlacementBanner: View {
         HStack(spacing: .dsSM) {
             Image(systemName: "signature")
                 .foregroundStyle(Color.dsSignatureAccent)
-            Text("readingCanvas.signaturePlacement.instruction")
+            Text(L10n.string("readingCanvas.signaturePlacement.instruction"))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextPrimary)
-            Button("readingCanvas.signaturePlacement.cancel.button", action: cancel)
+            Button(L10n.string("readingCanvas.signaturePlacement.cancel.button"), action: cancel)
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("readingCanvas.signaturePlacement.cancel.help")
+                .help(L10n.string("readingCanvas.signaturePlacement.cancel.help"))
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
@@ -96,11 +96,11 @@ private struct ScanBar: View {
         HStack(spacing: .dsMD) {
             Image(systemName: "doc.text.viewfinder")
                 .foregroundStyle(Color.dsAccent)
-            Text("readingCanvas.scanBar.title")
+            Text(L10n.string("readingCanvas.scanBar.title"))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.dsTextPrimary)
             Spacer()
-            Button("readingCanvas.scanBar.makeSearchable.button") {
+            Button(L10n.string("readingCanvas.scanBar.makeSearchable.button")) {
                 viewModel.makeSearchable()
             }
             .font(.dsCaption())
@@ -131,7 +131,7 @@ private struct FormBar: View {
             VStack(alignment: .leading, spacing: 2) {
                 if viewModel.hasFillableFormFields {
                     HStack(spacing: .dsSM) {
-                        Text("readingCanvas.formBar.fillableFields.title")
+                        Text(L10n.string("readingCanvas.formBar.fillableFields.title"))
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Color.dsTextPrimary)
                         Text(L10n.format("readingCanvas.formFieldCount", viewModel.formSummary.fieldCount, locale: locale))
@@ -140,14 +140,14 @@ private struct FormBar: View {
                     }
                 }
                 if viewModel.formSummary.hasUnsupportedDynamicFeatures {
-                    Text("readingCanvas.formBar.dynamicFeaturesWarning")
+                    Text(L10n.string("readingCanvas.formBar.dynamicFeaturesWarning"))
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
             }
             Spacer()
             if viewModel.hasFillableFormFields {
-                Toggle("readingCanvas.formBar.highlightFields.toggle", isOn: $viewModel.highlightFormFields)
+                Toggle(L10n.string("readingCanvas.formBar.highlightFields.toggle"), isOn: $viewModel.highlightFormFields)
                     .toggleStyle(.checkbox)
                     .font(.dsCaption())
                     .tint(Color.dsAccentSoft)
@@ -158,7 +158,7 @@ private struct FormBar: View {
                         .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.borderless)
-                .help("readingCanvas.formBar.previousField.help")
+                .help(L10n.string("readingCanvas.formBar.previousField.help"))
                 Button {
                     viewModel.selectNextFormField()
                 } label: {
@@ -166,8 +166,8 @@ private struct FormBar: View {
                         .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.borderless)
-                .help("readingCanvas.formBar.nextField.help")
-                Button("readingCanvas.formBar.resetForm.button") {
+                .help(L10n.string("readingCanvas.formBar.nextField.help"))
+                Button(L10n.string("readingCanvas.formBar.resetForm.button")) {
                     viewModel.resetFormFields()
                 }
                 .font(.dsCaption())
@@ -222,7 +222,7 @@ private struct EditingStatusBanner: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.dsTextTertiary)
-            .help("readingCanvas.editingStatus.dismiss.help")
+            .help(L10n.string("readingCanvas.editingStatus.dismiss.help"))
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
@@ -252,7 +252,7 @@ private struct ZoomPageBar: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextSecondary)
-            .help("readingCanvas.zoomOut.help")
+            .help(L10n.string("readingCanvas.zoomOut.help"))
 
             Button { viewModel.zoomFit() } label: {
                 Image(systemName: "arrow.up.left.and.down.right.magnifyingglass")
@@ -260,7 +260,7 @@ private struct ZoomPageBar: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextSecondary)
-            .help("readingCanvas.zoomFit.help")
+            .help(L10n.string("readingCanvas.zoomFit.help"))
 
             Button { viewModel.zoomIn() } label: {
                 Image(systemName: "plus")
@@ -268,7 +268,7 @@ private struct ZoomPageBar: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextSecondary)
-            .help("readingCanvas.zoomIn.help")
+            .help(L10n.string("readingCanvas.zoomIn.help"))
 
             Divider()
                 .frame(height: 16)
@@ -279,7 +279,7 @@ private struct ZoomPageBar: View {
 
             if viewModel.pageCount > 0 {
                 HStack(spacing: 6) {
-                    Text("readingCanvas.pageBar.pageLabel")
+                    Text(L10n.string("readingCanvas.pageBar.pageLabel"))
                         .foregroundStyle(Color.dsTextTertiary)
                     TextField("", text: $pageInput)
                         .textFieldStyle(.plain)
@@ -318,7 +318,7 @@ private struct ZoomPageBar: View {
                     if !pageFieldFocused { pageInput = "\(n)" }
                 }
                 .onAppear { pageInput = "\(max(1, viewModel.currentPageNumber))" }
-                .help("readingCanvas.pageBar.jumpToPage.help")
+                .help(L10n.string("readingCanvas.pageBar.jumpToPage.help"))
             }
         }
         .padding(.horizontal, .dsLG)

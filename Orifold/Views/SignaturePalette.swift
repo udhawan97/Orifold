@@ -43,7 +43,7 @@ struct SignaturePalette: View {
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
             VStack(alignment: .leading, spacing: .dsLG) {
-                Picker("signaturePalette.mode.picker", selection: $selectedMode) {
+                Picker(L10n.string("signaturePalette.mode.picker"), selection: $selectedMode) {
                     ForEach(SignaturePaletteMode.allCases) { mode in
                         Text(mode.title(locale: locale)).tag(mode)
                     }
@@ -77,7 +77,7 @@ struct SignaturePalette: View {
     }
 
     private var header: some View {
-        Text("signaturePalette.title")
+        Text(L10n.string("signaturePalette.title"))
             .font(.system(size: 15, weight: .semibold, design: .serif))
             .foregroundStyle(Color.dsTextPrimary)
             .padding(.horizontal, .dsLG)
@@ -87,22 +87,22 @@ struct SignaturePalette: View {
 
     private var typedSignaturePanel: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            TextField("signaturePalette.typed.name.placeholder", text: $typedName)
+            TextField(L10n.string("signaturePalette.typed.name.placeholder"), text: $typedName)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(addTypedSignature)
 
-            Picker("signaturePalette.typed.fontStyle.picker", selection: $typedFontStyle) {
+            Picker(L10n.string("signaturePalette.typed.fontStyle.picker"), selection: $typedFontStyle) {
                 ForEach(TypedSignatureFontStyle.allCases) { style in
                     Text(style.displayName(locale: locale)).tag(style)
                 }
             }
             .pickerStyle(.menu)
-            .help("signaturePalette.typed.fontStyle.help")
+            .help(L10n.string("signaturePalette.typed.fontStyle.help"))
 
             SignaturePreview(data: typedSignatureData)
 
             Button(action: addTypedSignature) {
-                Label("signaturePalette.add.button", systemImage: "plus")
+                Label(L10n.string("signaturePalette.add.button"), systemImage: "plus")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -113,7 +113,7 @@ struct SignaturePalette: View {
 
     private var drawSignaturePanel: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            Text("signaturePalette.draw.instructions")
+            Text(L10n.string("signaturePalette.draw.instructions"))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
 
@@ -127,7 +127,7 @@ struct SignaturePalette: View {
                     .strokeBorder(Color.dsSeparator.opacity(0.75), lineWidth: 1)
             }
 
-            Button("signaturePalette.draw.clear.button") {
+            Button(L10n.string("signaturePalette.draw.clear.button")) {
                 drawClearTrigger += 1
             }
             .buttonStyle(.bordered)
@@ -142,7 +142,7 @@ struct SignaturePalette: View {
             }
 
             Button(action: addDrawnSignature) {
-                Label("signaturePalette.add.button", systemImage: "plus")
+                Label(L10n.string("signaturePalette.add.button"), systemImage: "plus")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -155,14 +155,14 @@ struct SignaturePalette: View {
 
     private var initialsPanel: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            TextField("signaturePalette.initials.placeholder", text: $initials)
+            TextField(L10n.string("signaturePalette.initials.placeholder"), text: $initials)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(addInitialsSignature)
 
             SignaturePreview(data: initialsSignatureData)
 
             Button(action: addInitialsSignature) {
-                Label("signaturePalette.add.button", systemImage: "plus")
+                Label(L10n.string("signaturePalette.add.button"), systemImage: "plus")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -183,11 +183,11 @@ struct SignaturePalette: View {
                         }
                         Divider()
                     }
-                    Button("signaturePalette.digitalId.createSelfSigned") { isShowingCreateSelfSigned = true }
-                    Button("signaturePalette.digitalId.importP12") { beginP12Import() }
-                    Button("signaturePalette.digitalId.addKeychain", action: addKeychainIdentities)
+                    Button(L10n.string("signaturePalette.digitalId.createSelfSigned")) { isShowingCreateSelfSigned = true }
+                    Button(L10n.string("signaturePalette.digitalId.importP12")) { beginP12Import() }
+                    Button(L10n.string("signaturePalette.digitalId.addKeychain"), action: addKeychainIdentities)
                     Divider()
-                    Button("signaturePalette.digitalId.manage") { isShowingManageCertificates = true }
+                    Button(L10n.string("signaturePalette.digitalId.manage")) { isShowingManageCertificates = true }
                 } label: {
                     Text(selectedCertificateProfileLabel)
                         .lineLimit(1)
@@ -203,7 +203,7 @@ struct SignaturePalette: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(Color.dsAccent)
-                .help("signaturePalette.certificateTrustInfo.help")
+                .help(L10n.string("signaturePalette.certificateTrustInfo.help"))
                 .popover(isPresented: $isShowingTrustInfo, arrowEdge: .trailing) {
                     CertificateTrustPopover(isShowingGuide: $isShowingGuide)
                         .environment(\.locale, locale)
@@ -219,39 +219,39 @@ struct SignaturePalette: View {
                 .foregroundStyle(Color.dsTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TextField("signaturePalette.digital.signerName.placeholder", text: $digitalSignerName)
+            TextField(L10n.string("signaturePalette.digital.signerName.placeholder"), text: $digitalSignerName)
                 .textFieldStyle(.roundedBorder)
-            TextField("signaturePalette.digital.reason.placeholder", text: $reason)
+            TextField(L10n.string("signaturePalette.digital.reason.placeholder"), text: $reason)
                 .textFieldStyle(.roundedBorder)
-                .help("signaturePalette.digital.reason.help")
-            TextField("signaturePalette.digital.location.placeholder", text: $location)
+                .help(L10n.string("signaturePalette.digital.reason.help"))
+            TextField(L10n.string("signaturePalette.digital.location.placeholder"), text: $location)
                 .textFieldStyle(.roundedBorder)
-                .help("signaturePalette.digital.location.help")
-            TextField("signaturePalette.digital.contact.placeholder", text: $contactInfo)
+                .help(L10n.string("signaturePalette.digital.location.help"))
+            TextField(L10n.string("signaturePalette.digital.contact.placeholder"), text: $contactInfo)
                 .textFieldStyle(.roundedBorder)
-                .help("signaturePalette.digital.contact.help")
+                .help(L10n.string("signaturePalette.digital.contact.help"))
 
             Toggle(isOn: $useTimestamp) {
-                Label("signaturePalette.digital.timestamp.toggle", systemImage: "clock.badge.checkmark")
+                Label(L10n.string("signaturePalette.digital.timestamp.toggle"), systemImage: "clock.badge.checkmark")
             }
             .toggleStyle(.checkbox)
-            .help("signaturePalette.digital.timestamp.help")
+            .help(L10n.string("signaturePalette.digital.timestamp.help"))
 
             if useTimestamp {
-                Picker("signaturePalette.digital.tsaProvider.picker", selection: $preferredTSA) {
+                Picker(L10n.string("signaturePalette.digital.tsaProvider.picker"), selection: $preferredTSA) {
                     ForEach(TimestampAuthorityOption.allCases) { option in
                         Text(option.displayName).tag(option)
                     }
                 }
                 .pickerStyle(.menu)
-                .help("signaturePalette.digital.tsaProvider.help")
+                .help(L10n.string("signaturePalette.digital.tsaProvider.help"))
             }
 
             SignaturePreview(data: digitalSignatureData)
 
             HStack(spacing: .dsSM) {
                 Button(action: placeDigitalSignature) {
-                    Label("signaturePalette.digital.place.button", systemImage: "checkmark.seal")
+                    Label(L10n.string("signaturePalette.digital.place.button"), systemImage: "checkmark.seal")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -260,13 +260,13 @@ struct SignaturePalette: View {
                 .help(placeDigitalSignatureHelp)
 
                 Button(action: signAndExport) {
-                    Label("signaturePalette.digital.signAndExport.button", systemImage: "square.and.arrow.up")
+                    Label(L10n.string("signaturePalette.digital.signAndExport.button"), systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.dsAccent)
                 .disabled(!viewModel.hasCryptographicSignaturePlacement || viewModel.isSigningInProgress)
-                .help("signaturePalette.digital.signAndExport.help")
+                .help(L10n.string("signaturePalette.digital.signAndExport.help"))
             }
         }
         .sheet(isPresented: $isShowingCreateSelfSigned) {
@@ -499,6 +499,8 @@ private struct SignaturePreview: View {
 private struct CertificateTrustPopover: View {
     @Binding var isShowingGuide: Bool
     @State private var isShowingSteps = false
+    // Read so `body` re-runs on a live language switch while the popover is open.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
@@ -507,7 +509,7 @@ private struct CertificateTrustPopover: View {
                 .foregroundStyle(Color.dsTextPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            DisclosureGroup("signaturePalette.certificateTrust.howToGetOne", isExpanded: $isShowingSteps) {
+            DisclosureGroup(isExpanded: $isShowingSteps) {
                 ScrollView {
                     Text(CertificateGuideResource.acquisitionGuideText())
                         .font(.dsCaption())
@@ -517,12 +519,14 @@ private struct CertificateTrustPopover: View {
                         .padding(.top, .dsSM)
                 }
                 .frame(maxHeight: 260)
+            } label: {
+                Text(L10n.string("signaturePalette.certificateTrust.howToGetOne", locale: locale))
             }
 
             Button {
                 isShowingGuide = true
             } label: {
-                Label("signaturePalette.certificateTrust.learnMore", systemImage: "book")
+                Label(L10n.string("signaturePalette.certificateTrust.learnMore"), systemImage: "book")
             }
             .buttonStyle(.bordered)
             .tint(Color.dsAccent)
@@ -539,11 +543,11 @@ private struct CertificateGuideSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("signaturePalette.certificateGuide.title")
+                Text(L10n.string("signaturePalette.certificateGuide.title"))
                     .font(.system(size: 15, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.dsTextPrimary)
                 Spacer()
-                Button("signaturePalette.certificateGuide.done") { dismiss() }
+                Button(L10n.string("signaturePalette.certificateGuide.done")) { dismiss() }
                     .keyboardShortcut(.defaultAction)
             }
             .padding(.dsLG)

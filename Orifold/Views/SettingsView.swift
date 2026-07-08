@@ -20,13 +20,13 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Picker("settings.language.label", selection: $languageManager.language) {
+            Picker(L10n.string("settings.language.label"), selection: $languageManager.language) {
                 ForEach(SupportedLanguage.allCases) { language in
                     Text(language.nativeName).tag(language)
                 }
             }
 
-            Picker("settings.appearance.label", selection: appearanceModeBinding) {
+            Picker(L10n.string("settings.appearance.label"), selection: appearanceModeBinding) {
                 ForEach(AppAppearanceMode.allCases) { mode in
                     Label(mode.title(locale: languageManager.effectiveLocale), systemImage: mode.systemImage).tag(mode)
                 }

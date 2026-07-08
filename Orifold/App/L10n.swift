@@ -18,7 +18,42 @@ enum L10n {
     /// separate sibling resource bundle (`Orifold_Orifold.bundle`) that `Bundle(for:)`
     /// never finds — only the auto-generated `Bundle.module` accessor points to it.
     #if SWIFT_PACKAGE
-    private static let bundle = Bundle.module
+    private final class BundleAnchor {}
+    /// SwiftPM's generated `Bundle.module` accessor calls `fatalError` when the
+    /// `Orifold_Orifold.bundle` resource bundle can't be located — which turned a
+    /// packaging omission (installer not copying the bundle into the .app) into a
+    /// launch crash-loop for every shipped build. Resolve the same candidates by
+    /// hand and degrade to `.main` (raw keys) instead of trapping, so a packaging
+    /// mistake shows untranslated text at worst, never a crash. See
+    /// docs/CRASH_AUDIT_PLAN.md.
+    private static let bundle: Bundle = {
+        let bundleName = "Orifold_Orifold.bundle"
+        let anchor = Bundle(for: BundleAnchor.self)
+        // Cover every layout the bundle can sit in without SPM's fatalError:
+        //   • shipped .app — Contents/Resources (where the installer copies it)
+        //   • CLI binary — sibling of the executable
+        //   • `swift test` — a sibling of the .xctest bundle in .build/<config>/
+        //   • framework-embedded — the anchor module's own resources
+        // `Bundle(for:)` is unreliable under `swift test` (SPM's generated accessor
+        // hardcodes an absolute build path for exactly this reason), so also probe
+        // the directories *containing* the main and anchor bundles/executables.
+        let candidates: [URL?] = [
+            Bundle.main.resourceURL,
+            Bundle.main.bundleURL,
+            Bundle.main.executableURL?.deletingLastPathComponent(),
+            Bundle.main.bundleURL.deletingLastPathComponent(),
+            anchor.resourceURL,
+            anchor.bundleURL,
+            anchor.bundleURL.deletingLastPathComponent(),
+            anchor.executableURL?.deletingLastPathComponent(),
+        ]
+        for base in candidates {
+            guard let url = base?.appendingPathComponent(bundleName),
+                  let found = Bundle(url: url) else { continue }
+            return found
+        }
+        return .main
+    }()
     #else
     private final class BundleAnchor {}
     private static let bundle = Bundle(for: BundleAnchor.self)
@@ -38,6 +73,14 @@ enum L10n {
     ///   does not, by itself, make a view refresh when the language changes.
     ///   Omit it only for non-SwiftUI contexts (error enums, PetBuddy messages),
     ///   which fall back to reading the stored preference directly.
+    /// Resolves a translation key held in a plain `String` (e.g. a struct property
+    /// like `option.titleKey`) — `String` doesn't implicitly convert to
+    /// `String.LocalizationValue` the way a string *literal* does, so a dynamic key
+    /// needs this explicit entry point instead of `string(_:locale:)`.
+    static func string(forKey key: String, locale: Locale? = nil) -> String {
+        string(String.LocalizationValue(stringLiteral: key), locale: locale)
+    }
+
     static func string(_ key: String.LocalizationValue, locale: Locale? = nil) -> String {
         let resolvedLocale = locale ?? currentLocale
         let resolved = String(localized: key, bundle: bundle, locale: resolvedLocale)

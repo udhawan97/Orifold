@@ -198,6 +198,12 @@ verify_app_bundle() {
     local plist="$app_path/Contents/Info.plist"
     print_step "Verifying app bundle"
     verify_required_frameworks "$app_path"
+    # The SwiftPM resource bundle carries Localizable.xcstrings + Assets.xcassets.
+    # Without it, `Bundle.module` traps and the app crash-loops at launch, so a
+    # bundle missing it is unshippable — refuse to install/package it.
+    if [[ ! -d "$app_path/Contents/Resources/Orifold_Orifold.bundle" ]]; then
+        fail "The app bundle is missing Orifold_Orifold.bundle (localized strings and assets); it would crash at launch."
+    fi
     if /usr/libexec/PlistBuddy -c "Print :CFBundleDocumentTypes" "$plist" 2>/dev/null | grep -qi "orifoldproj\\|orifold workspace"; then
         fail "The app bundle still advertises the old Orifold Workspace save format."
     fi
@@ -492,6 +498,21 @@ build_from_source() {
     elif otool -L "$built_binary" | grep -q '@rpath/PDFium.framework/PDFium'; then
         fail "Build completed, but PDFium.framework was not found next to the SwiftPM binary."
     fi
+    # SwiftPM emits each target's resources into a sibling `<Package>_<Target>.bundle`
+    # next to the binary (Orifold_Orifold.bundle holds Localizable.xcstrings +
+    # Assets.xcassets). `Bundle.module` resolves these via Bundle.main.resourceURL,
+    # i.e. Contents/Resources — so they MUST be copied in, or the first localized
+    # lookup crashes the app at launch (see docs/CRASH_AUDIT_PLAN.md). Copy every
+    # *.bundle so any future target with resources is covered automatically.
+    local products_dir resource_bundle bundle_count=0
+    products_dir="$(dirname "$built_binary")"
+    for resource_bundle in "$products_dir"/*.bundle(N); do
+        print_debug "Embedding resource bundle: $(basename "$resource_bundle")"
+        /usr/bin/ditto --norsrc "$resource_bundle" \
+            "$STAGED_APP/Contents/Resources/$(basename "$resource_bundle")"
+        bundle_count=$((bundle_count + 1))
+    done
+    print_debug "Embedded $bundle_count resource bundle(s)."
     write_info_plist
     build_icon
     cp "$PROJECT_ROOT/Orifold/Resources/CERTIFICATE_GUIDE.md" "$STAGED_APP/Contents/Resources/CERTIFICATE_GUIDE.md"

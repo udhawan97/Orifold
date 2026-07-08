@@ -772,9 +772,9 @@ struct PetView: View {
         // pixel-perfect hovering — the hit area extends past the paper card.
         .padding(hitAreaPadding)
         .contentShape(Rectangle())
-        .help("gami.avatar.help")
-        .accessibilityLabel("gami.a11y.label")
-        .accessibilityHint("gami.a11y.hint")
+        .help(L10n.string("gami.avatar.help"))
+        .accessibilityLabel(L10n.string("gami.a11y.label"))
+        .accessibilityHint(L10n.string("gami.a11y.hint"))
         .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
             PetControlPopover(
                 presentation: presentation,
@@ -1178,6 +1178,10 @@ private struct CompanionSwitchHintCard: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
     @State private var didAnimateIn = false
 
     private var shouldReduceMotion: Bool {
@@ -1186,7 +1190,7 @@ private struct CompanionSwitchHintCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            Text("companionHint.title")
+            Text(L10n.string("companionHint.title"))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.dsTextPrimary)
 
@@ -1196,11 +1200,11 @@ private struct CompanionSwitchHintCard: View {
             }
 
             HStack {
-                Button("companionHint.dismiss", action: onDismiss)
+                Button(L10n.string("companionHint.dismiss"), action: onDismiss)
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.dsTextSecondary)
                 Spacer()
-                Button("companionHint.switch", action: onSwitchAnytime)
+                Button(L10n.string("companionHint.switch"), action: onSwitchAnytime)
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.dsAccent)
             }
@@ -1234,11 +1238,11 @@ private struct CompanionSwitchHintCard: View {
         }
     }
 
-    private func companionRow(species: PetSpecies, lineKey: LocalizedStringKey) -> some View {
+    private func companionRow(species: PetSpecies, lineKey: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             OrifoldFoldMark(size: 28, interactive: false, figure: .forSpecies(species))
                 .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
-            Text(lineKey)
+            Text(L10n.string(forKey: lineKey, locale: locale))
                 .font(.system(size: 10.5, weight: .regular))
                 .foregroundStyle(Color.dsTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1281,7 +1285,7 @@ private struct PetControlPopover: View {
             }
 
             VStack(alignment: .leading, spacing: 5) {
-                Text("petBuddy.menu.companion.title")
+                Text(L10n.string("petBuddy.menu.companion.title"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.dsTextSecondary)
                 PetSpeciesSwitcher(selected: buddy.species) { buddy.selectSpecies($0) }
@@ -1293,7 +1297,7 @@ private struct PetControlPopover: View {
                 get: { !buddy.tipsEnabled },
                 set: { buddy.tipsEnabled = !$0 }
             )) {
-                Text("gami.menu.hideTips")
+                Text(L10n.string("gami.menu.hideTips"))
             }
             .toggleStyle(.checkbox)
 
@@ -1301,19 +1305,19 @@ private struct PetControlPopover: View {
                 buddy.hush()
                 isPresented = false
             } label: {
-                Label("petBuddy.menu.shush.title", systemImage: "speaker.slash")
+                Label(L10n.string("petBuddy.menu.shush.title"), systemImage: "speaker.slash")
             }
 
             Button {
                 buddy.disable()
                 isPresented = false
             } label: {
-                Label("petBuddy.menu.hide.title", systemImage: "eye.slash")
+                Label(L10n.string("petBuddy.menu.hide.title"), systemImage: "eye.slash")
             }
 
             if let feedbackURL {
                 Link(destination: feedbackURL) {
-                    Label("petBuddy.menu.sendFeedback.title", systemImage: "paperplane")
+                    Label(L10n.string("petBuddy.menu.sendFeedback.title"), systemImage: "paperplane")
                 }
             }
         }
@@ -1360,7 +1364,7 @@ private struct PetControlPopover: View {
                 Text(buddy.species.displayName(locale: locale))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
-                Text("gami.popover.subtitle")
+                Text(L10n.string("gami.popover.subtitle"))
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(Color.dsTextSecondary)
             }
@@ -1386,10 +1390,10 @@ private struct PetControlPopover: View {
                 .foregroundStyle(LinearGradient.dsAccent)
                 .rotationEffect(didAnimateIn && !shouldReduceMotion ? .degrees(8) : .zero)
             VStack(alignment: .leading, spacing: 3) {
-                Text("petBuddy.welcome.title")
+                Text(L10n.string("petBuddy.welcome.title"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
-                Text("petBuddy.welcome.subtitle")
+                Text(L10n.string("petBuddy.welcome.subtitle"))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)

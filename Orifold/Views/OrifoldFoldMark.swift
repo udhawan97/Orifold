@@ -55,6 +55,13 @@ struct OrifoldFoldMark: View {
     /// How long the excitement ramp takes to catch up to a new target — fast enough
     /// to feel responsive, slow enough not to look like a frequency snap.
     private let excitementRampDuration: TimeInterval = 0.35
+    /// After the fold resolves, a companion breathes for this long and then settles
+    /// into a still resting pose (the clock stops entirely). A hover, replay, or
+    /// re-fold wakes it again. Without this, every companion mark pins ~30fps of
+    /// Canvas redraws forever — several on the empty state at once saturate a core
+    /// even while the app is idle. Resting instead of ticking-forever is both calmer
+    /// and free. See the CPU-idle fix in docs/CRASH_AUDIT_PLAN.md.
+    private let idleSettleGrace: TimeInterval = 5.0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     // Passed into figure.accessibilityLabel(locale:) below so this view's `body`
@@ -68,16 +75,30 @@ struct OrifoldFoldMark: View {
     @State private var excitementRampStart = Date.distantPast
     @State private var excitementRampFrom: Double = 0
     @State private var excitementTarget: Double = 0
+    /// A companion has finished its post-fold breather and is now at rest — its clock
+    /// is stopped until something wakes it (hover, replay, re-fold).
+    @State private var idleSettled = false
+    /// Invalidates a pending settle if the state changes before it fires (same
+    /// generation-guard pattern as `playGeneration`).
+    @State private var settleGeneration = 0
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
     /// Pause the clock when there's nothing to animate: the crane has no idle wag, so
-    /// once its fold resolves it stops ticking. Companions always have an idle wag, so
-    /// they keep breathing/wagging.
+    /// once its fold resolves it stops ticking. A companion keeps breathing through its
+    /// post-fold grace window, then settles to a still pose (clock stopped) until a
+    /// hover/replay wakes it — so an idle empty state costs no CPU.
     private var isPaused: Bool {
-        figure.idle.isEmpty && !isFoldRunning
+        if isFoldRunning { return false }
+        if figure.idle.isEmpty { return true }          // crane: no idle wag
+        return idleSettled && excitementTarget == 0     // companion: rest once settled
+    }
+
+    /// Tick fast enough for a smooth fold/hover, calm and cheap while merely breathing.
+    private var tickInterval: Double {
+        (isFoldRunning || excitementTarget > 0) ? 1.0 / 30.0 : 1.0 / 15.0
     }
 
     var body: some View {
@@ -91,20 +112,40 @@ struct OrifoldFoldMark: View {
                     animatedMark
                 }
                 .buttonStyle(.plain)
-                .help("orifoldFoldMark.replay.help")
+                .help(L10n.string("orifoldFoldMark.replay.help"))
             } else {
                 animatedMark
             }
         }
         .frame(width: size, height: size)
         .accessibilityLabel(figure.accessibilityLabel(locale: locale))
-        .accessibilityHint(interactive && !shouldReduceMotion ? "orifoldFoldMark.replay.accessibilityHint" : "")
+        .accessibilityHint(interactive && !shouldReduceMotion ? L10n.string("orifoldFoldMark.replay.accessibilityHint", locale: locale) : "")
         .onAppear(perform: scheduleFirstPlay)
         .onChange(of: replayTrigger) { _, _ in replay() }
         .onChange(of: excitement) { _, newValue in
             excitementRampFrom = currentExcitement(at: Date())
             excitementRampStart = Date()
             excitementTarget = newValue
+            if newValue > 0 {
+                // Hover-in: wake immediately and cancel any pending settle.
+                idleSettled = false
+                settleGeneration += 1
+            } else {
+                // Hover-out: breathe briefly, then settle back to rest.
+                armIdleSettle()
+            }
+        }
+    }
+
+    /// Schedule the companion to stop ticking after `idleSettleGrace`, unless a fold,
+    /// hover, or replay intervenes first. No-op for the crane (it pauses on its own).
+    private func armIdleSettle() {
+        guard !figure.idle.isEmpty, !shouldReduceMotion else { return }
+        settleGeneration += 1
+        let generation = settleGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + idleSettleGrace) {
+            guard generation == settleGeneration, !isFoldRunning, excitementTarget == 0 else { return }
+            idleSettled = true
         }
     }
 
@@ -117,7 +158,7 @@ struct OrifoldFoldMark: View {
     }
 
     private var animatedMark: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: isPaused)) { timeline in
+        TimelineView(.animation(minimumInterval: tickInterval, paused: isPaused)) { timeline in
             let elapsed = foldStart.map { max(0, timeline.date.timeIntervalSince($0)) }
             let state = elapsed.map {
                 FoldState.state(atElapsed: $0, resolvesToAppIcon: figure.resolvesToAppIcon)
@@ -178,12 +219,16 @@ struct OrifoldFoldMark: View {
         playGeneration += 1
         foldStart = Date()
         isFoldRunning = true
+        idleSettled = false
+        settleGeneration += 1   // cancel any settle pending from a previous rest
         let generation = playGeneration
         // Let the clock idle-tick only while the crane is folding; once the fold
-        // resolves, `isPaused` can stop it (companions keep ticking via their wag).
+        // resolves, the crane pauses and a companion breathes for a grace window
+        // before settling to a still, zero-cost resting pose.
         DispatchQueue.main.asyncAfter(deadline: .now() + animationRuntime) {
             guard generation == playGeneration else { return }
             isFoldRunning = false
+            armIdleSettle()
         }
     }
 }

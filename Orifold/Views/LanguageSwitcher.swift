@@ -33,7 +33,7 @@ struct LanguageSwitcher: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("languageSwitcher.help")
-        .accessibilityLabel("languageSwitcher.accessibilityLabel")
+        .help(L10n.string("languageSwitcher.help"))
+        .accessibilityLabel(L10n.string("languageSwitcher.accessibilityLabel"))
     }
 }

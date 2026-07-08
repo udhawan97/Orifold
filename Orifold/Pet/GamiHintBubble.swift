@@ -47,7 +47,7 @@ struct GamiHintBubble: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("gami.bubble.dismiss")
+                .accessibilityLabel(L10n.string("gami.bubble.dismiss"))
             }
         }
         .padding(.horizontal, .dsMD)

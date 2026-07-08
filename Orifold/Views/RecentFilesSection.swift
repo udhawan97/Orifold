@@ -63,7 +63,7 @@ struct RecentFilesSection: View {
 
     private var header: some View {
         HStack {
-            Text("recentFiles.header")
+            Text(L10n.string("recentFiles.header"))
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(.dsLabelTracking)
                 .textCase(.uppercase)
@@ -87,7 +87,7 @@ struct RecentFilesSection: View {
             Button {
                 store.clear()
             } label: {
-                Text("recentFiles.clear")
+                Text(L10n.string("recentFiles.clear"))
                     .font(.dsCaption())
             }
             .buttonStyle(.plain)
@@ -188,7 +188,7 @@ private struct RecentFileCard: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("recentFiles.card.accessibilityHint")
+        .accessibilityHint(L10n.string("recentFiles.card.accessibilityHint"))
         .accessibilityAddTraits(.isButton)
     }
 
@@ -283,12 +283,12 @@ private struct RecentFileCard: View {
 
     @ViewBuilder
     private var menuItems: some View {
-        Button("recentFiles.menu.open") { open() }
+        Button(L10n.string("recentFiles.menu.open")) { open() }
             .disabled(!isAvailable)
-        Button("recentFiles.menu.showInFinder") { store.revealInFinder(entry) }
+        Button(L10n.string("recentFiles.menu.showInFinder")) { store.revealInFinder(entry) }
             .disabled(!isAvailable)
         Divider()
-        Button("recentFiles.menu.remove", role: .destructive) {
+        Button(L10n.string("recentFiles.menu.remove"), role: .destructive) {
             store.remove(id: entry.id)
         }
     }

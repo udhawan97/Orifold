@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 /// honest-language matrix in docs/signing/SIGNATURE_EXPERIENCE_PLAN.md §1.
 struct CertificateStatusChip: View {
     var profile: DigitalCertificateProfile
+    @Environment(\.locale) private var locale
 
     var body: some View {
         Label(titleKey, systemImage: systemImage)
@@ -19,10 +20,10 @@ struct CertificateStatusChip: View {
             .foregroundStyle(tint)
     }
 
-    private var titleKey: LocalizedStringKey {
-        if profile.isExpired { return "certificateChip.expired" }
-        if profile.expiresSoon { return "certificateChip.expiresSoon" }
-        return profile.isSelfSigned ? "certificateChip.selfSigned" : "certificateChip.caIssued"
+    private var titleKey: String {
+        if profile.isExpired { return L10n.string("certificateChip.expired", locale: locale) }
+        if profile.expiresSoon { return L10n.string("certificateChip.expiresSoon", locale: locale) }
+        return L10n.string(profile.isSelfSigned ? "certificateChip.selfSigned" : "certificateChip.caIssued", locale: locale)
     }
 
     private var systemImage: String {
@@ -53,24 +54,24 @@ struct CreateSelfSignedCertificateSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            Text("certificateSheet.createSelfSigned.title")
+            Text(L10n.string("certificateSheet.createSelfSigned.title"))
                 .font(.system(size: 15, weight: .semibold, design: .serif))
                 .foregroundStyle(Color.dsTextPrimary)
 
-            Text("certificateSheet.createSelfSigned.notice")
+            Text(L10n.string("certificateSheet.createSelfSigned.notice"))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TextField("certificateSheet.name.placeholder", text: $name)
+            TextField(L10n.string("certificateSheet.name.placeholder"), text: $name)
                 .textFieldStyle(.roundedBorder)
-            TextField("certificateSheet.email.placeholder", text: $email)
+            TextField(L10n.string("certificateSheet.email.placeholder"), text: $email)
                 .textFieldStyle(.roundedBorder)
 
-            Picker("certificateSheet.validity.picker", selection: $validityYears) {
-                Text("certificateSheet.validity.oneYear").tag(1)
-                Text("certificateSheet.validity.twoYears").tag(2)
-                Text("certificateSheet.validity.fiveYears").tag(5)
+            Picker(L10n.string("certificateSheet.validity.picker"), selection: $validityYears) {
+                Text(L10n.string("certificateSheet.validity.oneYear")).tag(1)
+                Text(L10n.string("certificateSheet.validity.twoYears")).tag(2)
+                Text(L10n.string("certificateSheet.validity.fiveYears")).tag(5)
             }
             .pickerStyle(.segmented)
 
@@ -82,9 +83,9 @@ struct CreateSelfSignedCertificateSheet: View {
 
             HStack {
                 Spacer()
-                Button("certificateSheet.cancel.button") { dismiss() }
+                Button(L10n.string("certificateSheet.cancel.button")) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("certificateSheet.create.button", action: create)
+                Button(L10n.string("certificateSheet.create.button"), action: create)
                     .buttonStyle(.borderedProminent)
                     .tint(Color.dsAccent)
                     .keyboardShortcut(.defaultAction)
@@ -130,7 +131,7 @@ struct ImportCertificatePasswordSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            Text("certificateSheet.importPassword.title")
+            Text(L10n.string("certificateSheet.importPassword.title"))
                 .font(.system(size: 15, weight: .semibold, design: .serif))
                 .foregroundStyle(Color.dsTextPrimary)
 
@@ -138,7 +139,7 @@ struct ImportCertificatePasswordSheet: View {
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
 
-            SecureField("certificateSheet.importPassword.placeholder", text: $password)
+            SecureField(L10n.string("certificateSheet.importPassword.placeholder"), text: $password)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(attemptImport)
 
@@ -151,9 +152,9 @@ struct ImportCertificatePasswordSheet: View {
 
             HStack {
                 Spacer()
-                Button("certificateSheet.cancel.button") { dismiss() }
+                Button(L10n.string("certificateSheet.cancel.button")) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("certificateSheet.unlock.button", action: attemptImport)
+                Button(L10n.string("certificateSheet.unlock.button"), action: attemptImport)
                     .buttonStyle(.borderedProminent)
                     .tint(Color.dsAccent)
                     .keyboardShortcut(.defaultAction)
@@ -202,11 +203,11 @@ struct ManageCertificatesSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("certificateSheet.manage.title")
+                Text(L10n.string("certificateSheet.manage.title"))
                     .font(.system(size: 15, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.dsTextPrimary)
                 Spacer()
-                Button("certificateSheet.done.button") { dismiss() }
+                Button(L10n.string("certificateSheet.done.button")) { dismiss() }
                     .keyboardShortcut(.defaultAction)
             }
             .padding(.dsLG)
@@ -218,7 +219,7 @@ struct ManageCertificatesSheet: View {
                     Image(systemName: "checkmark.seal")
                         .font(.system(size: 28, weight: .light))
                         .foregroundStyle(Color.dsTextTertiary)
-                    Text("certificateSheet.manage.empty")
+                    Text(L10n.string("certificateSheet.manage.empty"))
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextSecondary)
                 }
@@ -240,15 +241,15 @@ struct ManageCertificatesSheet: View {
             L10n.string("certificateSheet.delete.confirmTitle", locale: locale),
             isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } })
         ) {
-            Button("certificateSheet.cancel.button", role: .cancel) { pendingDeletion = nil }
-            Button("certificateSheet.delete.button", role: .destructive) {
+            Button(L10n.string("certificateSheet.cancel.button"), role: .cancel) { pendingDeletion = nil }
+            Button(L10n.string("certificateSheet.delete.button"), role: .destructive) {
                 if let profile = pendingDeletion {
                     viewModel.removeCertificateProfile(id: profile.id)
                 }
                 pendingDeletion = nil
             }
         } message: {
-            Text("certificateSheet.delete.confirmMessage")
+            Text(L10n.string("certificateSheet.delete.confirmMessage"))
         }
     }
 
@@ -275,7 +276,7 @@ struct ManageCertificatesSheet: View {
 
             HStack {
                 Button(action: { exportPublicCertificate(profile) }) {
-                    Label("certificateSheet.manage.exportPublicCert", systemImage: "square.and.arrow.up")
+                    Label(L10n.string("certificateSheet.manage.exportPublicCert"), systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(.borderless)
                 .font(.dsCaption())
@@ -283,7 +284,7 @@ struct ManageCertificatesSheet: View {
                 Spacer()
 
                 Button(role: .destructive) { pendingDeletion = profile } label: {
-                    Label("certificateSheet.delete.button", systemImage: "trash")
+                    Label(L10n.string("certificateSheet.delete.button"), systemImage: "trash")
                 }
                 .buttonStyle(.borderless)
                 .font(.dsCaption())
@@ -321,6 +322,8 @@ private struct CertificateTrustCheckRow: View {
     @State private var isChecking = false
     @State private var result: CertificateTrustEvaluation?
     @State private var errorMessage: String?
+    // Read so `body` re-runs on a live language switch while the sheet is open.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -330,13 +333,13 @@ private struct CertificateTrustCheckRow: View {
                         ProgressView()
                             .controlSize(.small)
                     } else {
-                        Label("certificateSheet.manage.checkTrust", systemImage: "network")
+                        Label(L10n.string("certificateSheet.manage.checkTrust"), systemImage: "network")
                     }
                 }
                 .buttonStyle(.borderless)
                 .font(.dsCaption())
                 .disabled(isChecking)
-                .help("certificateSheet.manage.checkTrust.help")
+                .help(L10n.string("certificateSheet.manage.checkTrust.help"))
 
                 if let result {
                     resultBadge(for: result)
@@ -379,21 +382,21 @@ private struct CertificateTrustCheckRow: View {
             // whether revocation was actually checked and came back clean, OR the OCSP/CRL
             // responder was simply unreachable — it doesn't distinguish the two. Say so
             // rather than implying a stronger revocation guarantee than Orifold can back up.
-            Label("certificateSheet.manage.trustResult.trusted", systemImage: "checkmark.seal.fill")
+            Label(L10n.string("certificateSheet.manage.trustResult.trusted"), systemImage: "checkmark.seal.fill")
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsSuccessAccent)
-                .help("certificateSheet.manage.trustResult.trusted.help")
+                .help(L10n.string("certificateSheet.manage.trustResult.trusted.help"))
         case .revoked:
-            Label("certificateSheet.manage.trustResult.revoked", systemImage: "xmark.seal.fill")
+            Label(L10n.string("certificateSheet.manage.trustResult.revoked"), systemImage: "xmark.seal.fill")
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsErrorAccent)
         case .notTrusted:
             // Expected, non-alarming result for a self-signed identity — phrased per the
             // honest-language matrix, not as an error.
             Label(
-                profile.isSelfSigned
+                L10n.string(profile.isSelfSigned
                     ? "certificateSheet.manage.trustResult.notTrustedSelfSigned"
-                    : "certificateSheet.manage.trustResult.notTrusted",
+                    : "certificateSheet.manage.trustResult.notTrusted", locale: locale),
                 systemImage: "questionmark.circle"
             )
             .font(.dsCaption())

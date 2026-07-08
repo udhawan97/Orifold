@@ -26,23 +26,23 @@ struct PasswordPromptView: View {
                 .foregroundStyle(Color.dsTextPrimary)
 
             if failed {
-                Text("passwordPrompt.incorrectPassword.message")
+                Text(L10n.string("passwordPrompt.incorrectPassword.message"))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsAnnotationCoral)
             }
 
-            SecureField("passwordPrompt.password.field", text: $password)
+            SecureField(L10n.string("passwordPrompt.password.field"), text: $password)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 280)
                 .onSubmit { attemptUnlock() }
 
             HStack {
-                Button("passwordPrompt.cancel.button") {
+                Button(L10n.string("passwordPrompt.cancel.button")) {
                     viewModel.cancelPendingPasswordImport()
                     dismiss()
                 }
                     .keyboardShortcut(.cancelAction)
-                Button("passwordPrompt.unlock.button") { attemptUnlock() }
+                Button(L10n.string("passwordPrompt.unlock.button")) { attemptUnlock() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(password.isEmpty)
             }

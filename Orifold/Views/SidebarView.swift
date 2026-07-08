@@ -94,7 +94,7 @@ struct SidebarView: View {
 
     private var sectionHeader: some View {
         HStack(spacing: 4) {
-            Text("sidebar.section.documents")
+            Text(L10n.string("sidebar.section.documents"))
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(.dsLabelTracking)
                 .textCase(.uppercase)
@@ -122,9 +122,9 @@ struct SidebarView: View {
                             Image(systemName: "tray.and.arrow.down.fill")
                                 .font(.system(size: 26, weight: .light))
                                 .symbolRenderingMode(.hierarchical)
-                            Text("contentView.dropOverlay.title")
+                            Text(L10n.string("contentView.dropOverlay.title"))
                                 .font(.dsHeadline())
-                            Text("contentView.dropOverlay.subtitle")
+                            Text(L10n.string("contentView.dropOverlay.subtitle"))
                                 .font(.dsCaption())
                         }
                         .foregroundStyle(Color.dsAccent)
@@ -203,7 +203,7 @@ private struct WorkspaceHeaderCard: View {
 
     private var addFilesButton: some View {
         Button(action: { openFilesForImport(into: viewModel) }) {
-            Label("sidebar.addFiles.label", systemImage: "plus")
+            Label(L10n.string("sidebar.addFiles.label"), systemImage: "plus")
                 .font(.system(size: 12, weight: .semibold))
         }
         .buttonStyle(.plain)
@@ -211,17 +211,17 @@ private struct WorkspaceHeaderCard: View {
         .padding(.horizontal, .dsSM)
         .padding(.vertical, 5)
         .background(Color.dsAccentSoft, in: Capsule())
-        .help("sidebar.addFiles.help")
+        .help(L10n.string("sidebar.addFiles.help"))
     }
 
     private var overflowMenu: some View {
         Menu {
-            Button("sidebar.overflow.expandAll") {
+            Button(L10n.string("sidebar.overflow.expandAll")) {
                 withAnimation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15)) {
                     expandedDocs = Set(viewModel.memberDocuments.map(\.id))
                 }
             }
-            Button("sidebar.overflow.collapseAll") {
+            Button(L10n.string("sidebar.overflow.collapseAll")) {
                 withAnimation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15)) {
                     expandedDocs = []
                 }
@@ -235,7 +235,7 @@ private struct WorkspaceHeaderCard: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("sidebar.overflow.help")
+        .help(L10n.string("sidebar.overflow.help"))
         .accessibilityLabel(L10n.string("sidebar.overflow.help", locale: locale))
     }
 }
@@ -291,12 +291,12 @@ private struct SidebarDropZone: View {
                         .foregroundStyle(isTargeted || isHovered ? Color.dsAccent : Color.dsTextTertiary)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(isImporting ? "sidebar.dropZone.importing" : "sidebar.dropZone.title")
+                    Text(L10n.string(isImporting ? "sidebar.dropZone.importing" : "sidebar.dropZone.title", locale: locale))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.dsTextSecondary)
                         .lineLimit(1)
                     if !isImporting {
-                        Text("sidebar.dropZone.subtitle")
+                        Text(L10n.string("sidebar.dropZone.subtitle"))
                             .font(.system(size: 10.5))
                             .foregroundStyle(Color.dsTextTertiary)
                             .lineLimit(1)
@@ -324,7 +324,7 @@ private struct SidebarDropZone: View {
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isTargeted)
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isHovered)
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.2), value: errorFlash)
-        .help("sidebar.addFiles.help")
+        .help(L10n.string("sidebar.addFiles.help"))
         .accessibilityLabel(L10n.string("sidebar.addFiles.label", locale: locale))
         .accessibilityHint(L10n.string("sidebar.dropZone.accessibilityHint", locale: locale))
     }
@@ -507,7 +507,7 @@ struct MemberDocRow: View {
 
     @ViewBuilder private var titleView: some View {
         if isRenaming {
-            TextField("sidebar.doc.rename.placeholder", text: $renameText)
+            TextField(L10n.string("sidebar.doc.rename.placeholder"), text: $renameText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.dsTextPrimary)
@@ -610,7 +610,7 @@ struct MemberDocRow: View {
         Button {
             beginRename()
         } label: {
-            Label("sidebar.doc.menu.rename", systemImage: "pencil")
+            Label(L10n.string("sidebar.doc.menu.rename"), systemImage: "pencil")
         }
         Button {
             exportDocument()
@@ -620,13 +620,13 @@ struct MemberDocRow: View {
         Button {
             openFilesInsertingAfterDocument()
         } label: {
-            Label("sidebar.thumbnail.insertFilesAfter.contextMenu", systemImage: "tray.and.arrow.down")
+            Label(L10n.string("sidebar.thumbnail.insertFilesAfter.contextMenu"), systemImage: "tray.and.arrow.down")
         }
         Divider()
         Button(role: .destructive) {
             viewModel.removeDocument(member)
         } label: {
-            Label("sidebar.removeDocument.contextMenu", systemImage: "trash")
+            Label(L10n.string("sidebar.removeDocument.contextMenu"), systemImage: "trash")
         }
         .disabled(!viewModel.canRemoveDocuments)
     }
@@ -827,7 +827,7 @@ struct ThumbnailCell: View {
                     viewModel.exportPages(selection)
                 }
                 Divider()
-                Button("sidebar.thumbnail.insertFilesAfter.contextMenu") {
+                Button(L10n.string("sidebar.thumbnail.insertFilesAfter.contextMenu")) {
                     openFiles(insertingAfter: pageRef)
                 }
                 Divider()
@@ -907,19 +907,19 @@ struct ThumbnailCell: View {
             thumbnail = page.thumbnail(of: Self.thumbSize, for: .mediaBox)
         }
         .confirmationDialog(
-            "sidebar.deletePages.confirmation.title",
+            L10n.string("sidebar.deletePages.confirmation.title"),
             isPresented: $isConfirmingDelete,
             titleVisibility: .visible
         ) {
-            Button("sidebar.deletePages.confirmation.delete", role: .destructive) {
+            Button(L10n.string("sidebar.deletePages.confirmation.delete"), role: .destructive) {
                 viewModel.deletePages(viewModel.pageRefsForCurrentSelection(including: pageRef))
                 thumbnail = nil
             }
-            Button("sidebar.deletePages.confirmation.cancel", role: .cancel) {}
+            Button(L10n.string("sidebar.deletePages.confirmation.cancel"), role: .cancel) {}
         } message: {
             let count = viewModel.pageRefsForCurrentSelection(including: pageRef).count
             if count == 1 {
-                Text("sidebar.deletePages.confirmation.messageSingular")
+                Text(L10n.string("sidebar.deletePages.confirmation.messageSingular"))
             } else {
                 Text(L10n.format("sidebar.removePages.confirmation.plural", count, locale: locale))
             }

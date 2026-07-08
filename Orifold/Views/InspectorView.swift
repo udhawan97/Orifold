@@ -30,7 +30,7 @@ struct InspectorView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("inspector.title")
+                Text(L10n.string("inspector.title"))
                     .font(.system(size: 13, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.dsTextPrimary)
                 Spacer()
@@ -163,7 +163,7 @@ private struct InspectorTagsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
             HStack(spacing: .dsSM) {
-                TextField("inspector.tags.addTag.placeholder", text: $draftTag)
+                TextField(L10n.string("inspector.tags.addTag.placeholder"), text: $draftTag)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit(addTag)
                 Button(action: addTag) {
@@ -173,11 +173,11 @@ private struct InspectorTagsView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Color.dsAccent)
                 .disabled(draftTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .help("inspector.tags.addTag.help")
+                .help(L10n.string("inspector.tags.addTag.help"))
             }
 
             if viewModel.document.workspace.tags.isEmpty {
-                InspectorEmptyState(icon: "tag", title: "inspector.tags.empty")
+                InspectorEmptyState(icon: "tag", title: L10n.string("inspector.tags.empty"))
             } else {
                 LazyVStack(alignment: .leading, spacing: .dsSM) {
                     ForEach(viewModel.document.workspace.tags, id: \.self) { tag in
@@ -216,7 +216,7 @@ private struct TagChip: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextTertiary)
-            .help("inspector.tags.removeTag.help")
+            .help(L10n.string("inspector.tags.removeTag.help"))
         }
         .padding(.leading, 8)
         .padding(.trailing, 4)
@@ -230,6 +230,7 @@ private struct TagChip: View {
 private struct InspectorWorkspaceCommentsView: View {
     @Bindable var viewModel: WorkspaceViewModel
     @State private var draftComment = ""
+    @Environment(\.locale) private var locale
 
     private var workspaceComments: [WorkspaceComment] {
         viewModel.filteredWorkspaceComments
@@ -251,18 +252,18 @@ private struct InspectorWorkspaceCommentsView: View {
         VStack(alignment: .leading, spacing: .dsMD) {
             InspectorTextEditor(
                 text: $draftComment,
-                placeholder: viewModel.isReaderMode ? "inspector.comments.studyNote.placeholder" : "inspector.comments.comment.placeholder",
+                placeholder: L10n.string(viewModel.isReaderMode ? "inspector.comments.studyNote.placeholder" : "inspector.comments.comment.placeholder", locale: locale),
                 minHeight: 96,
                 background: Color.dsCard,
                 font: .dsBody()
             )
-            .accessibilityLabel(viewModel.isReaderMode ? "inspector.comments.studyNote.accessibilityLabel" : "inspector.comments.comment.accessibilityLabel")
+            .accessibilityLabel(L10n.string(viewModel.isReaderMode ? "inspector.comments.studyNote.accessibilityLabel" : "inspector.comments.comment.accessibilityLabel", locale: locale))
 
             Button {
                 viewModel.addComment(draftComment)
                 draftComment = ""
             } label: {
-                Label(viewModel.isReaderMode ? "inspector.comments.saveNote.button" : "inspector.comments.addComment.button", systemImage: "text.bubble")
+                Label(L10n.string(viewModel.isReaderMode ? "inspector.comments.saveNote.button" : "inspector.comments.addComment.button", locale: locale), systemImage: "text.bubble")
                     .font(.system(size: 13, weight: .semibold))
                     .frame(maxWidth: .infinity, minHeight: 32)
             }
@@ -270,16 +271,16 @@ private struct InspectorWorkspaceCommentsView: View {
             .tint(Color.dsAccent)
             .disabled(draftComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-            Picker("inspector.comments.filter.picker", selection: $viewModel.commentFilter) {
-                Text("inspector.comments.filter.open").tag(WorkspaceViewModel.CommentFilter.open)
-                Text("inspector.comments.filter.resolved").tag(WorkspaceViewModel.CommentFilter.resolved)
-                Text("inspector.comments.filter.all").tag(WorkspaceViewModel.CommentFilter.all)
+            Picker(L10n.string("inspector.comments.filter.picker"), selection: $viewModel.commentFilter) {
+                Text(L10n.string("inspector.comments.filter.open")).tag(WorkspaceViewModel.CommentFilter.open)
+                Text(L10n.string("inspector.comments.filter.resolved")).tag(WorkspaceViewModel.CommentFilter.resolved)
+                Text(L10n.string("inspector.comments.filter.all")).tag(WorkspaceViewModel.CommentFilter.all)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
 
             if !hasComments {
-                InspectorEmptyState(icon: "text.bubble", title: "inspector.comments.empty")
+                InspectorEmptyState(icon: "text.bubble", title: L10n.string("inspector.comments.empty", locale: locale))
             } else {
                 LazyVStack(alignment: .leading, spacing: .dsMD) {
                     if !workspaceComments.isEmpty {
@@ -288,7 +289,7 @@ private struct InspectorWorkspaceCommentsView: View {
                             WorkspaceCommentRow(viewModel: viewModel, comment: comment)
                         }
                     } else if !allWorkspaceComments.isEmpty {
-                        InspectorEmptyState(icon: "line.3.horizontal.decrease.circle", title: "inspector.comments.noMatching")
+                        InspectorEmptyState(icon: "line.3.horizontal.decrease.circle", title: L10n.string("inspector.comments.noMatching", locale: locale))
                     }
 
                     if !noteComments.isEmpty {
@@ -332,7 +333,7 @@ private struct InspectorSectionHeader: View {
 
 private struct InspectorTextEditor: View {
     @Binding var text: String
-    var placeholder: LocalizedStringKey
+    var placeholder: String
     var minHeight: CGFloat
     var background: Color
     var font: Font
@@ -420,7 +421,7 @@ private struct WorkspaceCommentRow: View {
                 .toggleStyle(.button)
                 .buttonStyle(.borderless)
                 .foregroundStyle(current.isResolved ? Color.dsAccent : Color.dsTextTertiary)
-                .help(current.isResolved ? "inspector.comments.markOpen.help" : "inspector.comments.markResolved.help")
+                .help(L10n.string(current.isResolved ? "inspector.comments.markOpen.help" : "inspector.comments.markResolved.help", locale: locale))
 
                 Button {
                     draftBody = liveComment.body
@@ -431,7 +432,7 @@ private struct WorkspaceCommentRow: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(Color.dsTextTertiary)
-                .help(isEditing ? "inspector.comments.cancelEdit.help" : "inspector.comments.editComment.help")
+                .help(L10n.string(isEditing ? "inspector.comments.cancelEdit.help" : "inspector.comments.editComment.help", locale: locale))
 
                 Button {
                     viewModel.removeComment(liveComment)
@@ -441,7 +442,7 @@ private struct WorkspaceCommentRow: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(Color.dsTextTertiary)
-                .help("inspector.comments.deleteComment.help")
+                .help(L10n.string("inspector.comments.deleteComment.help"))
             }
 
             if let subtitle = viewModel.anchorSubtitle(for: current) {
@@ -459,24 +460,24 @@ private struct WorkspaceCommentRow: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(current.anchor == nil)
-                .help(current.anchor == nil ? "inspector.comments.anchorRemoved.help" : "inspector.comments.jumpToAnchor.help")
+                .help(L10n.string(current.anchor == nil ? "inspector.comments.anchorRemoved.help" : "inspector.comments.jumpToAnchor.help", locale: locale))
             }
 
             if isEditing {
                 InspectorTextEditor(
                     text: $draftBody,
-                    placeholder: "inspector.textEdit.editComment.placeholder",
+                    placeholder: L10n.string("inspector.textEdit.editComment.placeholder", locale: locale),
                     minHeight: 76,
                     background: Color.dsSurface,
                     font: .system(size: commentFontSize(for: current.style.textSize)),
                     focusOnAppear: viewModel.selectedCommentID == current.id
                 )
-                .accessibilityLabel("inspector.textEdit.editComment.accessibilityLabel")
+                .accessibilityLabel(L10n.string("inspector.textEdit.editComment.accessibilityLabel"))
                 Button {
                     viewModel.updateCommentBody(liveComment, body: draftBody)
                     isEditing = false
                 } label: {
-                    Label("inspector.comments.save.button", systemImage: "checkmark")
+                    Label(L10n.string("inspector.comments.save.button"), systemImage: "checkmark")
                         .frame(maxWidth: .infinity, minHeight: 28)
                 }
                 .buttonStyle(.borderedProminent)
@@ -533,7 +534,7 @@ private struct WorkspaceCommentRow: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(liveComment.style.isBold ? Color.dsAccent : Color.dsTextTertiary)
-            .help("inspector.comments.format.bold.help")
+            .help(L10n.string("inspector.comments.format.bold.help"))
 
             Button {
                 var style = liveComment.style
@@ -545,7 +546,7 @@ private struct WorkspaceCommentRow: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(liveComment.style.isItalic ? Color.dsAccent : Color.dsTextTertiary)
-            .help("inspector.comments.format.italic.help")
+            .help(L10n.string("inspector.comments.format.italic.help"))
 
             Menu {
                 ForEach(WorkspaceCommentTextSize.allCases) { size in
@@ -560,7 +561,7 @@ private struct WorkspaceCommentRow: View {
                     .frame(width: 24, height: 24)
             }
             .menuStyle(.borderlessButton)
-            .help("inspector.comments.format.textSize.help")
+            .help(L10n.string("inspector.comments.format.textSize.help"))
 
             Menu {
                 ForEach(colorChoices, id: \.hex) { choice in
@@ -578,7 +579,7 @@ private struct WorkspaceCommentRow: View {
                     .frame(width: 24, height: 24)
             }
             .menuStyle(.borderlessButton)
-            .help("inspector.comments.format.textColor.help")
+            .help(L10n.string("inspector.comments.format.textColor.help"))
 
             Spacer()
         }
@@ -596,7 +597,7 @@ private struct WorkspaceCommentRow: View {
                 }
             }
             HStack(spacing: .dsSM) {
-                TextField("inspector.comments.addTag.placeholder", text: $draftTag)
+                TextField(L10n.string("inspector.comments.addTag.placeholder"), text: $draftTag)
                     .textFieldStyle(.roundedBorder)
                     .font(.dsCaption())
                     .onSubmit(addCommentTag)
@@ -614,7 +615,7 @@ private struct WorkspaceCommentRow: View {
                 }
                 .menuStyle(.borderlessButton)
                 .disabled(tagSuggestions.isEmpty)
-                .help("inspector.comments.tagSuggestions.help")
+                .help(L10n.string("inspector.comments.tagSuggestions.help"))
 
                 Button(action: addCommentTag) {
                     Image(systemName: "plus")
@@ -622,7 +623,7 @@ private struct WorkspaceCommentRow: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(draftTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .help("inspector.comments.addTagToComment.help")
+                .help(L10n.string("inspector.comments.addTagToComment.help"))
             }
         }
     }
@@ -733,7 +734,7 @@ private struct PDFNoteCommentRow: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.dsTextTertiary)
-                .help("inspector.pdfNote.show.help")
+                .help(L10n.string("inspector.pdfNote.show.help"))
 
                 Button(action: onRemove) {
                     Image(systemName: "trash")
@@ -741,7 +742,7 @@ private struct PDFNoteCommentRow: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.dsTextTertiary)
-                .help("inspector.pdfNote.delete.help")
+                .help(L10n.string("inspector.pdfNote.delete.help"))
             }
 
             Text(note.body)
@@ -822,9 +823,9 @@ private struct InspectorDecorateView: View {
     var body: some View {
         let _ = viewModel.decorationStateVersion
         VStack(alignment: .leading, spacing: 0) {
-            decorationRow(title: "inspector.decorate.watermark.title", isOn: watermarkEnabled) {
+            decorationRow(title: L10n.string("inspector.decorate.watermark.title", locale: locale), isOn: watermarkEnabled) {
                 VStack(alignment: .leading, spacing: .dsSM) {
-                    TextField("inspector.decorate.watermark.text.placeholder", text: watermarkText)
+                    TextField(L10n.string("inspector.decorate.watermark.text.placeholder"), text: watermarkText)
                         .textFieldStyle(.roundedBorder)
 
                     decorationSizeControl(.watermark, range: 24...96, step: 2)
@@ -835,7 +836,7 @@ private struct InspectorDecorateView: View {
 
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
-            decorationRow(title: "inspector.decorate.pageNumbers.title", isOn: pageNumbersEnabled) {
+            decorationRow(title: L10n.string("inspector.decorate.pageNumbers.title", locale: locale), isOn: pageNumbersEnabled) {
                 VStack(alignment: .leading, spacing: .dsSM) {
                     Text(L10n.format("inspector.pageOf", max(viewModel.pageCount, 1), locale: locale))
                         .font(.dsCaption())
@@ -849,9 +850,9 @@ private struct InspectorDecorateView: View {
 
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
-            decorationRow(title: "inspector.decorate.batesStamp.title", isOn: batesEnabled) {
+            decorationRow(title: L10n.string("inspector.decorate.batesStamp.title", locale: locale), isOn: batesEnabled) {
                 VStack(alignment: .leading, spacing: .dsSM) {
-                    TextField("inspector.decorate.bates.prefix.placeholder", text: batesPrefix)
+                    TextField(L10n.string("inspector.decorate.bates.prefix.placeholder"), text: batesPrefix)
                         .textFieldStyle(.roundedBorder)
                     Stepper(value: batesStartNumber, in: 0...999_999) {
                         Text(L10n.format("inspector.decorate.startNumber", viewModel.decorationStartNumber(for: .bates), locale: locale))
@@ -868,7 +869,7 @@ private struct InspectorDecorateView: View {
         .padding(.vertical, .dsXS)
     }
 
-    private func decorationRow<Controls: View>(title: LocalizedStringKey,
+    private func decorationRow<Controls: View>(title: String,
                                                isOn: Binding<Bool>,
                                                @ViewBuilder controls: () -> Controls) -> some View {
         VStack(alignment: .leading, spacing: .dsSM) {
@@ -897,7 +898,7 @@ private struct InspectorDecorateView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(title)
-            .accessibilityValue(isOn.wrappedValue ? "inspector.decorate.toggle.on" : "inspector.decorate.toggle.off")
+            .accessibilityValue(L10n.string(isOn.wrappedValue ? "inspector.decorate.toggle.on" : "inspector.decorate.toggle.off", locale: locale))
 
             if isOn.wrappedValue {
                 controls()
@@ -960,7 +961,7 @@ private struct InspectorDecorateView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .menuStyle(.borderlessButton)
-        .help("inspector.decorate.decorationColor.help")
+        .help(L10n.string("inspector.decorate.decorationColor.help"))
     }
 
     private func decorationFontSizeBinding(for kind: PageDecoration.Kind) -> Binding<Double> {
@@ -1023,38 +1024,38 @@ private struct InspectorOCRView: View {
     // `\.locale` during the previous evaluation.
     @Environment(\.locale) private var locale
 
-    private var statusTitle: LocalizedStringKey {
+    private var statusTitle: String {
         if viewModel.isMakingSearchable {
-            return "inspector.ocr.status.makingSearchable"
+            return L10n.string("inspector.ocr.status.makingSearchable", locale: locale)
         }
         if viewModel.hasScannedPages && !viewModel.canStartSearchable {
-            return "inspector.ocr.status.waiting"
+            return L10n.string("inspector.ocr.status.waiting", locale: locale)
         }
         if viewModel.hasScannedPages {
-            return "inspector.ocr.status.scannedPagesDetected"
+            return L10n.string("inspector.ocr.status.scannedPagesDetected", locale: locale)
         }
         if viewModel.ocrCandidatePageCount > 0 {
-            return "inspector.ocr.status.textLayerDetected"
+            return L10n.string("inspector.ocr.status.textLayerDetected", locale: locale)
         }
-        return "inspector.ocr.status.searchableReady"
+        return L10n.string("inspector.ocr.status.searchableReady", locale: locale)
     }
 
-    private var statusDetail: LocalizedStringKey {
+    private var statusDetail: String {
         if viewModel.isMakingSearchable {
-            return LocalizedStringKey(viewModel.operationProgress.detail)
+            return viewModel.operationProgress.detail
         }
         if viewModel.hasScannedPages && !viewModel.canStartSearchable {
-            return "inspector.ocr.detail.finishBeforeRunningOCR"
+            return L10n.string("inspector.ocr.detail.finishBeforeRunningOCR", locale: locale)
         }
         if viewModel.hasScannedPages {
-            return LocalizedStringKey(viewModel.scannedPageCount == 1
+            return viewModel.scannedPageCount == 1
                 ? L10n.format("inspector.ocr.scannedPages.one", viewModel.scannedPageCount, locale: locale)
-                : L10n.format("inspector.ocr.scannedPages.other", viewModel.scannedPageCount, locale: locale))
+                : L10n.format("inspector.ocr.scannedPages.other", viewModel.scannedPageCount, locale: locale)
         }
         if viewModel.ocrCandidatePageCount > 0 {
-            return "inspector.ocr.detail.textFoundNoAutoRun"
+            return L10n.string("inspector.ocr.detail.textFoundNoAutoRun", locale: locale)
         }
-        return "inspector.ocr.detail.noPagesNeedOCR"
+        return L10n.string("inspector.ocr.detail.noPagesNeedOCR", locale: locale)
     }
 
     var body: some View {
@@ -1099,36 +1100,36 @@ private struct InspectorOCRView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var buttonHelp: LocalizedStringKey {
+    private var buttonHelp: String {
         if viewModel.isMakingSearchable {
-            return "inspector.ocr.help.cancelMakingSearchable"
+            return L10n.string("inspector.ocr.help.cancelMakingSearchable", locale: locale)
         }
         if viewModel.canStartSearchable {
-            return "inspector.ocr.help.runLocalOCR"
+            return L10n.string("inspector.ocr.help.runLocalOCR", locale: locale)
         }
         if viewModel.canRepairSearchableText {
-            return "inspector.ocr.help.runOCRAnyway"
+            return L10n.string("inspector.ocr.help.runOCRAnyway", locale: locale)
         }
         if viewModel.hasScannedPages {
-            return "inspector.ocr.help.finishBeforeRunningOCR"
+            return L10n.string("inspector.ocr.help.finishBeforeRunningOCR", locale: locale)
         }
         if viewModel.ocrCandidatePageCount > 0 {
-            return "inspector.ocr.help.finishBeforeRepairing"
+            return L10n.string("inspector.ocr.help.finishBeforeRepairing", locale: locale)
         }
-        return "inspector.ocr.help.noPagesDetected"
+        return L10n.string("inspector.ocr.help.noPagesDetected", locale: locale)
     }
 
-    private var buttonTitle: LocalizedStringKey {
+    private var buttonTitle: String {
         if viewModel.isMakingSearchable {
-            return "inspector.ocr.button.cancelOCR"
+            return L10n.string("inspector.ocr.button.cancelOCR", locale: locale)
         }
         if viewModel.hasScannedPages {
-            return "inspector.ocr.button.makeSearchable"
+            return L10n.string("inspector.ocr.button.makeSearchable", locale: locale)
         }
         if viewModel.ocrCandidatePageCount > 0 {
-            return "inspector.ocr.button.runOCRAnyway"
+            return L10n.string("inspector.ocr.button.runOCRAnyway", locale: locale)
         }
-        return "inspector.ocr.button.makeSearchable"
+        return L10n.string("inspector.ocr.button.makeSearchable", locale: locale)
     }
 
     private var canRunButtonAction: Bool {
@@ -1167,15 +1168,24 @@ private struct InspectorMarkupView: View {
     }
 
     var body: some View {
-        if allAnnotations.isEmpty && viewModel.selectedAnnotation == nil && textEdits.isEmpty {
+        // Compute the (expensive) cross-document annotation walk and the text-edit
+        // list ONCE per render, not per property access. `allAnnotations` iterates
+        // every loaded PDF × every page × every annotation; reading it separately for
+        // the empty-check and the ForEach did that whole walk twice on every `body`
+        // evaluation (and `body` re-runs on any @Observable view-model change while
+        // this tab is open). One local snapshot also fixes the stale-index risk: rows
+        // key off the captured element's own object identity, never a recomputed array.
+        let annotations = allAnnotations
+        let edits = textEdits
+        if annotations.isEmpty && viewModel.selectedAnnotation == nil && edits.isEmpty {
             VStack(spacing: .dsSM) {
                 Image(systemName: "highlighter")
                     .font(.system(size: 24, weight: .light))
                     .foregroundStyle(Color.dsTextTertiary)
-                Text("inspector.markup.empty.title")
+                Text(L10n.string("inspector.markup.empty.title"))
                     .font(.dsBody())
                     .foregroundStyle(Color.dsTextSecondary)
-                Text("inspector.markup.empty.subtitle")
+                Text(L10n.string("inspector.markup.empty.subtitle"))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextTertiary)
                     .multilineTextAlignment(.center)
@@ -1188,33 +1198,33 @@ private struct InspectorMarkupView: View {
                     InspectorEditingDetails(ann: selected)
                     Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
                 }
-                if !textEdits.isEmpty {
-                    InspectorTextEditsSection(viewModel: viewModel, textEdits: textEdits)
+                if !edits.isEmpty {
+                    InspectorTextEditsSection(viewModel: viewModel, textEdits: edits)
                     Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
                 }
-                ForEach(allAnnotations.indices, id: \.self) { i in
+                ForEach(annotations, id: \.annotation) { entry in
                     InspectorAnnotationRow(
-                        ann: allAnnotations[i].annotation,
-                        memberName: allAnnotations[i].memberName,
-                        isSelected: viewModel.selectedAnnotation === allAnnotations[i].annotation,
+                        ann: entry.annotation,
+                        memberName: entry.memberName,
+                        isSelected: viewModel.selectedAnnotation === entry.annotation,
                         onSelect: {
-                            viewModel.selectedAnnotation = allAnnotations[i].annotation
+                            viewModel.selectedAnnotation = entry.annotation
                             viewModel.selectedStampDecorationID = nil
                             NotificationCenter.default.post(
                                 name: .orifoldJumpToAnnotation,
-                                object: allAnnotations[i].annotation
+                                object: entry.annotation
                             )
                         },
                         onEdit: {
-                            viewModel.selectedAnnotation = allAnnotations[i].annotation
+                            viewModel.selectedAnnotation = entry.annotation
                             viewModel.selectedStampDecorationID = nil
                             NotificationCenter.default.post(
                                 name: .orifoldEditAnnotation,
-                                object: allAnnotations[i].annotation
+                                object: entry.annotation
                             )
                         },
                         onDelete: {
-                            viewModel.selectedAnnotation = allAnnotations[i].annotation
+                            viewModel.selectedAnnotation = entry.annotation
                             viewModel.selectedStampDecorationID = nil
                             viewModel.deleteSelectedAnnotation()
                         }
@@ -1236,14 +1246,14 @@ private struct InspectorTextEditsSection: View {
             HStack(spacing: .dsSM) {
                 InspectorSectionHeader(title: "Text Edits", count: textEdits.count)
                 Spacer()
-                Button("inspector.textEdit.revertAll.button") {
+                Button(L10n.string("inspector.textEdit.revertAll.button")) {
                     viewModel.revertAllInlineTextEdits()
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Color.dsAccent)
                 .padding(.trailing, .dsMD)
-                .help("inspector.textEdit.revertAll.help")
+                .help(L10n.string("inspector.textEdit.revertAll.help"))
             }
             ForEach(textEdits) { item in
                 InspectorTextEditRow(
@@ -1285,12 +1295,12 @@ private struct InspectorTextEditRow: View {
         }
     }
 
-    private var kindBadge: (title: LocalizedStringKey, color: Color, icon: String) {
+    private var kindBadge: (title: String, color: Color, icon: String) {
         switch item.kind {
-        case .insertion: return ("inspector.textEdit.kind.added", .dsAccent, "plus.square")
-        case .deletion: return ("inspector.textEdit.kind.deleted", Color(nsColor: .systemRed), "text.badge.minus")
-        case .styleOnly: return ("inspector.textEdit.kind.restyled", Color(nsColor: .systemPurple), "paintbrush")
-        case .edit: return ("inspector.textEdit.kind.edited", Color(nsColor: .systemTeal), "character.cursor.ibeam")
+        case .insertion: return (L10n.string("inspector.textEdit.kind.added", locale: locale), .dsAccent, "plus.square")
+        case .deletion: return (L10n.string("inspector.textEdit.kind.deleted", locale: locale), Color(nsColor: .systemRed), "text.badge.minus")
+        case .styleOnly: return (L10n.string("inspector.textEdit.kind.restyled", locale: locale), Color(nsColor: .systemPurple), "paintbrush")
+        case .edit: return (L10n.string("inspector.textEdit.kind.edited", locale: locale), Color(nsColor: .systemTeal), "character.cursor.ibeam")
         }
     }
 
@@ -1339,7 +1349,7 @@ private struct InspectorTextEditRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
-            .help("inspector.textEdit.showThisPage.help")
+            .help(L10n.string("inspector.textEdit.showThisPage.help"))
 
             Button(action: onRevert) {
                 Image(systemName: "arrow.uturn.backward")
@@ -1348,7 +1358,7 @@ private struct InspectorTextEditRow: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextTertiary)
-            .help(item.isInsertion ? "inspector.textEdit.removeAdded.help" : "inspector.textEdit.restoreOriginal.help")
+            .help(L10n.string(item.isInsertion ? "inspector.textEdit.removeAdded.help" : "inspector.textEdit.restoreOriginal.help", locale: locale))
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
@@ -1366,7 +1376,7 @@ private struct InspectorEditingDetails: View {
             HStack(spacing: .dsSM) {
                 Image(systemName: "slider.horizontal.3")
                     .foregroundStyle(Color.dsAccent)
-                Text("inspector.editingDetails.title")
+                Text(L10n.string("inspector.editingDetails.title"))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
                 Spacer()
@@ -1407,7 +1417,7 @@ private struct InspectorDetailLine: View {
 
 private struct InspectorEmptyState: View {
     var icon: String
-    var title: LocalizedStringKey
+    var title: String
 
     var body: some View {
         VStack(spacing: .dsSM) {
@@ -1489,7 +1499,7 @@ private struct InspectorAnnotationRow: View {
                 }
             }
             .buttonStyle(.plain)
-            .help("inspector.annotation.select.help")
+            .help(L10n.string("inspector.annotation.select.help"))
 
             if canEditContents {
                 Button(action: onEdit) {
@@ -1499,7 +1509,7 @@ private struct InspectorAnnotationRow: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(Color.dsTextTertiary)
-                .help("inspector.annotation.edit.help")
+                .help(L10n.string("inspector.annotation.edit.help"))
             }
 
             Button(action: onDelete) {
@@ -1509,7 +1519,7 @@ private struct InspectorAnnotationRow: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextTertiary)
-            .help("inspector.annotation.delete.help")
+            .help(L10n.string("inspector.annotation.delete.help"))
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)

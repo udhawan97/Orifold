@@ -44,10 +44,14 @@ private struct ShortcutKeycapsView: View {
 
 private struct ShortcutRow: View {
     var spec: ShortcutSpec
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         HStack {
-            Text(LocalizedStringKey(spec.labelKey))
+            Text(L10n.string(forKey: spec.labelKey, locale: locale))
                 .font(.dsBody())
                 .foregroundStyle(Color.dsTextPrimary)
             Spacer(minLength: .dsMD)
@@ -61,10 +65,14 @@ private struct ShortcutRow: View {
 
 private struct ShortcutCategorySection: View {
     var category: ShortcutCategory
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsXS) {
-            Text(LocalizedStringKey(category.titleKey))
+            Text(L10n.string(forKey: category.titleKey, locale: locale))
                 .font(.dsCaption())
                 .fontWeight(.semibold)
                 .tracking(.dsLabelTracking)
@@ -83,11 +91,13 @@ private struct ShortcutCategorySection: View {
 /// then every remaining shortcut grouped by category.
 struct ShortcutsCheatSheetView: View {
     @Binding var isPresented: Bool
+    // Read so `body` re-runs on a live language switch while the sheet is open.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsLG) {
             HStack {
-                Text("shortcuts.cheatSheet.title")
+                Text(L10n.string("shortcuts.cheatSheet.title", locale: locale))
                     .font(.dsTitle())
                     .foregroundStyle(Color.dsTextPrimary)
                 Spacer()
@@ -99,7 +109,7 @@ struct ShortcutsCheatSheetView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: .dsLG) {
                     VStack(alignment: .leading, spacing: .dsXS) {
-                        Text("shortcuts.cheatSheet.mostUseful.section")
+                        Text(L10n.string("shortcuts.cheatSheet.mostUseful.section", locale: locale))
                             .font(.dsCaption())
                             .fontWeight(.semibold)
                             .tracking(.dsLabelTracking)
@@ -122,11 +132,11 @@ struct ShortcutsCheatSheetView: View {
             .frame(maxHeight: 420)
 
             HStack {
-                Link("help.viewDocumentation.button", destination: OrifoldLinks.documentation)
+                Link(L10n.string("help.viewDocumentation.button", locale: locale), destination: OrifoldLinks.documentation)
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                 Spacer()
-                Button("shortcuts.cheatSheet.done.button") { isPresented = false }
+                Button(L10n.string("shortcuts.cheatSheet.done.button", locale: locale)) { isPresented = false }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.dsAccent)
                     .keyboardShortcut(.defaultAction)
@@ -146,7 +156,7 @@ struct ShortcutsFirstRunPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            Text("shortcuts.firstRun.title")
+            Text(L10n.string("shortcuts.firstRun.title"))
                 .font(.dsBody())
                 .fontWeight(.semibold)
                 .foregroundStyle(Color.dsTextPrimary)
@@ -169,13 +179,13 @@ struct ShortcutsFirstRunPopover: View {
             .accessibilityHidden(true)
 
             HStack {
-                Button("shortcuts.firstRun.seeAll.button") {
+                Button(L10n.string("shortcuts.firstRun.seeAll.button")) {
                     isPresented = false
                     onSeeAll()
                 }
                 .font(.dsCaption())
                 Spacer()
-                Button("guidePopover.gotIt.button") { isPresented = false }
+                Button(L10n.string("guidePopover.gotIt.button")) { isPresented = false }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.dsAccent)
                     .keyboardShortcut(.defaultAction)
@@ -184,7 +194,7 @@ struct ShortcutsFirstRunPopover: View {
         .padding(.dsLG)
         .frame(width: 300)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("shortcuts.firstRun.title"))
+        .accessibilityLabel(Text(L10n.string("shortcuts.firstRun.title")))
     }
 }
 
@@ -209,8 +219,8 @@ struct ShortcutsCheatSheetButton: View {
         } label: {
             Image(systemName: "keyboard")
         }
-        .help("shortcuts.cheatSheet.help")
-        .accessibilityLabel(Text("shortcuts.cheatSheet.title"))
+        .help(L10n.string("shortcuts.cheatSheet.help"))
+        .accessibilityLabel(Text(L10n.string("shortcuts.cheatSheet.title")))
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             ShortcutsCheatSheetView(isPresented: $isPresented)
                 .environment(\.locale, locale)

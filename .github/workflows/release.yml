@@ -169,6 +169,50 @@ jobs:
           echo "Built assets:"
           ls -lh "$dist"
 
+      - name: Smoke-test packaged app
+        run: |
+          set -euo pipefail
+          dist="$RUNNER_TEMP/dist"
+          smoke="$(mktemp -d)"
+
+          # Verify the DMG we actually ship, not just the intermediate zip.
+          mnt="$(mktemp -d)"
+          /usr/bin/hdiutil attach "$dist/Orifold.dmg" -nobrowse -readonly -mountpoint "$mnt" >/dev/null
+          app_src="$(/usr/bin/find "$mnt" -maxdepth 2 -name Orifold.app -type d -print -quit)"
+          [[ -n "$app_src" ]] || { /usr/bin/hdiutil detach "$mnt" >/dev/null 2>&1 || true; echo "::error::Orifold.app not found in DMG"; exit 1; }
+          /usr/bin/ditto "$app_src" "$smoke/Orifold.app"
+          /usr/bin/hdiutil detach "$mnt" >/dev/null 2>&1 || true
+          app="$smoke/Orifold.app"
+
+          # Structural gate: this exact bundle is what a missing-resource build lacks.
+          if [[ ! -d "$app/Contents/Resources/Orifold_Orifold.bundle" ]]; then
+            echo "::error::Orifold_Orifold.bundle missing from packaged app — would crash at launch"
+            exit 1
+          fi
+          if [[ ! -f "$app/Contents/Resources/Orifold_Orifold.bundle/Contents/Resources/Localizable.xcstrings" ]] \
+             && [[ ! -f "$app/Contents/Resources/Orifold_Orifold.bundle/Localizable.xcstrings" ]]; then
+            echo "::error::Localizable.xcstrings missing from resource bundle"
+            exit 1
+          fi
+          codesign --verify --deep --strict "$app" || { echo "::error::codesign verify failed"; exit 1; }
+
+          # Launch smoke: a fatalError at launch (the crash we are guarding) exits
+          # within milliseconds. A healthy app keeps running until we stop it.
+          "$app/Contents/MacOS/Orifold" >"$smoke/out.log" 2>&1 &
+          pid=$!
+          sleep 8
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "App still alive after 8s — launch OK"
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+          else
+            wait "$pid" 2>/dev/null; code=$?
+            echo "::error::App exited early (code $code) — launch crash"
+            echo "----- launch output -----"
+            cat "$smoke/out.log" || true
+            exit 1
+          fi
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v7
         with:

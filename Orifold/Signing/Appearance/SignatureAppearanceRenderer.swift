@@ -197,7 +197,7 @@ enum SignatureAppearanceRenderer {
             kCTFontAttributeName as NSAttributedString.Key: font
         ])
         let line = CTLineCreateWithAttributedString(attributed)
-        let runs = CTLineGetGlyphRuns(line) as! [CTRun]
+        guard let runs = CTLineGetGlyphRuns(line) as? [CTRun] else { return CGMutablePath() }
         let outline = CGMutablePath()
 
         for run in runs {
@@ -205,7 +205,17 @@ enum SignatureAppearanceRenderer {
             guard glyphCount > 0 else { continue }
 
             let attributes = CTRunGetAttributes(run) as NSDictionary
-            let runFont = attributes[kCTFontAttributeName] as! CTFont
+            // Fall back to the line's own font if the run somehow lacks a real CTFont,
+            // rather than force-casting (which would trap on an unexpected value). A
+            // plain `as?` to a CoreFoundation type always succeeds, so gate on the
+            // actual CFTypeID before treating the value as a CTFont.
+            let runFont: CTFont
+            if let value = attributes[kCTFontAttributeName],
+               CFGetTypeID(value as CFTypeRef) == CTFontGetTypeID() {
+                runFont = value as! CTFont
+            } else {
+                runFont = font
+            }
             var glyphs = [CGGlyph](repeating: 0, count: glyphCount)
             var positions = [CGPoint](repeating: .zero, count: glyphCount)
             CTRunGetGlyphs(run, CFRange(location: 0, length: glyphCount), &glyphs)

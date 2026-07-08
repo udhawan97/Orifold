@@ -21,7 +21,7 @@ struct TOCView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("toc.title")
+            Text(L10n.string("toc.title", locale: locale))
                 .font(.system(size: 15, weight: .semibold, design: .serif))
                 .foregroundStyle(Color.dsTextPrimary)
                 .padding(.horizontal, .dsLG)
@@ -31,7 +31,7 @@ struct TOCView: View {
             Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
 
             if entries.isEmpty {
-                Text("toc.empty")
+                Text(L10n.string("toc.empty", locale: locale))
                     .font(.dsBody())
                     .foregroundStyle(Color.dsTextSecondary)
                     .padding(.dsLG)

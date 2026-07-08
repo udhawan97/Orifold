@@ -51,7 +51,7 @@ private struct ExportSuccessPanel: View {
                         .symbolRenderingMode(.hierarchical)
                         .accessibilityHidden(true)
 
-                    Text("contentView.exportSuccess.pdfSaved.title")
+                    Text(L10n.string("contentView.exportSuccess.pdfSaved.title"))
                         .font(.dsTitle())
                         .foregroundStyle(Color.dsTextPrimary)
                 }
@@ -71,7 +71,7 @@ private struct ExportSuccessPanel: View {
 
                     if hasFolderPath {
                         HStack(alignment: .firstTextBaseline, spacing: .dsXS) {
-                            Text("contentView.exportSuccess.savedTo.label")
+                            Text(L10n.string("contentView.exportSuccess.savedTo.label"))
                                 .font(.dsCaption())
                                 .foregroundStyle(Color.dsTextTertiary)
                             Text(folderName)
@@ -91,7 +91,7 @@ private struct ExportSuccessPanel: View {
                     }
 
                     if finderFailed {
-                        Text("contentView.exportSuccess.finderFailed.message")
+                        Text(L10n.string("contentView.exportSuccess.finderFailed.message"))
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsErrorAccent)
                             .fixedSize(horizontal: false, vertical: true)
@@ -113,7 +113,7 @@ private struct ExportSuccessPanel: View {
                             finderFailed = true
                         }
                     } label: {
-                        Text("contentView.showInFinder.button")
+                        Text(L10n.string("contentView.showInFinder.button"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -122,7 +122,7 @@ private struct ExportSuccessPanel: View {
                     Button {
                         onDone()
                     } label: {
-                        Text("contentView.done.button")
+                        Text(L10n.string("contentView.done.button"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -145,7 +145,7 @@ private struct ExportSuccessPanel: View {
             .onExitCommand { onDone() }
             .onAppear { doneButtonFocused = true }
             .accessibilityElement(children: .contain)
-            .accessibilityLabel(Text("contentView.exportSuccess.pdfSaved.title"))
+            .accessibilityLabel(Text(L10n.string("contentView.exportSuccess.pdfSaved.title")))
         }
     }
 }
@@ -389,7 +389,7 @@ struct ContentView: View {
             onToggleReaderMode: { toggleReaderMode() },
             onAutoShowOnboarding: { maybeAutoShowOnboarding() }
         ))
-        .alert("contentView.importError.title", isPresented: Binding(
+        .alert(L10n.string("contentView.importError.title"), isPresented: Binding(
             get: { viewModel.importError != nil },
             set: { if !$0 { viewModel.importError = nil } }
         ), presenting: viewModel.importError) { err in
@@ -397,11 +397,11 @@ struct ContentView: View {
         } message: { err in
             Text(err.message)
         }
-        .alert("contentView.exportError.title", isPresented: Binding(
+        .alert(L10n.string("contentView.exportError.title"), isPresented: Binding(
             get: { viewModel.exportError != nil },
             set: { if !$0 { viewModel.exportError = nil } }
         ), presenting: viewModel.exportError) { _ in
-            Button("contentView.ok.button") { viewModel.exportError = nil }
+            Button(L10n.string("contentView.ok.button")) { viewModel.exportError = nil }
         } message: { err in
             Text(err.message)
         }
@@ -487,11 +487,11 @@ struct ContentView: View {
             .keyboardShortcut("f", modifiers: .command)
 
             Menu {
-                Button("toolbar.export.menuItem.export") {
+                Button(L10n.string("toolbar.export.menuItem.export")) {
                     isShowingExportSheet = true
                 }
                 Divider()
-                Button("toolbar.export.menuItem.print") {
+                Button(L10n.string("toolbar.export.menuItem.print")) {
                     NotificationCenter.default.post(name: .orifoldPrint, object: nil)
                 }
             } label: {
@@ -502,7 +502,7 @@ struct ContentView: View {
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help("toolbar.export.help")
+            .help(L10n.string("toolbar.export.help"))
             .keyboardShortcut("e", modifiers: .command)
 
             ToolbarIconButton(
@@ -667,10 +667,10 @@ struct ContentView: View {
                                 .font(.system(size: 34, weight: .light))
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(LinearGradient.dsAccent)
-                            Text("contentView.dropOverlay.title")
+                            Text(L10n.string("contentView.dropOverlay.title"))
                                 .font(.dsHeadline())
                                 .foregroundStyle(Color.dsAccent)
-                            Text("contentView.dropOverlay.subtitle")
+                            Text(L10n.string("contentView.dropOverlay.subtitle"))
                                 .font(.dsCaption())
                                 .foregroundStyle(Color.dsAccent.opacity(0.82))
                         }
@@ -723,28 +723,28 @@ struct ContentView: View {
     @ViewBuilder
     private func importRecoveryButtons(for err: WorkspaceViewModel.ImportError) -> some View {
         if let url = err.sourceURL, FileManager.default.fileExists(atPath: url.path) {
-            Button("contentView.showInFinder.button") {
+            Button(L10n.string("contentView.showInFinder.button")) {
                 NSWorkspace.shared.activateFileViewerSelecting([url])
                 viewModel.importError = nil
             }
         }
         if err.kind.showsChooseFileAgain {
-            Button("contentView.importRecovery.chooseFileAgain.button") {
+            Button(L10n.string("contentView.importRecovery.chooseFileAgain.button")) {
                 chooseFileAgain(for: err)
             }
         }
         if err.kind.showsGrantFolderAccess {
-            Button("contentView.importRecovery.grantFolderAccess.button") {
+            Button(L10n.string("contentView.importRecovery.grantFolderAccess.button")) {
                 grantFolderAccess(for: err)
             }
         }
         if let recentEntryID = err.recentEntryID {
-            Button("recentFiles.menu.remove", role: .destructive) {
+            Button(L10n.string("recentFiles.menu.remove"), role: .destructive) {
                 RecentsStore.shared.remove(id: recentEntryID)
                 viewModel.importError = nil
             }
         }
-        Button("folderImport.overLimit.cancel", role: .cancel) { viewModel.importError = nil }
+        Button(L10n.string("folderImport.overLimit.cancel"), role: .cancel) { viewModel.importError = nil }
     }
 
     private func chooseFileAgain(for err: WorkspaceViewModel.ImportError) {
@@ -793,7 +793,7 @@ private struct ReaderModePill: View {
 
     var body: some View {
         HStack(spacing: .dsSM) {
-            Label("contentView.readerModePill.reader.label", systemImage: "book.fill")
+            Label(L10n.string("contentView.readerModePill.reader.label"), systemImage: "book.fill")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.dsTextPrimary)
 
@@ -805,8 +805,8 @@ private struct ReaderModePill: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(viewModel.documentComfortSettings.isAtDefault ? Color.dsTextTertiary : Color.dsAccent)
-            .help("contentView.readerModePill.toneControls.help")
-            .accessibilityLabel(Text("toolbar.documentComfort.accessibilityLabel"))
+            .help(L10n.string("contentView.readerModePill.toneControls.help"))
+            .accessibilityLabel(Text(L10n.string("toolbar.documentComfort.accessibilityLabel")))
             .popover(isPresented: $isShowingToneControls, arrowEdge: .top) {
                 DocumentComfortPopover(viewModel: viewModel)
                     .frame(width: 360)
@@ -820,7 +820,7 @@ private struct ReaderModePill: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsAccent)
-            .help("contentView.readerModePill.openNotes.help")
+            .help(L10n.string("contentView.readerModePill.openNotes.help"))
 
             Button(action: onExit) {
                 Image(systemName: "xmark")
@@ -829,7 +829,7 @@ private struct ReaderModePill: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.dsTextTertiary)
-            .help("toolbar.readerMode.exit.help")
+            .help(L10n.string("toolbar.readerMode.exit.help"))
         }
         .padding(.leading, .dsMD)
         .padding(.trailing, .dsSM)
@@ -857,9 +857,9 @@ private struct ComfortInfoButton: View {
     // on macOS resets to the system default locale unless re-applied explicitly.
     @Environment(\.locale) private var locale
 
-    private var titleText: Text { Text(LocalizedStringKey(titleKey)) }
-    private var infoText: Text { Text(LocalizedStringKey(infoKey)) }
-    private var helpText: String { L10n.string(String.LocalizationValue(stringLiteral: infoKey), locale: locale) }
+    private var titleText: Text { Text(L10n.string(forKey: titleKey, locale: locale)) }
+    private var infoText: Text { Text(L10n.string(forKey: infoKey, locale: locale)) }
+    private var helpText: String { L10n.string(forKey: infoKey, locale: locale) }
 
     var body: some View {
         Button {
@@ -929,22 +929,22 @@ private struct DocumentComfortPopover: View {
         }
         .padding(.dsLG)
         .confirmationDialog(
-            "documentComfort.reset.confirm.title",
+            L10n.string("documentComfort.reset.confirm.title"),
             isPresented: $pendingReset,
             titleVisibility: .visible
         ) {
-            Button("documentComfort.reset.confirm.confirm", role: .destructive) {
+            Button(L10n.string("documentComfort.reset.confirm.confirm"), role: .destructive) {
                 applyReset()
             }
-            Button("documentComfort.reset.confirm.cancel", role: .cancel) {}
+            Button(L10n.string("documentComfort.reset.confirm.cancel"), role: .cancel) {}
         }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("documentComfort.title")
+            Text(L10n.string("documentComfort.title"))
                 .font(.dsTitle())
-            Text("documentComfort.subtitle")
+            Text(L10n.string("documentComfort.subtitle"))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
         }
@@ -1011,7 +1011,7 @@ private struct DocumentComfortPopover: View {
                     infoKey: "documentComfort.appTheme.info"
                 )
             }
-            Picker("contentView.nightModeControls.applicationAppearance.picker", selection: appAppearanceModeBinding) {
+            Picker(L10n.string("contentView.nightModeControls.applicationAppearance.picker"), selection: appAppearanceModeBinding) {
                 ForEach(AppAppearanceMode.allCases) { mode in
                     Label(mode.title(locale: locale), systemImage: mode.systemImage)
                         .tag(mode)
@@ -1125,7 +1125,7 @@ private struct DocumentComfortPopover: View {
             }
             .padding(.top, .dsSM)
         } label: {
-            Text("documentComfort.advanced.disclosure")
+            Text(L10n.string("documentComfort.advanced.disclosure"))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextSecondary)
         }
@@ -1166,7 +1166,7 @@ private struct DocumentComfortPopover: View {
                 }
                 pendingReset = true
             } label: {
-                Label("documentComfort.reset.button", systemImage: "arrow.counterclockwise")
+                Label(L10n.string("documentComfort.reset.button"), systemImage: "arrow.counterclockwise")
                     .font(.dsCaption())
                     .frame(maxWidth: .infinity)
             }
@@ -1206,8 +1206,8 @@ private struct DocumentComfortPopover: View {
         }
     }
 
-    private func sectionLabel(_ key: LocalizedStringKey) -> some View {
-        Text(key)
+    private func sectionLabel(_ key: String) -> some View {
+        Text(L10n.string(forKey: key, locale: locale))
             .font(.dsCaption())
             .fontWeight(.semibold)
             .tracking(.dsLabelTracking)
@@ -1227,7 +1227,7 @@ private struct DocumentComfortPopover: View {
                 Image(systemName: systemImage)
                     .frame(width: 20)
                     .foregroundStyle(Color.dsTextTertiary)
-                Text(LocalizedStringKey(title))
+                Text(L10n.string(forKey: title, locale: locale))
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1257,7 +1257,7 @@ private struct DocumentComfortPopover: View {
                 .frame(width: 20)
                 .foregroundStyle(Color.dsTextTertiary)
             Toggle(isOn: isOn) {
-                Text(LocalizedStringKey(title))
+                Text(L10n.string(forKey: title, locale: locale))
                     .font(.dsCaption())
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1370,11 +1370,11 @@ private struct ExportSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsLG) {
-            Text("contentView.exportSheet.title")
+            Text(L10n.string("contentView.exportSheet.title"))
                 .font(.dsTitle())
                 .foregroundStyle(Color.dsTextPrimary)
 
-            Picker("contentView.exportSheet.format.picker", selection: $selectedFormat) {
+            Picker(L10n.string("contentView.exportSheet.format.picker"), selection: $selectedFormat) {
                 ForEach(WorkspaceExportFormat.allCases) { format in
                     Text(format.menuTitle).tag(format)
                 }
@@ -1384,16 +1384,16 @@ private struct ExportSheet: View {
             VStack(alignment: .leading, spacing: .dsSM) {
                 DisclosureGroup(isExpanded: $isProtectionExpanded) {
                     VStack(alignment: .leading, spacing: .dsSM) {
-                        SecureField("contentView.exportSheet.password.field", text: $password)
+                        SecureField(L10n.string("contentView.exportSheet.password.field"), text: $password)
                             .textFieldStyle(.roundedBorder)
                             .disabled(!protectWithPassword || !canProtectSelectedFormat)
-                        SecureField("contentView.exportSheet.confirmPassword.field", text: $passwordConfirmation)
+                        SecureField(L10n.string("contentView.exportSheet.confirmPassword.field"), text: $passwordConfirmation)
                             .textFieldStyle(.roundedBorder)
                             .disabled(!protectWithPassword || !canProtectSelectedFormat)
 
-                        Toggle("contentView.exportSheet.allowPrinting.toggle", isOn: $allowsPrinting)
+                        Toggle(L10n.string("contentView.exportSheet.allowPrinting.toggle"), isOn: $allowsPrinting)
                             .disabled(!protectWithPassword || !canProtectSelectedFormat)
-                        Toggle("contentView.exportSheet.allowCopying.toggle", isOn: $allowsCopying)
+                        Toggle(L10n.string("contentView.exportSheet.allowCopying.toggle"), isOn: $allowsCopying)
                             .disabled(!protectWithPassword || !canProtectSelectedFormat)
 
                         if let passwordValidationMessage {
@@ -1404,7 +1404,7 @@ private struct ExportSheet: View {
                     }
                     .padding(.top, .dsSM)
                 } label: {
-                    Toggle("contentView.exportSheet.protectWithPassword.toggle", isOn: Binding(
+                    Toggle(L10n.string("contentView.exportSheet.protectWithPassword.toggle"), isOn: Binding(
                         get: { protectWithPassword },
                         set: { newValue in
                             protectWithPassword = newValue && canProtectSelectedFormat
@@ -1417,11 +1417,11 @@ private struct ExportSheet: View {
                 }
 
                 if selectedFormat != .pdf {
-                    Text("contentView.exportSheet.passwordProtectionPdfOnly.message")
+                    Text(L10n.string("contentView.exportSheet.passwordProtectionPdfOnly.message"))
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 } else if viewModel.hasCryptographicSignaturePlacement {
-                    Text("contentView.exportSheet.passwordProtectionUnavailableSigned.message")
+                    Text(L10n.string("contentView.exportSheet.passwordProtectionUnavailableSigned.message"))
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
@@ -1446,7 +1446,7 @@ private struct ExportSheet: View {
             }
 
             DisclosureGroup(isExpanded: $isCompressionExpanded) {
-                Picker("contentView.exportSheet.compressionPreset.picker", selection: $compressionPreset) {
+                Picker(L10n.string("contentView.exportSheet.compressionPreset.picker"), selection: $compressionPreset) {
                     ForEach(PDFCompressionPreset.allCases) { preset in
                         Text(preset.label).tag(preset)
                     }
@@ -1456,12 +1456,12 @@ private struct ExportSheet: View {
                 .padding(.top, .dsSM)
 
                 if selectedFormat != .pdf {
-                    Text("contentView.exportSheet.fileSizeReductionPdfOnly.message")
+                    Text(L10n.string("contentView.exportSheet.fileSizeReductionPdfOnly.message"))
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
             } label: {
-                Toggle("contentView.exportSheet.reduceFileSize.toggle", isOn: Binding(
+                Toggle(L10n.string("contentView.exportSheet.reduceFileSize.toggle"), isOn: Binding(
                     get: { reduceFileSize },
                     set: { newValue in
                         reduceFileSize = newValue && selectedFormat == .pdf
@@ -1478,15 +1478,15 @@ private struct ExportSheet: View {
             if selectedFormat == .pdf {
                 DisclosureGroup(isExpanded: $isSanitizeExpanded) {
                     VStack(alignment: .leading, spacing: .dsSM) {
-                        Toggle("contentView.exportSheet.removeMetadata.toggle", isOn: $removesMetadata)
+                        Toggle(L10n.string("contentView.exportSheet.removeMetadata.toggle"), isOn: $removesMetadata)
                             .disabled(!sanitizeForSharing)
-                        Text("contentView.exportSheet.sanitizeStripsDetail.message")
+                        Text(L10n.string("contentView.exportSheet.sanitizeStripsDetail.message"))
                             .font(.dsCaption())
                             .foregroundStyle(Color.dsTextTertiary)
                     }
                     .padding(.top, .dsSM)
                 } label: {
-                    Toggle("contentView.exportSheet.sanitizeForSharing.toggle", isOn: Binding(
+                    Toggle(L10n.string("contentView.exportSheet.sanitizeForSharing.toggle"), isOn: Binding(
                         get: { sanitizeForSharing },
                         set: { newValue in
                             sanitizeForSharing = newValue && !viewModel.hasCryptographicSignaturePlacement
@@ -1501,7 +1501,7 @@ private struct ExportSheet: View {
                 .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: sanitizeForSharing)
 
                 if viewModel.hasCryptographicSignaturePlacement {
-                    Text("contentView.exportSheet.sanitizeUnavailableSigned.message")
+                    Text(L10n.string("contentView.exportSheet.sanitizeUnavailableSigned.message"))
                         .font(.dsCaption())
                         .foregroundStyle(Color.dsTextTertiary)
                 }
@@ -1509,10 +1509,10 @@ private struct ExportSheet: View {
 
             if viewModel.hasFillableFormFields && selectedFormat == .pdf {
                 DisclosureGroup(isExpanded: $isFormLockExpanded) {
-                    Toggle("contentView.exportSheet.lockFormAnswers.toggle", isOn: $lockFormAnswers)
+                    Toggle(L10n.string("contentView.exportSheet.lockFormAnswers.toggle"), isOn: $lockFormAnswers)
                         .padding(.top, .dsSM)
                 } label: {
-                    Text("contentView.exportSheet.lockFormAnswers.toggle")
+                    Text(L10n.string("contentView.exportSheet.lockFormAnswers.toggle"))
                         .font(.dsBody())
                         .foregroundStyle(Color.dsTextPrimary)
                 }
@@ -1524,10 +1524,10 @@ private struct ExportSheet: View {
 
             HStack {
                 Spacer()
-                Button("contentView.exportSheet.cancel.button") {
+                Button(L10n.string("contentView.exportSheet.cancel.button")) {
                     isPresented = false
                 }
-                Button("contentView.exportSheet.export.button") {
+                Button(L10n.string("contentView.exportSheet.export.button")) {
                     export()
                 }
                 .buttonStyle(.borderedProminent)
@@ -1608,7 +1608,7 @@ private struct WorkspaceOperationProgressView: View {
                     .frame(width: 190)
             }
             if progress.isCancellable {
-                Button("contentView.operationProgress.cancel.button", action: cancel)
+                Button(L10n.string("contentView.operationProgress.cancel.button"), action: cancel)
                     .font(.dsCaption())
             }
         }
@@ -1681,15 +1681,21 @@ private struct AnnotationToolPicker: View {
     }
 
     private var capsule: some View {
-        HStack(spacing: 4) {
-            ForEach(visibleToolGroups.indices, id: \.self) { groupIndex in
+        // Snapshot the computed, reader-mode-filtered groups into a local value so
+        // every child closure indexes the exact array its indices came from. Reading
+        // `visibleToolGroups` afresh inside the closure risks a stale index against a
+        // freshly shortened array (e.g. when reader mode toggles) → an out-of-bounds
+        // trap under SwiftUI's observation-driven child updates. See CRASH_AUDIT_PLAN.
+        let groups = visibleToolGroups
+        return HStack(spacing: 4) {
+            ForEach(groups.indices, id: \.self) { groupIndex in
                 if groupIndex > 0 {
                     groupDivider
                 }
-                if visibleToolGroups[groupIndex].contains(.highlight) {
-                    markupCluster(visibleToolGroups[groupIndex], shouldReduceMotion: shouldReduceMotion)
+                if groups[groupIndex].contains(.highlight) {
+                    markupCluster(groups[groupIndex], shouldReduceMotion: shouldReduceMotion)
                 } else {
-                    ForEach(visibleToolGroups[groupIndex]) { tool in
+                    ForEach(groups[groupIndex]) { tool in
                         toolButton(tool, shouldReduceMotion: shouldReduceMotion)
                     }
                 }
@@ -1751,16 +1757,19 @@ private struct AnnotationToolPicker: View {
     /// icon always shows the currently active tool, so "the active mode is always obvious"
     /// holds even when there's no room for the full capsule.
     private var compactToolMenu: some View {
-        Menu {
-            ForEach(visibleToolGroups.indices, id: \.self) { groupIndex in
-                ForEach(visibleToolGroups[groupIndex]) { tool in
+        // Snapshot for the same reason as `capsule`: closures must index the array
+        // their indices came from, not a recomputed `visibleToolGroups`.
+        let groups = visibleToolGroups
+        return Menu {
+            ForEach(groups.indices, id: \.self) { groupIndex in
+                ForEach(groups[groupIndex]) { tool in
                     Button {
                         select(tool)
                     } label: {
                         Label(tool.label, systemImage: tool.iconName)
                     }
                 }
-                if groupIndex < visibleToolGroups.count - 1 {
+                if groupIndex < groups.count - 1 {
                     Divider()
                 }
             }
@@ -1861,7 +1870,7 @@ private struct AnnotationToolPicker: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Text("annotationTool.markup.options"))
+                .accessibilityLabel(Text(L10n.string("annotationTool.markup.options")))
                 .popover(isPresented: $isShowingMarkupOptions, arrowEdge: .bottom) {
                     markupOptions(tools)
                 }
@@ -2099,9 +2108,9 @@ private struct ToolbarIconButton: View {
     ///   a persistent solid-accent fill would shout over the calm bar.
     enum ActiveStyle { case prominent, soft }
 
-    var labelKey: LocalizedStringKey
+    var labelKey: String
     var systemImage: String
-    var helpKey: LocalizedStringKey
+    var helpKey: String
     var isActive: Bool = false
     var activeStyle: ActiveStyle = .prominent
     /// Extra inset between the glyph and the hit-area edge, for symbols (e.g. wide
@@ -2115,6 +2124,10 @@ private struct ToolbarIconButton: View {
     @FocusState private var isFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isEnabled) private var isEnabled
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -2134,7 +2147,7 @@ private struct ToolbarIconButton: View {
                 RoundedRectangle(cornerRadius: ToolbarIconMetrics.cornerRadius, style: .continuous)
                     .fill(activeFill)
                     .opacity(isActive ? 1 : 0)
-                Label(labelKey, systemImage: systemImage)
+                Label(L10n.string(forKey: labelKey, locale: locale), systemImage: systemImage)
                     .labelStyle(.iconOnly)
                     .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
                     .symbolRenderingMode(.monochrome)
@@ -2160,7 +2173,7 @@ private struct ToolbarIconButton: View {
         .focusEffectDisabled()
         .opacity(isEnabled ? 1 : 0.35)
         .onHover { isHovered = $0 }
-        .help(helpKey)
+        .help(L10n.string(forKey: helpKey, locale: locale))
     }
 }
 
@@ -2172,18 +2185,22 @@ private struct ToolbarIconButton: View {
 /// menu-button border and disclosure chevron widen the control past this glyph's own
 /// clipped bounds, which is what was throwing off the spacing rhythm next to Search.
 private struct ToolbarMenuGlyph: View {
-    var labelKey: LocalizedStringKey
+    var labelKey: String
     var systemImage: String
 
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
     var body: some View {
-        Label(labelKey, systemImage: systemImage)
+        Label(L10n.string(forKey: labelKey, locale: locale), systemImage: systemImage)
             .labelStyle(.iconOnly)
             .font(.system(size: ToolbarIconMetrics.symbolSize, weight: ToolbarIconMetrics.symbolWeight))
             .symbolRenderingMode(.monochrome)
@@ -2246,7 +2263,7 @@ private struct AnnotationColorButton: View {
         }
         .buttonStyle(ToolButtonStyle(isHovered: isHovered || showPalette))
         .onHover { isHovered = $0 }
-        .help("contentView.annotationColorButton.help")
+        .help(L10n.string("contentView.annotationColorButton.help"))
         .popover(isPresented: $showPalette, arrowEdge: .bottom) {
             AnnotationPalettePopover(viewModel: viewModel)
         }
@@ -2913,18 +2930,18 @@ private struct ToolbarOverflowPresentations: ViewModifier {
                     .environment(\.locale, languageManager.effectiveLocale)
             }
             .confirmationDialog(
-                "sidebar.deletePages.confirmation.title",
+                L10n.string("sidebar.deletePages.confirmation.title"),
                 isPresented: $isConfirmingOverflowDelete,
                 titleVisibility: .visible
             ) {
-                Button("sidebar.deletePages.confirmation.delete", role: .destructive) {
+                Button(L10n.string("sidebar.deletePages.confirmation.delete"), role: .destructive) {
                     viewModel.deletePages(viewModel.currentSelectionPageRefs)
                 }
-                Button("sidebar.deletePages.confirmation.cancel", role: .cancel) {}
+                Button(L10n.string("sidebar.deletePages.confirmation.cancel"), role: .cancel) {}
             } message: {
                 let count = viewModel.currentSelectionPageRefs.count
                 if count == 1 {
-                    Text("sidebar.deletePages.confirmation.messageSingular")
+                    Text(L10n.string("sidebar.deletePages.confirmation.messageSingular"))
                 } else {
                     Text(L10n.format("sidebar.removePages.confirmation.plural", count, locale: languageManager.effectiveLocale))
                 }
@@ -2987,6 +3004,10 @@ private struct ToolbarMoreMenu: View {
     var onDuplicate: () -> Void
     var onSettings: () -> Void
     var onAbout: () -> Void
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     private var selectionEmpty: Bool { viewModel.currentSelectionPageRefs.isEmpty }
 
@@ -3049,8 +3070,8 @@ private struct ToolbarMoreMenu: View {
             .padding(.vertical, 5)
     }
 
-    private func sectionHeader(_ key: LocalizedStringKey) -> some View {
-        Text(key)
+    private func sectionHeader(_ key: String) -> some View {
+        Text(L10n.string(forKey: key, locale: locale))
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(Color.dsTextSecondary)
             .padding(.horizontal, 9)
@@ -3071,10 +3092,10 @@ private struct MoreReaderModeRow: View {
         HStack(spacing: 11) {
             MoreIconTile(systemImage: readerMode.wrappedValue ? "book.fill" : "book", isActive: readerMode.wrappedValue)
             VStack(alignment: .leading, spacing: 1) {
-                Text("toolbar.readerMode.label")
+                Text(L10n.string("toolbar.readerMode.label"))
                     .font(.system(size: 13))
                     .foregroundStyle(Color.dsTextPrimary)
-                Text("more.readerMode.subtitle")
+                Text(L10n.string("more.readerMode.subtitle"))
                     .font(.system(size: 11))
                     .foregroundStyle(Color.dsTextSecondary)
             }
@@ -3093,25 +3114,29 @@ private struct MoreReaderModeRow: View {
 
 private struct MoreMenuRow<Trailing: View>: View {
     let systemImage: String
-    let titleKey: LocalizedStringKey
-    var subtitleKey: LocalizedStringKey?
+    let titleKey: String
+    var subtitleKey: String?
     var isDestructive: Bool = false
     @ViewBuilder var trailing: () -> Trailing
     let action: () -> Void
 
     @State private var hovering = false
     @Environment(\.isEnabled) private var isEnabled
+    // Passed into L10n.string() below so this view's `body` actually reads it —
+    // SwiftUI only re-invokes `body` on a locale change for views that read
+    // `\.locale` during the previous evaluation.
+    @Environment(\.locale) private var locale
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 11) {
                 MoreIconTile(systemImage: systemImage, isDestructive: isDestructive)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(titleKey)
+                    Text(L10n.string(forKey: titleKey, locale: locale))
                         .font(.system(size: 13))
                         .foregroundStyle(isDestructive ? Color.red : Color.dsTextPrimary)
                     if let subtitleKey {
-                        Text(subtitleKey)
+                        Text(L10n.string(forKey: subtitleKey, locale: locale))
                             .font(.system(size: 11))
                             .foregroundStyle(Color.dsTextSecondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -3135,7 +3160,7 @@ private struct MoreMenuRow<Trailing: View>: View {
 }
 
 extension MoreMenuRow where Trailing == EmptyView {
-    init(systemImage: String, titleKey: LocalizedStringKey, subtitleKey: LocalizedStringKey? = nil, isDestructive: Bool = false, action: @escaping () -> Void) {
+    init(systemImage: String, titleKey: String, subtitleKey: String? = nil, isDestructive: Bool = false, action: @escaping () -> Void) {
         self.init(systemImage: systemImage, titleKey: titleKey, subtitleKey: subtitleKey, isDestructive: isDestructive, trailing: { EmptyView() }, action: action)
     }
 }

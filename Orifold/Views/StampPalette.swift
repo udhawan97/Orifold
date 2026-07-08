@@ -30,7 +30,7 @@ struct StampPalette: View {
                 }
 
                 VStack(alignment: .leading, spacing: .dsSM) {
-                    TextField("stampPalette.customText.placeholder", text: $customText)
+                    TextField(L10n.string("stampPalette.customText.placeholder"), text: $customText)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(placeCustomStamp)
 
@@ -54,7 +54,7 @@ struct StampPalette: View {
                         Spacer()
 
                         Button(action: placeCustomStamp) {
-                            Label("stampPalette.place.button", systemImage: "seal")
+                            Label(L10n.string("stampPalette.place.button"), systemImage: "seal")
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(Color.dsAccent)
@@ -69,7 +69,7 @@ struct StampPalette: View {
     }
 
     private var header: some View {
-        Text("stampPalette.title")
+        Text(L10n.string("stampPalette.title"))
             .font(.system(size: 15, weight: .semibold, design: .serif))
             .foregroundStyle(Color.dsTextPrimary)
             .padding(.horizontal, .dsLG)

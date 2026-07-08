@@ -9,13 +9,25 @@ import Callout from '../../components/Callout.astro';
 
 <Badge variant="new" />
 
-## v0.8.3 — Universal builds and a proper DMG
+## v0.8.4 — Stability: no crashes, no lag, correct text everywhere
 
 *Released July 2026*
 
 <Callout variant="note" label="Beta">
 	Orifold is in beta, on the road to 1.0.
 </Callout>
+
+A stability and correctness release. No document-editing behavior changes — this cycle is about the app launching cleanly, staying quiet when idle, and showing the right words.
+
+- **Fixed a launch crash on the packaged app** — the installer now bundles SwiftPM's resource bundle correctly and refuses to ship a build that would crash at startup; the release pipeline gained a smoke gate that launches the packaged DMG before publishing.
+- **No more idle CPU pinning** — the empty-state companion and ambient animations now settle to rest instead of redrawing every frame forever. Idle CPU dropped from ~100% of a core to near zero with a document open.
+- **Correct interface text in every language** — fixed a build-specific issue where localized labels across panels, toolbars, menus, dialogs, and accessibility text could render as raw keys (e.g. `help.viewDocumentation.button`). All text now resolves properly and updates live when you switch languages.
+
+Full changelog: [`docs/release-v0.8.4.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.8.4.md).
+
+## v0.8.3 — Universal builds and a proper DMG
+
+*Released July 2026*
 
 A distribution release: Orifold now ships as a **universal binary** that runs natively on both Apple Silicon and Intel Macs, delivered as a **drag-to-Applications DMG** with published SHA-256 checksums and a machine-readable release manifest. No document-editing behavior changes this cycle.
 

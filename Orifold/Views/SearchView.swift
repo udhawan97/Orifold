@@ -48,7 +48,7 @@ struct SearchView: View {
                     .foregroundStyle(Color.dsTextTertiary)
                     .font(.system(size: 13))
 
-                TextField("search.placeholder", text: $viewModel.searchQuery)
+                TextField(L10n.string("search.placeholder"), text: $viewModel.searchQuery)
                     .textFieldStyle(.plain)
                     .font(.dsBody())
                     .focused($fieldFocused)
@@ -108,7 +108,7 @@ struct SearchView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(viewModel.isReplaceRevealed ? Color.dsAccent : Color.dsTextSecondary)
-                .help("search.replace.disclosure.help")
+                .help(L10n.string("search.replace.disclosure.help"))
             }
             .padding(.horizontal, .dsMD)
             .padding(.vertical, .dsMD)
@@ -125,7 +125,7 @@ struct SearchView: View {
                     VStack(spacing: .dsSM) {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(Color.dsTextTertiary)
-                        Text("search.noResults")
+                        Text(L10n.string("search.noResults"))
                             .font(.dsBody())
                             .foregroundStyle(Color.dsTextSecondary)
                     }
@@ -170,20 +170,20 @@ struct SearchView: View {
                     .foregroundStyle(Color.dsTextTertiary)
                     .font(.system(size: 13))
 
-                TextField("search.replace.placeholder", text: $viewModel.replaceText)
+                TextField(L10n.string("search.replace.placeholder"), text: $viewModel.replaceText)
                     .textFieldStyle(.plain)
                     .font(.dsBody())
                     .onChange(of: viewModel.replaceText) { _, _ in replaceResultMessage = nil }
 
-                Button("search.replace.one.button") {
+                Button(L10n.string("search.replace.one.button")) {
                     replaceCurrentMatch()
                 }
                 .buttonStyle(.bordered)
                 .font(.dsCaption())
-                .help("search.replace.one.help")
+                .help(L10n.string("search.replace.one.help"))
                 .disabled(!viewModel.canReplaceCurrentMatch)
 
-                Button("search.replace.all.button") {
+                Button(L10n.string("search.replace.all.button")) {
                     isConfirmingReplaceAll = true
                 }
                 .buttonStyle(.bordered)
@@ -204,14 +204,14 @@ struct SearchView: View {
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
         .confirmationDialog(
-            "search.replace.confirm.title",
+            L10n.string("search.replace.confirm.title"),
             isPresented: $isConfirmingReplaceAll,
             titleVisibility: .visible
         ) {
-            Button("search.replace.confirm.replace") {
+            Button(L10n.string("search.replace.confirm.replace")) {
                 performReplaceAll()
             }
-            Button("search.replace.confirm.cancel", role: .cancel) {}
+            Button(L10n.string("search.replace.confirm.cancel"), role: .cancel) {}
         } message: {
             let count = replaceMatchCount
             if count == 1 {
