@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import PDFKit
 
 /// Deterministic hash of a page's committed inline-text-edit operations, written onto the
 /// regenerated page bytes as an invisible `/OrifoldBakeStamp` annotation. It records *which
@@ -15,6 +16,14 @@ import Foundation
 /// never re-baked leaves identical visible text but a different operation set).
 enum BakeStamp {
     static let annotationKey = "/OrifoldBakeStamp"
+
+    /// True for the invisible bake-stamp annotation. The stamp is a FreeText annotation (the
+    /// only reliably round-tripping way to carry a custom key), so every markup check that
+    /// keys off `type == "FreeText"` must exclude it — it is engine bookkeeping, not user
+    /// markup, and must never count as an edit, list row, or reason to drop a source payload.
+    static func isStamp(_ annotation: PDFAnnotation) -> Bool {
+        annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: annotationKey)) != nil
+    }
 
     /// SHA-256 hex of a canonical, order-independent encoding of `operations`. Sorted by id
     /// so array ordering never affects the result; encoded with sorted JSON keys so the

@@ -1149,13 +1149,12 @@ private struct InspectorMarkupView: View {
 
     private var allAnnotations: [(page: PDFPage, annotation: PDFAnnotation, memberName: String)] {
         var result: [(PDFPage, PDFAnnotation, String)] = []
-        let bakeStampKey = PDFAnnotationKey(rawValue: BakeStamp.annotationKey)
         for (member, pdf) in viewModel.loadedPDFs {
             for i in 0..<pdf.pageCount {
                 guard let page = pdf.page(at: i) else { continue }
                 for ann in page.annotations {
                     // The invisible bake stamp is engine bookkeeping, not user markup.
-                    if ann.value(forAnnotationKey: bakeStampKey) != nil { continue }
+                    if BakeStamp.isStamp(ann) { continue }
                     result.append((page, ann, member.displayName))
                 }
             }

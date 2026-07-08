@@ -2887,9 +2887,7 @@ final class WorkspaceViewModel {
         // stamp for exactly the operations being baked is added below, and preserving the old
         // one would leave two stamps (the stale one first, so reconcile would read it and
         // needlessly regenerate every load).
-        let preservedAnnotations = (currentPage?.annotations ?? []).filter {
-            $0.value(forAnnotationKey: PDFAnnotationKey(rawValue: BakeStamp.annotationKey)) == nil
-        }
+        let preservedAnnotations = (currentPage?.annotations ?? []).filter { !BakeStamp.isStamp($0) }
         lookup.pdf.removePage(at: localIdx)
         regenerated.rotation = preservedRotation
         lookup.pdf.insert(regenerated, at: localIdx)
@@ -2926,7 +2924,8 @@ final class WorkspaceViewModel {
     /// bytes, or a third-party rewrite that dropped the annotation).
     private static func bakeStamp(on page: PDFPage) -> String? {
         for annotation in page.annotations {
-            if let value = annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: BakeStamp.annotationKey)) as? String {
+            if BakeStamp.isStamp(annotation),
+               let value = annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: BakeStamp.annotationKey)) as? String {
                 return value
             }
         }
@@ -5332,13 +5331,12 @@ final class WorkspaceViewModel {
             return false
         }
         let pdf = loaded.1
-        let bakeStampKey = PDFAnnotationKey(rawValue: BakeStamp.annotationKey)
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
             for annotation in page.annotations {
                 // The invisible bake stamp is a FreeText annotation but pure engine
                 // bookkeeping — it must not count as a user PDF edit.
-                if annotation.value(forAnnotationKey: bakeStampKey) != nil { continue }
+                if BakeStamp.isStamp(annotation) { continue }
                 if annotation.value(forAnnotationKey: Self.draftTextAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: Self.legacyDraftTextAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: Self.textReplacementAnnotationKey) != nil ||

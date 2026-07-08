@@ -48,7 +48,6 @@ final class WorkspaceDocument: ReferenceFileDocument {
     private static let commentSubjectAnnotationKey = PDFAnnotationKey(rawValue: "/Subj")
     private static let commentAnchorRectAnnotationKey = PDFAnnotationKey(rawValue: "/OrifoldCommentAnchorRect")
     private static let legacyCommentAnchorRectAnnotationKey = PDFAnnotationKey(rawValue: "/\(legacyBrandToken)CommentAnchorRect")
-    private static let bakeStampAnnotationKey = PDFAnnotationKey(rawValue: BakeStamp.annotationKey)
 
     /// Set at load when the file's bytes changed on disk since Orifold last saved it (a
     /// third-party tool rewrote it). The loader drops the now-stale editable workspace and
@@ -458,6 +457,9 @@ final class WorkspaceDocument: ReferenceFileDocument {
     }
 
     private static func isPDFOnlyAnnotation(_ annotation: PDFAnnotation) -> Bool {
+        // The invisible bake stamp is a FreeText annotation but engine bookkeeping, not a
+        // user edit — it must not cause a member's source payload to be dropped.
+        if BakeStamp.isStamp(annotation) { return false }
         if annotation.type == "FreeText" ||
             annotation.type == "Ink" ||
             annotation.type == "Highlight" ||
@@ -756,7 +758,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             for annotation in Array(page.annotations) {
                 if annotation.value(forAnnotationKey: bakedWorkspaceCommentAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: legacyBakedWorkspaceCommentAnnotationKey) != nil ||
-                    annotation.value(forAnnotationKey: bakeStampAnnotationKey) != nil {
+                    BakeStamp.isStamp(annotation) {
                     page.removeAnnotation(annotation)
                     removed = true
                 }
