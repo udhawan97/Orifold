@@ -41287,6 +41287,88 @@
           }
         }
       }
+    },
+    "notice.externalModification.detected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file was changed by another app since you last saved it in Orifold. The visible content was kept; earlier Orifold edits that hadn't been applied were discarded."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otra aplicación modificó este archivo desde la última vez que lo guardaste en Orifold. Se conservó el contenido visible; se descartaron las ediciones de Orifold anteriores que no se habían aplicado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier a été modifié par une autre application depuis votre dernier enregistrement dans Orifold. Le contenu visible a été conservé ; les modifications Orifold antérieures non appliquées ont été supprimées."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस फ़ाइल को Orifold में पिछली बार सहेजने के बाद किसी अन्य ऐप ने बदल दिया। दृश्यमान सामग्री रखी गई; पहले के Orifold संपादन जो लागू नहीं हुए थे, हटा दिए गए।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このファイルは、Orifold で最後に保存してから別のアプリによって変更されました。表示されている内容は保持され、未適用だった以前の Orifold の編集は破棄されました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自您上次在 Orifold 中保存后，此文件已被其他应用更改。已保留可见内容；此前未应用的 Orifold 编辑已被放弃。"
+          }
+        }
+      }
+    },
+    "readingCanvas.detectedFont.mono": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mono"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mono"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mono"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मोनो"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等幅"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等宽"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

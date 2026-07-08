@@ -68,8 +68,11 @@ starlight-nav a[aria-current='page'],
 	outline-offset: 2px;
 }
 
-/* ---- Folded-corner motif (cards, callouts, figures) ---- */
-.of-card {
+/* ---- Folded-corner motif (cards, callouts, figures) ----
+   Scoped to `:not(.landing *)` so these Starlight-docs rules never collide
+   with the landing page's own `.of-card` feature-card selector in
+   landing.css (same class name, different component, different file). */
+:not(.landing *).of-card {
 	position: relative;
 	background: var(--of-card);
 	border: 1px solid var(--of-separator);
@@ -83,7 +86,7 @@ starlight-nav a[aria-current='page'],
 		transform 120ms ease;
 }
 
-.of-card::after {
+:not(.landing *).of-card::after {
 	content: '';
 	position: absolute;
 	top: 0;
@@ -95,12 +98,12 @@ starlight-nav a[aria-current='page'],
 	pointer-events: none;
 }
 
-.of-card:hover {
+:not(.landing *).of-card:hover {
 	border-color: rgba(79, 195, 232, 0.4);
 	transform: translateY(-1px);
 }
 
-:root[data-theme='light'] .of-card {
+:root[data-theme='light'] :not(.landing *).of-card {
 	box-shadow: 0 1px 3px rgba(19, 31, 51, 0.06);
 }
 
@@ -111,7 +114,7 @@ starlight-nav a[aria-current='page'],
 	margin-block: 1.5rem;
 }
 
-.of-card h3 {
+:not(.landing *).of-card h3 {
 	margin-top: 0;
 	font-size: 1rem;
 }
@@ -126,7 +129,7 @@ starlight-nav a[aria-current='page'],
 	margin: 0;
 }
 
-.of-card a.of-card-link {
+:not(.landing *).of-card a.of-card-link {
 	position: absolute;
 	inset: 0;
 	border-radius: inherit;

@@ -65,6 +65,12 @@ targets:
         NSPrincipalClass: NSApplication
         CFBundleIconFile: AppIcon
         CFBundleIconName: AppIcon
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            timestamp.digicert.com:
+              NSExceptionAllowsInsecureHTTPLoads: true
+            timestamp.globalsign.com:
+              NSExceptionAllowsInsecureHTTPLoads: true
         CFBundleDocumentTypes:
           - CFBundleTypeExtensions: [pdf]
             CFBundleTypeName: PDF Document
@@ -112,6 +118,7 @@ targets:
         com.apple.security.app-sandbox: true
         com.apple.security.files.user-selected.read-write: true
         com.apple.security.files.bookmarks.app-scope: true
+        com.apple.security.network.client: true
     settings:
       base:
         PRODUCT_NAME: Orifold

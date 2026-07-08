@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 200" width="880" height="200" role="img" aria-label="Orifold now has a website — a sheet of paper folds into an origami crane. Explore the app on the web.">
+  <title>The Orifold website is live</title>
+  <desc>A sheet of washi paper folds into an origami crane with a single red tancho crown, beside an invitation to explore Orifold on the web.</desc>
+
+  <defs>
+    <linearGradient id="vs-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="0.55" stop-color="#0e1a29"/>
+      <stop offset="1" stop-color="#122134"/>
+    </linearGradient>
+    <linearGradient id="vs-paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4ecd8"/>
+      <stop offset="1" stop-color="#e7d9bd"/>
+    </linearGradient>
+    <linearGradient id="vs-paper2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe4c9"/>
+      <stop offset="1" stop-color="#dccba9"/>
+    </linearGradient>
+    <linearGradient id="vs-accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4fc3e8"/>
+      <stop offset="1" stop-color="#7adef4"/>
+    </linearGradient>
+    <linearGradient id="vs-sweep" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7adef4" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#7adef4" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#7adef4" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="vs-grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.03 0"/>
+    </filter>
+    <filter id="vs-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <clipPath id="vs-card"><rect x="2" y="2" width="876" height="196" rx="18"/></clipPath>
+  </defs>
+
+  <!-- card -->
+  <rect x="2" y="2" width="876" height="196" rx="18" fill="url(#vs-bg)"/>
+  <g clip-path="url(#vs-card)">
+    <rect x="2" y="2" width="876" height="196" filter="url(#vs-grain)"/>
+    <!-- calm crease-sweep of light across the whole banner -->
+    <rect x="-360" y="0" width="320" height="200" fill="url(#vs-sweep)" transform="skewX(-18)">
+      <animateTransform attributeName="transform" type="translate" from="-40 0" to="1180 0" dur="6s" begin="1.2s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+  <rect x="2.5" y="2.5" width="875" height="195" rx="17.5" fill="none" stroke="#4fc3e8" stroke-opacity="0.14"/>
+
+  <!-- ===== left: paper folds into a crane ===== -->
+  <g transform="translate(126 104)" filter="url(#vs-soft)">
+    <!-- the flat sheet that folds shut (scaleY flip about the hinge y=0), then hands off to the crane -->
+    <g>
+      <!-- lower half (static) -->
+      <polygon points="0,44 44,0 -44,0" fill="url(#vs-paper2)" stroke="#cabf9c" stroke-width="1"/>
+      <!-- upper half folds down onto the lower half -->
+      <polygon points="0,-44 44,0 -44,0" fill="url(#vs-paper)" stroke="#cabf9c" stroke-width="1">
+        <animateTransform attributeName="transform" type="scale" values="1 1;1 0.02;1 -1" keyTimes="0;0.5;1" dur="1.2s" begin="0.2s" fill="freeze"/>
+      </polygon>
+      <!-- the sheet dissolves as the crane takes over -->
+      <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.62;0.8" dur="2.2s" begin="0s" fill="freeze"/>
+    </g>
+
+    <!-- the folded crane assembles, facet by facet -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;1" keyTimes="0;1" dur="0.5s" begin="1.5s" fill="freeze"/>
+      <!-- left wing -->
+      <polygon points="-6,-44 -18,-2 20,-8" fill="url(#vs-paper)" stroke="#cabf9c" stroke-width="1" opacity="0">
+        <animate attributeName="opacity" from="0" to="1" dur="0.32s" begin="1.5s" fill="freeze"/>
+        <animateTransform attributeName="transform" type="scale" values="0.6;1.06;1" keyTimes="0;0.7;1" dur="0.5s" begin="1.5s" fill="freeze" additive="sum"/>
+      </polygon>
+      <!-- right wing / tail -->
+      <polygon points="20,-8 48,-18 12,12" fill="url(#vs-paper2)" stroke="#cabf9c" stroke-width="1" opacity="0">
+        <animate attributeName="opacity" from="0" to="1" dur="0.32s" begin="1.66s" fill="freeze"/>
+        <animateTransform attributeName="transform" type="scale" values="0.6;1.06;1" keyTimes="0;0.7;1" dur="0.5s" begin="1.66s" fill="freeze" additive="sum"/>
+      </polygon>
+      <!-- neck + head, reaching up-left -->
+      <polygon points="-48,-34 -16,-2 -10,6" fill="url(#vs-paper)" stroke="#cabf9c" stroke-width="1" opacity="0">
+        <animate attributeName="opacity" from="0" to="1" dur="0.32s" begin="1.82s" fill="freeze"/>
+        <animateTransform attributeName="transform" type="scale" values="0.6;1.06;1" keyTimes="0;0.7;1" dur="0.5s" begin="1.82s" fill="freeze" additive="sum"/>
+      </polygon>
+      <!-- body -->
+      <polygon points="-10,6 20,-8 6,36" fill="url(#vs-paper2)" stroke="#cabf9c" stroke-width="1" opacity="0">
+        <animate attributeName="opacity" from="0" to="1" dur="0.32s" begin="1.98s" fill="freeze"/>
+        <animateTransform attributeName="transform" type="scale" values="0.6;1.06;1" keyTimes="0;0.7;1" dur="0.5s" begin="1.98s" fill="freeze" additive="sum"/>
+      </polygon>
+      <!-- the single red tancho crown -->
+      <circle cx="-46" cy="-34" r="5.5" fill="#f2503c" opacity="0">
+        <animate attributeName="opacity" values="0;1" dur="0.3s" begin="2.2s" fill="freeze"/>
+        <animate attributeName="r" values="1;7;5.5" keyTimes="0;0.6;1" dur="0.45s" begin="2.2s" fill="freeze"/>
+        <animate attributeName="r" values="5.5;6.4;5.5" dur="3s" begin="2.9s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+  </g>
+
+  <!-- subtle divider -->
+  <line x1="236" y1="52" x2="236" y2="148" stroke="#4fc3e8" stroke-opacity="0.16"/>
+
+  <!-- ===== right: the invitation ===== -->
+  <g font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.5s" begin="0.5s" fill="freeze"/>
+      <animateTransform attributeName="transform" type="translate" values="-10 0;0 0" dur="0.5s" begin="0.5s" fill="freeze"/>
+      <text x="268" y="70" fill="#7adef4" font-size="13" font-weight="700" letter-spacing="3">NOW&#160;LIVE&#160;&#160;·&#160;&#160;ON&#160;THE&#160;WEB</text>
+    </g>
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.55s" begin="0.72s" fill="freeze"/>
+      <animateTransform attributeName="transform" type="translate" values="-12 0;0 0" dur="0.55s" begin="0.72s" fill="freeze"/>
+      <text x="266" y="108" fill="#edf3fa" font-size="30" font-weight="700" letter-spacing="-0.5">The Orifold website is here.</text>
+    </g>
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.6s" begin="0.94s" fill="freeze"/>
+      <animateTransform attributeName="transform" type="translate" values="-14 0;0 0" dur="0.6s" begin="0.94s" fill="freeze"/>
+      <text x="268" y="140" fill="#afc2d6" font-size="16">Fold chaos into one clean PDF — explore the app on the web</text>
+      <text x="822" y="140" fill="#7adef4" font-size="18" font-weight="700" text-anchor="end">&#8594;</text>
+    </g>
+  </g>
+</svg>

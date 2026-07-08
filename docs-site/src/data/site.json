@@ -1,0 +1,8 @@
+{
+	"repo": "udhawan97/Orifold",
+	"repoUrl": "https://github.com/udhawan97/Orifold",
+	"dmgAsset": "Orifold.dmg",
+	"zipAsset": "Orifold.zip",
+	"minMacOS": "14",
+	"arch": "Apple Silicon"
+}

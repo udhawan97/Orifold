@@ -18,6 +18,12 @@
 	--of-signature: #f98c68;
 	--of-tancho: #f97a6d;
 	--of-fold-shade: rgba(237, 243, 250, 0.06);
+
+	/* Landing "Folding Studio" cream-paper family (WEBSITE_PLAN.md §4.1 — the one
+	   sanctioned amendment). Every paper surface carries a visible ≥3:1 edge. */
+	--of-paper: #f1e7cf;
+	--of-paper-ink: #2b2417;
+	--of-paper-edge: #867950;
 }
 
 :root[data-theme='light'] {
@@ -37,4 +43,10 @@
 	--of-signature: #bf442c;
 	--of-tancho: #bf3227;
 	--of-fold-shade: rgba(19, 31, 51, 0.04);
+
+	/* Cream paper reads warm against the cool #eef0f2 canvas; edge darkened so a
+	   1px border clears the WCAG 1.4.11 3:1 floor against the light canvas. */
+	--of-paper: #f7efdd;
+	--of-paper-ink: #2b2417;
+	--of-paper-edge: #6f6440;
 }

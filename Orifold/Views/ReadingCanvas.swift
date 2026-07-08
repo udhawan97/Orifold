@@ -2527,6 +2527,7 @@ final class NoteEditorViewController: NSViewController {
         var bold: Bool
         var italic: Bool
         var isSubstituted: Bool
+        var isMonospace: Bool
     }
     /// Detected font candidates for this edit's page, computed once at open. The family
     /// popup lists these (with a separator) above the plain family list.
@@ -3946,14 +3947,21 @@ final class NoteEditorViewController: NSViewController {
             let bold = traits.contains(.boldFontMask) || fontName.lowercased().contains("bold")
             let italic = traits.contains(.italicFontMask) || fontName.lowercased().contains("italic") || fontName.lowercased().contains("oblique")
             let family = Self.editingFamilyName(for: font, fallback: fontName)
-            let roundedSize = (size * 10).rounded() / 10
+            let isMonospace = font.isFixedPitch
+            // Round to 0.5pt so near-identical detected sizes (10.6/10.7, or the metric-vs-
+            // ink drift on monospaced fonts) collapse to a single menu entry.
+            let roundedSize = (size * 2).rounded() / 2
             var label = "\(L10n.string("readingCanvas.detectedFont.prefix")) \(family)"
             if bold { label += " Bold" }
             if italic { label += " Italic" }
             label += String(format: " %.1f", roundedSize)
+            if isMonospace { label += " · \(L10n.string("readingCanvas.detectedFont.mono"))" }
             if substituted { label += " \(L10n.string("readingCanvas.detectedFont.substituted"))" }
-            let choice = DetectedFontChoice(menuTitle: label, family: family, size: roundedSize, bold: bold, italic: italic, isSubstituted: substituted)
-            guard !choices.contains(where: { $0.family == choice.family && abs($0.size - choice.size) < 0.2 && $0.bold == choice.bold && $0.italic == choice.italic }) else { return }
+            let choice = DetectedFontChoice(menuTitle: label, family: family, size: roundedSize, bold: bold, italic: italic, isSubstituted: substituted, isMonospace: isMonospace)
+            guard !choices.contains(where: {
+                $0.family == choice.family && abs($0.size - choice.size) < 0.3 &&
+                    $0.bold == choice.bold && $0.italic == choice.italic && $0.isMonospace == choice.isMonospace
+            }) else { return }
             choices.append(choice)
         }
         for line in block.lines { for run in line.runs { add(fontName: run.fontName, size: run.fontSize) } }

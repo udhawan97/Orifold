@@ -1,0 +1,46 @@
+---
+title: Popular workflows
+description: The jobs people open Orifold for most — combine, edit, sign, protect, and more.
+keywords:
+  - popular workflows
+  - what can Orifold do
+  - combine merge pdf
+  - edit pdf text
+  - sign pdf
+  - install download
+---
+
+import Card from '../../../components/Card.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import PetTip from '../../../components/PetTip.astro';
+import popular from '../../../data/popular.json';
+
+The jobs people open Orifold for most. Every one of these runs entirely on your Mac.
+
+<CardGrid>
+	{popular.map((w) => (
+		<Card title={w.title} href={w.href} />
+	))}
+</CardGrid>
+
+## Meet your guides
+
+Orifold ships with two optional companions — the same origami, different personalities. They show up in these docs, too.
+
+<PetTip who="gami">
+	New here? Gami keeps it simple — start with [Your first workspace](/Orifold/get-started/first-workspace/) and you'll know 80% of Orifold in five minutes.
+</PetTip>
+
+<PetTip who="ori">
+	Ori supervises the technical corners — architecture, edge cases, and the "don't break this" notes. [Meet them both →](/Orifold/get-started/companion/)
+</PetTip>
+
+## For developers
+
+Native SwiftUI, four local PDF engines plus a signing pipeline, and a test-gated release. The architecture page is honest and readable end to end.
+
+<CardGrid>
+	<Card title="Start here (developers)" href="developers/start-here/" icon="🏗️">
+		Module map, read-first order, and what to touch carefully.
+	</Card>
+</CardGrid>

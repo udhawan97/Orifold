@@ -2,6 +2,10 @@
 
 <img src="docs/assets/orifold-crane-fold.svg" alt="Animated Orifold logo: a sheet of paper folds into an origami crane, then becomes the app icon" width="168">
 
+<br>
+
+<a href="https://udhawan97.github.io/Orifold/"><img src="docs/assets/orifold-visit-site.svg" alt="Now live on the web: The Orifold website is here. Fold chaos into one clean PDF — explore the app on the web." width="620"></a>
+
 # Orifold
 
 ### Drop in up to 50 messy files.<br>Walk away with one polished, searchable, password-protected PDF.

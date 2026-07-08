@@ -1,6 +1,37 @@
 # editedrun2.pdf Hardening — Implementation Plan
 
-**Status:** Planning only. Written 2026-07-08 for execution by Opus.
+**Status:** SHIPPED (P0 + P1) 2026-07-08. P3 (WP-G/H/I) deferred by design — see below.
+
+## Implementation status
+
+**Shipped and verified:**
+- **WP-A (P0)** — wrap-plausibility + role/label-colon vetoes + reliably-narrowed-column
+  gate: header/table-cell lines stay separate; wrapped control paragraphs still merge.
+- **WP-B (P0)** — font-size unanimity decision helper (`resolvedSize`); union-clamp and
+  measured-ratio sub-parts intentionally dropped (regressed the size-accuracy suite —
+  documented deferral).
+- **WP-C (P0)** — editor no-reflow: 1-line stays 1-line, committed size within 6% of source.
+- **WP-D (P1)** — `hitTest` line-containment tie-break (smallest line-containing block wins).
+- **WP-E (P1)** — detected-font mono tag (`NSFont.isFixedPitch`), 0.5pt rounding, 0.3pt dedup.
+- **WP-F (P0)** — bake-stamp (`/OrifoldBakeStamp`) stamp-first reconciliation + per-machine
+  external-modification fingerprint sidecar (visible content wins, stale edits discarded,
+  one-line notice).
+
+**Deferred (P3 — each individually droppable per §3; precise TODOs remain in this doc and
+`docs/EDITING_HARDENING_V2_PLAN.md`):**
+- **WP-G rotated bakers** — riskiest package (visual-signature save path); the plan itself
+  said drop if ambiguous. Deferred to a focused, review-gated pass.
+- **WP-H annotation-undo stable handles** — a ~12-site refactor of the markup undo/redo
+  system; high regression surface (a subtle error corrupts all markup undo). Deferred to a
+  dedicated pass with full undo-suite coverage rather than landed autonomously.
+- **WP-I Type3/Skia dirty-tracking** — export-side verbatim-bytes optimization; safe only
+  with exhaustive enumeration of every annotation mutation vector (a missed vector = silent
+  save loss). Deferred pending that enumeration.
+- **Cross-member pristine lockstep (item G)** — deferred again, same rationale as v2.
+
+_Original planning text preserved below for the deferred packages._
+
+**Status (original):** Planning only. Written 2026-07-08 for execution by Opus.
 **Baseline:** `main` @ `4195a9d` (post editing-hardening-v2: PageGraphicsIndex, underline
 survival, table-safe erase, deletion-as-commit, detected-fonts menu, Match
 grid/marker/dominant-cluster ranking, bullet split, patch dimming, inspector badges,

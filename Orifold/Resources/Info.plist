@@ -230,6 +230,22 @@
 	<string>0.8.1</string>
 	<key>CFBundleVersion</key>
 	<string>8</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>timestamp.digicert.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>timestamp.globalsign.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026. MIT License.</string>
 	<key>NSPrincipalClass</key>

@@ -703,6 +703,16 @@ final class WorkspaceViewModel {
             )
         }
 
+        // The file changed on disk since Orifold last saved it: the loader kept the visible
+        // content and dropped the now-stale edit operations. Tell the user once (unless a
+        // hard load error already claimed the alert).
+        if document.externalModificationDetected, importError == nil {
+            importError = ImportError(
+                fileName: document.workspace.title,
+                message: L10n.string("notice.externalModification.detected")
+            )
+        }
+
         // Snapshot hook: bake live annotation state before each save
         document.currentPDFDataProvider = { [weak self] in
             guard let self else { return [:] }
@@ -2914,11 +2924,16 @@ final class WorkspaceViewModel {
 
         let currentPage = lookup.pdf.page(at: localIdx)
         let preservedRotation = currentPage?.rotation ?? regenerated.rotation
-        let preservedAnnotations = currentPage?.annotations ?? []
+        // Carry forward the existing page's annotations EXCEPT any prior bake stamp — a fresh
+        // stamp for exactly the operations being baked is added below, and preserving the old
+        // one would leave two stamps (the stale one first, so reconcile would read it and
+        // needlessly regenerate every load).
+        let preservedAnnotations = (currentPage?.annotations ?? []).filter { !BakeStamp.isStamp($0) }
         lookup.pdf.removePage(at: localIdx)
         regenerated.rotation = preservedRotation
         lookup.pdf.insert(regenerated, at: localIdx)
         preservedAnnotations.forEach { regenerated.addAnnotation($0) }
+        Self.attachBakeStamp(BakeStamp.hash(for: operations), to: regenerated)
         textAnalysisCache.removeValue(forKey: pageRef.id)
 
         let serialized = PDFSerializer.data(from: lookup.pdf)
@@ -2932,6 +2947,30 @@ final class WorkspaceViewModel {
             }
         }
         return true
+    }
+
+    /// Writes the bake stamp for `hash` as an invisible, off-page annotation. Mirrors the
+    /// `/OrifoldWorkspaceComments` metadata annotation: `.clear`, 1×1, positioned off the
+    /// media box so it never renders. Sanitize strips it; the reconciler reads it.
+    private static func attachBakeStamp(_ hash: String, to page: PDFPage) {
+        let annotation = PDFAnnotation(bounds: CGRect(x: -10, y: -10, width: 1, height: 1), forType: .freeText, withProperties: nil)
+        annotation.color = .clear
+        annotation.fontColor = .clear
+        annotation.contents = nil
+        annotation.setValue(hash, forAnnotationKey: PDFAnnotationKey(rawValue: BakeStamp.annotationKey))
+        page.addAnnotation(annotation)
+    }
+
+    /// The bake stamp currently on a page, or nil if the page has never been stamped (legacy
+    /// bytes, or a third-party rewrite that dropped the annotation).
+    private static func bakeStamp(on page: PDFPage) -> String? {
+        for annotation in page.annotations {
+            if BakeStamp.isStamp(annotation),
+               let value = annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: BakeStamp.annotationKey)) as? String {
+                return value
+            }
+        }
+        return nil
     }
 
     // MARK: - Committed edit ↔ page byte reconciliation
@@ -2979,16 +3018,18 @@ final class WorkspaceViewModel {
     /// with ops but no bake) would otherwise persist forever — the editor "remembers" the
     /// edit while the page and every export silently miss it.
     ///
-    /// Detection is text-presence-based (see `pageVisiblyReflects`), so a style-only edit
-    /// whose bake went missing is not detectable here — a documented residual limitation;
-    /// the divergence vectors themselves are closed separately (OrderSnapshot now carries
-    /// `pageEditStates`; commits regenerate atomically).
+    /// Detection is stamp-first: each regenerated page carries a `/OrifoldBakeStamp` hash of
+    /// the operations it was baked from (see [[BakeStamp]]). A matching stamp means the bytes
+    /// are current — including for style-only edits, which the text-presence fallback cannot
+    /// verify. A missing stamp (legacy bytes saved before stamping existed) falls back to the
+    /// text-presence check. A mismatched stamp means the operations changed since the bytes
+    /// were written, so regenerate.
     @discardableResult
     func reconcileCommittedEditsWithLoadedPages() -> Int {
         var regeneratedPages = 0
         for state in document.workspace.pageEditStates where !state.operations.isEmpty {
             guard let ref = document.workspace.pageOrder.first(where: { $0.id == state.pageRefID }) else { continue }
-            if pageVisiblyReflects(operations: state.operations, ref: ref) { continue }
+            if pageBytesAreCurrent(for: state.operations, ref: ref) { continue }
             if regenerateEditedPage(pageRef: ref, operations: state.operations) {
                 regeneratedPages += 1
             } else {
@@ -2996,6 +3037,19 @@ final class WorkspaceViewModel {
             }
         }
         return regeneratedPages
+    }
+
+    /// True when a page's current bytes already reflect `operations`. Prefers the bake stamp;
+    /// falls back to text-presence only when the page carries no stamp.
+    private func pageBytesAreCurrent(for operations: [PDFTextEditOperation], ref: PageRef) -> Bool {
+        if let lookup = memberPDF(for: ref),
+           let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex),
+           let page = lookup.pdf.page(at: localIdx),
+           let stamp = Self.bakeStamp(on: page) {
+            return stamp == BakeStamp.hash(for: operations)
+        }
+        // No stamp on the page → legacy bytes: use the text-presence heuristic.
+        return pageVisiblyReflects(operations: operations, ref: ref)
     }
 
     /// True when the page's CURRENT bytes visibly contain every operation's replacement
@@ -5627,6 +5681,9 @@ final class WorkspaceViewModel {
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
             for annotation in page.annotations {
+                // The invisible bake stamp is a FreeText annotation but pure engine
+                // bookkeeping — it must not count as a user PDF edit.
+                if BakeStamp.isStamp(annotation) { continue }
                 if annotation.value(forAnnotationKey: Self.draftTextAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: Self.legacyDraftTextAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: Self.textReplacementAnnotationKey) != nil ||

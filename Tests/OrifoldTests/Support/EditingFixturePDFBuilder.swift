@@ -124,6 +124,39 @@ enum EditingFixturePDFBuilder {
         return makePDF(runs: runs)
     }
 
+    /// A monospaced (Monaco) header page mirroring editedrun2.pdf page 1: a title, a
+    /// "Prepared for:" line, a date line, an OVERVIEW section header, a genuinely-wrapped
+    /// two-line control paragraph (MUST still merge), and a rule-less 3-column text grid
+    /// whose column cells are stacked with normal single-spacing (MUST stay separate).
+    static func monospacedHeaderPage() -> Data {
+        var runs: [TextRun] = [
+            TextRun(string: "SAMPLE PROJECT PROPOSAL", origin: CGPoint(x: 54, y: 730), fontName: "Monaco", fontSize: 12),
+            TextRun(string: "Prepared for: Demo Client", origin: CGPoint(x: 54, y: 710), fontName: "Monaco", fontSize: 12),
+            TextRun(string: "Date: January 2026", origin: CGPoint(x: 54, y: 690), fontName: "Monaco", fontSize: 12),
+            TextRun(string: "OVERVIEW", origin: CGPoint(x: 54, y: 660), fontName: "Monaco", fontSize: 12),
+            // Control paragraph: two lines that genuinely wrap (line 1 fills to the right
+            // margin), so the merge logic must still fuse them.
+            TextRun(string: "This is a short sample document used only to demonstrate that a real wrapped", origin: CGPoint(x: 54, y: 636), fontName: "Monaco", fontSize: 12),
+            TextRun(string: "paragraph continues onto its second line and stays one editable block.", origin: CGPoint(x: 54, y: 620), fontName: "Monaco", fontSize: 12)
+        ]
+        // Rule-less table: 3 columns (Phase / Duration / Owner), cells stacked with normal
+        // single-spacing. These must remain separate cells, not merge into one column block.
+        let colX: [CGFloat] = [54, 200, 340]
+        let headers = ["Phase", "Duration", "Owner"]
+        for (idx, header) in headers.enumerated() {
+            runs.append(TextRun(string: header, origin: CGPoint(x: colX[idx], y: 580), fontName: "Monaco", fontSize: 12))
+        }
+        let cells = [["Discovery", "Build", "Review"], ["2 weeks", "4 weeks", "1 week"], ["Demo Team", "Demo Team", "Demo Client"]]
+        for (col, columnCells) in cells.enumerated() {
+            var y: CGFloat = 560
+            for cell in columnCells {
+                runs.append(TextRun(string: cell, origin: CGPoint(x: colX[col], y: y), fontName: "Monaco", fontSize: 12))
+                y -= 18   // ~1.5em pitch — normal single-spacing, not a big gap
+            }
+        }
+        return makePDF(runs: runs)
+    }
+
     /// Mixed fonts/sizes/colors for detected-font and Match tests.
     static func mixedFonts() -> Data {
         makePDF(runs: [

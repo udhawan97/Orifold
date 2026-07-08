@@ -2607,8 +2607,11 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         ))
 
         let regeneratedPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
-        XCTAssertEqual(regeneratedPage.annotations.count, 1, "highlight annotation was dropped by the text-edit regeneration")
-        XCTAssertEqual(regeneratedPage.annotations.first?.type, "Highlight")
+        // Exclude the invisible bake stamp (engine bookkeeping added by regeneration); count
+        // only user-facing annotations.
+        let userAnnotations = regeneratedPage.annotations.filter { !BakeStamp.isStamp($0) }
+        XCTAssertEqual(userAnnotations.count, 1, "highlight annotation was dropped by the text-edit regeneration")
+        XCTAssertEqual(userAnnotations.first?.type, "Highlight")
     }
 
     /// Both occurrences of an identical repeated paragraph, each edited to DIFFERENT

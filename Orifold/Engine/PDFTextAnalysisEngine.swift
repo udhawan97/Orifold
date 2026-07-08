@@ -262,8 +262,19 @@ final class PDFTextAnalysisEngine {
         guard !candidates.isEmpty else { return nil }
 
         let tightHits = candidates.filter { $0.bounds.insetBy(dx: -tolerance, dy: -tolerance).contains(point) }
-        if let best = smallestBlock(among: tightHits) {
-            return best
+        if !tightHits.isEmpty {
+            // Prefer a block one of whose actual LINES contains the point, over one that only
+            // matches via its (possibly tall, multi-line) bounding box — so a click in a
+            // paragraph's inter-line gap that also falls inside an overlapping neighbor's
+            // union box still resolves to the block whose text is actually under the cursor.
+            // Among those, and otherwise, the smallest block wins (a dense-table cell beats
+            // the row/paragraph that contains it).
+            let lineHits = tightHits.filter { block in
+                block.lines.contains { $0.bounds.insetBy(dx: -tolerance, dy: -tolerance).contains(point) }
+            }
+            if let best = smallestBlock(among: lineHits) ?? smallestBlock(among: tightHits) {
+                return best
+            }
         }
 
         let bandHits = candidates.filter { block in
@@ -565,7 +576,7 @@ final class PDFTextAnalysisEngine {
         let pageBounds = sourcePage?.bounds(for: .cropBox)
             ?? unionBounds(lineBlocks.map(\.bounds))?.insetBy(dx: -24, dy: -24)
             ?? .zero
-        let merged = mergeWrappedLines(assignColumnBounds(to: lineBlocks, pageBounds: pageBounds), graphics: graphics)
+        let merged = mergeWrappedLines(assignColumnBounds(to: lineBlocks, pageBounds: pageBounds), graphics: graphics, pageBounds: pageBounds)
         return inferAlignment(tightenColumnsToParagraphMargins(merged))
             .sorted { $0.bounds.minY > $1.bounds.minY }
     }
@@ -1069,7 +1080,7 @@ final class PDFTextAnalysisEngine {
         }
     }
 
-    private func mergeWrappedLines(_ blocks: [EditableTextBlock], graphics: PageGraphicsIndex = .empty) -> [EditableTextBlock] {
+    private func mergeWrappedLines(_ blocks: [EditableTextBlock], graphics: PageGraphicsIndex = .empty, pageBounds: CGRect = .zero) -> [EditableTextBlock] {
         let sorted = blocks.sorted {
             if abs($0.bounds.midY - $1.bounds.midY) > max($0.fontSize, $1.fontSize) {
                 return $0.bounds.midY > $1.bounds.midY
@@ -1078,7 +1089,7 @@ final class PDFTextAnalysisEngine {
         }
         var merged: [EditableTextBlock] = []
         for block in sorted {
-            guard let mergeIndex = merged.indices.reversed().first(where: { shouldMergeWrappedLine(previous: merged[$0], next: block, graphics: graphics) }) else {
+            guard let mergeIndex = merged.indices.reversed().first(where: { shouldMergeWrappedLine(previous: merged[$0], next: block, graphics: graphics, pageBounds: pageBounds) }) else {
                 merged.append(block)
                 continue
             }
@@ -1110,7 +1121,7 @@ final class PDFTextAnalysisEngine {
         return merged
     }
 
-    private func shouldMergeWrappedLine(previous: EditableTextBlock, next: EditableTextBlock, graphics: PageGraphicsIndex = .empty) -> Bool {
+    private func shouldMergeWrappedLine(previous: EditableTextBlock, next: EditableTextBlock, graphics: PageGraphicsIndex = .empty, pageBounds: CGRect = .zero) -> Bool {
         guard previous.confidence != .low, next.confidence != .low else { return false }
         guard fontsMatch(previous, next), colorsMatch(previous.textColor, next.textColor) else { return false }
         // A horizontal table rule between the two lines is a hard separator — never merge a
@@ -1142,6 +1153,12 @@ final class PDFTextAnalysisEngine {
         guard verticalGap >= -lineHeight * 0.35, verticalGap <= lineHeight * 0.9 else { return false }
         guard columnBoundsCompatible(previous.columnBounds, next.columnBounds, tolerance: max(12, lineHeight)) else { return false }
         guard lineLooksWrapped(previous: previous, next: next, lineHeight: lineHeight) else { return false }
+        // A stacked column of short cells (a rule-less table) shares font/left-x/spacing with
+        // a wrapped paragraph — the distinguishing signal is that a cell does NOT fill its
+        // column, while a wrapped line does. `columnBounds` is only trustworthy for this when
+        // a neighbor bounded it well inside the page edge (an isolated block's column defaults
+        // to the page edge); so this veto applies only to reliably-narrowed columns.
+        guard fillsReliablyNarrowedColumn(previous: previous, lineHeight: lineHeight, pageBounds: pageBounds) else { return false }
 
         let indentDelta = next.bounds.minX - previous.bounds.minX
         let sameLeft = abs(indentDelta) <= max(8, lineHeight * 0.8)
@@ -1151,9 +1168,53 @@ final class PDFTextAnalysisEngine {
         let trimmedPrevious = previous.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let previousLooksOpen = trimmedPrevious.range(of: #"[.!?;:]$"#, options: .regularExpression) == nil
         guard veryShortContinuation || !trimmedNext.isLikelyListItemStart else { return false }
+        // ROLE guards — content signals that separate stacked header/label lines from a
+        // wrapped paragraph even when their geometry is identical (same left edge, similar
+        // width, single-spaced) and the column reference is unreliable (an isolated block's
+        // column defaults to the page edge before `tightenColumnsToParagraphMargins` runs,
+        // so a geometric "fills its column" test can't distinguish them). Skipped for a very
+        // short continuation (a lone "A)" marker isn't a title/label).
+        if !veryShortContinuation {
+            // 1. ALL-CAPS role mismatch in EITHER direction: a title/section header
+            //    ("SAMPLE PROJECT PROPOSAL", "OVERVIEW") never wraps into mixed-case body,
+            //    and mixed-case body never wraps into an all-caps heading below it.
+            if Self.isAllCaps(trimmedPrevious) != Self.isAllCaps(trimmedNext) {
+                return false
+            }
+            // 2. `next` begins a new labeled field ("Date: January 2026", "Prepared for:
+            //    …") — a leading "Label:" is a new fact, not a continuation of the line
+            //    above. A genuine wrapped line never starts with a short leading label+colon.
+            if Self.startsWithLabelColon(trimmedNext) {
+                return false
+            }
+        }
 
         return (sameLeft || hangingContinuation || veryShortContinuation) &&
             (previousLooksOpen || veryShortContinuation)
+    }
+
+    /// True when a run of text is effectively all upper-case (a title/section header): it
+    /// contains letters and none of them are lower-case. Digits/punctuation are ignored.
+    private static func isAllCaps(_ text: String) -> Bool {
+        let letters = text.unicodeScalars.filter { CharacterSet.letters.contains($0) }
+        guard letters.count >= 3 else { return false }
+        return !letters.contains { CharacterSet.lowercaseLetters.contains($0) }
+    }
+
+    /// True when `text` starts with a short "Label:" field — a capitalized word or two (or a
+    /// date-ish token) followed by a colon within the first ~24 characters, and there is
+    /// content after the colon. Matches header rows like "Prepared for: Demo Client" and
+    /// "Date: January 2026" without matching ordinary prose that merely contains a colon
+    /// later in the line.
+    ///
+    /// Each label token allows digits as well as letters (`[A-Za-z0-9]`, not letters-only):
+    /// a letters-only class missed header fields like "Q1 2026 Revenue: 500000" or
+    /// "Section 2:" — a label is no less a label for containing a quarter/year/section
+    /// number, and the tight length/token-count caps already keep this from matching
+    /// ordinary prose (a sentence with an early colon reads past 3 short tokens or 14
+    /// characters before it, same as before).
+    private static func startsWithLabelColon(_ text: String) -> Bool {
+        text.range(of: #"^[A-Z][A-Za-z0-9]{0,14}( [A-Za-z0-9]{1,14}){0,2}:\s+\S"#, options: .regularExpression) != nil
     }
 
     /// True when the upper line plausibly word-wrapped into the lower one. A wrapped
@@ -1164,6 +1225,45 @@ final class PDFTextAnalysisEngine {
     private func lineLooksWrapped(previous: EditableTextBlock, next: EditableTextBlock, lineHeight: CGFloat) -> Bool {
         let shortfall = next.bounds.maxX - previous.bounds.maxX
         return shortfall <= max(24, lineHeight * 2)
+    }
+
+    /// True unless `previous` is a short cell inside a RELIABLY-NARROWED column that it does
+    /// not fill (a rule-less table cell). Returns true (i.e. does not veto) when there is no
+    /// column, when the column reaches the page edge (the unreliable default given to
+    /// isolated paragraphs — those are handled by the wrap/role checks, not here), or when
+    /// the last line actually fills the narrowed column. Load-bearing for keeping rule-less
+    /// table columns from merging into one block without breaking real wrapped paragraphs.
+    private func fillsReliablyNarrowedColumn(previous: EditableTextBlock, lineHeight: CGFloat, pageBounds: CGRect) -> Bool {
+        guard let column = previous.columnBounds?.standardized, column.width > 1, pageBounds.width > 1 else {
+            return true
+        }
+        // Column still runs to (near) the page's right edge → not bounded by a neighbor →
+        // unreliable width; don't apply the fill test.
+        guard column.maxX < pageBounds.maxX - max(48, lineHeight * 3) else { return true }
+        let lastLine = previous.lines.last
+        let lastLineMaxX = lastLine?.bounds.standardized.maxX ?? previous.bounds.standardized.maxX
+        let reachesRightEdge = lastLineMaxX >= column.maxX - max(24, lineHeight * 2)
+        let lineFill = (lastLineMaxX - column.minX) / column.width
+        // A genuinely-wrapped line reaches near the column edge or fills most of it → merge.
+        if reachesRightEdge || lineFill >= 0.7 { return true }
+        // Otherwise it only counts as a table cell (veto the merge) when it is ALSO a short
+        // line of a few tokens or fewer. A longer multi-word line that happens to fall a
+        // little short of a (pre-tighten, slightly-too-wide) column is still prose and must
+        // merge — this is what keeps genuinely-wrapped column paragraphs intact while
+        // splitting rule-less table columns of short cells.
+        //
+        // The threshold is 3 tokens, not 2: a real table cell can itself be a short phrase
+        // ("Net Income Total", "Prepared for client") that still falls well short of a
+        // reliably-narrowed column (fill well under 0.7) — a 2-word cap let exactly that
+        // 3-word cell escape the veto and fuse into the block above it, regardless of how
+        // little of the column it actually filled. Calibrated against
+        // `testPDFTextAnalysisMergesWrappedLinesWithinInterleavedColumns`, whose genuinely-
+        // wrapped continuation lines run 4-5 tokens at a similar (0.54-0.62) fill ratio —
+        // those must still merge, so the cap sits just above them rather than at the bug's
+        // own 3-token report.
+        let wordCount = (lastLine?.text ?? previous.text)
+            .split(whereSeparator: { $0.isWhitespace }).count
+        return wordCount > 3
     }
 
     private func fontsMatch(_ lhs: EditableTextBlock, _ rhs: EditableTextBlock) -> Bool {
@@ -1227,14 +1327,35 @@ final class PDFTextAnalysisEngine {
             guard lineText.unicodeScalars.contains(where: { CharacterSet.alphanumerics.contains($0) }) else {
                 return reported
             }
-            let upperPlausible = inkEstimatedSize * 1.08
-            let lowerPlausible = inkEstimatedSize * 0.85
-            if reported > upperPlausible || reported < lowerPlausible {
-                return inkEstimatedSize
+            return Self.resolvedSize(reported: reported, sampleCount: validSizes.count,
+                                     spread: (validSizes.max() ?? reported) - (validSizes.min() ?? reported),
+                                     inkEstimate: inkEstimatedSize)
+        }
+        return inkEstimatedSize > 0 ? inkEstimatedSize : 12
+    }
+
+    /// Decides the resolved size from a PDFium-reported size and the ink-derived estimate.
+    /// Pure/static so it can be unit-tested directly (generated CoreText fixtures carry no
+    /// reported sizes, so the reported-size logic can't be exercised end-to-end).
+    ///
+    /// - When many glyphs agree tightly (WP-B.3 "unanimous"), trust the reported size unless
+    ///   it contradicts the ink estimate CATASTROPHICALLY (>1.35× either way) — that catches
+    ///   content-stream-scaled text (nominal Tf size ≠ visible size) while accepting the
+    ///   correct reported size for ordinary text whose ink model is merely a few % off.
+    /// - Otherwise apply the historical narrow plausibility band around the ink estimate.
+    static func resolvedSize(reported: CGFloat, sampleCount: Int, spread: CGFloat, inkEstimate: CGFloat) -> CGFloat {
+        guard inkEstimate > 0 else { return reported }
+        let unanimous = sampleCount >= 4 && spread <= max(0.2, reported * 0.02)
+        if unanimous {
+            if reported > inkEstimate * 1.35 || reported < inkEstimate / 1.35 {
+                return inkEstimate
             }
             return reported
         }
-        return inkEstimatedSize > 0 ? inkEstimatedSize : 12
+        if reported > inkEstimate * 1.08 || reported < inkEstimate * 0.85 {
+            return inkEstimate
+        }
+        return reported
     }
 
     /// Ratio of a line's rendered ink height to its point size, cached per PostScript
