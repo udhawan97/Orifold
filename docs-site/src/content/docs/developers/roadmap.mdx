@@ -1,29 +1,54 @@
 ---
 title: Roadmap & non-goals
 description: What's next for Orifold — and what it's deliberately choosing not to become.
-keywords: [roadmap, non-goals, future, redaction, compare, limitations]
+keywords: [roadmap, non-goals, future, redaction, compare, object editing, notarization, limitations]
 ---
 
 import Callout from '../../../components/Callout.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
 
-Orifold is in beta on the road to 1.0. Direction over dates — the list below is intent, not a schedule.
+Orifold is in beta on the road to 1.0. Direction over dates — the list below is intent, not a schedule. The paper isn't done folding.
 
-## Now
+<Callout variant="tip" label="A friendly sneak peek, not a blood oath">
+	Orifold is built part-time, so the order may shuffle and a fold or two may take the scenic route. The direction holds steady, though: more useful, more polished, more delightful — one crease at a time. Softly stated on purpose — “on the radar,” never “shipping Tuesday.”
+</Callout>
 
-Hardening the flows that already ship — signing, the qpdf engine, the companions, localization, and the documentation you're reading.
+## 🛠️ Now — on the bench
 
-## Next
+Steadying what already ships — signing, the qpdf engine, the companions, localization, and the documentation you're reading. Chief among them: **sturdier editing** — text edits that are harder to surprise on rotated pages, in deep undo history, or when a file is quietly touched in another app between saves.
 
-- **True content redaction** — remove text and images, not just cover them.
-- **Side-by-side document compare.**
-- **Faster large-document navigation.**
+## 🔭 Next — in the lab
 
-## Later
+Being explored, high on the radar. Each is grounded in machinery Orifold already links — not a wish list.
+
+<CardGrid>
+	<Card title="Real redaction" icon="✂️" href="export/sanitize/">
+		Secrets that actually *leave* the file — not a polite black rectangle you can drag right off. Building on the same qpdf pass that already strips scripts and hidden metadata.
+	</Card>
+	<Card title="Move the furniture" icon="🧩" href="edit/edit-text/">
+		Grab a stray line, resize a logo, delete a rogue stamp — editing real page objects, not sticky notes cosplaying as them.
+	</Card>
+	<Card title="Side-by-side compare" icon="🆚" href="reading/reader-mode/">
+		Two drafts, one screen. Spot the change without printing both and playing spot-the-difference.
+	</Card>
+	<Card title="Big docs, quick feet" icon="⚡" href="reading/reader-mode/">
+		Three-hundred-page beasts that scroll like pamphlets. Faster navigation for the heavy files.
+	</Card>
+	<Card title="More languages" icon="🗣️" href="settings/language/">
+		Six today, more in night school — the interface *and* the OCR that reads your scans.
+	</Card>
+	<Card title="A calmer first launch" icon="🚪" href="get-started/install/">
+		Zero security theater on first open — no right-click ritual, no Settings detour. Pending one very official Apple notarization handshake.
+	</Card>
+</CardGrid>
+
+## 🌫️ Later — quietly brewing
 
 - **Automated UI smoke tests** to complement the unit suite.
 - Broader OCR language coverage and export polish, as real use surfaces needs.
 
-## Non-goals
+## 🚫 Non-goals
 
 Being explicit about scope is part of the trust. Orifold is **not** planning to add:
 

@@ -69,6 +69,22 @@ const icoMoon =
 	'<svg class="ico-moon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.2 11.8A6.5 6.5 0 0 1 8.2 3.8a6.5 6.5 0 1 0 8 8Z"/></svg>';
 const icoNoteClose =
 	'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+
+// Roadmap ("Horizon") glyphs — same line-art grammar as the feature icons
+// (20×20, currentColor stroke, tinted by .glyph's --act-accent). Static: no
+// SMIL, no per-frame work — they reveal once with their .crease and stay put.
+const icRedact =
+	'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3.5" width="14" height="13" rx="2"/><path d="M6 7.5h8"/><rect x="6" y="10.2" width="8" height="2.4" rx="0.7" fill="currentColor" stroke="none"/></svg>';
+const icMove =
+	'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v14M3 10h14M10 3 8 5m2-2 2 2M10 17l-2-2m2 2 2-2M3 10l2-2m-2 2 2 2M17 10l-2-2m2 2-2 2"/></svg>';
+const icCompare =
+	'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="6.4" height="12" rx="1.2"/><rect x="11.1" y="4" width="6.4" height="12" rx="1.2"/><path d="M10 2.4v15.2" stroke-dasharray="1.6 1.7"/></svg>';
+const icFast =
+	'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2.5 4.8 11H9l-1 6.5L15.2 9H11l1-6.5Z"/></svg>';
+const icGlobe =
+	'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7.4"/><path d="M2.6 10h14.8M10 2.6c2.4 2 3.6 4.8 3.6 7.4S12.4 15.4 10 17.4C7.6 15.4 6.4 12.6 6.4 10S7.6 4.6 10 2.6Z"/></svg>';
+const icUnlock =
+	'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.3" y="8.8" width="11.4" height="8" rx="1.8"/><path d="M7 8.8V6.4a3 3 0 0 1 5.8-1.05"/><path d="M10 11.6v2.4"/></svg>';
 // The "Copied" check glyph is a literal <svg> inline in the copy-button script
 // below (~line 648), not a frontmatter const: <script is:inline> is a static
 // string, not an Astro expression context, so it can't reference frontmatter
@@ -440,6 +456,62 @@ const icoNoteClose =
 						</div>
 						<figcaption class="tabnum">Real capture — Orifold v{rel.version}. Not a render — Gami greets you in the app, in six languages.</figcaption>
 					</figure>
+				</div>
+			</section>
+
+			<hr class="crease-line" />
+
+			<!-- Horizon — what folds next (a witty, optimistic teaser; NOT a delivery promise) -->
+			<section id="horizon" class="fold">
+				<div class="wrap">
+					<div class="act-head crease" style="text-align:center">
+						<p class="kicker" style="margin-inline:auto">Still folding · The horizon</p>
+						<h2>The crane keeps folding.</h2>
+						<p class="lede" style="margin-inline:auto">
+							Orifold is genuinely useful today — and nowhere near finished. A few folds are
+							already taking shape on the workbench. A friendly sneak peek, not a blood oath.
+						</p>
+					</div>
+
+					<div class="feature-band crease">
+						<div class="card-grid">
+							<div class="of-card">
+								<span class="glyph" aria-hidden="true" set:html={icRedact} />
+								<h3>Real redaction</h3>
+								<p>Secrets that actually <em>leave</em> the file — not a polite black rectangle you can drag right off.</p>
+							</div>
+							<div class="of-card">
+								<span class="glyph" aria-hidden="true" set:html={icMove} />
+								<h3>Move the furniture</h3>
+								<p>Grab a stray line, resize a logo, delete a rogue stamp — editing real page objects, not sticky notes cosplaying as them.</p>
+							</div>
+							<div class="of-card">
+								<span class="glyph" aria-hidden="true" set:html={icCompare} />
+								<h3>Side-by-side compare</h3>
+								<p>Two drafts, one screen. Spot the change without printing both and playing spot-the-difference.</p>
+							</div>
+							<div class="of-card">
+								<span class="glyph" aria-hidden="true" set:html={icFast} />
+								<h3>Big docs, quick feet</h3>
+								<p>Three-hundred-page beasts that scroll like pamphlets.</p>
+							</div>
+							<div class="of-card">
+								<span class="glyph" aria-hidden="true" set:html={icGlobe} />
+								<h3>More languages</h3>
+								<p>Six today, more in night school — the interface <em>and</em> the OCR that reads your scans.</p>
+							</div>
+							<div class="of-card">
+								<span class="glyph" aria-hidden="true" set:html={icUnlock} />
+								<h3>A calmer first launch</h3>
+								<p>Zero security theater on first open — pending one very official Apple handshake.</p>
+							</div>
+						</div>
+						<p class="fine-print crease" style="text-align:center; margin-top: clamp(2.2rem, 5vw, 3rem)">
+							Built part-time, in the open — so the order may shuffle and a fold or two may take the
+							scenic route. The direction holds: more useful, more polished, more delightful.
+							Got a fold you'd love to see? <a href={`${site.repoUrl}/issues`}>Tell us</a>.
+						</p>
+					</div>
 				</div>
 			</section>
 

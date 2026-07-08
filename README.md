@@ -452,12 +452,34 @@ curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh |
 Check `.build/install.log` in the project folder for build output, and `~/.orifold/prebuilt-install.log` for the prebuilt install attempt.
 </details>
 
-## 🗺️ Roadmap
+## 🗺️ What's Folding Next
 
-- True content redaction (remove text/images, not just cover them)
-- Side-by-side document compare
-- Faster large-document navigation
-- Automated UI smoke tests
+Orifold is already useful today — but the paper isn't done folding. Here's what's on the workbench, roughly in the order we're squinting at it.
+
+> [!NOTE]
+> **A friendly sneak peek, not a blood oath.** This is a part-time labor of love, so the order may shuffle and a fold or two may take the scenic route. The direction, though, holds steady: more useful, more polished, more delightful — one crease at a time.
+
+**🛠️ On the bench now** — steadying what already ships
+
+- **Sturdier editing.** Text edits that are harder to surprise — rotated pages, deeper undo history, and files quietly touched in other apps between saves.
+
+**🔭 Next up in the lab** — being explored, high on the radar
+
+| | The next fold | What you'd get |
+| :---: | --- | --- |
+| ✂️ | **Real redaction** | Secrets that actually *leave* the file — not a polite black rectangle you can drag right off. |
+| 🧩 | **Move the furniture** | Grab a stray line, resize a logo, delete a rogue stamp — editing real page objects, not sticky notes cosplaying as them. |
+| 🆚 | **Side-by-side compare** | Two drafts, one screen. Spot the change without printing both and playing spot-the-difference. |
+| ⚡ | **Big docs, quick feet** | Three-hundred-page beasts that scroll like pamphlets. |
+| 🗣️ | **More languages** | Six today, more in night school — interface *and* OCR. |
+| 🚪 | **A calmer first launch** | Zero security theater on first open — pending one very official Apple handshake. |
+
+**🌫️ Quietly brewing** — further out, no promises made
+
+- Broader OCR alphabets and export polish, as real use surfaces the need.
+- Automated UI smoke tests to back up the unit suite.
+
+Got a fold you'd love to see? [Open an issue](https://github.com/udhawan97/Orifold/issues) — the roadmap listens.
 
 ## 🤝 Contributing
 
