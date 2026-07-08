@@ -3,6 +3,7 @@
 **Status:** Planning only. Not implemented. Hand this document to Sonnet for execution.
 **Date:** 2026-07-07 · **Baseline audited:** v0.8.1 — the shipped Astro Starlight docs site in `docs-site/` (deployed to `https://udhawan97.github.io/Orifold/`), `release.yml` (zip-only), the live GitHub releases (`release-v0.8.1` with a single `Orifold.zip` asset; rolling `Orifold-latest`), the one-line installer, and the Homebrew cask.
 **Revision 2 (same day):** re-audited against main after the toolbar redesign (`37ae9b6`) and the docs Media wiring (`aed19d2`) landed. Corrections: **every existing app screenshot now shows the removed pre-redesign toolbar** — the §2.1 capture session recaptures all of them, and §10 gains a post-toolbar docs pass; the "0 network calls" privacy stat was wrong (the shipped trusted-timestamp feature makes opt-in TSA requests — §3.5/§8b copy rescoped); the shipped artifact's version actually comes from the committed `Orifold/Resources/Info.plist`, not `project.yml` (§5.3.1/§7 corrected); `docs.yml` already has `workflow_dispatch` (§5.4); the "Translate" guides-row item had no docs page to link (§3.3); "verifiable in Adobe" overclaimed for the self-signed default (§3.4).
+**Revision 3 (same day) — THE FOLDING STUDIO redesign:** on new direction from Umang (make it fancy/animated like the FolioSenseAI site, keep the origami theme, use the pets Gami & Ori to guide the plot, Apple-grade type). §3 (page structure) and §4 (motion system) below are **fully replaced** with a 7-fold animated scroll narrative — a sheet of washi folded act by act into the crane, Gami guiding the user arc and Ori the developer/trust arc, one red (hanko seal + crane crown), every animation transform/opacity-only and finite (WCAG 2.2.2-clean). Produced via a judge-panel workflow (3 concepts → 3-lens judging → spec → taste + perf/a11y critique). Chosen concept: "The Folding Studio." Locked sections §1, §5–§8 are untouched. See the "Revision 3 deltas" block at the end for §2 pre-work additions and §9/§12 changes. **Also surfaced: a critical app regression — commit `8180b82` silently reverted the TSA timestamp fix (project.yml never declared the network entitlement/ATS, so xcodegen overwrote them); tracked separately, and all page-wide timestamp copy is gated on it (§2.7).**
 **Quality bar:** Apple-like restraint — typography-led, spacious, high-contrast, one message per band. Simple but not basic; intentional, refined, trustworthy.
 **End-state contract:** `git tag vX.Y.Z && git push --tags` → **zero further manual steps** → the site shows the new version with a working Apple Silicon `.dmg` download, honest Gatekeeper UX, and a clear phased auto-update path.
 
@@ -104,122 +105,282 @@ Concretely: delete `docs-site/src/content/docs/index.mdx` from the Starlight con
 
 ---
 
-## 3. Page structure — 8 bands, one background
+## 3. Page structure — The Folding Studio (7 folds + footer, one sheet)
 
-One continuous `--of-canvas` ground. **No alternating band backgrounds.** Separation = 5–7rem `padding-block` + exactly **three** `.of-crease` skewed hairlines (after §3.2, after §3.5, before §3.7). Content max-width ~1080px. Heading map: **one H1 (§3.1 headline); every band heading is H2; card titles are H3.** `html { scroll-padding-top: 72px }` so anchor jumps clear the sticky nav.
+One page = one sheet of washi folded, act by act, into the crane. One continuous ground: dark-indigo `--of-canvas` studio-at-dusk atmosphere in dark theme; the same layout renders correctly under light tokens (theme handoff from §1 is unchanged and binding). Cream paper objects (the sanctioned `--of-paper` family, §4.1), one disciplined red: `--of-tancho` appears **only** on the hanko seal (Fold 3) and the crane's crown (final fold). Arc: promise → gather → shape → seal → keep → breath → take home. Total ≈ 7–8 viewport-heights.
 
-### 3.1 Nav + Hero + proof shot (one act, fold-budgeted)
+**Global band rules.** Content max-width ~1080px. Acts separated by `padding-block: clamp(5rem, 12vh, 8rem)`. Each act header is a **crease**: kicker (uppercase, `.14em` tracking, `.76rem`, colored `var(--act-accent)`) → H2 (clamp-sized, −0.02em tracking, weight ~640) → the `crease-reveal` entrance (§4) draws a 1px fold-line across the band top as content unfolds. Heading map unchanged: **one H1 (hero); every act heading is H2; card titles are H3.** `html { scroll-padding-top: 72px }`. Kickers are English with a "FIRST FOLD ·" prefix (`第一の折り` style is banned). The **間 act kicker is the page's single CJK glyph** — it earns it because the band embodies the concept. It ships wrapped `<span lang="ja" aria-hidden="true">間</span>` with an sr-only English equivalent ("ma — the margin"). No other CJK anywhere (the former `二·1/2/3` step tiles are re-specified in §3.3 with plain numerals).
 
-**Nav (sticky, 56px):** left — 28px crane app icon + "Orifold" wordmark (a `<span>`, not a heading). Right — `Features · Download · Docs · GitHub`. Mobile — `Features · GitHub` (orientation, not a download nobody can use there). Backdrop: `color-mix(canvas 80%, transparent)` + `backdrop-filter: blur(12px)`, bottom hairline `--of-separator`. Skip-link first in DOM.
+**Honesty register (binding, inverted-chrome rule):** traffic-light macOS window chrome appears **only** on real screenshots, never on stylized vignettes. Every real screenshot carries a visible `<figcaption>` "Real capture — Orifold v{captured-on version}" — the version is **pinned per capture in the captures manifest** (§2.1: `docs-site/src/data/landing-captures.json`, one entry per capture: filename → `{ capturedOnVersion, capturedDate }`). Captions render from the manifest pin, **never from live `release.ts` and never hardcoded** — a caption must state the version the pixels were actually shot on, so shipping v0.9 without recapturing cannot silently falsify seven captions. A build check warns when any pin trails the current release by more than one minor. Every stylized vignette carries a small "Illustration" caption. The two visual registers must be distinguishable at a glance.
 
-**Hero — exactly five elements:**
+**Nav (sticky, 56px, unchanged from Revision 2):** left — 28px crane app icon + "Orifold" wordmark (`<span>`, not a heading). Right — `Features · Download · Docs · GitHub`; mobile — `Features · GitHub`. The **Features anchor targets the crease-pattern grid** (`#features`, below the V2 stage) — skimmers bypass the theater entirely. Backdrop `color-mix(in srgb, var(--of-canvas) 80%, transparent)` + `backdrop-filter: blur(12px)`, bottom hairline `--of-separator`. Skip-link first in DOM.
 
-1. **Eyebrow** (small, gray-2): "Orifold — free, open source, for macOS"
-2. **H1:** "Fold chaos into one clean PDF." — `clamp(2.6rem, …, 4.5rem)`, weight 600, `--of-text-1`.
-3. **Sub (canonical line, verbatim):** "A free, open-source PDF workspace for macOS. Drop in up to 50 messy files — edit, sign, and export one polished document. Nothing ever leaves your Mac."
-4. **Button row:** primary **`Download for Mac`** (solid `--of-accent`, 44px min-height, standard 120ms token hover — no glow ring; down-arrow icon; href = stable dmg URL, §5.1) · secondary ghost **`Read the docs`**. No GitHub button here — it's in the nav.
-5. **Metadata rows (gray-2, tabular-nums):**
-   - `v0.8.2 · macOS 14+ · Apple Silicon · 14 MB · Free & MIT · beta, built in public` — every value baked from release metadata (§7), never hardcoded in copy. The "Apple Silicon" chip carries a `title` tooltip: "Any Mac with an M-series chip — 2020 or later.  → About This Mac to check."
-   - `Not notarized yet — first launch takes one extra step. Details ↓` — anchors to `#download`; this is the inoculation line, same visual weight as the chip.
+### 3.0 Act map
 
-**Crane mark:** ≤96px, beside the H1 at wide viewports (above on narrow), **after the CTA in DOM order** (positioned via grid `order`) so the pitch streams first. Plays its fold once, freezes on the crane.
+| # | `id` | Kicker | H2 (verbatim) | Job | Real captures | Vignette | Pet |
+|---|------|--------|----------------|-----|---------------|----------|-----|
+| 0 | `#sheet` | ORIFOLD · FREE FOR MACOS | **Fold chaos into one clean PDF.** | Promise + CTA | none | V5 (crane, static hero frame) | none |
+| 1 | `#fold-1` | FIRST FOLD · GATHER | **Fifty messy files. One sheet.** | Journey begins | `import-files-overview.png`, `language-switcher.png` | V1 Gathering | Gami arrives |
+| 2 | `#fold-2` | SECOND FOLD · SHAPE | **Edit the page, not a copy of it.** | Feature proof | `combine-reorder-pages.png`, `edit-text-workflow.png`, `export-save-confirmation.png` | V2 Crease Stage | Gami handoff (band end) |
+| 3 | `#fold-3` | THIRD FOLD · SEAL | **A signature that holds up.** | Flagship | `sign-document-digital.png` | V3 Seal | Ori arrives |
+| 4 | `#fold-4` | FOURTH FOLD · KEEP | **The studio has no windows.** | Trust | none | V4 No Exit | Ori speaks |
+| 5 | `#ma` | 間 · THE MARGIN | **Why this exists.** | Breath | none | none (zero motion) | both, silent |
+| 6 | `#final-fold` | FINAL FOLD · TAKE IT HOME | **The crane finishes here.** | Conversion | none | V5 completes (the one animated crane) | Gami coaches, Ori converts devs — both static here |
+| — | footer | — | colophon | — | — | — | static marks only |
 
-**Fold budget (acceptance-gated):** `padding-block-start: clamp(3rem, 8vh, 6rem)`. At 1280×700 and 1440×780, the primary CTA **and the top edge of the proof shot** must be visible — the proof shot overlaps slightly up into the hero (negative margin, Apple product-page style) so the app is present in the first paint.
+### 3.1 Fold 0 — `#sheet` (hero)
 
-**Proof shot:** the §2.1 recaptured 2× workspace in a minimal window frame (10px radius, hairline border, soft shadow, folded-corner motif). `loading="eager"`, `fetchpriority="high"`, `<link rel="preload">`, explicit `width`/`height` (no CLS), `astro:assets` `<Picture>` AVIF/WebP, **≤150KB served**. `<figcaption>`: "The whole app in one window. Real capture, v0.8.2, dark mode."
+Two-column grid; mobile stacks crane (~160px) above type. **DOM order is binding: the entire left column precedes the crane markup in the parse stream** — the H1 (the LCP element) must never sit behind kilobytes of SVG.
 
-### 3.2 "Many files in. One PDF out." — the fold moment (the page's one scripted animation)
+**Left column, in DOM order:**
+1. Kicker: `ORIFOLD · FREE FOR MACOS`.
+2. H1: **"Fold chaos into one clean PDF."** — `clamp(2.6rem, 6vw, 4.4rem)`, variable weight ~720, −0.03em, text-fill gradient + `background-clip: text`; `&nbsp;` guard on "clean&nbsp;PDF." **Gradient endpoint is theme-scoped:** dark theme `linear-gradient(120deg, var(--of-text-1) 40%, var(--of-accent-bright))`; light theme ends at `var(--of-accent)` instead (`--of-accent-bright` measures 2.6:1 on the light canvas — below the 3:1 large-text floor, and invisible to Lighthouse because the text is gradient-clipped). Gradient text endpoints, both themes, are named rows in the §4.1 manual contrast pass.
+3. Sub (canonical line, **verbatim**, source `docs-site/src/content/docs/index.mdx:23` — copy out before §10 deletes the file): "A free, open-source PDF workspace for macOS. Drop in up to 50 messy files — edit, sign, and export one polished document. Nothing ever leaves your Mac."
+4. CTA row: primary stacked-label button **"Download for Mac"** with sub-label `macOS 14+ · v0.8.2 · 14 MB` (all three values baked from `release.ts` at build; refreshed by the §5.5 enhancer; **never hardcoded**; href = stable dmg URL per §5.1). Sub-label gets `min-width` in `ch` + `tabular-nums` so an enhancer version upgrade (`v0.8.2 → v0.10.0`) cannot shift layout. Secondary: mono chip `brew install --cask orifold` with copy button (`copy-flash`; `aria-label="Copy install command"`, confirmation in `role="status"`). Tertiary text links: GitHub · Release notes · Docs.
+5. Gatekeeper inoculation line (gray-2, same weight as chips): *"Not notarized yet — first launch takes one extra step. [Here's how →](#final-fold)"* — the anchor jumps to the coaching card (final wording of the coaching itself gates on the §2.2 machine test). `scroll-behavior` is never set to `smooth` (and is forced `auto` under reduced motion, §4.7).
+6. Metadata chips (tabular-nums, gray-2): `version` · `released <date>` — baked from `release.ts`, always visible (no-JS-correct). **The runtime SHA chip is cut** — the GitHub refs deref, its sessionStorage cache, the `chip-in` animation, and its failure mode all go with it. Nobody verifies a short hash from a marketing page; the final-fold SHA256 checksum block does the real provenance job. Saves ~0.3KB JS, one animation, one network dance beside the primary CTA.
 
-- H2 verbatim. Sub: "A 'simple PDF task' is rarely simple. It is six PDFs, two screenshots, a Word document, a scanned form, and one determined file named `final_final_revised_ACTUAL.pdf`."
-- **The animation (in scope, built now):** a hand-built inline SVG (~8KB — *not* the crane) of 7 scattered paper sheets with tiny filename labels. One `IntersectionObserver` (threshold .3, fires once, ~30 lines) adds `.is-folded`; CSS transitions (600ms ease-out, 60ms stagger) translate/rotate the sheets inward, each visually "folding" (two-half `scaleX` with a crease highlight via `--of-fold-shade`) into a single clean document that gains the folded-corner motif. Total ~1.2s.
-  - **No-JS guard:** the scattered pre-state applies only under `html.js` (set by a 1-line inline script); no JS ⇒ final folded state renders statically.
-  - **Reduced-motion:** final state pre-applied; observer never registered.
-- Closer: "Merging isn't a separate step. Broken PDFs are repaired on the way in."
+**Right column:** the crane, large (~38% of the grid), **no container, no chrome, no screenshot** — the mark is the product shot. **The hero crane is the static one-fold-short frame** (§2.3): a designed, first-class composition — a composed pose chosen by eye to read as intentional sculpture, expectant, not crumpled — shipped as a small inline SVG or `<img>` (~2–3KB), crownless (the hero crane never shows red), identical in every mode (JS, no-JS, reduced-motion). The single animated crane instance lives at `#final-fold` (§3.7). *Upgrade path only:* if the §2.3 rebuild lands under ~28KB raw, a second inline animated instance paused at `data-pause-t` may replace the hero static — gated on the §2.3 go/no-go, never assumed. (The old "two instances gzip-dedupe" premise is deleted: gzip's 32KB window cannot back-reference a second copy of an asset this size — measured 0% dedup.)
 
-### 3.3 Feature highlights — the one card grid (6 cards)
+**Ambient background (entire hero ambient system, nothing else):**
+- Static washi grain: inline `<svg>` `feTurbulence` tile, ~3% opacity, CSS-masked to fade below the fold. **Zero animation, ≤1.5KB raw.**
+- Two fold-shadows: full-bleed `--of-fold-shade` linear-gradient wedges (light raking across a creased backdrop), each its own composited layer, `will-change: transform`, drifting ±30px via `shade-drift-a` (26s) / `shade-drift-b` (34s), transform-only, `.in-view`-gated — and **finite: `animation-iteration-count: 2`, ending at the rest position** (keyframes authored to return home). WCAG 2.2.2 requires a mechanism for >5s auto-motion; a finite drift that settles needs none, and the dusk mood survives — the light rakes twice, then the studio is still.
 
-`.of-card` grid, inline SVG glyphs (one icon language site-wide — no emoji), H3 title + one quip, each card links to its docs page:
+**No pet in the hero** (decided; rejects the hero-Gami graft). The hero keeps *ma*; Gami is one scroll away and the inoculation line + chips already do the hero's coaching work. Do not re-add — see §4 mascot-drift rule.
 
-1. **Edit PDF text in place** — "Click the text, fix the typo. Real glyph geometry, not a sticky note."
-2. **Real AES-256 protection** — "Real AES-256, not a 'protected' flag a reader can ignore."
-3. **On-device OCR** — "⌘F finally works on that thing your printer emailed you."
-4. **Compress** — "Attachments that stop bouncing off email size limits."
-5. **Sanitize** — "A file that carries nothing you didn't intend to send."
-6. **Fill & flatten forms** — "Finished paperwork, no third-party e-sign service."
+**Fold budget (acceptance-gated):** at 1280×700 and 1440×780 the primary CTA and the crane must both be fully visible. Hero and crane are **excluded from `crease-reveal`** — they paint immediately. With no hero raster and a static crane, **LCP is the H1 text block** (inline `<svg>` is not an LCP candidate in Chromium), fetch-free. One tall-viewport spot-check (1200×1920) is added to §12: if Fold 1's capture enters that initial viewport, that one image drops `loading=lazy`.
 
-Signatures are deliberately **not** a card (next band). Stamps/Bates/find-replace live in a slim `popular.json`-driven guides row beneath the grid: "More jobs: Combine · Stamps & Bates · Protect · Sign →". Note: today's `popular.json` has no Stamps & Bates entry — add one pointing at `annotate/stamps/` during the PR-2 rewrite. (An earlier draft listed "Translate" here; no such docs page exists — the app switches its own UI language, it doesn't translate documents. Dropped.) Card hover: existing 120ms token behavior only.
+### 3.2 Fold 1 — `#fold-1` GATHER
 
-### 3.4 Signatures — full-width single-feature band (the undersold flagship)
+- H2: **"Fifty messy files. One sheet."** Sub: "A 'simple PDF task' is rarely simple. It is six PDFs, two screenshots, a Word document, a scanned form, and one determined file named `final_final_revised_ACTUAL.pdf`."
+- **V1 — The Gathering** (stylized, pure CSS, "Illustration" caption):
+  - DOM: `<figure class="gather"><div class="scrap" data-kind="pdf|img|docx|scan">×7</div><div class="stack"><div class="stack-sheet">×3</div></div></figure>`. Scraps = skewed cream rects (`--of-paper` fills, `--of-paper-edge` borders, `--of-fold-shade` diagonal gradients) with tiny type-glyph labels; scattered via per-scrap custom props `--tx/--ty/--rot`. The top scrap carries the **dog-eared corner token** (`.sheet-token`, a folded-corner pseudo-element) — this exact motif recurs in V2/V3/V4 as the "one sheet" traveling the page.
+  - On reveal (entrance-once): `scrap-settle` — each scrap translates/rotates to the stack and fades as the three stack sheets rise; 0.5s each, staggered 80ms, `cubic-bezier(.22,1,.36,1)`.
+  - Ambient: `corner-lift` on the top stack sheet **only** (one node, 7s, ±2px rotateX corner curl) — **finite: `animation-iteration-count: 2`, re-armed on each `.in-view` re-entry** via class toggle (2.2.2-compliant without a control), and **suspended whenever any pet is idling** (§4.4 single-idler extension).
+  - No window chrome (illustration register).
+- Real proof beside it: `import-files-overview.png` (mid-drag "Release to import" capture) through `astro:assets` `<Picture>`, lazy (except under the §3.1 tall-viewport rule), explicit dims. Caption (manifest-pinned version): "Real capture — Orifold v0.8.2. Drag anything in; broken PDFs are repaired on the way."
+- Copy row beneath: merge up to 50 files · drag-in import · sidebar page-thumbnail drag reordering (new, `6285b4d` — say it plainly: "Drag pages around in the sidebar until the story reads right.").
+- **Gami enters** (margin, `pet-arrive` + `bubble-pop`, §3.9 roster line 1). Directly beneath Gami's figure, small: `language-switcher.png`, captioned **"Real capture — Gami greets you in the app, in six languages."** — the honesty anchor proving the guides live in the product, placed at the exact moment a visitor could suspect mascot-ware. This is the page's **only** Gami mention outside roster bubbles (see §3.3 card 6).
 
-- H2: "A drawn mark is a picture. A digital signature is math."
-- Two short columns: what it does (PAdES cryptographic signatures, Keychain and .p12 identities, optional trusted timestamps) and why it matters (one honest line on the difference between an image of a signature and a tamper-evident seal). Verification claim uses the docs' own wording — "verifies as intact in Adobe and any PAdES-aware viewer" — **not** a flat "verifiable in Adobe": with the zero-setup self-signed default, Acrobat reports the signer's identity as unknown until manually trusted (`fill-sign/signatures.mdx:62`); the trusted-identity indicator needs a CA-issued ID. One real capture or the signing-flow illustration with the honest-caption pattern.
-- CTA link: "How signing works →" (docs).
+### 3.3 Fold 2 — `#fold-2` SHAPE
 
-### 3.5 Privacy & trust — one consolidated statement (say it once, well)
+- H2: **"Edit the page, not a copy of it."** Sub (shipping default): "Click the text, fix the typo. Real glyph geometry — not a sticky note floating over a picture of one." **Copy gate (§2.10):** the stronger "…on the real page" clause is restored only if the export path is verified to preserve original text layers post-`PDFImportNormalizer`. The import-side fix shipped; the export side is documented as unresolved — until verified, the sub claims the edit (which IS in-place), not whole-page byte-fidelity. The H2 stands either way.
+- **V2 — The Crease Stage** (sticky stage; real captures inside, so each scene keeps window chrome + its own "Real capture" caption; the fold *framing* is obviously theatrical):
+  - DOM: `<section class="stage-wrap"><div class="stage" data-step="1"><div class="scene" data-scene="1|2|3">×3</div></div><div class="step" data-step-for="1|2|3">×3</div></section>`. `.stage` is `position: sticky; top: 16vh; height: 62vh`; **total stage travel is bounded: `stage-wrap` height ≤ ~220vh (~70vh per step)** — acceptance-checked in §12; an unbounded pinned section between hero and features is the classic skim-killer. Scenes absolutely stacked, active scene = `[data-step]` attribute match; cross-fade = opacity + `translateY(12px) scale(.985)` transition, 0.5s, **with `visibility` toggled alongside opacity** (visibility transitions cleanly with the crossfade) so inactive scenes leave the accessibility tree and can never be read or focused while invisible. Step text blocks each open with a **numbered tile — plain `1`, `2`, `3`** — 40px cream tile (`--of-paper`), fold-shade edge; the "SECOND FOLD" kicker already numbers the act, and 間 stays the page's single CJK moment. Steps are observed at viewport center (`rootMargin: -45% 0px -45%`) to flip `data-step`.
+  - Scene 1 — *open*: `combine-reorder-pages.png` (3-document sidebar) slides onto a paper "workbench" mat (cream rounded rect, fold-shade edge), `translateY(16px)` settle.
+  - Scene 2 — *shape*: `edit-text-workflow.png` (selection + floating format toolbar); `crease-sweep` draws a 1px light line across the selection area once per step-activation (entrance-per-step; re-fires on revisit because the animation is gated on the attribute selector). Implementation pinned: `transform: scaleX(0→1)`, `transform-origin: left` — never width/left.
+  - Scene 3 — *export*: **`sheet-close`, register-safe by construction:** `export-save-confirmation.png` renders **untouched, readable, at rest first**, carrying its own "Real capture" figcaption while visible. Then two **cream ILLUSTRATION halves** (top half `rotateX(0→-178deg)`, `transform-origin: bottom`, a `--of-fold-shade` gradient overlay darkening keyed to the fold, `backface-visibility: hidden`) fold closed **over** it — the capture is never itself warped, skewed, or folded (a chrome-bearing screenshot 3D-folding into origami is exactly the register blur the inverted-chrome rule exists to prevent). The resulting packet carries **no window chrome**, sits in illustration register with the `.sheet-token` corner, and "one clean PDF" is the *packet's* label. 3D transforms enabled only under `@media (pointer: fine)` **and** motion-OK; otherwise a flat opacity/translate settle. **Kill-switch is pre-decided (§4): if the fold doesn't read as paper in the first build, ship the flat settle. No renegotiation.**
+  - Reduced-motion / mobile ≤720px / no-JS: stage un-stickied into a static column — three captioned figures in order. No content is JS-injected.
+- **Crease-pattern grid** (`id="features"` — the nav anchor target) below the stage: six `.of-card`s (H3 + one-line quip + docs link, inline SVG glyphs, `card-lift` hover only):
+  1. **On-device OCR** — "⌘F finally works on that thing your printer emailed you."
+  2. **Compress** — "Attachments that stop bouncing off email size limits."
+  3. **Fill & flatten forms** — "Finished paperwork, no third-party e-sign service."
+  4. **Stamps & Bates** — "Numbered, stamped, and ready for the file room."
+  5. **Reader mode** — "The toolbar folds away. The page stays."
+  6. **Six languages** — "The whole workspace, menus to tooltips, in six languages." → links `settings/language` docs. *(Gami cut from this quip — a third mascot mention in two folds was cuteness doing no coaching where the feature proof should carry the band; the §3.2 honesty caption keeps its Gami because it proves the guides live in the app.)*
+- Guides row beneath the grid, driven from `popular.json` (one curation source, §1 contract unchanged): "More jobs: Combine · Stamps & Bates · Protect · Sign →". Add the missing Stamps & Bates entry to `popular.json` during PR-2 (carried over).
+- **Handoff beat (band end):** a sentinel element at the fold-2/fold-3 boundary. As it crosses viewport center, Gami's second bubble appears in Fold 2's margin (roster line 2) and `body[data-guide]` flips `gami → ori` — the page's single mood shift (§4.5) fires **on the handoff itself**, warming the fold-shadows and `--act-accent` toward tancho over 1.2s. **One mover only:** Gami's SMIL is already paused at this point (static figure — the single-idler rule §4.4 is not suspended for the showcase beat); the tint shift plus **Ori's lynx-tip twitch as Fold 3 scrolls in** *is* the handoff. (The former "Gami's ears settle" beat is deleted — it choreographed two pets animating in one beat, failing the spec's own §4.4 audit.) Reversal hysteresis per §4.5.
 
-- H2: "Everything happens on your Mac. The cloud was not consulted."
-- Stat-styled facts, inline SVG glyphs, **app-scoped wording**. ⚠️ Corrected in Revision 2: a flat "0 network calls" is **false** — the shipped signing flow contains a real TSA client (`Orifold/Signing/Timestamp/TimestampClient.swift`) that makes opt-in RFC-3161 requests when the user asks for a trusted timestamp, and §3.4 advertises exactly that feature. Copy scopes the claim to telemetry:
-  - **0** — "telemetry, analytics, accounts. There isn't even a server to send them to. The only thing Orifold ever asks the network for: a trusted timestamp, when you request one while signing." *(flips via `site.json.appNetworkCheck` when the Phase-1 update check ships: adds "…and the latest version number — only if you turn that on.")*
-  - ~~**Blocking verification before this copy is final**~~ **RESOLVED 2026-07-07:** verified with a sandboxed harness (Orifold's exact entitlements + Info.plist ATS state) — the sandbox WAS blocking all TSA requests (DNS resolution denied, `NSURLErrorDomain -1003`), and ATS was independently blocking the three `http://` fallback TSAs (`-1022`). Fixed in the app repo the same day: `network.client` entitlement added, Sectigo switched to `https://`, per-host ATS exceptions for DigiCert + GlobalSign (which don't serve TLS on their TSA hosts), `settings/privacy.mdx` + `fill-sign/signatures.mdx` copy flipped in the same commit. Re-verified sandboxed: all 4 TSAs return valid tokens. §3.4 may promise timestamps.
-  - **4** sandbox entitlements — "app-sandbox, the files you pick, remembering the access you gave, and an outbound-only network line used solely for the trusted timestamp you ask for. That's the whole list." *(Was 3 until 2026-07-07 — the count is already 4 before PR-4; `appNetworkCheck` now flips only the update-check clause in the 0-telemetry stat, not the entitlement count.)*
-  - **503** tests gate every release · **Free forever, MIT** — the old TrustStrip content lands here; `TrustStrip.astro` itself stays docs-only, untouched.
-- One honest clause, small text: "This page asks GitHub for the latest version number so the button below is always current. The app never does."
-- "Verify it yourself" → entitlements file + `settings/privacy` docs page.
+### 3.4 Fold 3 — `#fold-3` SEAL (flagship)
 
-### 3.6 Why it exists / who it's for (short, warm)
+- H2: **"A signature that holds up."** Lede: "A drawn mark is a picture. A digital signature is math — a tamper-evident seal over the exact bytes you signed."
+- **V3 — The Seal** (stylized, no chrome, "Illustration" caption):
+  - DOM: `<figure class="seal"><div class="sheet"> <span class="sig-line"/> <span class="hanko"/> <span class="tsa-tag"/> <ol class="chain"><li>×3</li></ol> <ul class="verify"><li>×3</li></ul> </div></figure>`. The `.sheet` carries the `.sheet-token` corner.
+  - Entrance sequence (chained delays, entrance-once): `hanko-stamp` — round `--of-tancho` seal scales 1.3→1 with a 2px settle "thud" (0.35s, ease-out) — the page's first red; then `tag-thread` — a paper tag reading "RFC 3161 · FreeTSA" swings in on a hairline thread from the corner, exactly 1 damped oscillation (0.9s), rests; then the **chain row** — three small linked nodes `document hash → certificate → trusted timestamp` unfold left-to-right (`verify-unfold`, staggered 120ms) — this teaches what PAdES actually is; then the verify list — "Document unchanged · Signer verified · Time attested" — same `verify-unfold`, staggered 120ms.
+  - **No ambient loop. A seal sits still.**
+- Real proof beside it: `sign-document-digital.png` (Digital palette with the FreeTSA / DigiCert / Sectigo / GlobalSign timestamp-provider picker — exists as of `dacf430`). Caption (manifest-pinned version) carries the honest caveat verbatim from the docs' wording: "Real capture — Orifold v0.8.2. Verifies as intact in Adobe and any PAdES-aware viewer; the zero-setup self-signed identity shows as 'unknown signer' until trusted." (Not a flat "verifiable in Adobe" — Revision 2 ruling stands; caveat source is the Callout in `fill-sign/signatures.mdx` ~lines 64–65.)
+- Copy columns: what it does (PAdES signatures, Keychain and .p12 identities, optional RFC 3161 trusted timestamps) / why it matters (one honest line on image-of-ink vs. seal). CTA link: "How signing works →".
+- **⚠️ Copy gate (page-wide — see the §12 gate list):** every timestamp mention on the page is **blocked on the §2.7 project.yml durable TSA fix** — this act's lede/copy, the `tag-thread` tag text, this capture's caption, **and Fold 4's "0" stat sub-line** (§3.5). Main regressed the entitlement/ATS layer in `8180b82`; until `project.yml` itself carries `network.client` + the ATS exceptions, any timestamp sentence describes a feature the shipped app cannot perform. PR-2 does not merge with timestamp copy anywhere unless that commit is on main; the §12 list enumerates every gated string so the gate is grep-able, not a per-band footnote.
+- **Ori arrives** (roster line 3): "Real cryptography. Not a picture of ink." — the flagship's whole argument in eight words, doubling as her half of the handoff exchange.
 
-- Builder voice, ≤3 sentences: "I built Orifold because basic file work on a Mac should not require a subscription, an upload, or a small ceremony. Preview is excellent until the job gets complicated; the more capable tools rent your own files back to you."
-- Three compact columns (reuse shipped `.of-columns` copy): Everyday Mac users / Privacy-minded people / Developers.
-- **Pet moment:** Gami wag + Ori tail-twitch figures — converted to **finite** SMIL loops (3 cycles, freeze) with static reduced-motion variants (same treatment as the crane). Copy: "Meet Gami and Ori — a guide, not a mascot. Optional, dockable, hideable."
+### 3.5 Fold 4 — `#fold-4` KEEP
 
-### 3.7 Download band (`id="download"`)
+- H2: **"The studio has no windows."** Lede: "Everything happens on your Mac. The cloud was not consulted."
+- **V4 — No Exit** (stylized diagram, no chrome, "Illustration" caption):
+  - DOM: `<figure class="studio"><div class="mac-outline"><div class="sheet"/></div><span class="egress">×3</span><span class="slip">×3</span></figure>` — a thin-line Mac silhouette.
+  - On reveal (entrance-once): the sheet (with `.sheet-token`) folds *into* the silhouette (reuse `sheet-close`, flat-settle fallback identical to V2's); three faint dotted egress arrows toward the band edges draw and then **retract** (`egress-retract` — implementation pinned in §4.2: `scaleX` grow-then-shrink from the sheet edge + opacity arrowhead, transform/opacity only; the anti-"converging signals": attempted exits get pulled back); then the **sanitize slip**: three small chips labeled `metadata · edit history · comments` slide out of the sheet's edge and fade (`slip-out`, staggered 100ms) — the WP-8 claim made visible instead of merely stated (honest as of `e320866`: qpdf sanitize now strips the Orifold workspace blob too).
+  - Static line beneath (plain text, tabular, no marquee): "No analytics · No accounts · No uploads".
+  - Ambient: **none.**
+- Stat row (`Stat.astro` pattern, values from `stats.json`/`release.ts`, never hardcoded in copy):
+  - **0** — telemetry, analytics, accounts. Sub-line **gated on §2.7 like all timestamp copy**: post-fix it reads "The only thing Orifold ever asks the network for: a trusted timestamp, when you request one while signing." Pre-fix stub (must ship instead if §2.7 slips): "The app asks the network for nothing." *(flips via `site.json.appNetworkCheck` when PR-4 ships — unchanged §3.5/§8b machinery)*
+  - **AES-256** — "Real encryption, not a 'protected' flag a reader can ignore."
+  - **Sanitize** — "A file that carries nothing you didn't intend to send." (Now strictly true post-WP-8.)
+  - **555 tests** gate every release — **only after the §2.6 `stats.json` fix lands** (currently 503, stale by 52); the number renders from `stats.json`, never from copy.
+  - **Entitlements** — copy reads **"a handful of narrow entitlements, listed in the docs"** with a link to the entitlements file + `settings/privacy` docs. **Do not print a count** until the §2.7 project.yml fix is durably on main (main currently has 3 keys, `stats.json` says 4, `privacy.mdx` says "exactly four" — three surfaces, three answers; a printed number here would be the fourth). After the fix: may flip to the real count, sourced from `stats.json`.
+  - **Free forever, MIT** · **6 languages**.
+- One honest clause, small text (carried over verbatim): "This page asks GitHub for the latest version number so the button below is always current. The app never does."
+- **Ori speaks once** (roster line 4): "Don't trust me. Read the source. I did." — bubble links to the GitHub repo.
 
-- Repeats `Download for Mac` + metadata row (size baked from the **dmg** asset's `size` field).
-- **Apple Silicon explainer, plain language:** "Needs a Mac with an Apple M-series chip — that's any Mac from 2020 on ( → About This Mac to check). Intel Macs aren't supported **yet**." — "yet" links a GitHub issue so Intel demand becomes measurable data. This is copy, not detection: browser JS cannot reliably distinguish arm64 from Intel Macs (Safari reports `MacIntel` on both).
-- **First-launch box (`.of-callout-note`, always visible), per-OS, final copy pending the §2.2 machine test:**
-  - "Orifold is free and open source, so builds aren't notarized by Apple yet. One-time first launch:"
-  - "**macOS 14:** right-click Orifold → Open → Open."
-  - "**macOS 15:** open Orifold once (it will be blocked), then System Settings → Privacy & Security → **Open Anyway** → enter your password."
-  - "Prefer zero dialogs? The one-line installer below clears quarantine for you." + link to the install-troubleshooting doc.
-  - Signed-era copy pre-written behind `site.json.signedBuilds`: collapses to "Signed and notarized by Apple."
-- **Other ways to install** (`.of-details`, collapsed): curl one-liner (verbatim, labeled "no dialogs — curl downloads aren't quarantined"), Homebrew cask, direct zip.
-- Small: "All releases →".
+### 3.6 `#ma` — 間 · THE MARGIN
 
-### 3.8 Footer
+- H2: **"Why this exists."** Body ≈120 words, builder voice, starting from the shipped copy: "I built Orifold because basic file work on a Mac should not require a subscription, an upload, or a small ceremony. Preview is excellent until the job gets complicated; the more capable tools rent your own files back to you. …" (Extend to ~120 words in the same voice: honest, lightly playful, no superlatives.)
+- **Zero animation. Zero vignette. Maximum negative space** — `padding-block: clamp(8rem, 20vh, 12rem)`, content max-width 56ch, centered.
+- Both pets at rest in the far margin: static `gami-figure.svg` + `ori-figure.svg` (the real PaperFigure-geometry versions), no bubbles, no SMIL, no entrance beyond the standard `crease-reveal` of the band. The one purely ornamental pet moment on the page.
 
-- Crane mark + "Orifold · Free, open source, MIT." · Docs · What's New · Privacy · GitHub · License · `v0.8.2 · released 2026-07-XX` (baked, links the release).
-- Signature line: "Since nothing you do in Orifold ever leaves your Mac, stars are the only telemetry we get. ⭐"
+### 3.7 `#final-fold` — TAKE IT HOME (download band; absorbs old §3.7 in full)
 
-**Mobile CTA behavior (both download surfaces):** the runtime enhancement script UA-gates: on non-Mac platforms (`userAgentData.platform` / `navigator.platform` ≠ Mac, **plus** `maxTouchPoints > 1` to catch iPadOS masquerading as MacIntel) the primary CTA becomes "Orifold runs on macOS — send this page to your Mac" backed by `navigator.share` with copy-link fallback; the dmg link demotes to small text. The build-time (no-JS) state stays the dmg button, so desktop-no-JS remains correct.
+- H2: **"The crane finishes here."**
+- **V5 completes — the band's ONLY motion:** the final-fold crane (the page's **single animated inline instance**, §2.3), initialized at `data-pause-t`, resumes on a one-shot IO (threshold 0.5) and plays its last fold (~1.2s); on SMIL end, `tancho-set` pops the red crown dot (scale .6→1, 0.3s, once per session — a `sessionStorage` flag prevents replay on back-navigation). **The only red-on-crane on the page.** Zero ambient cost after completion. **Both pets render pre-arrived here:** static figures, bubbles pre-shown as styled captions (the reduced-motion treatment, promoted to default in this band) — no `pet-arrive`, no `bubble-pop`. Four entrance systems firing around the primary Download button would make the pets compete with both the crane payoff and the CTA; the eye path is crane → CTA, nothing else moves. Added to the §4.6 audit table.
+- **Download column (machinery unchanged from Revision 2 §3.7/§5):**
+  - Primary `Download for Mac` + metadata row (size baked from the **dmg** asset's `size` field; stable URL §5.1; build-time state canonical; §5.5 enhancer confirm-or-upgrade only).
+  - Apple Silicon explainer, plain language, verbatim from Revision 2: "Needs a Mac with an Apple M-series chip — that's any Mac from 2020 on ( → About This Mac to check). Intel Macs aren't supported **yet**." — "yet" links the Intel-demand GitHub issue. Copy, not detection (Safari reports `MacIntel` on both).
+  - **First-launch coaching card** (`.of-callout-note`, always visible), per-OS, **final copy pending the §2.2 machine test** — spoken by **Gami** (roster line 5): the bubble is the card's intro ("One-time thing. Two seconds. Here's how —"), the card body carries the verified per-OS steps: macOS 14 right-click→Open path; macOS 15 Settings → Privacy & Security → Open Anyway path; "Prefer zero dialogs? The one-line installer clears quarantine for you." Signed-era copy pre-written behind `site.json.signedBuilds` ("Signed and notarized by Apple."), collapsing the card.
+  - SHA256 verify block: mono chip with the checksum command + copy button (`copy-flash`; labeled per §4.1 a11y rules).
+  - **Other ways to install** (`.of-details`, collapsed): curl one-liner (verbatim, "no dialogs — curl downloads aren't quarantined"), Homebrew cask, direct zip. Small: "All releases →".
+- **Developer column** — "Build it yourself": a paper-styled terminal card (**no traffic lights** — it's stylized, and chrome is reserved for real captures; a plain mono card with a `❯` prompt) containing the clone/build lines with a copy button, plus the Homebrew chip repeated. Anchored by **Ori** (roster line 6): "Doubt me? Build it yourself." Both pets thus bow the visitor out — Gami closes the user arc, Ori closes the dev arc.
+- **Non-Mac UA gate** (unchanged detection: `userAgentData.platform`/`navigator.platform` ≠ Mac **plus** `maxTouchPoints > 1` for iPadOS): **the detection branch runs synchronously in the inline IIFE, before first paint** — it needs no network, so non-Mac visitors never see a flash-and-shift CTA swap; only the release-version fetch stays async in the §5.5 enhancer. Primary CTA swaps to **"View on GitHub"** with sub "Orifold is a Mac app."; a secondary link "Send this page to your Mac" backed by `navigator.share` with copy-link fallback; the dmg link demotes to small text. Build-time (no-JS) state stays the dmg button, so desktop-no-JS remains correct. Applies to hero + final fold identically.
+
+### 3.8 Footer (colophon)
+
+- "**Folded by hand. MIT licensed.**" · crane mark (static) · Docs · What's New · Privacy · GitHub · License · `v0.8.2 · released 2026-07-XX` (baked, links the release).
+- Tiny static `gami-mark.svg` + `ori-mark.svg` (24px) as maker's marks beside the colophon — decorative, `aria-hidden="true"`, no bubbles, no animation.
+- Signature line kept: "Since nothing you do in Orifold ever leaves your Mac, stars are the only telemetry we get. ⭐"
+- **No easter-egg quip cycler.** (Reference skip; enforced.)
+
+### 3.9 Pet-guide roster — complete and closed (6 bubbles; the ceiling)
+
+Principle: **residents, not tour guides.** Figures sit at band outer margins, never overlapping content. Every line must **coach or prove**; a line that is merely charming gets cut in review — this is a binding editorial rule, and the mitigation for mascot-drift (the design's self-identified weakest point). Gami speaks to users, Ori to the technically-minded — same convention as the docs. **Adding a seventh bubble requires deleting one of these six.**
+
+| # | Where | Who | Line (final copy) | Job |
+|---|-------|-----|-------------------|-----|
+| 1 | Fold 1, on arrive | Gami | "Bring the whole messy pile. I'll keep it straight." | Orients the import act *(recast: the old "Drop everything on me" invited a drag-drop affordance the page can't honor and cast Gami as a drop target)* |
+| 2 | Fold 2→3 handoff sentinel | Gami | "Signatures are Ori's craft. Over to her." | Handoff beat, half 1 — **provisional**: by the roster's own rule this is the merely-charming line (the tint + line 3 already carry the handoff); it must argue for its life in PR-2 review or the roster drops to five |
+| 3 | Fold 3, on arrive | Ori | "Real cryptography. Not a picture of ink." | Handoff half 2 + the flagship argument |
+| 4 | Fold 4 | Ori | "Don't trust me. Read the source. I did." | Credibility → GitHub link |
+| 5 | Final fold, coaching card | Gami | "One-time thing. Two seconds. Here's how —" *(final wording gated on §2.2)* | Gatekeeper coaching as care |
+| 6 | Final fold, dev column | Ori | "Doubt me? Build it yourself." | Converts the developer persona |
+
+Rejected placements, do not re-add: hero pet (hero keeps *ma*), scroll-following rail, footer quips, `#ma` bubbles.
+
+**Markup contract (no-JS-safe, AT-quiet):** each pet is plain HTML in document flow — inline SMIL SVG (animated) + `<img>` static figure sibling, plus a `<p class="bubble">` containing the line. **Default visibility is inverted for compliance: the static `<img>` figure shows by default; the inline SMIL SVG is revealed only under `html.js`** (no-JS therefore serves compliant static pets — the shipped SMIL assets loop indefinitely, which fails 2.2.2 ungated). Nothing is JS-injected; JS only adds classes/gating. **The bubble is the accessible content, encountered once in natural reading order — the former `aria-live` mirror is deleted** (it double-announced every line and interrupted mid-read based on scroll position). The inline SVG root gets `aria-hidden="true"` applied at inline time, overriding the assets' shipped `role="img"`/`aria-label` (§2.5); the bubble sits outside the hidden wrapper.
+
+### 3.10 Mobile (≤720px)
+
+Pet figures collapse to the 24px `gami-mark.svg`/`ori-mark.svg` inline beside the bubble text, rendered as a quiet caption row **above** the band content — no absolute positioning, no overlap risk. V2 un-stickies (static column). Fold-shadows drop to one static wedge. Crane hero ~160px (static frame). Nav per §3.0. CTA UA-gate per §3.7.
 
 ---
 
-## 4. Visual, a11y & performance rules
+## 4. Visual, a11y & performance rules — motion system, budgets, fallbacks
 
-- **Tokens frozen.** `landing.css` (~300 lines): band layout, hero scale, window frame, nav. Zero raw color values (review-enforced); radii 10/8/5; transitions 120ms ease. No new fonts — system stack only. No new colors, no textures, no animation libraries.
-- **One red:** `--of-tancho` only on the crane's crown. Fold motif expressed structurally (folded corners, creases, fold verbs in copy) — no origami clip-art.
-- **Contrast rule:** gray-3 (`--of-text-3`) is **decorative-only** (hairlines, disabled states). All informational small text — chips, captions, hero note, footer meta — uses gray-2 (6.59:1 light / 10.43:1 dark). Light-mode gray-3 measures 3.54:1 = AA fail; this rule is why.
-- **Semantics:** real alt text everywhere, `<figcaption>` captions, `<nav>` + skip-link, `:focus-visible` tokens kept, `aria-hidden="true"` on decorative glyphs.
-- **Acceptance gate:** Lighthouse ≥95 performance & accessibility **in both themes**, plus a manual both-theme contrast pass.
-- **Budgets (measured, binding):**
-  - HTML+CSS+JS ≤ **120KB gzipped total, crane included** (crane sub-budget ≤25KB gz post-diet, else static mark).
-  - Hero proof image ≤150KB served (AVIF/WebP 2×, preloaded, eager). Everything below §3.2 lazy-loads.
-  - Below-fold capture trio through `<Picture>`: the current ~1.1MB of raw PNG must serve ≤250KB combined.
-  - Complete JS inventory: `html.js` one-liner · theme-sync (~10 lines) · crane/pets freeze handler · fold-moment observer (~30 lines) · release-metadata + UA-gate enhancer (~1KB). **Total ≤4KB. Zero framework JS.**
+### 4.1 Design rules (carried over, binding — with one recorded exception)
 
-### Animation spec — complete and closed (4 moments; nothing else moves)
+- **Tokens frozen, one sanctioned amendment.** The design's core material — cream paper — is currently unspecifiable: tokens.css has no paper token, and light theme has no cream that survives the #eef0f2 canvas. One tokens.css amendment ships with PR-2 and is the **only** token change: `--of-paper`, `--of-paper-ink` (text on paper), `--of-paper-edge` (border/fold-shade edge), each defined per theme. **Light-theme paper must carry a visible edge (1px `--of-paper-edge` border or baked fold-shade) measuring ≥3:1 against the canvas** — V1 scraps, the V2 workbench mat and step tiles, V3/V4 sheets, the dev terminal card, and every `.sheet-token` are captioned informational illustrations, so WCAG 1.4.11 applies to their essential edges. Beyond that amendment: `landing.css` contains **zero raw color values** (review-enforced); every color is a `tokens.css` variable or a `color-mix()` of one. Radii 10/8/5; system font stack only, fractional variable weights allowed (640/720), `font-variant-numeric: tabular-nums` on all numeric surfaces. No new fonts, no other new colors, no textures, no animation libraries.
+- **One red:** `--of-tancho` exactly twice — the V3 hanko and the final-fold crown. The Fold-3 accent warm-shift uses `color-mix`, never raw tancho on text.
+- **Contrast rule (extended):** gray-3 decorative-only; all informational small text (chips, captions, footer meta) uses gray-2 **on canvas-family surfaces only**. **Bubble surfaces are pinned:** either canvas-family background + gray-2 text, or `--of-paper` background + `--of-paper-ink` text — **never gray-2 on paper** (dark-theme gray-2 on cream measures ~1.5:1). The both-theme manual contrast pass gains named rows: every cream surface + its edge (both themes), every bubble pairing (both themes), and the H1 gradient text endpoints (both themes — Lighthouse cannot evaluate gradient-clipped text).
+- **Chrome-honesty rule:** window chrome on real captures only (§3.0). Capture captions render from the captures manifest pin (§2.1), never live `release.ts`.
+- **Semantics:** real alt text, `<figcaption>` everywhere, `<nav>` + skip-link, `:focus-visible` tokens, `aria-hidden` on decorative glyphs and pet figures (bubble text is the accessible content, single-channel — no live-region mirror), copy buttons carry `aria-label` ("Copy install command" etc.) and their "✓ Copied" confirmation lives in a `role="status"` element, CJK glyphs wrapped `<span lang="ja" aria-hidden="true">` with sr-only English equivalents, `prefers-reduced-motion` honored everywhere per §4.7, `scroll-behavior: auto` forced under PRM (smooth is never set anyway).
+- **Acceptance gate:** Lighthouse ≥95 performance & accessibility **in both themes**; fold-budget check at 1280×700 and 1440×780 plus the 1200×1920 LCP spot-check; §4.6 ambient audit (boundaries included); §4.7 matrix walked manually; the manual contrast pass above.
 
-| # | Moment | Mechanism | Reduced-motion |
-|---|---|---|---|
-| 1 | Hero load stagger (eyebrow→H1→sub→CTAs; 12px rise + fade, 400ms ease-out, 60ms stagger, once). Hero & proof shot **excluded from any scroll reveal** — they paint immediately (LCP-safe). | Pure CSS keyframes | `animation: none`, fully visible |
-| 2 | Crane fold: plays **once**, freezes on the finished crane (`fill="freeze"`). | Inlined dieted SVG, SMIL | Static final-frame SVG swapped via media query (JS-free); reduced-motion users see the **finished crane**, never the flat sheet |
-| 3 | §3.2 fold moment — the only scripted scroll animation on the page. | One IntersectionObserver, once; CSS transitions 600ms; hidden state gated behind `html.js` | Final state pre-applied |
-| 4 | Button/card hover. | Existing 120ms token transitions | Kept (non-motion) |
-| — | Gami/Ori figures | SMIL, finite (3 cycles → freeze) | Static variants |
+### 4.2 Keyframe inventory — complete and closed (nothing else moves)
 
-**Banned:** blanket scroll reveals, parallax, marquee, count-up numbers, hover glows, nav micro-interactions, screenshot lifts, cursor followers, autoplay video, any animation library.
+Universal ease: `--ease-fold: cubic-bezier(.22,1,.36,1)`. Durations are tokens, not magic numbers. **Every implementation is pinned to transform/opacity — the four former holes (egress-retract, card-lift shade, crease-sweep, pet-arrive sweep) are now specified, not implied.**
+
+| Keyframe | Type | Duration / details |
+|---|---|---|
+| `crease-reveal` | entrance | 0.5s; 1px fold-line `scaleX(0→1)` along block top + content `rotateX(-6deg)→0` + fade; the **only** block-entrance grammar. (Deliberately not blur-resolve: blur is repaint-expensive and reads "lens," not "paper.") |
+| `crane-fold` (SMIL) | entrance | **final fold only** (single animated instance): initialized at `data-pause-t`, resumes on IO, ~1.2s remainder, `fill="freeze"`. Hero uses the static frame — no hero SMIL in any mode |
+| `tancho-set` | entrance | 0.3s crown pop, once per session; crown is a non-SMIL node, transparent by default (§2.3); no-JS fallback via scoped CSS (§4.7) |
+| `scrap-settle` | entrance | V1; 0.5s each, 80ms stagger |
+| `sheet-close` | entrance | V2 scene 3 + V4; two cream illustration halves, rotateX with shade gradient keyed to fold angle; the real capture beneath is never transformed (§3.3); `pointer:fine` + motion-OK only; **kill-switch: flat settle** |
+| `crease-sweep` | entrance-per-step | V2 scene 2; 0.6s; **`transform: scaleX(0→1)`, `transform-origin: left`** — width/left banned |
+| `hanko-stamp` / `tag-thread` / `verify-unfold` | entrance | V3 chain: 0.35s / 0.9s (1 damped oscillation) / staggered 120ms |
+| `egress-retract` / `slip-out` | entrance | V4; **rebuilt composited: dotted line = `scaleX` grow-then-shrink from the sheet edge, arrowhead = opacity** (stroke-dashoffset is paint-level, banned) / 100ms-staggered chip slide (transform/opacity) |
+| `pet-arrive` / `bubble-pop` | entrance | 0.5s slide-in 24px + 6° rotateZ settle + fold-shade sweep — **sweep = a translating gradient overlay (`transform`); `background-position` explicitly banned**; bubble 300ms later, scale .92→1. Not used in `#final-fold` (pets pre-arrived, §3.7) |
+| `corner-lift` | ambient (finite) | V1 top sheet, 7s, **`animation-iteration-count: 2`**, one node, re-armed per `.in-view` re-entry, suspended while any pet idles (§4.4) |
+| `shade-drift-a` / `shade-drift-b` | ambient (finite) | hero wedges, 26s/34s, **iteration-count 2, keyframes end at rest position**, transform-only, IO-gated |
+| pet SMIL idle (wag/twitch) | ambient (gated) | JS-gated, **≤4.5s window per entry** (3 wag cycles = 3.9s — same feel, under the WCAG 2.2.2 5s line with no pause mechanism needed), §4.4 |
+| `card-lift` | interaction | hover translateY(−2px) 0.15s; **shade deepen = pre-rendered shadow on a pseudo-element, opacity crossfade only** (box-shadow animation is banned by this table's own rules) |
+| `copy-flash` | interaction | "✓ Copied" 1.4s revert, mirrored to `role="status"` |
+
+*(Removed: `chip-in` — the SHA chip is cut, §3.1.)*
+
+**Banned (unchanged in spirit, updated in letter):** blanket scroll reveals *other than* `crease-reveal`, parallax, marquee/ticker, count-up numbers, hover glows, cursor followers, scroll-linked/scroll-jacked elements, autoplay video, mousemove parallax, hotspot tours, animation libraries, blur-based reveals, `box-shadow`/layout-property animation, `stroke-dashoffset` animation, `background-position` animation. Everything animated is `transform`/`opacity` only — with zero undeclared exceptions (SMIL crane/pets excepted as finite/gated SMIL, not CSS).
+
+### 4.3 Reveal observer
+
+One `IntersectionObserver`, threshold 0.15, one-shot: adds `.is-revealed`, then `unobserve`. Elements opt in via `.crease`. Hidden pre-state (`opacity:0; transform:rotateX(-6deg) …`) applies **only under `html.js`** — and the `html.js` classlist snippet (plus the synchronous UA-gate branch, §3.7) is **the first element of `<head>`, executing before first paint**; otherwise every `.crease` paints visible then hides — a flash plus a shift. No JS ⇒ everything visible statically. Reduced-motion ⇒ observer never registered **and** the CSS `@media` nuke applies (triple defense: JS branch + CSS media + no-IO fallback). Hero and the final-fold crane are never observed by it.
+
+### 4.4 Pet controller
+
+One shared `.in-view` IO (threshold 0.35) over pet-band wrappers + ambient-vignette wrappers.
+
+- **Arrival:** first intersection adds `.pet-arrived` → `pet-arrive` fires, `bubble-pop` follows at +300ms. **No live-region announcement** — the bubble is in-flow accessible text encountered once in reading order (the mirror double-announced and interrupted mid-read; deleted).
+- **Idle gating (SMIL; on-disk assets untouched, inline copies restructured — §2.5):** on load, JS calls `svg.pauseAnimations()` on both inline pet SVGs (they're inline, so this works; it's also why they must be inline). On band entry: `setCurrentTime(0)`, `unpauseAnimations()`, and a **≤4.5s** `setTimeout` re-pauses — 3 full wag cycles (3.9s), under the WCAG 2.2.2 5s line by construction. **Paint-cost rule:** SMIL is main-thread and both pets animate inside filter subtrees (feDropShadow / feTurbulence) as shipped; the **build-time inline copies** hoist animated groups out of the filter subtree (bake the drop shadow as a static path or filter only non-animated siblings) and keep grain rects out of the animated invalidation region. Acceptance: DevTools paint-flashing during the idle window shows tail/ear-sized invalidations only, never full-figure repaints.
+- **Single-idler rule (extended):** a module-level ref holds the currently idling pet; a new band entry pauses the previous immediately. **≤1 pet animating at any scroll position** — acceptance-checked (the cat's two concurrent animateTransforms count as that one pet, but the paint audit covers them). While any pet idles, the controller also **suspends `corner-lift`** — this is what keeps the hero/fold-1 boundary under the §4.6 cap.
+- **Handoff sentinel, with hysteresis:** the primary sentinel at the fold-2/3 boundary (rootMargin `-45% 0px -45%`) toggles Gami's bubble 2 and flips `body[data-guide]` to `ori`. **The reverse flip fires only when a second sentinel, placed ~one viewport-height above the first, re-enters** (equivalently: reversals debounced ~2s) — a reader dwelling at the boundary must not strobe the 1.2s page tint. At the handoff, Gami is already paused (static); only Ori moves (§3.3). No exit animations — pets never chase the scroll.
+- **Reduced-motion:** static `*-figure.svg` `<img>` shown (it's the default); inline SMIL stays hidden; bubbles render pre-shown as styled captions; controller never unpauses SMIL.
+- **No-JS:** **static figures show by default** (the inline SMIL SVG is revealed only under `html.js` — §3.9 markup contract) — no-JS serves compliant static pets instead of indefinite SMIL loops; bubbles visible; nothing missing. The JS gate is purely additive.
+
+### 4.5 Act tint — two states, bound to the narrative
+
+`body[data-guide="gami"]` (default) / `body[data-guide="ori"]` (set at the handoff sentinel; reverted via the §4.4 hysteresis sentinel). Under `ori`: `--act-accent: color-mix(in srgb, var(--of-tancho) 22%, var(--of-accent))`.
+
+**Implementation is pinned composited:** background gradients do not interpolate, and unregistered custom properties transition discretely — so the fold-shadow warming is **not** a transition on the gradient. Each wedge carries **both tint states pre-painted as two stacked gradient layers**, and the flip crossfades their `opacity` over 1.2s (composited; no full-bleed repaint mid-scroll — the sentinel fires exactly while the user is scrolling, the worst paint timing). Kicker/text consumers transition `color` only (tiny paint areas), optionally via an `@property`-registered `--act-accent` with `syntax: '<color>'` — **an animating custom property must never feed the full-bleed gradients.** That's the entire per-act tint system — the single mood shift **is** the Gami→Ori handoff beat. No other act recolors anything.
+
+### 4.6 Ambient-motion cap — ≤3 concurrent **at any scroll offset, band boundaries included**, composited-only (audited)
+
+| Scroll position | Ambient nodes running | Count |
+|---|---|---|
+| Hero | shade-drift ×2 (finite, 2 cycles, freeze at rest) | ≤2 |
+| **Hero/Fold-1 boundary** | shade-drift (if still cycling) ×2 + Gami idle window; `corner-lift` suspended while Gami idles (§4.4) | ≤3 |
+| Fold 1 | corner-lift (finite ×2) **or** Gami idle — never both (single-idler suspension) | ≤1 |
+| Folds 2–4 (and their boundaries) | ≤1 (pet idle only, only while its band is in view) | ≤1 |
+| `#ma` | none, by design | 0 |
+| Final fold | crane finite play (~1.2s) + crown pop; **pets static, pre-arrived — zero pet motion** (§3.7) | ≤1 |
+
+Every ambient is `.in-view`-gated (CSS `animation-play-state: paused` until the class lands; SMIL via the controller) **and finite** (iteration counts above) — the page has no infinite auto-motion anywhere, which is what makes it WCAG 2.2.2-clean without an on-page pause control. The §12 acceptance audit samples **the four band boundaries explicitly**, not just band centers, with DevTools paint flashing.
+
+### 4.7 Reduced-motion / no-JS matrix — every moving part, its fallback
+
+| Moment | Reduced-motion | No-JS |
+|---|---|---|
+| `crease-reveal` | fully visible, no transition | fully visible (pre-state gated on `html.js`) |
+| Hero crane | static one-fold-short frame (same as default — it's static in every mode, crownless) | same static frame |
+| Final-fold crane | static final-frame companion (crown set) via `@media` swap, JS-free — the companion is inline for this one instance and **counted in §4.8** | SMIL plays once to completion at load (finite, retimed **≤5s total** per §2.3 so the one-shot clears WCAG 2.2.2), freezes finished via `fill="freeze"` |
+| `tancho-set` | crown pre-set on the static companion | crown shown via `html:not(.js) #final-fold .crane-crown { opacity: 1 }` — **scoped to the final-fold instance only**; the crown node itself stays non-SMIL and transparent-by-default (§2.3), so no other crane rendering can ever show red |
+| V1 scraps / corner-lift | settled final stack, no curl | settled final stack (pre-state behind `html.js`) |
+| V2 sticky stage | un-stickied static column, three captioned figures | same static column (`data-step` never flips; CSS default shows all scenes stacked as figures, `visibility: visible`) |
+| `sheet-close` | flat final state | flat final state |
+| V3 sequence | seal/tag/chain/checks pre-rendered at rest | same |
+| V4 arrows/slips | diagram at final state, arrows absent, slips faded | same |
+| Pets | static figure `<img>` (the default) + bubbles as styled captions | **static figure `<img>` (the default — SMIL is `html.js`-revealed, so no-JS never loops)**; bubbles visible |
+| Fold-shadows / washi | static wedges / static grain (grain is always static) | drift runs but is **finite (2 cycles, freezes at rest)** — 2.2.2-clean by construction; grain static |
+| Act tint | still fires (color/opacity crossfade, not motion) with `transition: none` | stays `gami` state; Fold 3 keeps base accent — content unaffected |
+| `card-lift` | **translate dropped; pseudo-element shadow/color affordance kept** (hover translate is motion — user-initiated and permissible, but PRM users get the stateless affordance) | n/a (hover is CSS; fine) |
+| Anchor jumps (inoculation → `#final-fold`) | `scroll-behavior: auto` forced (smooth is never set anyway) | instant jump |
+| Chips / CTA / UA gate | unaffected (non-motion) | build-time baked state: correct version/size/date, dmg button |
+| Hover/copy interactions | kept (non-motion beyond card-lift row above) | copy buttons hidden (`html.js`-gated); commands remain selectable text |
+
+### 4.8 Budgets — revised, honest, binding
+
+This design is heavier than Revision 2's: JS doubles, CSS roughly triples. New hard numbers, **measured minified** at PR-2 review (terser/esbuild-minified inline output is mandated in §12 — Astro does not minify `is:inline` scripts by default, and the raw itemization only closes minified):
+
+- **JS: one inline IIFE, ≤8KB raw / ≤3KB gzipped (minified). Zero framework** (the only external JS remains Astro's prefetch module). Itemized inventory — anything not on this list doesn't ship:
+  1. `html.js` flag + single `reduce` matchMedia read + **synchronous UA-gate branch** (first element of `<head>`, pre-paint — §3.7/§4.3) (~0.3KB)
+  2. Theme-sync (§1, unchanged, ~0.3KB)
+  3. Reveal IO (~0.4KB)
+  4. V2 stage-step IO (~0.4KB)
+  5. Shared `.in-view` IO + pet controller (SMIL gate, ≤4.5s idle timer, single-idler incl. corner-lift suspension) (~1.4KB — live-region mirror deleted)
+  6. Crane controller (final-fold `data-pause-t` init, resume IO, session flag) (~0.5KB)
+  7. §5.5 release enhancer (async version confirm-or-upgrade) + share/copy-link fallback (~1.4KB; **SHA deref chain deleted**; state machine otherwise verbatim from §5.5 — untouched)
+  8. Copy buttons + `role="status"` confirm (~0.35KB)
+  9. `data-guide` handoff IO + hysteresis sentinel (~0.4KB)
+  ≈5.5KB raw pre-minify; the caps hold with ~1KB headroom as measured-minified numbers. **No scroll listeners anywhere** (everything is IO/timer-based).
+- **CSS:** `landing.css` ≤30KB raw / ≤7KB gz (was ~300 lines; now ~1,000 incl. vignettes + keyframes + the dual-layer tint wedges).
+- **Inline SVG (single-animated-crane architecture — §2.3):**
+  - washi grain ≤1.5KB raw;
+  - pet SMIL inlines measured at 3.7KB + 4.6KB gz (the §2.5 filter-subtree restructure must not grow them materially);
+  - **one animated crane, `#final-fold` only: ≤25KB gz post-§2.3 rebuild (hard sub-budget)**;
+  - **hero static one-fold-short frame: ≤3KB raw**;
+  - **final-fold static PRM companion (crowned final frame): ≤3KB raw** — previously uncounted, now on the books.
+  - *(Deleted: the dual-inline "gzip-dedupe to ≤30KB combined" clause — gzip's 32KB window cannot dedupe a second copy of an asset this size; measured 2× cost, 0% dedup. If an animated hero is ever wanted post-rebuild, serve the crane as a same-origin external SVG via `<object>` so one cached fetch serves both — a §2.3-gated upgrade, not the plan.)*
+- **Total HTML+CSS+JS ≤65KB gzipped, the animated crane + both static frames included.** (Old cap was 120KB but assumed a hero raster; the new page has none.)
+- **Images:** hero = zero raster (LCP is the H1 text — fetch-free; inline SVG is not an LCP candidate). All 7 landing captures (`import-files-overview`, `language-switcher`, `combine-reorder-pages`, `edit-text-workflow`, `export-save-confirmation`, `sign-document-digital`, plus one spare) via `astro:assets` `<Picture>` AVIF/WebP, lazy (per-image exception under the §3.1 tall-viewport rule), explicit dimensions: **≤110KB served each, ≤650KB combined.** **The static `gami-figure.svg`/`ori-figure.svg` `<img>`s (~19KB raw combined) are counted here** — they are the default-visible pets and fetch regardless. Source PNGs are the shipped 1600px/135–200KB standard — no recapture required (audit-verified); the manifest's 1600px standard is accepted for the landing since no capture is above the fold on the gated viewports. **Path correction (verified on main):** `combine-reorder-pages.png`, `export-save-confirmation.png`, and `sign-document-digital.png` currently live in `docs-site/public/assets/gifs/` (PNGs in a gifs folder), not `screenshots/` — see §2.1; PR-2's first commit moves them.
+- **V1–V4 vignettes: 0 bytes of media** (DOM + CSS only).
+- **Crane sub-rule (re-anchored):** the single-animated-instance layout **is** the baseline, decided now — not a fallback discovered at build time. If even that one instance can't reach ≤25KB gz at the §2.3 go/no-go, the landing ships fully static cranes and V5's payoff is cut to static crane + `tancho-set` only. Pre-decided; no renegotiation.
 
 ---
+
 
 ## 5. Download system
 
@@ -421,3 +582,77 @@ Ship as four small PRs (shared-repo rule: small units, commit often, expect conc
 - `landing.css` must contain zero raw color values; every color is a `tokens.css` variable or `color-mix` of one.
 - Verify with the preview server + Lighthouse in **both themes** before merging PR-2; check the fold budget at 1280×700 and 1440×780; test reduced-motion and no-JS states explicitly.
 - Anything ambiguous: prefer the more restrained option. When in doubt, cut motion, cut copy, keep contrast.
+
+
+---
+
+## Revision 3 deltas — Folding Studio (§2 additions, §9/§12 changes)
+
+*The §3/§4 above are the Folding-Studio replacement. Below: the pre-work, file-list, and sequencing changes that come with it. Everything in §1 and §5–§8 stays exactly as written.*
+
+### §2 pre-work — additions & amendments (append to the main §2)
+
+§2.2 (Gatekeeper machine test) and §2.4 (route prototype) are unchanged and still blocking. §2.1 and §2.3 are amended; §2.5–§2.10 are new. **§2.3 is now the first task in the sequence** (see its go/no-go).
+
+- **§2.1 amended — capture session mostly discharged; paths corrected; manifest added.** Post-toolbar recaptures shipped in `bef7f0e` + `a186efa`. **Corrected inventory (verified):** `import-files-overview.png`, `language-switcher.png`, `edit-text-workflow.png` live in `docs-site/public/assets/screenshots/`; **`combine-reorder-pages.png`, `export-save-confirmation.png`, and `sign-document-digital.png` live in `docs-site/public/assets/gifs/`** (PNGs misfiled in the gifs folder), and `docs/assets/screenshots/` holds only 5 files — the old "all seven byte-identical across both screenshots dirs" claim was false, and `astro:assets` imports written from it would 404. **PR-2 housekeeping (first commit): move the three PNGs into `screenshots/` and update the two docs pages that reference them.** No recapture needed — the assets exist. **Do not re-demand them.** New deliverable: **`docs-site/src/data/landing-captures.json`** — the captures manifest pinning, per capture, the version it was actually shot on + capture date; §3.0 captions render from these pins; a build check warns when any pin trails `release.ts` by more than one minor. Remaining, re-scoped:
+  - The 2× hero proof shot is **no longer landing-blocking** — the hero ships crane-only. `the-orifold-window-annotated.png` still fails hero grade (1 file, "Untitled", self-referential body, 1600px) but is now a docs asset; recapture to §2.1 content rules is deferred, optional, non-gating.
+  - Still stale, **docs-only** (§10 residual, not landing-blocking): `annotate-markup-tools.png`, `night-mode-comparison.png` + the `annotate/markup.mdx` copy fix.
+- **§2.3 amended — crane rebuild (not diet), FIRST pre-work task, go/no-go gate.** Honest scope: the current asset is 155KB raw / ~83KB gz with 65 `repeatCount="indefinite"` animate nodes. Reaching ≤25KB gz is a 70% cut **plus** a full re-authoring — a finite, sequenced timeline ending `fill="freeze"`, retimed so the **full single play runs ≤5s** (clearing WCAG 2.2.2 for the no-JS one-shot; the final-fold remainder stays ~1.2s). This is a sub-project, not an svgo pass, so it runs **first, with a go/no-go checkpoint before any PR-2 build starts**: pass ⇒ single-animated-instance architecture (§4.8); fail ⇒ the pre-decided all-static cut. Deliverables from the same session: (a) `data-pause-t` on the root `<svg>` — **chosen by eye, not computed**: the paused frame must read as intentional sculpture, a composed expectant pose, never crumpled — and **"pause frame approved as a standalone still" is a named PR-2 acceptance check**, because that frame is also the hero's static composition; (b) the hero static frame designed as a **first-class composition** (crownless), exported ≤3KB, plus the crowned static final-frame companion for the PRM swap (≤3KB); (c) the crown/tancho dot as a separately-addressable **non-SMIL** node, transparent by default (CSS-set via `tancho-set` under JS, via the §4.7 scoped `html:not(.js)` rule under no-JS — resolving the old §2.3(b)/§4.7 contradiction where the crown was simultaneously JS-only and "reached via SMIL freeze"); (d) all internal ids namespaced (`crane-`); (e) *upgrade check only:* if the rebuilt asset lands <~28KB raw, a second inline hero instance may be considered — otherwise never revisited.
+- **§2.5 (new) — inline-SVG id + AT + paint audit.** The crane, `orifold-dog-wag.svg`, `orifold-cat-twitch.svg`, and the washi-grain filter are inlined into one document. Audit every `id`/`url(#…)` reference for uniqueness; prefix per-asset (`crane-`, `gami-`, `ori-`, `washi-`). **On-disk pet assets are never edited** (README-shared; the finite-3-cycle asset conversion stays cancelled — replaced by the §4.4 JS gate) — but the **build-time inline copies** are restructured: (a) animated groups hoisted out of filter subtrees per §4.4's paint-cost rule; (b) `aria-hidden="true"` applied to the inline SVG roots, overriding the shipped `role="img"`/`aria-label` (the bubble outside the wrapper is the accessible content); (c) default visibility inverted per §3.9 (static `<img>` default, SMIL under `html.js`).
+- **§2.6 (new) — `stats.json` truth fix.** `docs-site/src/data/stats.json` `tests: 503` → the real count (grep `func test` under `Tests/` at fix time; 555 as of this audit). Blocking for the Fold 4 stat row.
+- **§2.7 (new, highest priority after §2.3) — durable TSA re-fix in `project.yml`; gate is page-wide.** Commit `8180b82` (xcodegen regeneration) silently reverted `5f85f9a`: `com.apple.security.network.client` is gone from `Orifold/Resources/Orifold.entitlements` and the `NSAppTransportSecurity` per-host exceptions (timestamp.digicert.com, timestamp.globalsign.com) are gone from Info.plist, because both were hand-edits that `project.yml` doesn't declare. Durable fix = add the entitlement to `project.yml:109-114` and the ATS dictionary to `project.yml:58-63` `info.properties`, regenerate, re-verify sandboxed TSA tokens (all 4 providers). Cascading corrections in the same change: `stats.json` entitlements key, `settings/privacy.mdx` "exactly four entitlements" wording, and the plan's own §3.5/§8(b)/§11.11 RESOLVED notes gain a "regressed `8180b82`, re-fixed durably in `<commit>`" annotation. **Blocking for every timestamp mention page-wide** — the grep-able list lives in §12 and covers Fold 3 copy, Fold 3's capture caption, and Fold 4's "0" stat sub-line (the old Fold-3-only gate left Fold 4 advertising the same broken feature).
+- **§2.8 (new) — washi-grain tile.** Hand-build the inline `feTurbulence` grain SVG (≤1.5KB raw, static, maskable). Zero animation by construction.
+- **§2.9 (new) — pet figure & bubble QA.** Verify `gami-figure.svg`/`ori-figure.svg` render crisply at margin size and at the 24px mobile mark fallback; confirm the figures carry no ids colliding with §2.5; verify both bubble surface pairings (§4.1) in both themes; write the six roster lines into a single source constant so a future copy pass edits one place. (No new pet art is required — figures are real PaperFigure geometry, marks exist, SMIL assets exist; speech bubbles are HTML/CSS, not assets.)
+- **§2.10 (new) — export text-layer fidelity copy gate.** Fold 2's sub sits next to a known engine caveat: the import-side fix shipped (`PDFImportNormalizer`), but the export path is documented as still able to re-serialize and rebuild original text layers. Before locking Fold 2 copy: verify whether current export preserves original text layers post-normalizer. Verified ⇒ the sub may restore "…on the real page." Caveat stands ⇒ ship the softened sub in §3.3 (claims the edit, which IS in-place — not whole-page byte-fidelity a byte-differ could contest).
+- **Superseded pre-work:** the old §3.2 `fold-moment.svg` (~8KB hand-built) is **cancelled** — V1 replaces it with DOM+CSS at 0 bytes of media.
+
+---
+
+
+### What stays untouched (binding)
+
+**§1 (architecture, theme handoff, docs front door, `popular.json` single-source contract), §5 (download system: asset convention, make-dmg, release workflow, docs workflow, fallback layers/state machine), §6 (Gatekeeper facts & signed-era flip), §7 (version single-source-of-truth), and §8 (auto-update phases) are unchanged, verbatim, and not to be re-litigated.** §10 and §11 stand except for the §2.7 annotations noted above. Deltas to §9 and §12 only:
+
+**§9 file-list deltas:**
+- NEW components become `docs-site/src/components/landing/{Nav,Hero,GatherFold,CreaseStage,SealFold,KeepFold,MaBand,FinalFold,PetGuide,LandingFooter}.astro` (replaces the old `{ProofShot,FoldMoment,FeatureGrid,SignatureBand,PrivacyBand,DownloadBand}` set).
+- REMOVE `docs-site/src/assets/landing/fold-moment.svg` from NEW (cancelled, §2 note).
+- ADD to NEW: washi-grain inline SVG partial; **rebuilt** namespaced crane with `data-pause-t` + hero static frame + crowned static companion (§2.3 control contract); **`docs-site/src/data/landing-captures.json` (captures manifest, §2.1) + its build check**.
+- ADD to MODIFIED: **`tokens.css` (the one sanctioned amendment: `--of-paper` / `--of-paper-ink` / `--of-paper-edge`, per theme — §4.1)**, `project.yml` (§2.7 entitlement + ATS, app repo), `docs-site/src/data/stats.json` (tests count — the `version`-key removal already listed stands), `settings/privacy.mdx` (entitlement wording), **the two docs pages referencing the three PNGs moved out of `gifs/` (§2.1 housekeeping)**.
+- REMOVE from MODIFIED assets line: "Gami/Ori finite-loop + static variants" → pets ship as-is on disk, JS-gated with restructured inline copies (§2.5/§4.4); static variants already exist (`*-figure.svg`).
+- UNTOUCHED-DELIBERATELY list unchanged, plus: `orifold-dog-wag.svg` / `orifold-cat-twitch.svg` **on-disk asset bytes** (README-shared; never edited for the landing — build-time inline copies may be restructured per §2.5).
+
+**§12 sequencing/acceptance deltas:**
+- Pre-PR-2 gates are now, in order: **§2.3 crane rebuild + control contract + go/no-go (FIRST — the page's two headline moments rest on it)** · §2.2 Gatekeeper machine test · §2.4 route prototype · §2.5 id/AT/paint audit · §2.6 stats fix · §2.7 durable TSA fix · §2.10 export-fidelity check.
+- **Timestamp copy gate — grep-able list (all gated on §2.7; PR-2 may ship with these stubbed to non-timestamp signing claims if §2.7 slips, never with timestamp claims):** (1) §3.4 lede/copy-column timestamp mentions + the `tag-thread` "RFC 3161 · FreeTSA" tag text + the chain node "trusted timestamp" + "Time attested"; (2) §3.4 `sign-document-digital.png` caption (provider picker); (3) §3.5 "0" stat sub-line (stub: "The app asks the network for nothing.").
+- PR-2 acceptance adds: §4.6 ambient audit (≤3 concurrent **at any offset — the four band boundaries sampled explicitly**, ≤1 pet idling) with paint-flashing evidence (incl. the §4.4 tail/ear-sized-invalidation check) · §4.7 matrix walked manually (reduced-motion **and** no-JS, both themes) · §4.8 budgets measured **on terser/esbuild-minified inline output** (JS ≤3KB gz itemized, total ≤65KB gz, captures + pet figures ≤650KB served) · fold budget at 1280×700 + 1440×780 **+ the 1200×1920 tall-viewport LCP spot-check (§3.1)** · **V2 stage travel ≤220vh** · **`sheet-close` paper-quality checkpoint with the pre-decided flat-settle kill-switch** · **crane pause-frame approved as a standalone still (§2.3)** · the §4.1 manual contrast pass (cream surfaces + edges, bubble pairings, H1 gradient endpoints — both themes) · pet roster frozen at ≤6 bubbles (a 7th requires deleting one; **bubble 2 must argue for its life or the roster is five**) · Lighthouse ≥95 both themes.
+- Implementation rules gain one line: *the pet-copy rule is binding — every bubble coaches or proves; if a proposed line is merely charming, cut it. When in doubt, cut motion, cut copy, keep contrast — unchanged.*
+
+### Revision 3 critique fixes applied (record)
+
+
+- **Captions no longer drift:** per-capture version pinned in a new captures manifest (`landing-captures.json`); captions render from the pin, never live `release.ts`; build check warns when a pin trails the release by >1 minor (§2.1, §3.0).
+- **TSA gate is page-wide:** §2.7 now blocks every timestamp mention — Fold 3 copy, Fold 3 caption, Fold 4 "0" stat sub-line — with one grep-able gate list in §12; stub copy pre-written.
+- **Crane premise rebuilt:** gzip-dedupe clause deleted (32KB window makes it impossible — measured 0% dedup); ONE animated inline crane at `#final-fold` is now the architecture, hero is a designed static one-fold-short frame (first-class composition, approved as a standalone still); §2.3 escalated to first pre-work task with a go/no-go before PR-2; full play retimed ≤5s so the no-JS one-shot clears WCAG 2.2.2; dual-inline only as an upgrade if the rebuild lands <~28KB raw.
+- **Crown contradiction resolved:** crown stays a non-SMIL transparent node; `html:not(.js) #final-fold .crane-crown{opacity:1}` scoped to final-fold only; hero is static in every mode; §4.7 rows rewritten.
+- **WCAG 2.2.2 pause/stop/hide:** pet idle window trimmed to ≤4.5s; corner-lift finite (×2, re-armed per re-entry); shade-drift finite (2 cycles, freeze at rest) — no pause-control JS needed; no-JS pets inverted to static-by-default, SMIL revealed under `html.js`.
+- **Paper tokens sanctioned:** one tokens.css amendment (`--of-paper`, `--of-paper-ink`, `--of-paper-edge`, per theme); light-theme paper gets a ≥3:1 edge; bubble surfaces explicitly specified (never gray-2 on paper); §4.1 wording amended; named contrast-pass rows added.
+- **H1 gradient theme-scoped:** light theme ends at `var(--of-accent)` (5.24:1); gradient endpoints added to the manual contrast checklist.
+- **Act tint made composited:** both tint states pre-painted as stacked gradient layers, opacity crossfade; text consumers transition `color` only; hysteresis added (second upper sentinel) so slow scrubbing can't strobe the shift.
+- **Register blur fixed:** V2 scene 3 spec'd — capture readable untouched first, two cream ILLUSTRATION halves fold over it, packet is chrome-free illustration register with its own label.
+- **Handoff obeys single-idler:** Gami is already paused/static at the sentinel; only Ori twitches; "ears settle" deleted.
+- **Final-fold motion pileup cut:** pets render pre-arrived (static figures, bubbles as styled captions); crane completion + crown is the band's only motion; added to §4.6 audit.
+- **Cute-density trimmed:** card 6 quip is now product-fact ("The whole workspace, menus to tooltips, in six languages."); Gami mentions capped at roster + the one honesty caption.
+- **CJK reduced to one moment:** step tiles use plain 1/2/3; 間 is the page's single CJK glyph, wrapped `lang="ja" aria-hidden` with an sr-only English equivalent.
+- **SHA chip cut entirely** (deref chain, sessionStorage cache, `chip-in` keyframe, CLS risk all removed); hero metadata = version · released date, baked.
+- **Sticky stage bounded:** total travel ≤220vh (~70vh/step); nav "Features" anchor lands at the crease-pattern grid below the stage; cap added to §12.
+- **Fold 2 claim gated:** new §2.10 export text-layer fidelity check; shipping sub softened (drops "on the real page") until export-side preservation is verified; H2 stands (editing IS in-place).
+- **Capture paths corrected (verified):** three of seven captures live in `docs-site/public/assets/gifs/`, `docs/assets/screenshots/` holds only 5; §2.1 fixed; PR-2 first commit moves the three PNGs into `screenshots/` and updates the two docs references.
+- **Pet SMIL paint cost:** build-time inline copies may hoist animated groups out of filter subtrees (assets on disk untouched); acceptance = paint-flashing shows tail/ear-sized invalidations only.
+- **Ambient cap restated:** ≤3 at any scroll offset, band boundaries included; §12 audit samples the four boundaries; single-idler also suspends corner-lift.
+- **Keyframe holes pinned:** egress-retract rebuilt as scaleX + opacity arrowhead; card-lift shade = pre-rendered pseudo-element shadow, opacity crossfade; crease-sweep = `scaleX` origin-left; pet-arrive sweep = translating gradient overlay (`background-position` banned).
+- **CLS pinned:** UA gate runs synchronously in the inline IIFE before first paint; CTA sub-label gets `min-width` in ch + tabular-nums; `html.js` snippet is the first element of `<head>`.
+- **PRM matrix completed:** card-lift row corrected (drops translate under PRM); `scroll-behavior: auto` under PRM; static crane companion + both figure SVGs counted in §4.8.
+- **AT fixes:** aria-live bubble mirror deleted (bubbles are flow content — no double announcement); V2 scenes toggle `visibility` with opacity; copy buttons get `aria-label` + `role="status"` confirmation; pet SVG `role="img"`/`aria-label` overridden with `aria-hidden` at inline time (rule added to §2.5).
+- **JS budget honest:** terser/esbuild-minified inline output mandated in §12; enhancer re-itemized at 1.4KB (SHA deref gone, UA gate sync); caps kept as measured-minified numbers.
+- **LCP pinned:** left-column-first DOM order binding in §3.1; tall-viewport (1200×1920) LCP spot-check added; Fold 1 capture drops `loading=lazy` if it enters that initial viewport.
+- **Roster polish:** line 1 recast ("Bring the whole messy pile. I'll keep it straight."); bubble 2 kept but flagged provisional — must survive the coach-or-prove review or the roster drops to five.
