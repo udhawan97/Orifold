@@ -39,6 +39,6 @@
     <rect x="424" y="120" width="56" height="30" rx="6"/>
     <rect x="424" y="196" width="56" height="30" rx="6"/>
     <rect x="424" y="284" width="56" height="30" rx="6" fill="var(--paper)"/>
-    <circle cx="452" cy="299" r="6" fill="var(--tancho)" stroke="none"/>
+    <circle cx="452" cy="299" r="6" fill="var(--accent)" stroke="none"/>
   </g>
 </svg>

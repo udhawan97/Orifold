@@ -26,6 +26,6 @@
     </rect>
   </g>
 
-  <!-- tancho accent dot: subtle edit marker -->
-  <circle cx="440" cy="212" r="5" fill="var(--tancho)" stroke="none"/>
+  <!-- accent dot: subtle edit marker -->
+  <circle cx="440" cy="212" r="5" fill="var(--accent)" stroke="none"/>
 </svg>

@@ -59,6 +59,14 @@ const icoDownload =
 	'<svg class="btn-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.6M10 12 6.5 8.4M4 15.6h12"/></svg>';
 const icoBook =
 	'<svg class="btn-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 5.4C8.6 4.1 6.2 3.9 4 4.4v10.8c2.2-.5 4.6-.3 6 1 1.4-1.3 3.8-1.5 6-1V4.4c-2.2-.5-4.6-.3-6 1Zm0 0v11.8"/></svg>';
+const icoChevron =
+	'<svg class="arrow-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>';
+const icoClipboard =
+	'<svg class="btn-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 3.5h5a1 1 0 0 1 1 1V5h1.5a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1H6.5V4.5a1 1 0 0 1 1-1Z"/><path d="M7.5 4.5v-1a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1"/></svg>';
+// The "Copied" check glyph is a literal <svg> inline in the copy-button script
+// below (~line 648), not a frontmatter const: <script is:inline> is a static
+// string, not an Astro expression context, so it can't reference frontmatter
+// values directly, and define:vars would be overkill for one tiny glyph.
 ---
 
 <!doctype html>
@@ -182,8 +190,7 @@ const icoBook =
 								<span>· beta, built in public</span>
 							</p>
 							<p class="inoc">
-								Not notarized yet — first launch takes one calm extra step.
-								<a href="#final-fold">Here's how →</a>
+								Not notarized yet — first launch takes one calm extra step. <a class="arrow-link" href="#final-fold">Here's how<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
 							</p>
 						</div>
 						<div class="hero-crane" id="hero-crane" set:html={craneHero}></div>
@@ -258,7 +265,7 @@ const icoBook =
 							More jobs: <a href={`${base}/import/combine/`}>Combine</a> ·
 							<a href={`${base}/annotate/stamps/`}>Stamps &amp; Bates</a> ·
 							<a href={`${base}/export/protect/`}>Protect</a> ·
-							<a href={`${base}/fill-sign/signatures/`}>Sign</a> →
+							<a class="arrow-link" href={`${base}/fill-sign/signatures/`}>Sign<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
 						</p>
 					</div>
 
@@ -292,7 +299,7 @@ const icoBook =
 									A drawn mark is a picture. A digital signature is math — a tamper-evident seal
 									over the exact bytes you signed. Orifold produces standards-based PAdES
 									signatures with Keychain and .p12 identities, verifiable anywhere PAdES is
-									understood. <a href={`${base}/fill-sign/signatures/`}>How signing works →</a>
+									understood. <a class="arrow-link" href={`${base}/fill-sign/signatures/`}>How signing works<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
 								</p>
 							</div>
 						</div>
@@ -308,6 +315,8 @@ const icoBook =
 				</div>
 			</section>
 
+			<hr class="crease-line" />
+
 			<!-- Proof — the one real capture, as honesty anchor -->
 			<section id="proof" class="fold proof-fold">
 				<div class="wrap">
@@ -320,7 +329,7 @@ const icoBook =
 							<div class="bar"><i></i><i></i><i></i></div>
 							<img src={cap('language-switcher.png')} width="1200" height="752" loading="lazy" decoding="async" alt="Orifold's welcome screen: the app open with Gami in the corner and a language menu showing English, Español, Français, हिन्दी, 简体中文, 日本語." />
 						</div>
-						<figcaption>Real capture — Orifold v{rel.version}. Gami greets you in the app, in six languages.</figcaption>
+						<figcaption class="tabnum">Real capture — Orifold v{rel.version}. Gami greets you in the app, in six languages.</figcaption>
 					</figure>
 				</div>
 			</section>
@@ -407,6 +416,8 @@ const icoBook =
 				</div>
 			</section>
 
+			<hr class="crease-line" />
+
 			<!-- Download — take flight -->
 			<section id="final-fold" class="fold download-fold">
 				<div class="wrap">
@@ -450,11 +461,13 @@ const icoBook =
 								<summary>Other ways to install</summary>
 								<div class="chip-cmd" style="margin-top:0.8rem">
 									<code>brew install --cask orifold</code>
-									<button type="button" class="copy-btn" data-copy="brew install --cask orifold" aria-label="Copy Homebrew command">Copy</button>
+									<button type="button" class="copy-btn" data-copy="brew install --cask orifold" aria-label="Copy Homebrew command">
+										<Fragment set:html={icoClipboard} /><span class="copy-btn-label">Copy</span>
+									</button>
 								</div>
 								<p class="fine-print" style="margin-top:0.8rem">
 									Or the one-line installer (no dialogs — it clears quarantine automatically), or the
-									direct <a href={rel.zipUrl}>.zip</a>. <a href={rel.allReleasesUrl}>All releases →</a>
+									direct <a href={rel.zipUrl}>.zip</a>. <a class="arrow-link" href={rel.allReleasesUrl}>All releases<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
 								</p>
 							</details>
 						</div>
@@ -574,6 +587,37 @@ const icoBook =
 					hoIO.observe(handoff);
 				}
 
+				// ── nav: scroll-linked active-section state ───────────────────
+				if ('IntersectionObserver' in window) {
+					var navLinks = {};
+					document.querySelectorAll('.nav .links a[href^="#"]').forEach(function (a) {
+						navLinks[a.getAttribute('href').slice(1)] = a;
+					});
+					var navSections = Object.keys(navLinks)
+						.map(function (id) { return document.getElementById(id); })
+						.filter(Boolean);
+					if (navSections.length) {
+						var navIO = new IntersectionObserver(
+							function (entries) {
+								entries.forEach(function (e) {
+									var link = navLinks[e.target.id];
+									if (!link) return;
+									if (e.isIntersecting) {
+										Object.keys(navLinks).forEach(function (id) {
+											navLinks[id].classList.remove('is-active');
+											navLinks[id].removeAttribute('aria-current');
+										});
+										link.classList.add('is-active');
+										link.setAttribute('aria-current', 'true');
+									}
+								});
+							},
+							{ rootMargin: '-45% 0px -50%' }
+						);
+						navSections.forEach(function (s) { navIO.observe(s); });
+					}
+				}
+
 				// ── hero + final crane: finite fold-settle; freeze at rest under reduced-motion ──
 				document.querySelectorAll('#hero-crane svg, #final-crane svg').forEach(function (svg) {
 					if (svg && svg.pauseAnimations && reduce) {
@@ -595,12 +639,21 @@ const icoBook =
 
 				// ── copy buttons ─────────────────────────────────────────────
 				document.querySelectorAll('.copy-btn').forEach(function (btn) {
+					var icon = btn.querySelector('.btn-ico');
+					var label = btn.querySelector('.copy-btn-label');
+					var originalIcon = icon ? icon.outerHTML : '';
+					var originalLabel = label ? label.textContent : 'Copy';
 					btn.addEventListener('click', function () {
 						var txt = btn.getAttribute('data-copy');
 						if (navigator.clipboard) navigator.clipboard.writeText(txt);
-						var old = btn.textContent;
-						btn.textContent = '✓ Copied';
-						setTimeout(function () { btn.textContent = old; }, 1400);
+						if (icon) icon.outerHTML = '<svg class="btn-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 10.5 8 14l7.5-8.5"/></svg>';
+						icon = btn.querySelector('.btn-ico');
+						if (label) label.textContent = 'Copied';
+						setTimeout(function () {
+							if (icon) icon.outerHTML = originalIcon;
+							icon = btn.querySelector('.btn-ico');
+							if (label) label.textContent = originalLabel;
+						}, 1400);
 					});
 				});
 
@@ -656,4 +709,3 @@ const icoBook =
 		</script>
 	</body>
 </html>
----

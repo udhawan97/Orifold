@@ -64,13 +64,22 @@ html body.landing .act-head {
 	max-width: 40ch;
 	margin-bottom: clamp(2.75rem, 6vw, 4.5rem);
 }
-html body.landing .act-head .kicker {
+html body.landing .act-head .kicker,
+html body.landing #ma .kicker {
 	margin-bottom: 1.1rem;
 }
 html body.landing h2 {
 	max-width: 15ch;
 	letter-spacing: -0.045em;
 	line-height: 0.98;
+}
+/* "A signature that holds up." sits in a narrower two-col copy rail; at
+   ~1360-1500px the shared .act-head 40ch cap lands right at the width where
+   text-wrap:balance strands "that" alone on a middle line. A few extra
+   px of headroom here lets it settle back onto a clean 2-line break without
+   touching the shared .act-head rhythm rule used by every other section. */
+html body.landing #seal .act-head {
+	max-width: 44ch;
 }
 html body.landing .act-head .lede {
 	margin-top: 1.35rem;
@@ -113,7 +122,10 @@ html body.landing figure.vig {
 		linear-gradient(160deg, color-mix(in srgb, var(--of-text-1) 6%, transparent), color-mix(in srgb, var(--of-canvas) 55%, transparent));
 	box-shadow: var(--premium-shadow-tight);
 	min-height: 0;
-	overflow: visible;
+	/* Don't override premium.css's overflow:clip here — it's the documented
+	   safety net that keeps the scattered decorative scraps from clipping
+	   awkwardly at the card edge on narrow viewports (landing-premium.css
+	   lines 512-514). Let that rule win. */
 }
 html[data-theme='light'] body.landing figure.vig {
 	background:
@@ -129,6 +141,12 @@ html body.landing .vig-art svg {
 	max-height: 360px;
 	display: block;
 	filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.22));
+}
+/* light theme: swap the flat-black drop-shadow for the same navy-tinted ratio
+   used by --premium-shadow-tight, so the vignette's cast shadow matches the
+   card's near-white background instead of reading as a hard black smudge. */
+html[data-theme='light'] body.landing .vig-art svg {
+	filter: drop-shadow(0 20px 30px rgba(19, 31, 51, 0.22));
 }
 html body.landing figure.vig figcaption {
 	margin: 0;
@@ -164,7 +182,11 @@ html body.landing .of-card .glyph {
 	background: color-mix(in srgb, var(--act-accent) 12%, transparent);
 	color: var(--act-accent);
 	transform: none;
-	transition: transform 0.32s var(--ease-fold), background-color 0.32s ease;
+	transition:
+		transform 0.32s var(--ease-fold),
+		background-color 0.32s ease,
+		border-color 0.32s ease,
+		color 0.32s ease;
 }
 html body.landing .of-card .glyph svg {
 	width: 1.6rem;
@@ -250,7 +272,14 @@ html body.landing .guide {
 	padding: 1.5rem 1.6rem;
 	border: 1px solid var(--premium-line);
 	border-radius: var(--premium-radius);
-	background: color-mix(in srgb, var(--of-surface) 55%, transparent);
+	/* Same glow + diagonal layer as .stat/.dl-user/.dl-dev/figure.vig (landing-premium.css
+	   lines 500-507) so this card joins the same material family instead of reading
+	   flat next to its siblings. */
+	background:
+		radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--of-accent) 6%, transparent), transparent 60%),
+		linear-gradient(150deg, color-mix(in srgb, var(--of-text-1) 7%, transparent), transparent 38%),
+		color-mix(in srgb, var(--of-surface) 55%, transparent);
+	box-shadow: var(--premium-shadow-tight);
 	text-align: left;
 }
 html body.landing .guide-fig,
@@ -331,6 +360,55 @@ html[data-theme='light'] body.landing .landing-footer .sig {
 	html body.landing .vig-art svg {
 		filter: none;
 	}
+	html body.landing .arrow-link:hover .arrow-ico,
+	html body.landing .arrow-link:focus-visible .arrow-ico {
+		transform: none !important;
+	}
+}
+
+/* ---- inline "text →" links: swap the baked-in arrow glyph for the shared
+   bespoke chevron icon, with a small hover/focus nudge signaling interactivity
+   (transform-only, no color change — the icon inherits currentColor). ------- */
+html body.landing .arrow-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+}
+html body.landing .arrow-ico-wrap {
+	display: inline-flex;
+	line-height: 0;
+}
+html body.landing .arrow-ico {
+	/* em-relative (not rem) so the chevron scales with the surrounding text
+	   context — .arrow-link's font-size swings ~23% across its four uses
+	   (.inoc/.guides-row/.lede/.fine-print), and a fixed rem size looked
+	   right next to the smaller instances but undersized next to .lede's. */
+	width: 0.68em;
+	height: 0.68em;
+	flex: 0 0 auto;
+	transition: transform 180ms var(--ease-fold);
+}
+html body.landing .arrow-link:hover .arrow-ico,
+html body.landing .arrow-link:focus-visible .arrow-ico {
+	transform: translateX(2px);
+}
+
+/* ---- copy button: bespoke clipboard/check glyph, matching the icoDownload/
+   icoBook grammar used on the primary CTAs -------------------------------- */
+html body.landing .copy-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+}
+html body.landing .copy-btn .btn-ico {
+	width: 1rem;
+	height: 1rem;
+}
+
+/* ---- nav: scroll-linked active-section state ------------------------------ */
+html body.landing .nav .links a.is-active {
+	color: var(--of-text-1);
+	box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--of-text-1) 55%, transparent);
 }
 
 /* ---- mobile spacing ------------------------------------------------------- */

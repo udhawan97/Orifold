@@ -16,7 +16,10 @@
 }
 
 body[data-guide='ori'] {
-	--act-accent: color-mix(in srgb, var(--of-tancho) 22%, var(--of-accent));
+	/* Cool-only shift toward the brighter accent — keeps tancho red confined to
+	   the hanko seal + crane crown per the design contract (no red bleed into
+	   general UI-accent roles like kickers, card glyphs, or chrome borders). */
+	--act-accent: color-mix(in srgb, var(--of-accent-bright) 30%, var(--of-accent));
 }
 
 /* ---- page reset (landing is a bare route, not Starlight) ------------------ */
@@ -292,6 +295,15 @@ figure.vig figcaption::before {
 	cursor: pointer;
 	font: inherit;
 	padding: 0;
+	border-radius: 4px;
+	transition:
+		color 200ms ease,
+		transform 200ms var(--ease-fold);
+}
+.chip-cmd button:hover,
+.chip-cmd button:focus-visible {
+	color: var(--of-accent-bright);
+	transform: translateY(-1px);
 }
 .meta-row {
 	margin-top: 1.2rem;
@@ -1068,6 +1080,17 @@ html.js .pet.pet-arrived .bubble {
 	cursor: pointer;
 	color: var(--of-text-2);
 	font-size: 0.9rem;
+	transition:
+		transform 200ms var(--ease-fold),
+		background-color 200ms ease,
+		border-color 200ms ease,
+		color 200ms ease;
+}
+.details summary:hover,
+.details summary:focus-visible {
+	color: var(--of-text-1);
+	background-color: color-mix(in srgb, var(--of-surface) 70%, transparent);
+	transform: translateY(-1px);
 }
 .final-crane {
 	width: min(60%, 260px);
@@ -1176,6 +1199,12 @@ html.js .pet.pet-arrived .bubble {
 		transform: none;
 	}
 	.of-card:hover {
+		transform: none;
+	}
+	.details summary:hover,
+	.details summary:focus-visible,
+	.chip-cmd button:hover,
+	.chip-cmd button:focus-visible {
 		transform: none;
 	}
 }

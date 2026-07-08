@@ -118,6 +118,22 @@ html body.landing .act-head[style] {
 	margin-inline: auto;
 }
 
+/* "Fifty messy files. One quiet stack." and "The studio has no windows."
+   strand a short orphan line under text-wrap:balance at the shared 40ch
+   .act-head column width (landing-redesign.css) — the same failure already
+   found and fixed for #seal there (widened to 44ch). Measured per-section: at
+   1280px #gather needs >=47ch and #keep needs >=42ch to settle to a clean
+   2-line break; at 768px #gather needs >=50ch and #keep needs >=44ch. 50ch/44ch
+   clear both. Higher specificity than the shared rule so it wins regardless
+   of stylesheet order. */
+html body.landing #gather .act-head {
+	max-width: 50ch;
+}
+
+html body.landing #keep .act-head {
+	max-width: 44ch;
+}
+
 html body.landing .kicker {
 	display: inline-flex;
 	align-items: center;
@@ -140,6 +156,10 @@ html body.landing .kicker::before {
 	background: var(--act-accent);
 	transform: rotate(45deg);
 	box-shadow: 0 0 18px color-mix(in srgb, var(--act-accent) 72%, transparent);
+	/* Match the kicker label's own color transition (landing.css: color 1.2s) so
+	   the accent square fades in step with the text during the Gami->Ori handoff
+	   instead of hard-snapping to the new hue ahead of it. */
+	transition: background-color 1.2s var(--ease-fold);
 }
 
 html body.landing h2 {
@@ -227,6 +247,11 @@ html body.landing .nav .brand {
 	gap: 0.7rem;
 	padding: 0.32rem 0.72rem 0.32rem 0.38rem;
 	border-radius: 999px;
+	transition: background-color 180ms ease;
+}
+
+html body.landing .nav .brand:hover {
+	background: color-mix(in srgb, var(--of-text-1) 8%, transparent);
 }
 
 html body.landing .nav .brand img {
@@ -289,14 +314,20 @@ html body.landing #sheet .eyebrow {
 	align-items: center;
 	gap: 0.55rem;
 	width: fit-content;
-	padding: 0.48rem 0.8rem;
+	padding: 0.42rem 0.72rem;
 	border: 1px solid var(--premium-line);
 	border-radius: 999px;
 	background: var(--premium-glass);
 	backdrop-filter: blur(18px);
 	-webkit-backdrop-filter: blur(18px);
-	font-size: 0.7rem;
-	letter-spacing: 0.17em;
+	/* Same small-label treatment as .kicker (weight, size, padding, letter-spacing) —
+	   the eyebrow and kicker play the identical visual role (pill sitting above a
+	   headline), so they should read as one component, not two arbitrarily-tuned
+	   variants. Only the icon roundel before the text differs, which already
+	   correctly accounts for the eyebrow's slightly taller glyph. */
+	font-size: 0.68rem;
+	font-weight: 600;
+	letter-spacing: 0.18em;
 	color: var(--of-text-2);
 }
 
@@ -480,6 +511,19 @@ html body.landing #ma .crease {
 	   main scroll/mobile jank source. Opaque-ish glass-strong reads clean without it. */
 }
 
+/* .stat and .dl-user/.dl-dev otherwise only inherit the flat diagonal linear-gradient
+   above — figure.vig (landing-redesign.css) and .of-card (below) each layer a radial
+   accent glow on top of theirs, so these two card families read as a flatter material.
+   Add the same quiet glow term here to bring the whole card system into one family. */
+html body.landing .stat,
+html body.landing .dl-user,
+html body.landing .dl-dev {
+	background:
+		radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--of-accent) 6%, transparent), transparent 60%),
+		linear-gradient(150deg, color-mix(in srgb, var(--of-text-1) 7%, transparent), transparent 38%),
+		var(--premium-glass-strong);
+}
+
 html body.landing figure.vig {
 	border-radius: var(--premium-radius-lg);
 	min-height: 360px;
@@ -523,6 +567,24 @@ html body.landing figure.shot:hover .chrome {
 	transform: translateY(-4px);
 }
 
+/* Light theme: the default/hover shadows above are raw un-tinted black, unlike
+   every other card material (.stat/figure.vig/.dl-user/.dl-dev all re-tint via
+   --premium-shadow-tight/--premium-shadow). Re-cast with the same navy family
+   so the one real screenshot's frame matches the surrounding material weight
+   instead of looking like a pasted-in dark-mode shadow. */
+html[data-theme='light'] body.landing figure.shot .chrome {
+	box-shadow:
+		0 38px 95px -58px rgba(19, 31, 51, 0.32),
+		inset 0 1px 0 color-mix(in srgb, var(--of-text-1) 10%, transparent);
+}
+
+html[data-theme='light'] body.landing figure.shot:hover .chrome {
+	box-shadow:
+		0 48px 110px -64px rgba(19, 31, 51, 0.36),
+		0 0 0 1px color-mix(in srgb, var(--act-accent) 10%, transparent),
+		inset 0 1px 0 color-mix(in srgb, var(--of-text-1) 13%, transparent);
+}
+
 html body.landing figure.shot .bar {
 	padding: 12px 16px;
 	background: linear-gradient(180deg, color-mix(in srgb, var(--of-text-1) 7%, transparent), transparent);
@@ -560,12 +622,17 @@ html body.landing .of-card {
 	min-height: 188px;
 	padding: 1.55rem;
 	border: 1px solid var(--premium-line);
-	border-radius: 26px;
+	/* Consolidated onto the shared compact-card token (was a bespoke 26px) so the
+	   radius scale reads as an intentional 2-step system: --premium-radius for
+	   compact cards, --premium-radius-lg for large artifact cards. */
+	border-radius: var(--premium-radius);
 	background:
 		radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--act-accent) 13%, transparent), transparent 44%),
 		linear-gradient(145deg, color-mix(in srgb, var(--of-text-1) 6%, transparent), color-mix(in srgb, var(--of-surface) 52%, transparent));
 	overflow: hidden;
-	box-shadow: 0 24px 70px -54px rgba(0, 0, 0, 0.72);
+	/* Token, not a bespoke rgba(0,0,0,*) — inherits the theme-correct navy tint in
+	   light mode automatically, same as figure.vig/.stat/.dl-user/.dl-dev. */
+	box-shadow: var(--premium-shadow-tight);
 	transition:
 		transform 320ms var(--ease-fold),
 		border-color 320ms ease,
@@ -597,7 +664,9 @@ html body.landing .of-card::after {
 
 html body.landing .of-card:hover {
 	border-color: color-mix(in srgb, var(--act-accent) 44%, var(--premium-line));
-	box-shadow: 0 34px 88px -52px rgba(0, 0, 0, 0.86);
+	/* Deepen the themed --premium-shadow token rather than reintroduce a bespoke
+	   raw black — keeps the light-theme hover state navy-tinted too. */
+	box-shadow: var(--premium-shadow);
 	transform: translateY(-7px) scale(1.012);
 }
 
@@ -657,7 +726,10 @@ html body.landing .stat-row {
 
 html body.landing .stat {
 	padding: 1.2rem 1.25rem;
-	border-radius: 24px;
+	/* Consolidated onto the shared compact-card token (was a bespoke 24px) — see
+	   .of-card for the same rationale: a 2-step radius system, not four
+	   coincidentally-close numbers. */
+	border-radius: var(--premium-radius);
 }
 
 html body.landing .stat b {
@@ -878,17 +950,6 @@ html body.landing .landing-footer .wrap {
 /* Motion — smooth, finite, respectful                                         */
 /* -------------------------------------------------------------------------- */
 
-/* Base landing.css keeps `will-change: transform` permanently on the fold-shadow
-   drift pseudo-elements, but their drift is finite (26s/34s, 2 iterations) and only
-   runs under `.in-view`. That standing hint pins two compositor layers for the whole
-   session even after the animation ends (or before it starts). Drop the hint from the
-   premium layer — will-change is an optimization hint, not a requirement, so the finite
-   drift still plays. base landing.css is out of edit scope, so this override is the fix. */
-html body.landing .fold-shadow::before,
-html body.landing .fold-shadow::after {
-	will-change: auto;
-}
-
 @keyframes orifold-hero-rise {
 	from { opacity: 0; transform: translateY(22px) scale(0.985); }
 	to { opacity: 1; transform: none; }
@@ -911,6 +972,7 @@ html body.landing .fold-shadow::after {
 
 	html body.landing figure.shot:hover .chrome,
 	html body.landing .of-card:hover,
+	html body.landing .of-card:hover .glyph,
 	html body.landing .btn:hover,
 	html body.landing .nav .links a:hover {
 		transform: none !important;

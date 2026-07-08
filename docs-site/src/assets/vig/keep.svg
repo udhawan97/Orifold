@@ -34,8 +34,8 @@
     <path d="M518,212 L528,220 L518,228"/>
   </g>
 
-  <!-- red block crosses over each arrow -->
-  <g stroke="var(--tancho)" stroke-width="2.5" stroke-linecap="round">
+  <!-- block crosses over each arrow -->
+  <g stroke="var(--edge)" stroke-width="2.5" stroke-linecap="round">
     <g>
       <line x1="310" y1="92" x2="330" y2="72"/>
       <line x1="310" y1="72" x2="330" y2="92"/>
