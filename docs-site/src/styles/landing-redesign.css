@@ -111,7 +111,11 @@ html body.landing .whatsnew-tag {
 	padding: 0.28rem 0.56rem;
 	border-radius: 999px;
 	background: var(--act-accent);
-	color: #fff;
+	/* Theme-aware ink over the accent chip — matches the .btn-primary contract:
+	   --of-canvas is dark in dark theme (over the bright-cyan accent) and light in
+	   light theme (over the darker-blue accent), clearing AA in both. A raw #fff
+	   would fail on the light-cyan dark-theme accent (~1.6:1). */
+	color: var(--of-canvas);
 	font-size: 0.68rem;
 	font-weight: 700;
 	letter-spacing: 0.06em;
