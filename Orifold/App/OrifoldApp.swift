@@ -31,6 +31,14 @@ struct OrifoldApp: App {
         .windowResizability(.contentSize)
         .defaultPosition(.center)
 
+        Window("window.softwareUpdate.title", id: SoftwareUpdateWindow.id) {
+            SoftwareUpdateView()
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+
         Settings {
             SettingsView()
                 .environmentObject(languageManager)
