@@ -93,7 +93,7 @@ struct SettingsView: View {
                 HStack(spacing: .dsMD) {
                     if update.dmgDownloadURL != nil {
                         Button(L10n.string("settings.updates.action.download", locale: locale)) {
-                            Task { await updateController.downloadUpdate() }
+                            updateController.beginDownload()
                         }
                     }
                     Button(L10n.string("settings.updates.action.releaseNotes", locale: locale)) {
@@ -109,9 +109,17 @@ struct SettingsView: View {
         case let .downloading(update, fraction):
             VStack(alignment: .leading, spacing: .dsXS) {
                 statusText(L10n.format("settings.updates.status.downloading", update.version, locale: locale))
-                ProgressView(value: fraction)
-                    .frame(maxWidth: .infinity)
+                HStack(spacing: .dsMD) {
+                    ProgressView(value: fraction)
+                        .frame(maxWidth: .infinity)
+                    Button(L10n.string("update.action.cancel", locale: locale)) {
+                        updateController.cancelDownload()
+                    }
+                    .buttonStyle(.link)
+                }
             }
+        case let .installing(update):
+            statusText(L10n.format("settings.updates.status.installing", update.version, locale: locale))
         case let .readyToInstall(update):
             VStack(alignment: .leading, spacing: .dsXS) {
                 Text(L10n.format("settings.updates.status.readyToInstall", update.version, locale: locale))
@@ -149,13 +157,14 @@ struct SettingsView: View {
         }
     }
 
-    /// Install hand-off: never proceed while a document has unsaved changes. A sandboxed
-    /// app can't swap its own bundle, so we open the verified DMG's drag-to-Applications
-    /// window and the user finishes in Finder.
+    /// Install hand-off: never proceed while a document has unsaved changes. When clear, the
+    /// app records what's open, hands the verified DMG to the unsandboxed updater, quits, and
+    /// the updater swaps the bundle and relaunches the new version — which reopens the docs.
     private func attemptInstall() {
         let blocking = updateController.documentsBlockingInstall()
         guard blocking.isEmpty else { presentUnsavedWorkAlert(blocking); return }
-        updateController.revealDownloadedUpdateForInstall()
+        let reopen = UpdateReopenGatherer.currentDocuments()
+        Task { await updateController.installAndRelaunch(reopenDocuments: reopen) }
     }
 
     private func presentUnsavedWorkAlert(_ documents: [UpdateInstallPreflight.DocumentState]) {

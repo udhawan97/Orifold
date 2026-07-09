@@ -33,7 +33,7 @@ enum UpdateAlertPresenter {
         case let .failed(failure):
             presentFailure(failure, controller: controller, locale: locale)
             controller.dismissTransientState()
-        case .idle, .checking, .downloading, .readyToInstall:
+        case .idle, .checking, .downloading, .readyToInstall, .installing:
             break
         }
     }

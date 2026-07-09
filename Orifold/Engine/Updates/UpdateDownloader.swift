@@ -85,9 +85,17 @@ struct UpdateDownloader: UpdateDownloading {
 
         var request = URLRequest(url: url)
         request.setValue("Orifold", forHTTPHeaderField: "User-Agent")
-        return try await withCheckedThrowingContinuation { continuation in
-            delegate.continuation = continuation
-            downloadSession.downloadTask(with: request).resume()
+        let task = downloadSession.downloadTask(with: request)
+        // Cancelling the enclosing Swift Task (the user hitting Cancel) cancels the transfer;
+        // the delegate then resumes the continuation with a URLError.cancelled, which the
+        // controller maps back to `.updateAvailable` rather than a failure.
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                delegate.continuation = continuation
+                task.resume()
+            }
+        } onCancel: {
+            task.cancel()
         }
     }
 

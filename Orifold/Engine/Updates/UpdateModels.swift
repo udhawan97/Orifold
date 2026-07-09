@@ -39,11 +39,14 @@ enum UpdatePhase: Equatable {
     case updateAvailable(AvailableUpdate)
     case downloading(AvailableUpdate, fractionCompleted: Double)
     case readyToInstall(AvailableUpdate)
+    /// The verified update is being handed to the updater: the app is about to quit and
+    /// relaunch itself as the new version. Terminal window state — no user actions.
+    case installing(AvailableUpdate)
     case failed(UpdateFailure)
 
     var availableUpdate: AvailableUpdate? {
         switch self {
-        case let .updateAvailable(update), let .downloading(update, _), let .readyToInstall(update):
+        case let .updateAvailable(update), let .downloading(update, _), let .readyToInstall(update), let .installing(update):
             return update
         case .idle, .checking, .upToDate, .failed:
             return nil
@@ -52,7 +55,7 @@ enum UpdatePhase: Equatable {
 
     var isBusy: Bool {
         switch self {
-        case .checking, .downloading: return true
+        case .checking, .downloading, .installing: return true
         case .idle, .upToDate, .updateAvailable, .readyToInstall, .failed: return false
         }
     }

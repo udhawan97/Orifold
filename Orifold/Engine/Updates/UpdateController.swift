@@ -45,11 +45,22 @@ final class UpdateController {
     /// completes and its checksum verifies; consumed by `revealDownloadedUpdateForInstall`.
     private(set) var downloadedUpdateURL: URL?
 
+    /// The in-flight download, retained so the user can cancel it. Cancelling this Task
+    /// cancels the underlying transfer (see `UpdateDownloader.streamToFile`). Readable (not
+    /// settable) outside the type so tests can await it settling.
+    private(set) var downloadTask: Task<Void, Never>?
+
     private let transport: UpdateTransport
     private let downloader: UpdateDownloading
     private let defaults: UserDefaults
     private let currentVersion: UpdateVersion
+    private let currentBuild: String
     private let archiver: RollbackArchiver
+    private let history: UpdateHistoryStore
+    private let markers: UpdateInstallMarkerStore
+    private let handOff: UpdateInstallHandOff
+    private let bundleURL: URL
+    private let processID: Int32
     private let now: () -> Date
 
     init(
@@ -57,14 +68,26 @@ final class UpdateController {
         downloader: UpdateDownloading = UpdateDownloader(),
         defaults: UserDefaults = .standard,
         currentVersion: UpdateVersion = .current(),
+        currentBuild: String = (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "0",
         archiver: RollbackArchiver = RollbackArchiver(),
+        history: UpdateHistoryStore = UpdateHistoryStore(),
+        markers: UpdateInstallMarkerStore = UpdateInstallMarkerStore(),
+        handOff: UpdateInstallHandOff? = nil,
+        bundleURL: URL = Bundle.main.bundleURL,
+        processID: Int32 = ProcessInfo.processInfo.processIdentifier,
         now: @escaping () -> Date = Date.init
     ) {
         self.transport = transport
         self.downloader = downloader
         self.defaults = defaults
         self.currentVersion = currentVersion
+        self.currentBuild = currentBuild
         self.archiver = archiver
+        self.history = history
+        self.markers = markers
+        self.handOff = handOff ?? SystemUpdateInstallHandOff()
+        self.bundleURL = bundleURL
+        self.processID = processID
         self.now = now
         automaticChecksEnabled = defaults.bool(forKey: Keys.automaticChecks)
         lastCheckAt = defaults.object(forKey: Keys.lastCheckAt) as? Date
@@ -110,9 +133,25 @@ final class UpdateController {
         return date.timeIntervalSince(last) >= Self.automaticCheckInterval
     }
 
-    /// Downloads the available update's verified DMG in the background, driving the
-    /// `.downloading` progress phase and ending at `.readyToInstall` (or `.failed`). No
-    /// bundle is touched — this only produces a verified local artifact for install.
+    /// UI entry point: starts the download as a cancellable Task the user can stop.
+    func beginDownload() {
+        guard case .updateAvailable = phase else { return }
+        downloadTask?.cancel()
+        downloadTask = Task { [weak self] in await self?.downloadUpdate() }
+    }
+
+    /// Cancels an in-flight download and returns to the update-available offer, keeping any
+    /// already-verified prior download for later.
+    func cancelDownload() {
+        guard case .downloading = phase else { return }
+        downloadTask?.cancel()
+        downloadTask = nil
+    }
+
+    /// Downloads the available update's verified DMG, driving the `.downloading` progress
+    /// phase and ending at `.readyToInstall` (or `.failed`, or back to `.updateAvailable` on
+    /// cancel). No bundle is touched — this only produces a verified local artifact.
+    /// Awaitable directly (tests) or wrapped by `beginDownload()` (UI, cancellable).
     func downloadUpdate() async {
         guard case let .updateAvailable(update) = phase else { return }
 
@@ -137,8 +176,13 @@ final class UpdateController {
                     self.phase = .downloading(update, fractionCompleted: fraction)
                 }
             }
+            try Task.checkCancellation()   // a cancel that landed just as bytes finished
             downloadedUpdateURL = url
             phase = .readyToInstall(update)
+        } catch is CancellationError {
+            phase = .updateAvailable(update)
+        } catch let urlError as URLError where urlError.code == .cancelled {
+            phase = .updateAvailable(update)
         } catch {
             phase = .failed(Self.downloadFailure(from: error))
         }
@@ -162,6 +206,68 @@ final class UpdateController {
         return true
     }
 
+    /// Orchestrates the real install: preserve on-screen state, archive the current bundle
+    /// for rollback, record the attempt, then hand the verified DMG to the unsandboxed
+    /// updater script and quit so it can swap the bundle and relaunch the new version.
+    ///
+    /// The caller must have cleared unsaved work first (`documentsBlockingInstall`) and
+    /// supplies the documents to reopen. Returns false (staying put) if there's nothing
+    /// verified to install or the updater couldn't be launched.
+    @discardableResult
+    func installAndRelaunch(reopenDocuments: [ReopenDocument]) async -> Bool {
+        guard case let .readyToInstall(update) = phase else { return false }
+        guard documentsBlockingInstall().isEmpty else { return false }
+        guard let dmgURL = downloadedUpdateURL, FileManager.default.fileExists(atPath: dmgURL.path) else { return false }
+
+        phase = .installing(update)
+
+        // Preserve what's on screen so the relaunched app can reopen it (consumed once).
+        let version = currentVersion.description
+        let build = currentBuild
+        try? markers.writeReopenManifest(UpdateReopenManifest(
+            fromVersion: version, toVersion: update.version, savedAt: now(), documents: reopenDocuments))
+
+        // Best-effort, off the main actor: digest the DMG and archive the current bundle for
+        // rollback. Neither blocks the install if it fails — the script re-verifies and keeps
+        // its own renamed backup of the old bundle.
+        let dmgPath = dmgURL.path
+        let bundleURL = self.bundleURL
+        let archiver = self.archiver
+
+        guard let digest = await Task.detached(operation: { try? RollbackArchiver.sha256(of: URL(fileURLWithPath: dmgPath)) }).value else {
+            markers.clearReopenManifest()
+            phase = .failed(UpdateFailure(kind: .verification, detail: "Could not hash the downloaded update."))
+            return false
+        }
+
+        let rollbackZipPath: String? = await Task.detached {
+            (try? archiver.archive(bundleURL: bundleURL, version: version, build: build))
+                .flatMap { archiver.archiveURL(for: $0)?.path }
+        }.value
+        rollbackManifest = archiver.loadManifest()
+
+        // Record the attempt + history so the next launch can judge success vs. failure.
+        try? markers.writeAttempt(InstallAttempt(
+            fromVersion: version, toVersion: update.version, dmgPath: dmgPath, dmgSHA256: digest, startedAt: now()))
+        history.record(UpdateHistoryRecord(
+            fromVersion: version, fromBuild: build, toVersion: update.version, toBuild: "",
+            installedAt: now(), launchVerified: false))
+
+        // Hand off + quit. If Terminal won't open, fall back to a failure the UI can retry
+        // or resolve by revealing the DMG manually.
+        let inputs = UpdaterScriptGenerator.Inputs(
+            appPID: processID, appBundlePath: bundleURL.path, dmgPath: dmgPath, dmgSHA256: digest,
+            newVersion: update.version, rollbackZipPath: rollbackZipPath)
+        guard handOff.launchUpdater(inputs) else {
+            markers.clearAttempt()
+            phase = .failed(UpdateFailure(kind: .install, detail: "Could not start the updater."))
+            return false
+        }
+
+        handOff.terminateForInstall()
+        return true
+    }
+
     /// Postpones an install that's ready, keeping the verified download for later.
     func installLater() {
         if case .readyToInstall = phase { phase = .idle }
@@ -181,7 +287,7 @@ final class UpdateController {
         switch phase {
         case .upToDate, .failed, .updateAvailable:
             phase = .idle
-        case .idle, .checking, .downloading, .readyToInstall:
+        case .idle, .checking, .downloading, .readyToInstall, .installing:
             break
         }
     }
