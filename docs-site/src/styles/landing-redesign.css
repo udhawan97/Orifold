@@ -72,6 +72,82 @@ html body.landing .beta-tag {
 	line-height: 1;
 	vertical-align: 0.06em;
 }
+/* ---- "What's new" pill (Shape/edit section): a prominent, tappable announcement
+   for a freshly-landed capability, on its own line. Deliberately louder than the
+   quiet .beta-note beneath it — a solid accent "New" chip, the feature name, a
+   muted status, and a chevron that nudges on hover. Apple-style restraint: soft
+   accent wash, hairline border, a gentle lift, no shouting. ------------------- */
+html body.landing .whatsnew-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-top: 1.6rem;
+	padding: 0.42rem 0.9rem 0.42rem 0.46rem;
+	border: 1px solid color-mix(in srgb, var(--act-accent) 26%, transparent);
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--act-accent) 8%, transparent);
+	color: var(--of-text-1);
+	font-size: 0.95rem;
+	font-weight: 600;
+	letter-spacing: -0.008em;
+	line-height: 1;
+	text-decoration: none;
+	transition: background 200ms var(--ease-fold), border-color 200ms var(--ease-fold),
+		transform 200ms var(--ease-fold), box-shadow 200ms var(--ease-fold);
+}
+html body.landing .whatsnew-pill:hover {
+	background: color-mix(in srgb, var(--act-accent) 13%, transparent);
+	border-color: color-mix(in srgb, var(--act-accent) 42%, transparent);
+	transform: translateY(-1px);
+	box-shadow: 0 8px 22px -12px color-mix(in srgb, var(--act-accent) 60%, transparent);
+}
+html body.landing .whatsnew-pill:focus-visible {
+	outline: 2px solid var(--act-accent);
+	outline-offset: 2px;
+}
+html body.landing .whatsnew-tag {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.28rem 0.56rem;
+	border-radius: 999px;
+	background: var(--act-accent);
+	color: #fff;
+	font-size: 0.68rem;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	line-height: 1;
+}
+html body.landing .whatsnew-sub {
+	color: var(--of-text-3);
+	font-weight: 500;
+}
+html body.landing .whatsnew-arrow {
+	display: inline-flex;
+	line-height: 0;
+	color: var(--act-accent);
+}
+html body.landing .whatsnew-arrow svg {
+	width: 0.82em;
+	height: 0.82em;
+	transition: transform 180ms var(--ease-fold);
+}
+html body.landing .whatsnew-pill:hover .whatsnew-arrow svg,
+html body.landing .whatsnew-pill:focus-visible .whatsnew-arrow svg {
+	transform: translateX(2px);
+}
+@media (prefers-reduced-motion: reduce) {
+	html body.landing .whatsnew-pill,
+	html body.landing .whatsnew-arrow svg {
+		transition: none;
+	}
+	html body.landing .whatsnew-pill:hover {
+		transform: none;
+	}
+	html body.landing .whatsnew-pill:hover .whatsnew-arrow svg {
+		transform: none;
+	}
+}
 /* section acts get generous, even breathing room */
 html body.landing .fold {
 	padding-block: clamp(6rem, 13vh, 11rem);

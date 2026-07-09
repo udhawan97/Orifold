@@ -336,11 +336,14 @@ const heroBadges = [
 							sticky note floating over a picture of the page. Then protect with AES-256,
 							compress, or sanitize, and export one clean file.
 						</p>
+						<a class="whatsnew-pill" href={`${base}/edit/edit-objects/`} aria-label="New: object editing, now in beta — learn more">
+							<span class="whatsnew-tag">New</span>
+							<span class="whatsnew-text">Object editing<span class="whatsnew-sub"> · in beta</span></span>
+							<span class="whatsnew-arrow" aria-hidden="true"><Fragment set:html={icoChevron} /></span>
+						</a>
 						<p class="fine-print beta-note">
 							<span class="beta-tag">Beta</span>
 							Editing is solid on everyday text, and still learning how weird a PDF can get.
-							<a href={`${base}/edit/edit-objects/`}>Object editing</a> — moving and deleting the real
-							graphics on a page — is in early beta, engine first, interface next.
 							Spot something off? <a href={`${site.repoUrl}/issues`}>Send feedback</a>.
 						</p>
 					</div>
