@@ -74,14 +74,17 @@ private func FPDFCompression_BitmapGetStride(_ bitmap: OpaquePointer?) -> Int32
 @_silgen_name("FPDFBitmap_Destroy")
 private func FPDFCompression_BitmapDestroy(_ bitmap: OpaquePointer?)
 
+// NOTE: `internal` (not `private`) so PDFObjectEditEngine's structural write-back can reuse this
+// single FPDF_SaveAsCopy binding. A second @_silgen_name binding of the same C symbol with a
+// different Swift type is merged by whole-module optimization and errors out in release config.
 @_silgen_name("FPDF_SaveAsCopy")
-private func FPDFCompression_SaveAsCopy(
+func FPDFCompression_SaveAsCopy(
     _ document: OpaquePointer?,
     _ fileWrite: UnsafeMutablePointer<FPDFCompressionFileWrite>?,
     _ flags: UInt32
 ) -> Int32
 
-private struct FPDFCompressionFileWrite {
+struct FPDFCompressionFileWrite {
     var version: Int32
     var writeBlock: (@convention(c) (UnsafeMutableRawPointer?, UnsafeRawPointer?, CUnsignedLong) -> Int32)?
 }

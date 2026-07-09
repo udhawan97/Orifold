@@ -17,13 +17,10 @@ import CoreGraphics
 // GenerateContent, or parsed path fills re-emit as black.
 // =============================================================================
 
-// FPDF_SaveAsCopy plumbing (file-private; guarded by pdfiumLock in the entry point).
-private struct POEFileWrite {
-    var version: Int32
-    var writeBlock: (@convention(c) (UnsafeMutableRawPointer?, UnsafeRawPointer?, CUnsignedLong) -> Int32)?
-}
-@_silgen_name("FPDF_SaveAsCopy")
-private func poe_SaveAsCopy(_ doc: OpaquePointer?, _ fw: UnsafeMutablePointer<POEFileWrite>?, _ flags: UInt) -> Int32
+// FPDF_SaveAsCopy plumbing (guarded by pdfiumLock in the entry point). Reuses the single
+// FPDFCompression_SaveAsCopy / FPDFCompressionFileWrite binding from PDFCompressionService — a
+// second @_silgen_name binding of the same C symbol with a different Swift type breaks the
+// release (whole-module) build.
 private var poeEditSaveBuffer = Data()
 
 enum PDFObjectEditEngine {
@@ -198,11 +195,11 @@ enum PDFObjectEditEngine {
 
     private static func saveAsCopy(_ doc: OpaquePointer?) -> Data {
         poeEditSaveBuffer = Data()
-        var fw = POEFileWrite(version: 1, writeBlock: { _, data, size in
+        var fw = FPDFCompressionFileWrite(version: 1, writeBlock: { _, data, size in
             if let data, size > 0 { poeEditSaveBuffer.append(data.assumingMemoryBound(to: UInt8.self), count: Int(size)) }
             return 1
         })
-        return poe_SaveAsCopy(doc, &fw, UInt(1 << 1)) != 0 ? poeEditSaveBuffer : Data()   // FPDF_NO_INCREMENTAL
+        return FPDFCompression_SaveAsCopy(doc, &fw, UInt32(1 << 1)) != 0 ? poeEditSaveBuffer : Data()   // FPDF_NO_INCREMENTAL
     }
 }
 
