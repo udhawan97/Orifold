@@ -1,6 +1,5 @@
 import AppKit
 import CoreGraphics
-import PDFKit
 import XCTest
 @testable import Orifold
 
@@ -47,6 +46,14 @@ private struct P0Matrix { var a: Float; var b: Float; var c: Float; var d: Float
 @_silgen_name("FPDFPageObj_GetStrokeColor") private func p0_GetStrokeColor(_ o: OpaquePointer?, _ r: UnsafeMutablePointer<UInt32>?, _ g: UnsafeMutablePointer<UInt32>?, _ b: UnsafeMutablePointer<UInt32>?, _ a: UnsafeMutablePointer<UInt32>?) -> Int32
 @_silgen_name("FPDFPageObj_SetStrokeColor") private func p0_SetStrokeColor(_ o: OpaquePointer?, _ r: UInt32, _ g: UInt32, _ b: UInt32, _ a: UInt32) -> Int32
 @_silgen_name("FPDFPage_GenerateContent") private func p0_GenerateContent(_ p: OpaquePointer?) -> Int32
+
+// PDFium's own text extractor — used instead of PDFKit's `.attributedString` because PDFKit text
+// extraction is unreliable on CI's pinned Xcode 16.4 SDK (see memory: ci-xcode164-pdfkit-string-
+// extraction-quirk). Same symbols PDFTextAnalysisEngine.swift uses in production.
+@_silgen_name("FPDFText_LoadPage") private func p0_TextLoadPage(_ p: OpaquePointer?) -> OpaquePointer?
+@_silgen_name("FPDFText_ClosePage") private func p0_TextClosePage(_ tp: OpaquePointer?)
+@_silgen_name("FPDFText_CountChars") private func p0_TextCountChars(_ tp: OpaquePointer?) -> Int32
+@_silgen_name("FPDFText_GetUnicode") private func p0_TextGetUnicode(_ tp: OpaquePointer?, _ i: Int32) -> UInt32
 
 // PDFium's own rasterizer — authoritative render of the produced bytes (PDFKit renders SaveAsCopy
 // output unreliably in a headless test process).
@@ -210,8 +217,22 @@ final class Phase0PDFiumRoundTripSpikeTests: XCTestCase {
         }) ?? nil
     }
 
-    private func pdfKitText(_ data: Data) -> String {
-        (PDFDocument(data: data)?.page(at: 0)?.attributedString?.string) ?? ""
+    private func extractedText(_ data: Data) -> String {
+        (withDocument(data) { doc -> String in
+            guard let page = p0_LoadPage(doc, 0) else { return "" }
+            defer { p0_ClosePage(page) }
+            guard let textPage = p0_TextLoadPage(page) else { return "" }
+            defer { p0_TextClosePage(textPage) }
+            let count = p0_TextCountChars(textPage)
+            guard count > 0 else { return "" }
+            var result = ""
+            for i in 0..<count {
+                if let s = UnicodeScalar(p0_TextGetUnicode(textPage, i)), s.value != 0 {
+                    result.unicodeScalars.append(s)
+                }
+            }
+            return result
+        }) ?? ""
     }
 
     private func isWhite(_ c: (r: Int, g: Int, b: Int)?) -> Bool { guard let c else { return false }; return c.r > 230 && c.g > 230 && c.b > 230 }
@@ -230,7 +251,7 @@ final class Phase0PDFiumRoundTripSpikeTests: XCTestCase {
 
         let original = makeFixture()
         XCTAssertFalse(original.isEmpty, "fixture build failed")
-        XCTAssertTrue(pdfKitText(original).contains("CANARY"), "fixture must contain extractable text")
+        XCTAssertTrue(extractedText(original).contains("CANARY"), "fixture must contain extractable text")
         XCTAssertTrue(isBlackish(sampleColor(original, at: CGPoint(x: rectPDF.midX, y: rectPDF.midY))), "rect must render black pre-edit")
         XCTAssertTrue(isBlue(sampleColor(original, at: CGPoint(x: bluePDF.midX, y: bluePDF.midY))), "blue rect must render blue pre-edit")
 
@@ -274,7 +295,7 @@ final class Phase0PDFiumRoundTripSpikeTests: XCTestCase {
         XCTAssertEqual(moved.count, base.count, "R0: object count changed across GenerateContent round-trip")
         XCTAssertEqual(moved.imageBounds.minX - base.imageBounds.minX, dx, accuracy: 1.5, "image X translate wrong")
         XCTAssertEqual(moved.imageBounds.minY - base.imageBounds.minY, dy, accuracy: 1.5, "image Y translate wrong")
-        XCTAssertTrue(pdfKitText(movedData).contains("CANARY"), "R2: text layer dropped by round-trip")
+        XCTAssertTrue(extractedText(movedData).contains("CANARY"), "R2: text layer dropped by round-trip")
         XCTAssertEqual(moved.digest, base.imageDigest, "R4: translation-invariant structuralDigest changed")
         XCTAssertTrue(isBlue(sampleColor(movedData, at: blueCenter)), "untouched blue rect must stay blue (color-preservation)")
         XCTAssertTrue(isWhite(sampleColor(movedData, at: controlPoint)), "background must stay white (color-preservation)")
@@ -300,7 +321,7 @@ final class Phase0PDFiumRoundTripSpikeTests: XCTestCase {
         XCTAssertFalse(del.rectThere, "R1: deleted rect still present in the object graph (ghost)")
         XCTAssertTrue(isWhite(sampleColor(deletedData, at: rectCenter)), "R1: deleted rect region still has ink (visual ghost)")
         XCTAssertTrue(isBlue(sampleColor(deletedData, at: blueCenter)), "delete must not disturb the sibling blue rect")
-        XCTAssertTrue(pdfKitText(deletedData).contains("CANARY"), "R2: text dropped after delete round-trip")
+        XCTAssertTrue(extractedText(deletedData).contains("CANARY"), "R2: text dropped after delete round-trip")
         print("PHASE0 delete: count=\(del.count) (was \(base.count)) rectThere=\(del.rectThere)")
 
         print("""
