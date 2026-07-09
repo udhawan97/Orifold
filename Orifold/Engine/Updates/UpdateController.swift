@@ -41,6 +41,16 @@ final class UpdateController {
     /// each install; drives whether "Restore Previous Version…" is enabled.
     private(set) var rollbackManifest: RollbackManifest?
 
+    /// Set by the launch coordinator when a prior install attempt did not end up running the
+    /// target version. Surfaced once so the user can retry or reveal the download.
+    private(set) var pendingInstallFailure = false
+
+    /// Reports (from the launch coordinator) that the last install attempt failed.
+    func notePendingInstallFailure() { pendingInstallFailure = true }
+
+    /// Dismisses the post-install failure notice once the user has seen it.
+    func dismissInstallFailure() { pendingInstallFailure = false }
+
     /// The verified, downloaded DMG awaiting the install hand-off. Set when a download
     /// completes and its checksum verifies; consumed by `revealDownloadedUpdateForInstall`.
     private(set) var downloadedUpdateURL: URL?
