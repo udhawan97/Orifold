@@ -41,6 +41,8 @@ struct OrifoldApp: App {
 
 final class OrifoldAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UpdateLaunchCoordinator.shared.applicationDidFinishLaunching()
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
             guard NSDocumentController.shared.documents.isEmpty else { return }
 
@@ -51,5 +53,9 @@ final class OrifoldAppDelegate: NSObject, NSApplicationDelegate {
 
             NSDocumentController.shared.newDocument(nil)
         }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        UpdateLaunchCoordinator.shared.applicationWillTerminate()
     }
 }
