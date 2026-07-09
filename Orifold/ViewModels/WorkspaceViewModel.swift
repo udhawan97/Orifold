@@ -374,6 +374,12 @@ final class WorkspaceViewModel {
     private let processingEngine: PDFProcessingEngine
     private let textAnalysisEngine = PDFTextAnalysisEngine()
     private var textAnalysisCache: [UUID: PDFTextPageAnalysis] = [:]
+    // Object editing (docs/OBJECT_EDITING_PLAN.md §3.5/§8). Detection map cached per PageRef;
+    // `objectBaseData` freezes each member's bytes at its first object edit of the session, so
+    // regenerations apply the full op set to a stable base (no double-apply) while preserving
+    // any text bakes that were already in those bytes.
+    private var objectAnalysisCache: [UUID: PageObjectMap] = [:]
+    private var objectBaseData: [UUID: Data] = [:]
     private var pendingSigningIdentity: (any SigningIdentity)?
     private var signingIdentitiesByPlacementID: [UUID: any SigningIdentity] = [:]
     @ObservationIgnored private var searchDebounceTask: Task<Void, Never>?
@@ -1309,6 +1315,8 @@ final class WorkspaceViewModel {
 
     private struct InlineTextEditSnapshot {
         var editStates: [PageEditState]
+        var objectEditStates: [PageObjectEditState]   // object editing rides the same snapshot
+        var objectBaseData: [UUID: Data]              // per-member base bytes object ops apply to
         var pageRotations: [UUID: Int]
         var pdfData: [UUID: Data]
     }
@@ -1419,6 +1427,8 @@ final class WorkspaceViewModel {
     private func captureInlineTextEditSnapshot() -> InlineTextEditSnapshot {
         InlineTextEditSnapshot(
             editStates: document.workspace.pageEditStates,
+            objectEditStates: document.workspace.objectEditStates,
+            objectBaseData: objectBaseData,
             pageRotations: currentPageRotations(),
             pdfData: currentPDFData()
         )
@@ -1427,6 +1437,9 @@ final class WorkspaceViewModel {
     private func restoreInlineTextEditSnapshot(_ snapshot: InlineTextEditSnapshot, actionName: String) {
         let inverse = captureInlineTextEditSnapshot()
         document.workspace.pageEditStates = snapshot.editStates
+        document.workspace.objectEditStates = snapshot.objectEditStates
+        objectBaseData = snapshot.objectBaseData
+        objectAnalysisCache.removeAll()
         // Merge rather than replace: members imported AFTER this snapshot was captured
         // have no entry in it, and wholesale replacement silently dropped them from
         // loadedPDFs/memberPDFData (vanishing from the canvas and every export) while
@@ -2971,6 +2984,151 @@ final class WorkspaceViewModel {
             }
         }
         return nil
+    }
+
+    // MARK: - Object editing (docs/OBJECT_EDITING_PLAN.md §5/§8)
+
+    /// The PageRef in the workspace with `id`, or nil.
+    func workspacePageRef(_ id: UUID) -> PageRef? {
+        document.workspace.pageOrder.first { $0.id == id }
+    }
+
+    /// The detected object map for a page, cached per PageRef. Runs detection on the member's
+    /// CURRENT bytes (so the user selects the live state); digests are content-stable, so an op
+    /// created here still resolves against the member's `objectBaseData` at commit time.
+    func objectMap(for pageRef: PageRef) -> PageObjectMap {
+        if let cached = objectAnalysisCache[pageRef.id] { return cached }
+        guard let lookup = memberPDF(for: pageRef),
+              let localIdx = localIndex(ref: pageRef, memberIndex: lookup.documentIndex),
+              let data = document.memberPDFData[pageRef.memberDocId] else {
+            return PageObjectMap(pageRefID: pageRef.id, objects: [])
+        }
+        let map = PDFObjectDetectionEngine.detect(pdfData: data, pageIndex: localIdx,
+                                                  pageRefID: pageRef.id, allowsEditing: canPerformMutatingAction())
+        objectAnalysisCache[pageRef.id] = map
+        return map
+    }
+
+    /// True when the document permits object editing at all (permission-restricted / signed docs
+    /// disallow it, mirroring the text-edit gate).
+    var objectEditingAllowed: Bool { canPerformMutatingAction() }
+
+    var hasObjectEdits: Bool { document.workspace.objectEditStates.contains { !$0.operations.isEmpty } }
+
+    /// Commit one or more object operations atomically: snapshot → upsert → regenerate affected
+    /// members via the PDFium structural engine → live update → single undo step. Rolls back
+    /// (including member bytes) on any regeneration failure. Returns false if blocked or failed.
+    @discardableResult
+    func applyObjectEdit(_ operations: [ObjectEditOperation]) -> Bool {
+        guard canPerformMutatingAction(), !operations.isEmpty else { return false }
+        let snapshot = captureInlineTextEditSnapshot()
+
+        let affectedMembers = Set(operations.compactMap { workspacePageRef($0.pageRefID)?.memberDocId })
+        guard !affectedMembers.isEmpty else { return false }
+
+        // Freeze each affected member's object base on its first edit of the session. Any
+        // previously-persisted ops for that member are already baked into these base bytes
+        // (from a prior session/export), so drop them to avoid re-applying them (double).
+        for memberID in affectedMembers where objectBaseData[memberID] == nil {
+            objectBaseData[memberID] = document.memberPDFData[memberID]
+            document.workspace.objectEditStates.removeAll { workspacePageRef($0.pageRefID)?.memberDocId == memberID }
+        }
+
+        operations.forEach { upsertObjectEditOperation($0) }
+
+        var succeeded = true
+        for memberID in affectedMembers where !regenerateObjectEditedMember(memberID) { succeeded = false; break }
+        guard succeeded else {
+            // Silent byte-exact rollback (fixes the text path's partial-rollback gap).
+            document.workspace.pageEditStates = snapshot.editStates
+            document.workspace.objectEditStates = snapshot.objectEditStates
+            objectBaseData = snapshot.objectBaseData
+            document.memberPDFData = snapshot.pdfData
+            loadedPDFs = document.workspace.documents.compactMap { m in
+                snapshot.pdfData[m.id].flatMap { PDFDocument(data: $0) }.map { (m, $0) }
+            }
+            objectAnalysisCache.removeAll(); textAnalysisCache.removeAll()
+            rebuild()
+            showEditWarning(.objectCommitFailed)
+            return false
+        }
+
+        rebuild()
+        markWorkspaceModified()
+        registerIsolatedUndo {
+            undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation() else { return }
+                vm.restoreInlineTextEditSnapshot(snapshot, actionName: L10n.string("undo.editObject"))
+            }
+            undoManager?.setActionName(L10n.string("undo.editObject"))
+        }
+        return true
+    }
+
+    /// Regenerate a member's bytes by applying ALL its committed object ops to its frozen base.
+    /// Empty op set restores the base. Returns false only on a hard engine failure.
+    private func regenerateObjectEditedMember(_ memberID: UUID) -> Bool {
+        guard let baseData = objectBaseData[memberID],
+              let mi = document.workspace.documents.firstIndex(where: { $0.id == memberID }) else { return false }
+
+        var opsByPage: [Int: [ObjectEditOperation]] = [:]
+        for state in document.workspace.objectEditStates where !state.operations.isEmpty {
+            guard let ref = workspacePageRef(state.pageRefID), ref.memberDocId == memberID,
+                  let pageIdx = localIndex(ref: ref, memberIndex: mi) else { continue }
+            opsByPage[pageIdx, default: []].append(contentsOf: state.operations)
+        }
+
+        let newData: Data
+        if opsByPage.isEmpty {
+            newData = baseData
+        } else {
+            guard let result = PDFObjectEditEngine.apply(operationsByPage: opsByPage, toMember: baseData) else { return false }
+            newData = result.data
+        }
+
+        document.memberPDFData[memberID] = newData
+        if let li = loadedPDFs.firstIndex(where: { $0.0.id == memberID }), let pdf = PDFDocument(data: newData) {
+            loadedPDFs[li] = (loadedPDFs[li].0, pdf)
+        }
+        // Object edits can move/delete a rule an underline/table decision relied on → refresh text.
+        objectAnalysisCache.removeAll()
+        textAnalysisCache.removeAll()
+        return true
+    }
+
+    /// Upsert an op into `objectEditStates`, keyed by (pageRefID, sourceObjectKey). A delete
+    /// supersedes and removes any transform/style/reorder for the same object; a transform/style
+    /// coalesces with an existing one so a drag-in-progress collapses to a single op.
+    private func upsertObjectEditOperation(_ op: ObjectEditOperation) {
+        let stateIndex: Int
+        if let existing = document.workspace.objectEditStates.firstIndex(where: { $0.pageRefID == op.pageRefID }) {
+            stateIndex = existing
+        } else {
+            document.workspace.objectEditStates.append(PageObjectEditState(pageRefID: op.pageRefID))
+            stateIndex = document.workspace.objectEditStates.count - 1
+        }
+
+        if op.type == .objectDelete {
+            // Delete wins: drop all non-delete ops for this object, then record the delete.
+            document.workspace.objectEditStates[stateIndex].operations.removeAll {
+                $0.sourceObjectKey == op.sourceObjectKey && $0.type != .objectDelete
+            }
+        }
+
+        if let opIndex = document.workspace.objectEditStates[stateIndex].operations.firstIndex(where: {
+            $0.sourceObjectKey == op.sourceObjectKey && $0.type == op.type
+        }) {
+            var merged = document.workspace.objectEditStates[stateIndex].operations[opIndex]
+            merged.newTransform = op.newTransform
+            merged.newBoundsPdf = op.newBoundsPdf
+            if op.newStylePayload != nil { merged.newStylePayload = op.newStylePayload }
+            merged.newZIndex = op.newZIndex
+            if op.replacementImageData != nil { merged.replacementImageData = op.replacementImageData }
+            merged.updatedAt = Date()
+            document.workspace.objectEditStates[stateIndex].operations[opIndex] = merged
+        } else {
+            document.workspace.objectEditStates[stateIndex].operations.append(op)
+        }
     }
 
     // MARK: - Committed edit ↔ page byte reconciliation

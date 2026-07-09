@@ -10,6 +10,7 @@ enum PDFTextEditWarning: Equatable {
     case serializationFailed
     case colorConversionFailed
     case fontConversionFailed
+    case objectCommitFailed
 
     var message: String {
         switch self {
@@ -29,6 +30,8 @@ enum PDFTextEditWarning: Equatable {
             return L10n.string("error.editing.colorConversionFailed")
         case .fontConversionFailed:
             return L10n.string("error.editing.fontConversionFailed")
+        case .objectCommitFailed:
+            return L10n.string("object.error.commitFailed")
         }
     }
 }
