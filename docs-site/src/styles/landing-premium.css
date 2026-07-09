@@ -1087,7 +1087,8 @@ html body.landing .landing-footer .wrap {
 	html body.landing .of-card:hover .glyph,
 	html body.landing .btn:hover,
 	html body.landing .nav .links a:hover,
-	html body.landing .nav .theme-toggle:hover {
+	html body.landing .nav .theme-toggle:hover,
+	html body.landing .meta-row .badge:hover {
 		transform: none !important;
 	}
 }

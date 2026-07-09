@@ -62,8 +62,6 @@ const cards = [
 	{ t: 'Six languages', p: 'The whole workspace — menus to tooltips — in six languages.', href: 'settings/language/', icon: icLanguages },
 ];
 
-const icoDownload =
-	'<svg class="btn-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.6M10 12 6.5 8.4M4 15.6h12"/></svg>';
 const icoBook =
 	'<svg class="btn-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 5.4C8.6 4.1 6.2 3.9 4 4.4v10.8c2.2-.5 4.6-.3 6 1 1.4-1.3 3.8-1.5 6-1V4.4c-2.2-.5-4.6-.3-6 1Zm0 0v11.8"/></svg>';
 const icoChevron =
@@ -80,10 +78,46 @@ const icoMoon =
 const icoNoteClose =
 	'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
 
+// Apple logo — leads the primary "Download for Mac" CTA (Apple's own convention for
+// a Mac download). Solid fill:currentColor so it inherits the button's ink in both
+// themes. Bootstrap-Icons' well-tested apple path (viewBox 0 0 16 16).
+const icoApple =
+	'<svg class="btn-ico btn-ico-apple" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.182.008C11.148-.03 9.923.023 8.857 1.18c-1.066 1.156-.902 2.482-.878 2.516.024.034 1.52.087 2.475-1.258.955-1.345.762-2.391.728-2.43zm3.314 11.733c-.048-.096-2.325-1.234-2.113-3.422.212-2.189 1.675-2.789 1.698-2.854.023-.065-.597-.79-1.254-1.157a3.7 3.7 0 0 0-1.563-.434c-.108-.003-.483-.095-1.254.116-.508.139-1.653.589-1.968.607-.316.018-1.256-.522-2.267-.665-.647-.125-1.333.131-1.824.328-.49.196-1.422.754-2.074 2.237-.652 1.482-.311 3.83-.067 4.56s.625 1.924 1.273 2.796c.576.984 1.34 1.667 1.659 1.899.319.232 1.219.386 1.843.067.502-.308 1.408-.485 1.766-.472.357.013 1.061.154 1.782.539.571.197 1.111.115 1.652-.105.541-.221 1.324-1.059 2.238-2.758.347-.79.505-1.217.473-1.282z"/></svg>';
+// Icon-style meta badges. Small stroke glyphs (viewBox 0 0 20 20, matching the site's
+// 1.6-weight line icons) except `apple`, which is the solid mark reused at badge size.
+// Rendered inside a `.badge-ico` span that sizes them; the span tints them with the
+// accent, so no per-glyph fill/stroke color is baked here.
+const badgeIco = {
+	// version — a luggage/price tag
+	tag: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 3.3h5.3l7.9 7.9-5.3 5.3-7.9-7.9V3.3Z"/><circle cx="6.5" cy="6.5" r="1"/></svg>',
+	// released date — calendar
+	calendar: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.3" y="4.6" width="13.4" height="12.1" rx="2.2"/><path d="M3.3 8.2h13.4M6.8 2.8v3M13.2 2.8v3"/></svg>',
+	// architecture — a silicon chip
+	chip: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.6" y="5.6" width="8.8" height="8.8" rx="1.8"/><rect x="8.2" y="8.2" width="3.6" height="3.6" rx="0.8"/><path d="M8 2.6v2.4M12 2.6v2.4M8 15v2.4M12 15v2.4M2.6 8h2.4M2.6 12h2.4M15 8h2.4M15 12h2.4"/></svg>',
+	// licence — a checkmark seal
+	license: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.4l1.9 1.25 2.28-.13.72 2.17 1.9 1.27-.62 2.2.62 2.2-1.9 1.27-.72 2.17-2.28-.13L10 17.6l-1.9-1.25-2.28.13-.72-2.17-1.9-1.27.62-2.2-.62-2.2 1.9-1.27.72-2.17 2.28.13L10 2.4Z"/><path d="M7.4 10l1.8 1.8 3.4-3.8"/></svg>',
+	// beta — a sparkle
+	beta: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.8l1.7 4.4 4.5 1.4-4.5 1.4L10 14.6l-1.7-4.6L3.8 8.6l4.5-1.4L10 2.8Z"/></svg>',
+	// download kind (.dmg) — a package box
+	package: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.6 16.6 6.2v7.6L10 17.4 3.4 13.8V6.2L10 2.6Z"/><path d="M3.6 6.3 10 9.9l6.4-3.6M10 9.9v7.4"/></svg>',
+	// file size — a hard drive
+	drive: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.4" width="13.6" height="7.2" rx="2.2"/><path d="M6 10h3.4"/><circle cx="13.2" cy="10" r="1"/></svg>',
+	// macOS requirement — the Apple mark reused at badge size
+	apple: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.182.008C11.148-.03 9.923.023 8.857 1.18c-1.066 1.156-.902 2.482-.878 2.516.024.034 1.52.087 2.475-1.258.955-1.345.762-2.391.728-2.43zm3.314 11.733c-.048-.096-2.325-1.234-2.113-3.422.212-2.189 1.675-2.789 1.698-2.854.023-.065-.597-.79-1.254-1.157a3.7 3.7 0 0 0-1.563-.434c-.108-.003-.483-.095-1.254.116-.508.139-1.653.589-1.968.607-.316.018-1.256-.522-2.267-.665-.647-.125-1.333.131-1.824.328-.49.196-1.422.754-2.074 2.237-.652 1.482-.311 3.83-.067 4.56s.625 1.924 1.273 2.796c.576.984 1.34 1.667 1.659 1.899.319.232 1.219.386 1.843.067.502-.308 1.408-.485 1.766-.472.357.013 1.061.154 1.782.539.571.197 1.111.115 1.652-.105.541-.221 1.324-1.059 2.238-2.758.347-.79.505-1.217.473-1.282z"/></svg>',
+};
 // The "Copied" check glyph is a literal <svg> inline in the copy-button script
 // below (~line 648), not a frontmatter const: <script is:inline> is a static
 // string, not an Astro expression context, so it can't reference frontmatter
 // values directly, and define:vars would be overkill for one tiny glyph.
+
+// The hero's release facts as icon badges (built here so the row stays declarative).
+const heroBadges = [
+	{ icon: badgeIco.tag, label: `v${rel.version}` },
+	...(releasedDate ? [{ icon: badgeIco.calendar, label: releasedDate }] : []),
+	{ icon: badgeIco.chip, label: site.arch },
+	{ icon: badgeIco.license, label: 'Free & MIT' },
+	{ icon: badgeIco.beta, label: 'Beta' },
+];
 ---
 
 <!doctype html>
@@ -200,7 +234,7 @@ const icoNoteClose =
 							</p>
 							<div class="btn-row">
 								<a class="btn btn-primary" id="cta-hero" href={downloadHref}>
-									<span class="btn-face"><Fragment set:html={icoDownload} /><span class="btn-main">Download for Mac</span></span>
+									<span class="btn-face"><Fragment set:html={icoApple} /><span class="btn-main">Download for Mac</span></span>
 									<span class="btn-sub">{subLabel}</span>
 								</a>
 								<a class="btn btn-ghost" href={`${base}/get-started/what-is-orifold/`}>
@@ -222,12 +256,10 @@ const icoNoteClose =
 									if (sub) sub.textContent = 'Orifold is a Mac app';
 								})();
 							</script>
-							<p class="meta-row tabnum">
-								<span>v{rel.version}</span>
-								{releasedDate && <span>· released {releasedDate}</span>}
-								<span>· {site.arch}</span>
-								<span>· Free &amp; MIT</span>
-								<span>· beta, built in public</span>
+							<p class="meta-row tabnum" aria-label="Release details">
+								{heroBadges.map((b) => (
+									<span class="badge"><span class="badge-ico" set:html={b.icon} />{b.label}</span>
+								))}
 							</p>
 							<p class="inoc">
 								Not notarized yet — first launch takes one calm extra step. <a class="arrow-link" href="#final-fold">Here's how<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
@@ -525,13 +557,14 @@ const icoNoteClose =
 					<div class="dl-grid">
 						<div class="dl-user crease" style="min-width:0">
 							<a class="btn btn-primary btn-lg" id="cta-final" href={downloadHref}>
-								<span class="btn-face"><Fragment set:html={icoDownload} /><span class="btn-main">Download for Mac</span></span>
+								<span class="btn-face"><Fragment set:html={icoApple} /><span class="btn-main">Download for Mac</span></span>
 								<span class="btn-sub">{subLabel}</span>
 							</a>
-							<p class="meta-row tabnum">
-								<span id="asset-kind-label">{assetKind} · v{rel.version}</span>
-								{rel.dmgSize && <span id="asset-size-label">· {rel.dmgSize}</span>}
-								<span>· {site.arch} · macOS {site.minMacOS}+</span>
+							<p class="meta-row tabnum" aria-label="Download details">
+								<span class="badge"><span class="badge-ico" set:html={badgeIco.package} /><span id="asset-kind-label">{assetKind} · v{rel.version}</span></span>
+								{rel.dmgSize && <span class="badge"><span class="badge-ico" set:html={badgeIco.drive} /><span id="asset-size-label">{rel.dmgSize}</span></span>}
+								<span class="badge"><span class="badge-ico" set:html={badgeIco.chip} />{site.arch}</span>
+								<span class="badge"><span class="badge-ico" set:html={badgeIco.apple} />macOS {site.minMacOS}+</span>
 							</p>
 							<p class="lede">
 								Needs a Mac with an Apple M-series chip — any Mac from 2020 on
@@ -924,12 +957,17 @@ const icoNoteClose =
 								var sizeLabel = document.getElementById('asset-size-label');
 								var mb = dmg.size ? (dmg.size / (1024 * 1024)).toFixed(1) + ' MB' : null;
 								if (mb) {
-									if (sizeLabel) sizeLabel.textContent = '· ' + mb;
-									else if (kindLabel && kindLabel.parentNode) {
-										var span = document.createElement('span');
-										span.id = 'asset-size-label';
-										span.textContent = '· ' + mb;
-										kindLabel.insertAdjacentElement('afterend', span);
+									if (sizeLabel) {
+										// The size now lives in its own icon badge, so no leading "·".
+										sizeLabel.textContent = mb;
+									} else if (kindLabel && kindLabel.parentNode) {
+										// Build a matching size badge and slot it after the kind badge
+										// (kindLabel's parent is the .badge wrapping it).
+										var sizeBadge = document.createElement('span');
+										sizeBadge.className = 'badge';
+										sizeBadge.innerHTML = '<span class="badge-ico"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.4" width="13.6" height="7.2" rx="2.2"/><path d="M6 10h3.4"/><circle cx="13.2" cy="10" r="1"/></svg></span><span id="asset-size-label"></span>';
+										sizeBadge.querySelector('#asset-size-label').textContent = mb;
+										kindLabel.parentNode.insertAdjacentElement('afterend', sizeBadge);
 									}
 									// The hero/final CTA .btn-sub is baked in at build time as
 									// "macOS 14+ · vX.Y.Z[ · N MB]" — the size segment is only

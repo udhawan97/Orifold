@@ -175,6 +175,15 @@ html body.landing .btn-ico {
 	height: 1.15rem;
 	flex: 0 0 auto;
 }
+/* The Apple mark leads the primary "Download for Mac" CTA (Apple's own download
+   convention). It's a solid glyph, visually heavier than the stroke icons, so it's
+   sized a touch larger and nudged up 1px for optical centering against the label.
+   Extra `.btn-face` in the selector out-specifies the generic `.btn-ico` size above. */
+html body.landing .btn-face .btn-ico-apple {
+	width: 1.28rem;
+	height: 1.28rem;
+	margin-top: -1px;
+}
 html body.landing a.btn-ghost {
 	display: inline-flex;
 	flex-direction: row;
@@ -190,10 +199,54 @@ html body.landing .btn-lg .btn-main {
 }
 html body.landing .meta-row {
 	margin-top: 1.5rem;
-	gap: 0.35rem 0.85rem;
+	gap: 0.5rem 0.55rem;
 }
 html body.landing .inoc {
 	margin-top: 1.15rem;
+}
+
+/* ---- meta badges: version / date / arch / licence / size as icon pills --------
+   Turns the old "·"-separated text run into a row of small glass chips, each led by
+   a 1.6-weight accent glyph. Muted glass fill + hairline border so they read as
+   quiet metadata, not buttons; a hairline top-sheen matches the CTA's material. */
+html body.landing .meta-row .badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.42rem;
+	padding: 0.34rem 0.72rem 0.34rem 0.58rem;
+	border: 1px solid var(--premium-line);
+	border-radius: 999px;
+	background: var(--premium-glass);
+	-webkit-backdrop-filter: blur(10px);
+	backdrop-filter: blur(10px);
+	box-shadow: inset 0 1px 0 color-mix(in srgb, var(--of-text-1) 8%, transparent);
+	font-size: 0.76rem;
+	font-weight: 560;
+	line-height: 1;
+	color: var(--of-text-1);
+	white-space: nowrap;
+	transition:
+		border-color 200ms ease,
+		color 200ms ease,
+		transform 200ms var(--ease-fold);
+}
+html body.landing .meta-row .badge:hover {
+	border-color: color-mix(in srgb, var(--of-accent) 45%, transparent);
+	transform: translateY(-1px);
+}
+html body.landing .meta-row .badge-ico {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 0.95rem;
+	height: 0.95rem;
+	flex: 0 0 auto;
+	color: var(--of-accent);
+}
+html body.landing .meta-row .badge-ico svg {
+	width: 100%;
+	height: 100%;
+	display: block;
 }
 
 /* ---- stats ---------------------------------------------------------------- */

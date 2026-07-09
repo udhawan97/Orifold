@@ -47,9 +47,11 @@ struct AppCommands: Commands {
             ZoomCommandButtons(locale: locale)
         }
 
-        // Replace the default "About" item with the witty popover version
+        // Replace the default "About" item with the witty popover version, and add
+        // "Check for Updates…" directly beneath it — the canonical macOS placement.
         CommandGroup(replacing: .appInfo) {
             AboutCommandButton(locale: locale)
+            CheckForUpdatesCommandButton(locale: locale)
         }
 
         CommandGroup(after: .help) {
