@@ -79,6 +79,11 @@ jobs:
       - name: Swift Package tests
         run: swift test
 
+      - name: Generate Xcode project
+        run: |
+          command -v xcodegen || brew install xcodegen
+          xcodegen generate
+
       - name: Xcode build
         run: |
           xcodebuild \
