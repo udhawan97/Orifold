@@ -39,6 +39,12 @@ import icFast from '../assets/icons/fast.svg?raw';
 import icGlobe from '../assets/icons/globe.svg?raw';
 import icUnlock from '../assets/icons/unlock.svg?raw';
 
+// "How updates work" glyphs — same 20×20, 1.6-weight line grammar and ?raw
+// asset pattern as the feature/horizon icons; tinted by .glyph's --act-accent.
+import icNotify from '../assets/icons/notify.svg?raw';
+import icConsent from '../assets/icons/consent.svg?raw';
+import icOnDevice from '../assets/icons/on-device.svg?raw';
+
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const rel = await getRelease();
 
@@ -544,6 +550,55 @@ const heroBadges = [
 
 			<hr class="crease-line" />
 
+			<!-- Updates — how new folds reach you (consent-first, check-only). Copy is
+			     grounded in the shipped v0.8.5 in-app update checker: menu "Check for
+			     Updates…", an off-by-default ~daily auto-check, and a single version-only
+			     network request. Orifold never downloads/installs/restarts on its own. -->
+			<section id="updates" class="fold" aria-labelledby="updates-title">
+				<div class="wrap">
+					<div class="act-head crease" style="text-align:center">
+						<p class="kicker" style="margin-inline:auto">Kept current · The quiet fold</p>
+						<h2 id="updates-title">It tells you.<br />You decide.</h2>
+						<p class="lede" style="margin-inline:auto">
+							Orifold watches for new versions and lets you know — then stops there. It never
+							downloads, installs, or restarts behind your back. The only thing it ever asks the
+							network is "is there a newer version?" Everything else stays exactly where it is:
+							on your Mac.
+						</p>
+					</div>
+
+					<div class="feature-band crease">
+						<div class="card-grid">
+							<div class="of-card">
+								<span class="glyph" aria-hidden="true" set:html={icNotify} />
+								<h3>You'll always know</h3>
+								<p>Pick <b>Check for Updates…</b> from the Orifold menu whenever you like. A calm, native dialog tells you if you're current or a newer fold is out — plain language, never a cryptic error code.</p>
+							</div>
+							<div class="of-card">
+								<span class="glyph" aria-hidden="true" set:html={icConsent} />
+								<h3>Never behind your back</h3>
+								<p>Automatic checks are <b>off by default</b>. Switch them on and Orifold glances about once a day — still only a check. Downloading and installing an update stay entirely in your hands.</p>
+							</div>
+							<div class="of-card">
+								<span class="glyph" aria-hidden="true" set:html={icOnDevice} />
+								<h3>One quiet question</h3>
+								<p>A check is a single outbound request for the latest version number. Nothing about you, and nothing about your documents, is ever sent. The rest of the app stays fully offline.</p>
+							</div>
+						</div>
+						<p class="lede update-when crease" style="margin-inline:auto; text-align:center">
+							When a new version is out, an update is one calm step — drag in the fresh copy, re-run
+							the installer, or <code>brew upgrade</code>. Every release brings real fixes and new
+							folds, written up in plain English.
+						</p>
+						<p class="guides-row" style="margin-inline:auto">
+							<a href={`${base}/get-started/update-uninstall/`}>How updating works</a> · <a class="arrow-link" href={`${base}/releases/`}>See what's new<span class="arrow-ico-wrap"><Fragment set:html={icoChevron} /></span></a>
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<hr class="crease-line" />
+
 			<!-- Download — take flight -->
 			<section id="final-fold" class="fold download-fold">
 				<div class="wrap">
@@ -641,6 +696,20 @@ const heroBadges = [
 					Since nothing you do in Orifold ever leaves your Mac, stars are the only telemetry we
 					get. ⭐
 				</p>
+				<!-- Paper fortune: one witty, on-brand line that changes on every refresh and
+				     shuffles on click/tap. SSR renders a real first line (so no-JS visitors still
+				     get a joke, just static); the inline script randomizes on load and on click,
+				     with a gentle fade gated on reduced motion. A real <button> + aria-live keeps
+				     it keyboard-operable and announced. -->
+				<div class="fortune">
+					<button type="button" class="fortune-btn" aria-label="Shuffle the paper fortune">
+						<span class="fortune-ico" aria-hidden="true">
+							<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 3.8h2.2v2.2"/><path d="M16.4 5.9A6.6 6.6 0 1 0 17 10"/></svg>
+						</span>
+						<span class="fortune-line" aria-live="polite">One sheet, folded with stubborn optimism.</span>
+						<span class="fortune-hint" aria-hidden="true">refold</span>
+					</button>
+				</div>
 			</div>
 		</footer>
 
@@ -993,6 +1062,59 @@ const heroBadges = [
 						if (sub) sub.textContent = 'Orifold is a Mac app';
 					});
 				}
+			})();
+		</script>
+
+		<script is:inline>
+			// ── paper fortune: a witty on-brand one-liner, fresh on every refresh ──
+			// Progressive: the SSR-rendered line is already a real joke, so no-JS and
+			// pre-hydration visitors see something real. On load we swap in a random
+			// line (so it changes every refresh); clicking/tapping (or Enter/Space on
+			// the button) shuffles to a different one, never repeating back-to-back.
+			// The swap is a paint-only opacity fade, skipped under reduced motion.
+			(function () {
+				var btn = document.querySelector('.fortune-btn');
+				if (!btn) return;
+				var line = btn.querySelector('.fortune-line');
+				if (!line) return;
+				var lines = [
+					'One sheet, folded with stubborn optimism.',
+					'The cloud was not consulted. It never is.',
+					'Nothing on this page phoned home — not even this joke.',
+					"Your files never left your Mac. You're welcome.",
+					"Somewhere, a subscription is confused about why you're smiling.",
+					"Fold responsibly — cranes don't grow back.",
+					'No trackers, no cookies. We fold our own snacks.',
+					'PDFs are Pretty Difficult, Frankly. We disagree — politely.',
+					"This footer folded itself. It's quietly proud.",
+					'A crane a day keeps the file room away.',
+					'Made of one sheet, two paper pets, and zero telemetry.',
+				];
+				var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+				// Seed "last" with the SSR line so the first random pick won't repeat it.
+				var last = lines.indexOf(line.textContent.trim());
+				function pick() {
+					if (lines.length < 2) return 0;
+					var i = Math.floor(Math.random() * lines.length);
+					if (i === last) i = (i + 1) % lines.length;
+					last = i;
+					return i;
+				}
+				function show(animate) {
+					var next = lines[pick()];
+					if (animate && !reduce) {
+						line.classList.add('is-swapping');
+						setTimeout(function () {
+							line.textContent = next;
+							line.classList.remove('is-swapping');
+						}, 150);
+					} else {
+						line.textContent = next;
+					}
+				}
+				// Fresh line on every load (no animation — it's the initial paint).
+				show(false);
+				btn.addEventListener('click', function () { show(true); });
 			})();
 		</script>
 	</body>

@@ -734,3 +734,114 @@ html body.landing .details summary:focus-visible {
 		transform: none !important;
 	}
 }
+
+/* ---- inline code inside ledes: a quiet monospace chip ----------------------
+   Used by the Updates lede (`brew upgrade`) and the Gather lede (a stray file
+   name). Was unstyled default monospace before; this matches the term-card /
+   chip-cmd monospace family at inline scale. Token-tinted, theme-correct. */
+html body.landing .lede code {
+	padding: 0.08em 0.42em;
+	border: 1px solid var(--premium-line);
+	border-radius: 0.4rem;
+	background: color-mix(in srgb, var(--of-text-1) 5%, transparent);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 0.86em;
+}
+
+/* ---- #updates: "How updates work" — reuses the act/card system wholesale, so
+   only two small spacing touches are bespoke. The section stays plain-canvas
+   like its centered neighbours (#horizon), letting #final-fold keep the finale
+   glow. ---------------------------------------------------------------------- */
+html body.landing .update-when {
+	margin-top: clamp(2.4rem, 5vw, 3.4rem);
+}
+
+/* ---- footer paper fortune: a quiet, shuffleable one-liner ------------------
+   The literal last thing on the page. A real <button> (keyboard-operable, the
+   line announced via aria-live in the markup) styled as calm footer text that
+   only reveals its "refold" affordance on hover/focus — subtle, not a toy. The
+   line swap is a paint-only opacity fade; the JS skips it under reduced motion,
+   and the reduce block below also neutralizes the icon's hover spin. */
+html body.landing .fortune {
+	margin-top: 1.4rem;
+}
+html body.landing .fortune-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.6rem;
+	max-width: 100%;
+	margin: 0;
+	padding: 0.5rem 0.9rem;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--of-text-3);
+	font: inherit;
+	font-size: 0.9rem;
+	line-height: 1.5;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		color 0.28s var(--ease-fold),
+		border-color 0.28s var(--ease-fold),
+		background-color 0.28s var(--ease-fold);
+}
+html body.landing .fortune-btn:hover {
+	color: var(--of-text-1);
+	border-color: var(--premium-line);
+	background: var(--premium-glass);
+}
+html[data-theme='light'] body.landing .fortune-btn {
+	/* --of-text-3 dips below AA on the light canvas (same lift as .sig/.fine-print). */
+	color: var(--of-text-2);
+}
+html body.landing .fortune-ico {
+	display: inline-flex;
+	flex: 0 0 auto;
+	width: 1rem;
+	height: 1rem;
+	color: var(--act-accent);
+	transition: transform 0.55s var(--ease-fold);
+}
+html body.landing .fortune-ico svg {
+	width: 100%;
+	height: 100%;
+	display: block;
+}
+html body.landing .fortune-btn:hover .fortune-ico,
+html body.landing .fortune-btn:focus-visible .fortune-ico {
+	transform: rotate(150deg);
+}
+html body.landing .fortune-line {
+	min-width: 0;
+	transition: opacity 0.16s ease;
+}
+html body.landing .fortune-line.is-swapping {
+	opacity: 0;
+}
+html body.landing .fortune-hint {
+	flex: 0 0 auto;
+	font-size: 0.62rem;
+	font-weight: 600;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--act-accent);
+	opacity: 0;
+	transition: opacity 0.28s ease;
+}
+html body.landing .fortune-btn:hover .fortune-hint,
+html body.landing .fortune-btn:focus-visible .fortune-hint {
+	opacity: 0.85;
+}
+@media (prefers-reduced-motion: reduce) {
+	html body.landing .fortune-ico {
+		transition: none;
+	}
+	html body.landing .fortune-btn:hover .fortune-ico,
+	html body.landing .fortune-btn:focus-visible .fortune-ico {
+		transform: none;
+	}
+	html body.landing .fortune-line {
+		transition: none;
+	}
+}
