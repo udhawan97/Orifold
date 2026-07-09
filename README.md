@@ -31,11 +31,11 @@
 <br>
 <br>
 
-<img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">&nbsp;&nbsp;<img alt="Universal: Apple Silicon + Intel" src="https://img.shields.io/badge/universal-Apple%20Silicon%20%2B%20Intel-111111?style=for-the-badge">&nbsp;&nbsp;<img alt="Release v0.8.4" src="https://img.shields.io/badge/release-v0.8.4-2563EB?style=for-the-badge&logo=github&logoColor=white">&nbsp;&nbsp;<img alt="Beta" src="https://img.shields.io/badge/status-beta-F59E0B?style=for-the-badge">&nbsp;&nbsp;<img alt="100% local" src="https://img.shields.io/badge/privacy-100%25%20local-10B981?style=for-the-badge">&nbsp;&nbsp;<img alt="6 languages" src="https://img.shields.io/badge/i18n-6%20languages-8B5CF6?style=for-the-badge">&nbsp;&nbsp;<img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6B7280?style=for-the-badge">
+<img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111111?style=for-the-badge&logo=apple&logoColor=white">&nbsp;&nbsp;<img alt="Universal: Apple Silicon + Intel" src="https://img.shields.io/badge/universal-Apple%20Silicon%20%2B%20Intel-111111?style=for-the-badge">&nbsp;&nbsp;<img alt="Release v0.8.5" src="https://img.shields.io/badge/release-v0.8.5-2563EB?style=for-the-badge&logo=github&logoColor=white">&nbsp;&nbsp;<img alt="Beta" src="https://img.shields.io/badge/status-beta-F59E0B?style=for-the-badge">&nbsp;&nbsp;<img alt="100% local" src="https://img.shields.io/badge/privacy-100%25%20local-10B981?style=for-the-badge">&nbsp;&nbsp;<img alt="6 languages" src="https://img.shields.io/badge/i18n-6%20languages-8B5CF6?style=for-the-badge">&nbsp;&nbsp;<img alt="MIT License" src="https://img.shields.io/badge/license-MIT-6B7280?style=for-the-badge">
 
 <br>
 
-<sub>Orifold is in beta. <strong>v0.8.4</strong> is a stability release: it fixes a launch crash on the packaged build, eliminates idle CPU pinning from the empty-state animations, and repairs app-wide localized text that could render as raw keys. Ships as a universal build (Apple Silicon + Intel) in a drag-to-Applications <strong>DMG</strong> with published checksums. Built with Swift, SwiftUI, PDFKit, PDFium, qpdf, and Vision — see <a href="#%EF%B8%8F-under-the-hood">Under the Hood</a>.</sub>
+<sub>Orifold is in beta. <strong>v0.8.5</strong> adds <strong>in-app update checking</strong> — a native "Check for Updates…" in the app menu and a Settings toggle (automatic checks are off by default and never send anything but a version request). Ships as a universal build (Apple Silicon + Intel) in a drag-to-Applications <strong>DMG</strong> with published checksums. Built with Swift, SwiftUI, PDFKit, PDFium, qpdf, and Vision — see <a href="#-under-the-hood">Under the Hood</a>.</sub>
 
 <br>
 <br>
@@ -44,7 +44,7 @@
 <a href="#-what-it-does"><kbd> &nbsp;✨ Features&nbsp; </kbd></a>&ensp;
 <a href="#-meet-your-paper-companion"><kbd> &nbsp;🐾 Companion&nbsp; </kbd></a>&ensp;
 <a href="#-privacy"><kbd> &nbsp;🔒 Privacy&nbsp; </kbd></a>&ensp;
-<a href="#%EF%B8%8F-under-the-hood"><kbd> &nbsp;⚙️ Under the Hood&nbsp; </kbd></a>&ensp;
+<a href="#-under-the-hood"><kbd> &nbsp;⚙️ Under the Hood&nbsp; </kbd></a>&ensp;
 <a href="#-troubleshooting"><kbd> &nbsp;🆘 Help&nbsp; </kbd></a>&ensp;
 <a href="https://udhawan97.github.io/Orifold/"><kbd> &nbsp;📖 Docs&nbsp; </kbd></a>
 
@@ -129,7 +129,7 @@ Prefer zero dialogs? The one-line installer and Homebrew cask clear the quaranti
 
 <br>
 
-Source builds need Apple Command Line Tools with Swift 5.9+. The normal installer never needs them — it downloads a prebuilt app. See [Under the Hood](#%EF%B8%8F-under-the-hood).
+Source builds need Apple Command Line Tools with Swift 5.9+. The normal installer never needs them — it downloads a prebuilt app. See [Under the Hood](#-under-the-hood).
 </details>
 
 ## ✨ What It Does
@@ -346,13 +346,13 @@ Install from the current source checkout without opening the app:
 ./scripts/install-mac.sh --no-open
 ```
 
-App metadata: `CFBundleShortVersionString` `0.8.4`, `CFBundleVersion` `11`.
+App metadata: `CFBundleShortVersionString` `0.8.5`, `CFBundleVersion` `12`.
 
 Build the universal DMG the release ships (after producing the zip above):
 
 ```zsh
 ORIFOLD_UNIVERSAL=1 ./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
-zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.8.4
+zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.8.5
 ```
 </details>
 
@@ -483,7 +483,7 @@ Got a fold you'd love to see? [Open an issue](https://github.com/udhawan97/Orifo
 
 ## 🤝 Contributing
 
-Bug reports and feature requests are welcome in [Issues](https://github.com/udhawan97/Orifold/issues). Building from source? [Under the Hood](#%EF%B8%8F-under-the-hood) is the whole onboarding doc — if `swift test` passes, you're set up.
+Bug reports and feature requests are welcome in [Issues](https://github.com/udhawan97/Orifold/issues). Building from source? [Under the Hood](#-under-the-hood) is the whole onboarding doc — if `swift test` passes, you're set up.
 
 ## 📜 License
 

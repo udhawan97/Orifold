@@ -9,6 +9,23 @@ import Callout from '../../components/Callout.astro';
 
 <Badge variant="new" />
 
+## v0.8.5 — Orifold can tell you when it's out of date
+
+*Released July 2026*
+
+<Callout variant="note" label="Beta">
+	Orifold is in beta, on the road to 1.0.
+</Callout>
+
+Orifold now checks for its own updates — quietly, and only when you let it. No document-editing behavior changes this cycle.
+
+- **"Check for Updates…" in the app menu** — right under About Orifold, the native macOS spot for it. It asks GitHub for the latest version number and tells you whether you're current, all in the language you've set.
+- **A Settings toggle for automatic checks — off by default** — turning it on is the only thing that lets Orifold check on its own (about once a day). Nothing about you or your files is ever sent; the check is a single version request. There's also a **Check Now** button with a plain-language status line.
+- **Consent-first by design** — Orifold never downloads or installs anything on its own. When a newer version exists it points you to the download; you stay in control of every step.
+- **Calmer website** — a light/dark theme toggle (light by default, because paper), an honest "what's folding next" roadmap, and a redesigned macOS download button.
+
+Full changelog: [`docs/release-v0.8.5.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.8.5.md).
+
 ## v0.8.4 — Stability: no crashes, no lag, correct text everywhere
 
 *Released July 2026*
