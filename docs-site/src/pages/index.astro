@@ -56,12 +56,12 @@ const cap = (name: string, dir: 'screenshots' | 'gifs' | 'landing' = 'screenshot
 
 // The six everyday folds — each card carries a faint origami kanji watermark.
 const cards = [
-	{ t: 'On-device OCR', k: '読', p: 'Vision makes a scan searchable — ⌘F finds the thing your printer emailed you.', href: 'edit/ocr/', icon: icOcr },
-	{ t: 'Compress', k: '縮', p: 'Repack oversized images losslessly so attachments stop bouncing off size limits.', href: 'export/compress/', icon: icCompress },
-	{ t: 'Fill & flatten forms', k: '記', p: 'Detect fields, type answers, lock them — no third-party e-sign service.', href: 'fill-sign/forms/', icon: icForms },
-	{ t: 'Stamps & Bates', k: '判', p: 'Numbered, stamped, and ready for the file room.', href: 'annotate/stamps/', icon: icStamps },
-	{ t: 'Reader mode', k: '静', p: 'The toolbar folds away. The page stays.', href: 'reading/reader-mode/', icon: icReader },
-	{ t: 'Six languages', k: '語', p: 'The whole workspace — menus to tooltips — in six languages.', href: 'settings/language/', icon: icLanguages },
+	{ t: 'On-device OCR', k: '読', km: 'read', p: 'Vision makes a scan searchable — ⌘F finds the thing your printer emailed you.', href: 'edit/ocr/', icon: icOcr },
+	{ t: 'Compress', k: '縮', km: 'shrink', p: 'Repack oversized images losslessly so attachments stop bouncing off size limits.', href: 'export/compress/', icon: icCompress },
+	{ t: 'Fill & flatten forms', k: '記', km: 'record', p: 'Detect fields, type answers, lock them — no third-party e-sign service.', href: 'fill-sign/forms/', icon: icForms },
+	{ t: 'Stamps & Bates', k: '判', km: 'seal', p: 'Numbered, stamped, and ready for the file room.', href: 'annotate/stamps/', icon: icStamps },
+	{ t: 'Reader mode', k: '静', km: 'quiet', p: 'The toolbar folds away. The page stays.', href: 'reading/reader-mode/', icon: icReader },
+	{ t: 'Six languages', k: '語', km: 'language', p: 'The whole workspace — menus to tooltips — in six languages.', href: 'settings/language/', icon: icLanguages },
 ];
 
 const icoBook =
@@ -134,7 +134,7 @@ const heroBadges = [
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
 			rel="stylesheet"
-			href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap"
+			href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=Shippori+Mincho:wght@500;600&display=swap"
 		/>
 		<script is:inline>
 			// First in <head>, pre-paint: set html.js + theme + the synchronous UA gate,
@@ -194,6 +194,7 @@ const heroBadges = [
 	>
 		<a class="skip-link" href="#gather">Skip to content</a>
 		<div class="route-progress" aria-hidden="true"></div>
+		<div class="grain" aria-hidden="true"></div>
 
 		<!-- Nav -->
 		<nav class="nav" aria-label="Primary">
@@ -281,13 +282,19 @@ const heroBadges = [
 							</p>
 						</div>
 						<figure class="hero-crane" id="hero-crane" aria-label="The Orifold mark — one sheet folding into a crane">
+							<span class="crane-glow" aria-hidden="true"></span>
 							<figcaption class="cap"><b>折</b> · One sheet, folded</figcaption>
 							<div class="crane-art" set:html={craneFold}></div>
 							<span class="crane-sheen" aria-hidden="true"></span>
 							<div class="panel-word">ORIFOLD</div>
 						</figure>
 					</div>
-					<div class="kanji-rail mincho" aria-hidden="true">折　鶴　間　朱</div>
+					<ul class="kanji-rail" aria-hidden="true">
+						<li><span class="kj">折</span><span class="gl">ori · fold</span></li>
+						<li><span class="kj">鶴</span><span class="gl">tsuru · crane</span></li>
+						<li><span class="kj">間</span><span class="gl">ma · interval</span></li>
+						<li><span class="kj">朱</span><span class="gl">shu · vermilion</span></li>
+					</ul>
 					<a class="scroll-cue" href="#gather" aria-label="Scroll to content"><span></span></a>
 				</div>
 			</section>
@@ -309,7 +316,7 @@ const heroBadges = [
 			<!-- Gather -->
 			<section id="gather" class="fold act">
 				<div class="wrap">
-					<div class="act-head" data-num="一" data-reveal>
+					<div class="act-head" data-num="一" data-gloss="ichi · one" data-reveal>
 						<p class="kicker"><span class="k-num" aria-hidden="true">一</span>First fold · Gather</p>
 						<h2>Fifty messy files. One quiet stack.</h2>
 						<p class="lede">
@@ -341,7 +348,7 @@ const heroBadges = [
 			<!-- Shape -->
 			<section id="shape" class="fold act">
 				<div class="wrap">
-					<div class="act-head" data-num="二" data-reveal>
+					<div class="act-head" data-num="二" data-gloss="ni · two" data-reveal>
 						<p class="kicker"><span class="k-num" aria-hidden="true">二</span>Second fold · Shape</p>
 						<h2>Edit the page itself.</h2>
 						<p class="lede">
@@ -371,7 +378,7 @@ const heroBadges = [
 						<div class="card-grid">
 							{cards.map((c, i) => (
 								<a class="of-card" href={`${base}/${c.href}`} data-reveal style={`--d:${i}`}>
-									<span class="card-kanji" aria-hidden="true">{c.k}</span>
+									<span class="card-kanji" aria-hidden="true">{c.k}<span class="kanji-gloss">{c.km}</span></span>
 									<span class="glyph" aria-hidden="true" set:html={c.icon} />
 									<h3><span class="nnum">0{i + 1}</span>{c.t}</h3>
 									<p>{c.p}</p>
@@ -400,7 +407,7 @@ const heroBadges = [
 				<div class="wrap">
 					<div class="seal-grid">
 						<div>
-							<div class="act-head" data-num="三" data-reveal>
+							<div class="act-head" data-num="三" data-gloss="san · three" data-reveal>
 								<p class="kicker"><span class="k-num" aria-hidden="true">三</span>Third fold · Seal</p>
 								<h2>A signature that holds up.</h2>
 								<p class="lede">
@@ -431,7 +438,7 @@ const heroBadges = [
 			<!-- Keep — the indigo night band: the icon's own dark corner -->
 			<section id="keep" class="fold fold-keep">
 				<div class="wrap">
-					<div class="act-head" data-num="四" data-reveal>
+					<div class="act-head" data-num="四" data-gloss="shi · four" data-reveal>
 						<p class="kicker"><span class="k-num" aria-hidden="true">四</span>Fourth fold · Keep</p>
 						<h2>The studio has no windows.</h2>
 						<p class="lede">Everything happens on your Mac. The cloud was not consulted.</p>
@@ -446,9 +453,9 @@ const heroBadges = [
 						<div class="stat"><b>0</b><span>The app asks the network for nothing.</span></div>
 						<div class="stat"><b>AES-256</b><span>Real encryption, not a "protected" flag a reader can ignore.</span></div>
 						<div class="stat"><b>Sanitize</b><span>A file that carries nothing you didn't intend to send.</span></div>
-						<div class="stat"><b>{stats.tests ?? '—'}</b><span>tests gate every release.</span></div>
+						<div class="stat"><b data-count={String(stats.tests ?? '')}>{stats.tests ?? '—'}</b><span>tests gate every release.</span></div>
 						<div class="stat"><b>Apache 2.0</b><span>Free forever, open source.</span></div>
-						<div class="stat"><b>6</b><span>languages, everything on-device.</span></div>
+						<div class="stat"><b data-count="6">6</b><span>languages, everything on-device.</span></div>
 					</div>
 					<p class="fine-print">
 						This page asks GitHub for the latest version number so the button below is always
@@ -468,7 +475,7 @@ const heroBadges = [
 			<!-- Ma — why + the living guides -->
 			<section id="ma" class="fold act">
 				<div class="wrap">
-					<div class="act-head centered" data-num="間" data-reveal>
+					<div class="act-head centered" data-num="間" data-gloss="ma · the interval" data-reveal>
 						<p class="kicker"><span class="k-num" lang="ja" aria-hidden="true">間</span><span class="sr-only">Ma — the margin</span>The margin</p>
 						<h2>Why it folds this way.</h2>
 						<p class="ma-body">
@@ -514,7 +521,7 @@ const heroBadges = [
 			<!-- Horizon — what folds next (a witty, optimistic teaser; NOT a delivery promise) -->
 			<section id="horizon" class="fold act">
 				<div class="wrap">
-					<div class="act-head centered" data-num="翔" data-reveal>
+					<div class="act-head centered" data-num="翔" data-gloss="shō · soar" data-reveal>
 						<p class="kicker">Still folding · The horizon</p>
 						<h2>The crane keeps folding.</h2>
 						<p class="lede">
@@ -527,37 +534,37 @@ const heroBadges = [
 					<div class="feature-band">
 						<div class="card-grid">
 							<div class="of-card" data-reveal style="--d:0">
-								<span class="card-kanji" aria-hidden="true">消</span>
+								<span class="card-kanji" aria-hidden="true">消<span class="kanji-gloss">erase</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icRedact} />
 								<h3>Real redaction</h3>
 								<p>Secrets that actually <em>leave</em> the file — not a polite black rectangle you can drag right off.</p>
 							</div>
 							<div class="of-card" data-reveal style="--d:1">
-								<span class="card-kanji" aria-hidden="true">束</span>
+								<span class="card-kanji" aria-hidden="true">束<span class="kanji-gloss">bundle</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icBatch} />
 								<h3>Fold the whole stack</h3>
 								<p>Compress, OCR, or watermark a whole folder in one pass — not open, save, repeat, fifty times over.</p>
 							</div>
 							<div class="of-card" data-reveal style="--d:2">
-								<span class="card-kanji" aria-hidden="true">較</span>
+								<span class="card-kanji" aria-hidden="true">較<span class="kanji-gloss">compare</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icCompare} />
 								<h3>Side-by-side compare</h3>
 								<p>Two drafts, one screen. Spot the change without printing both and playing spot-the-difference.</p>
 							</div>
 							<div class="of-card" data-reveal style="--d:3">
-								<span class="card-kanji" aria-hidden="true">速</span>
+								<span class="card-kanji" aria-hidden="true">速<span class="kanji-gloss">swift</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icFast} />
 								<h3>Big docs, quick feet</h3>
 								<p>Three-hundred-page beasts that scroll like pamphlets.</p>
 							</div>
 							<div class="of-card" data-reveal style="--d:4">
-								<span class="card-kanji" aria-hidden="true">界</span>
+								<span class="card-kanji" aria-hidden="true">界<span class="kanji-gloss">world</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icGlobe} />
 								<h3>More languages</h3>
 								<p>Six today, more in night school — the interface <em>and</em> the OCR that reads your scans.</p>
 							</div>
 							<div class="of-card" data-reveal style="--d:5">
-								<span class="card-kanji" aria-hidden="true">扉</span>
+								<span class="card-kanji" aria-hidden="true">扉<span class="kanji-gloss">door</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icUnlock} />
 								<h3>A calmer first launch</h3>
 								<p>Zero security theater on first open — pending one very official Apple handshake.</p>
@@ -581,7 +588,7 @@ const heroBadges = [
 			     never downloads or installs on its own. -->
 			<section id="updates" class="fold act" aria-labelledby="updates-title">
 				<div class="wrap">
-					<div class="act-head centered" data-num="新" data-reveal>
+					<div class="act-head centered" data-num="新" data-gloss="shin · new" data-reveal>
 						<p class="kicker">Kept current · The quiet fold</p>
 						<h2 id="updates-title">It tells you.<br />You decide.</h2>
 						<p class="lede">
@@ -595,19 +602,19 @@ const heroBadges = [
 					<div class="feature-band">
 						<div class="card-grid">
 							<div class="of-card" data-reveal style="--d:0">
-								<span class="card-kanji" aria-hidden="true">報</span>
+								<span class="card-kanji" aria-hidden="true">報<span class="kanji-gloss">inform</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icNotify} />
 								<h3>You'll always know</h3>
 								<p>Pick <b>Check for Updates…</b> from the Orifold menu whenever you like. A calm, native dialog tells you if you're current or a newer fold is out — plain language, never a cryptic error code.</p>
 							</div>
 							<div class="of-card" data-reveal style="--d:1">
-								<span class="card-kanji" aria-hidden="true">諾</span>
+								<span class="card-kanji" aria-hidden="true">諾<span class="kanji-gloss">consent</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icConsent} />
 								<h3>Never behind your back</h3>
 								<p>Automatic checks are <b>off by default</b>, and even switched on they only ever <b>check</b> — about once a day. Downloading and installing happen solely when you choose, and any open work is saved first. Nothing is silent.</p>
 							</div>
 							<div class="of-card" data-reveal style="--d:2">
-								<span class="card-kanji" aria-hidden="true">家</span>
+								<span class="card-kanji" aria-hidden="true">家<span class="kanji-gloss">home</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icOnDevice} />
 								<h3>One quiet question</h3>
 								<p>A check is a single outbound request for the latest version number. Nothing about you, and nothing about your documents, is ever sent. The rest of the app stays fully offline.</p>
@@ -631,7 +638,7 @@ const heroBadges = [
 			<!-- Download — take flight -->
 			<section id="final-fold" class="fold act download-fold">
 				<div class="wrap">
-					<div class="act-head centered" data-num="飛" data-reveal>
+					<div class="act-head centered" data-num="飛" data-gloss="hi · flight" data-reveal>
 						<p class="kicker">Final fold · Take flight</p>
 						<h2>Take it home.</h2>
 					</div>
@@ -1074,6 +1081,103 @@ const heroBadges = [
 						var sub = a.querySelector('.btn-sub');
 						if (main) main.textContent = 'View on GitHub';
 						if (sub) sub.textContent = 'Orifold is a Mac app';
+					});
+				}
+			})();
+		</script>
+
+		<script is:inline>
+			// ── flair layer: nav shadow, hero parallax, cursor-lit panel, magnetic
+			// CTAs, and stat count-ups — the buttery, scroll-driven feel of a premium
+			// product page. All of it is transform/opacity only and every branch is
+			// gated on reduced motion (below the nav-shadow, which is harmless) so a
+			// reduced-motion visitor gets a completely still page.
+			(function () {
+				var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+				// nav hairline appears once you leave the very top
+				var nav = document.querySelector('.nav');
+				var onScroll = function () { if (nav) nav.classList.toggle('scrolled', window.scrollY > 8); };
+				addEventListener('scroll', onScroll, { passive: true });
+				onScroll();
+
+				var fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+				// count-up stats when they enter view (runs even under reduced motion,
+				// but instantly — no animation, just the final number).
+				if ('IntersectionObserver' in window) {
+					var counters = document.querySelectorAll('[data-count]');
+					var cIO = new IntersectionObserver(function (entries) {
+						entries.forEach(function (en) {
+							if (!en.isIntersecting) return;
+							cIO.unobserve(en.target);
+							var el = en.target;
+							var target = parseInt(el.getAttribute('data-count'), 10);
+							if (isNaN(target)) return;
+							if (reduce) { el.textContent = String(target); return; }
+							var dur = 1100, t0 = null;
+							var step = function (ts) {
+								if (t0 === null) t0 = ts;
+								var p = Math.min((ts - t0) / dur, 1);
+								var eased = 1 - Math.pow(1 - p, 3);
+								el.textContent = String(Math.round(eased * target));
+								if (p < 1) requestAnimationFrame(step);
+								else el.textContent = String(target);
+							};
+							requestAnimationFrame(step);
+						});
+					}, { threshold: 0.6 });
+					counters.forEach(function (el) {
+						if (!reduce) el.textContent = '0';
+						cIO.observe(el);
+					});
+				}
+
+				if (reduce) return;
+
+				// hero parallax — the blueprint panel drifts slower than the page
+				var crane = document.getElementById('hero-crane');
+				var pRaf = 0;
+				var parallax = function () {
+					pRaf = 0;
+					if (!crane) return;
+					var y = window.scrollY;
+					if (y < 1000) crane.style.setProperty('--py', (y * -0.05).toFixed(1) + 'px');
+				};
+				addEventListener('scroll', function () { if (!pRaf) pRaf = requestAnimationFrame(parallax); }, { passive: true });
+				parallax();
+
+				// cursor-lit wash on the panel (fine pointers only) — write two CSS
+				// custom props as %; the rect is cached on enter/resize so no per-move reflow.
+				if (crane && fine) {
+					var rect = null, gRaf = 0, cx = 0, cy = 0;
+					var measure = function () { rect = crane.getBoundingClientRect(); };
+					crane.addEventListener('pointerenter', measure);
+					crane.addEventListener('pointermove', function (e) {
+						cx = e.clientX; cy = e.clientY;
+						if (!gRaf) gRaf = requestAnimationFrame(function () {
+							gRaf = 0;
+							if (!rect || !rect.width) return;
+							crane.style.setProperty('--gx', ((cx - rect.left) / rect.width * 100).toFixed(1) + '%');
+							crane.style.setProperty('--gy', ((cy - rect.top) / rect.height * 100).toFixed(1) + '%');
+						});
+					});
+					addEventListener('resize', function () { if (rect) measure(); }, { passive: true });
+					addEventListener('scroll', function () { if (rect) measure(); }, { passive: true });
+				}
+
+				// magnetic CTAs — the primary buttons lean toward the cursor, then release
+				if (fine) {
+					document.querySelectorAll('.btn-primary').forEach(function (btn) {
+						var r = null;
+						btn.addEventListener('pointerenter', function () { r = btn.getBoundingClientRect(); });
+						btn.addEventListener('pointermove', function (e) {
+							if (!r) r = btn.getBoundingClientRect();
+							var mx = (e.clientX - (r.left + r.width / 2)) / r.width;
+							var my = (e.clientY - (r.top + r.height / 2)) / r.height;
+							btn.style.transform = 'translate(' + (mx * 8).toFixed(1) + 'px,' + (my * 8 - 2).toFixed(1) + 'px)';
+						});
+						btn.addEventListener('pointerleave', function () { btn.style.transform = ''; });
 					});
 				}
 			})();
