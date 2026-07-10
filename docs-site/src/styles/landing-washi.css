@@ -200,38 +200,69 @@ html.js:not(.no-motion) h1 em, html.js:not(.no-motion) h2 em { animation: of-she
 }
 .fine-print { color: var(--faint); font-size: 0.86rem; line-height: 1.7; }
 
-/* act heads — a giant faint kanji numeral + its small English gloss */
-.act-head {
-	position: relative;
-	max-width: 47rem;
-	margin-bottom: clamp(2.2rem, 5vw, 3.4rem);
-}
+/* Act heads carry a giant faint fold-numeral (一二三四 / 間翔新飛) and its small
+ * English gloss. Two layouts, so the mark never crowds the copy:
+ *  · left-aligned acts (Gather, Shape, Keep) — the head spans the full row, the
+ *    text is held to a readable column on the left, and the numeral + gloss live
+ *    right-aligned out in the RIGHT whitespace.
+ *  · centered acts (Ma, Horizon, Updates, Final) — the numeral is a watermark
+ *    behind the centred headline; the gloss is a caption below.
+ * Seal sits in a two-column grid (panel on the right), so its numeral floats
+ * ABOVE the copy instead. */
+.act-head { position: relative; margin-bottom: clamp(2.2rem, 5vw, 3.4rem); }
+.act-head > .kicker,
+.act-head > h2,
+.act-head > .lede,
+.act-head > .ma-body,
+.act-head > .whatsnew-pill,
+.act-head > .beta-note { max-width: 47rem; }
+
+/* left-aligned: the numeral + gloss sit in the right whitespace, right-aligned */
 .act-head::before {
 	content: attr(data-num);
-	position: absolute;
-	top: -3rem; right: -0.6rem;
-	z-index: -1;
+	position: absolute; z-index: -1;
+	top: -0.6rem; right: 0;
 	font-family: var(--kanji);
-	font-size: clamp(7rem, 15vw, 12.5rem);
-	line-height: 1;
-	color: color-mix(in srgb, var(--indigo) 7%, transparent);
+	font-size: clamp(5rem, 10vw, 9.5rem);
+	line-height: 0.8;
+	color: color-mix(in srgb, var(--indigo) 6%, transparent);
 	pointer-events: none;
 }
-[data-theme='dark'] .act-head::before { color: color-mix(in srgb, var(--ice) 8%, transparent); }
+[data-theme='dark'] .act-head::before { color: color-mix(in srgb, var(--ice) 7%, transparent); }
 .act-head::after {
 	content: attr(data-gloss);
 	position: absolute;
-	top: clamp(4.6rem, 9.5vw, 7.8rem); right: 0;
+	top: clamp(4.6rem, 9.6vw, 9rem); right: 0;
 	font-family: var(--sans);
 	font-size: 0.5rem; font-weight: 500;
-	letter-spacing: 0.12em; text-transform: uppercase;
-	color: color-mix(in srgb, var(--ink) 24%, transparent);
+	letter-spacing: 0.14em; text-transform: uppercase;
+	color: color-mix(in srgb, var(--ink) 22%, transparent);
 	pointer-events: none;
 }
-.act-head.centered { margin-inline: auto; text-align: center; }
-.act-head.centered::before { right: 50%; transform: translateX(50%); }
-.act-head.centered::after { right: 50%; transform: translateX(50%); top: clamp(4.2rem, 8.5vw, 6.8rem); }
-.act-head.centered .lede, .act-head.centered .kicker { margin-inline: auto; }
+[data-theme='dark'] .act-head::after { color: color-mix(in srgb, var(--ink) 30%, transparent); }
+
+/* centered: numeral is a watermark behind the headline; gloss is a caption below */
+.act-head.centered { text-align: center; }
+.act-head.centered > .kicker,
+.act-head.centered > h2,
+.act-head.centered > .lede,
+.act-head.centered > .ma-body { margin-inline: auto; }
+.act-head.centered::before {
+	top: 50%; left: 50%; right: auto;
+	transform: translate(-50%, -50%);
+	font-size: clamp(6rem, 13vw, 11rem);
+	line-height: 1;
+	color: color-mix(in srgb, var(--indigo) 5%, transparent);
+}
+[data-theme='dark'] .act-head.centered::before { color: color-mix(in srgb, var(--ice) 6%, transparent); }
+.act-head.centered::after {
+	left: 50%; right: auto; top: auto; bottom: -1.7rem;
+	transform: translateX(-50%);
+}
+
+/* Seal — two-column grid: float the numeral above the copy, right-set */
+.seal-grid .act-head::before { top: -4.6rem; right: 0; font-size: clamp(4rem, 7vw, 6.4rem); line-height: 1; }
+.seal-grid .act-head::after { top: -1rem; right: 0; }
 
 .shead-note { margin-top: 1.4rem; }
 
@@ -799,8 +830,10 @@ html.theme-unchosen .theme-note { display: flex; }
 @media (max-width: 560px) {
 	.act { padding-block: 3.4rem; }
 	.pet .fig { width: 72px; height: 72px; }
-	.act-head::before { font-size: 6rem; top: -2.2rem; }
-	.act-head::after { top: 3.4rem; }
+	/* on phones there's no right margin — let the numeral sit as a faint
+	   watermark top-right and drop the left-aligned gloss to avoid clutter */
+	.act-head::before, .seal-grid .act-head::before { font-size: 4.6rem; top: -1.2rem; }
+	.act-head:not(.centered)::after { display: none; }
 }
 
 /* ---- reduced motion: everything settles, nothing is lost ----------------- */
