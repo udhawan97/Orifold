@@ -148,7 +148,11 @@ final class UserFlowRegressionTests: XCTestCase {
         // ink (see `testEraseIsVisualOnlyNotContentStreamRemoval` for the separate, known
         // limitation that the ORIGINAL text remains structurally present/extractable
         // underneath, which `.string` would otherwise make this assertion misleading about).
-        XCTAssertTrue(finalPage.string?.contains("Second replacement") ?? false)
+        // Not `.string` here either, for the same CI-only PDFKit extraction-undercount
+        // reason documented above at the first reopen -- use the same PDFium-backed
+        // analysis for consistency instead of trusting PDFKit's own extractor.
+        let finalAnalysis = PDFTextAnalysisEngine().analyze(data: finalData, pageIndex: 0, pageRefID: UUID(), fallbackPage: finalPage)
+        XCTAssertTrue(finalAnalysis.blocks.contains { $0.text.contains("Second replacement") })
     }
 
     /// Documents a real, pre-existing limitation surfaced while building the round-trip

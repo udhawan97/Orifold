@@ -58,6 +58,9 @@ final class ExternalCorpusFidelityStressTests: XCTestCase {
     /// (Low-visibility/hidden-OCR blocks are excused by their editability class; the
     /// stress fixture contains those deliberately.)
     func testCorpusAnalysisInvariants() throws {
+        guard FileManager.default.fileExists(atPath: Self.fixtureDir) else {
+            throw XCTSkip("external fixture corpus not present")
+        }
         let files = [
             "testcsv.pdf",
             "Sample Proposal.pdf",
