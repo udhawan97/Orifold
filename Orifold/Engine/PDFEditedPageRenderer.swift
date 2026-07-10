@@ -505,8 +505,19 @@ private struct ReplacementTextLayout {
     private let framesetter: CTFramesetter
 
     init(operation: PDFTextEditOperation) {
-        let font = NSFont(name: operation.fontName, size: operation.fontSize)
-            ?? NSFont.systemFont(ofSize: operation.fontSize)
+        // "Formatting is the document's unless the user changed it": when no style
+        // control was touched, render with the ORIGINAL captured format verbatim rather
+        // than the editor's round-tripped values. The editor reconstructs its font from
+        // family + bold/italic traits, which silently drops intermediate faces
+        // (e.g. "HelveticaNeue-Light" → "HelveticaNeue") — so a pure TEXT edit must not
+        // launder the style through that reconstruction. Insertions have no original
+        // format to preserve (theirs is synthesized), so they keep the editor's style.
+        let preserveOriginalStyle = !operation.didManuallyChangeStyle && !operation.isInsertion
+        let fontName = preserveOriginalStyle ? operation.originalFormat.fontName : operation.fontName
+        let fontSize = preserveOriginalStyle ? operation.originalFormat.fontSize : operation.fontSize
+        let textColor = preserveOriginalStyle ? operation.originalFormat.textColor : operation.textColor
+        let font = NSFont(name: fontName, size: fontSize)
+            ?? NSFont.systemFont(ofSize: fontSize)
         let ctFont = CTFontCreateWithFontDescriptor(font.fontDescriptor as CTFontDescriptor, font.pointSize, nil)
         let paragraph = Self.paragraphStyle(
             alignment: operation.alignment.ctTextAlignment,
@@ -515,7 +526,7 @@ private struct ReplacementTextLayout {
         )
         var attributes: [NSAttributedString.Key: Any] = [
             NSAttributedString.Key(kCTFontAttributeName as String): ctFont,
-            NSAttributedString.Key(kCTForegroundColorAttributeName as String): operation.textColor.nsColor.cgColor,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): textColor.nsColor.cgColor,
             NSAttributedString.Key(kCTParagraphStyleAttributeName as String): paragraph
         ]
         if operation.underline {

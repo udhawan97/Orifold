@@ -692,11 +692,19 @@ enum DocumentImportConverter {
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byWordWrapping
         style.paragraphSpacing = 6
+        // Menlo, not `.monospacedSystemFont`: the system mono embeds into the generated
+        // PDF as the private name ".SFNSMono-…", which `NSFont(name:)` refuses to resolve
+        // later — so the text-edit pipeline couldn't reopen imported CSV/log/plain-text
+        // lines in their own face. Menlo ships on every macOS, embeds under its real
+        // PostScript name, and round-trips cleanly through analysis → editor → commit.
+        // Likewise a FIXED color, not the dynamic `NSColor.textColor`: a dynamic color is
+        // resolved against the CURRENT appearance at draw time, so importing while the
+        // app is in dark mode would bake near-WHITE text into the PDF's white page.
         return NSAttributedString(
             string: string.isEmpty ? " " : string,
             attributes: [
-                .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
-                .foregroundColor: NSColor.textColor,
+                .font: NSFont(name: "Menlo-Regular", size: 11) ?? .monospacedSystemFont(ofSize: 11, weight: .regular),
+                .foregroundColor: NSColor.black,
                 .paragraphStyle: style
             ]
         )

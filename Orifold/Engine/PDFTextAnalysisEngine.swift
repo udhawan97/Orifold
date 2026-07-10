@@ -126,6 +126,18 @@ private let kMaxGraphicsScanObjects: Int32 = 6000
 /// the only reliable slant signal for many documents.
 private let kPDFFontFlagItalic: Int32 = 1 << 6
 
+/// PDF font-descriptor `/Flags` bit for a fixed-pitch (monospaced) face (bit 1, value 1).
+/// The only reliable monospace signal for fonts whose name carries no "Mono"/"Courier"
+/// token — notably the private system font `.SFNSMono-*` that every Quartz-generated PDF
+/// of monospaced content embeds (print-to-PDF of a CSV/log, TextEdit plain text, …).
+private let kPDFFontFlagFixedPitch: Int32 = 1 << 0
+
+/// PDF text render modes (`Tr`) whose visible ink comes from the STROKE, not the fill:
+/// 1 = stroke, 5 = stroke + clip. For these, the fill color PDFium reports per glyph can
+/// be anything (often white or undefined) while the text is plainly visible — so color
+/// extraction must read the stroke color instead or the editor inherits an invisible fill.
+private let kPDFStrokeOnlyRenderModes: Set<Int32> = [1, 5]
+
 struct PDFTextPageAnalysis {
     var pageRefID: UUID?
     var blocks: [EditableTextBlock]
@@ -153,6 +165,10 @@ final class PDFTextAnalysisEngine {
         /// True when the embedded font descriptor's italic flag is set, even if the font
         /// name has no "Italic"/"Oblique" token.
         var isItalic: Bool
+        /// True when the embedded font descriptor's fixed-pitch flag is set — the only
+        /// monospace signal for private/system font names ('.SFNSMono-*') that carry no
+        /// "Mono" token AND can't be resolved via NSFont to inspect `isFixedPitch`.
+        var isFixedPitch: Bool
         /// This glyph's own content-stream rotation in degrees, derived from
         /// `FPDFText_GetCharAngle` (radians). nil when PDFium can't report an angle for this
         /// glyph — never assume 0 in that case, since 0 is also a legitimate reading for
@@ -333,7 +349,6 @@ final class PDFTextAnalysisEngine {
                     : nil
                 let size = FPDFText_GetFontSize(textPage, Int32(index))
                 let color = fillColor(textPage: textPage, index: index)
-                let reportedFontSize: CGFloat? = size.isFinite && size >= 4 ? CGFloat(size) : nil
                 let descriptor = fontDescriptor(textPage: textPage, index: index)
                 let rawWeight = FPDFText_GetFontWeight(textPage, Int32(index))
                 let rawAngle = FPDFText_GetCharAngle(textPage, Int32(index))
@@ -343,20 +358,30 @@ final class PDFTextAnalysisEngine {
                 let transform: PDFTextTransform? = hasMatrix
                     ? PDFTextTransform(a: CGFloat(fsMatrix.a), b: CGFloat(fsMatrix.b), c: CGFloat(fsMatrix.c), d: CGFloat(fsMatrix.d), e: CGFloat(fsMatrix.e), f: CGFloat(fsMatrix.f))
                     : nil
+                let reportedFontSize = Self.effectiveReportedFontSize(rawSize: size, transform: transform)
                 let isGenerated = FPDFText_IsGenerated(textPage, Int32(index)) == 1
+                let glyphRenderMode = bounds.flatMap { renderMode(for: $0, in: regions) }
+                let stroke = strokeColor(textPage: textPage, index: index)
+                // Stroke-only render modes (Tr 1/5) ink with the STROKE color; the fill
+                // color is irrelevant (and often white/transparent), so using it would
+                // give the editor an invisible text color for outlined text.
+                let visibleColor = glyphRenderMode.map(kPDFStrokeOnlyRenderModes.contains) == true
+                    ? (stroke ?? color)
+                    : color
                 samples.append(CharacterSample(
                     scalar: scalar,
                     bounds: bounds,
                     reportedFontSize: reportedFontSize,
-                    color: color,
+                    color: visibleColor,
                     rawFontName: descriptor.name,
                     fontWeight: rawWeight > 0 ? Int(rawWeight) : nil,
                     isItalic: descriptor.isItalic,
+                    isFixedPitch: descriptor.isFixedPitch,
                     angleDegrees: angleDegrees,
                     transform: transform,
-                    strokeColor: strokeColor(textPage: textPage, index: index),
+                    strokeColor: stroke,
                     isGenerated: isGenerated,
-                    renderMode: bounds.flatMap { renderMode(for: $0, in: regions) }
+                    renderMode: glyphRenderMode
                 ))
             }
 
@@ -365,16 +390,36 @@ final class PDFTextAnalysisEngine {
         }
     }
 
-    private func fontDescriptor(textPage: OpaquePointer?, index: Int) -> (name: String?, isItalic: Bool) {
+    /// The visually-rendered point size for a glyph. PDFium's `FPDFText_GetFontSize`
+    /// returns the raw `Tf` operand, but Quartz-generated PDFs (Preview/TextEdit "print to
+    /// PDF", Orifold's own committed edits, any CoreText output) write `… 1 Tf` with the
+    /// real size carried by the text matrix — so every glyph "reports" 1.0 and the old
+    /// `size >= 4` filter emptied `validSizes` for the whole document, leaving size
+    /// detection entirely to the ink model (whose per-line scatter then broke committed
+    /// line geometry). The true rendered size is `Tf × textMatrixScale`; recover it from
+    /// the matrix determinant when the raw operand alone is implausible.
+    static func effectiveReportedFontSize(rawSize: Double, transform: PDFTextTransform?) -> CGFloat? {
+        guard rawSize.isFinite, rawSize > 0 else { return nil }
+        if rawSize >= 4 { return CGFloat(rawSize) }
+        guard let transform else { return nil }
+        let determinant = abs(transform.a * transform.d - transform.b * transform.c)
+        guard determinant.isFinite, determinant > 0 else { return nil }
+        let scaled = CGFloat(rawSize) * determinant.squareRoot()
+        guard scaled.isFinite, scaled >= 4, scaled <= 400 else { return nil }
+        return scaled
+    }
+
+    private func fontDescriptor(textPage: OpaquePointer?, index: Int) -> (name: String?, isItalic: Bool, isFixedPitch: Bool) {
         var buffer = [UInt8](repeating: 0, count: 256)
         var flags: Int32 = 0
         let needed = buffer.withUnsafeMutableBytes { rawBuffer -> UInt in
             FPDFText_GetFontInfo(textPage, Int32(index), rawBuffer.baseAddress, UInt(rawBuffer.count), &flags)
         }
         let isItalic = flags & kPDFFontFlagItalic != 0
-        guard needed > 1, needed <= buffer.count else { return (nil, isItalic) }
+        let isFixedPitch = flags & kPDFFontFlagFixedPitch != 0
+        guard needed > 1, needed <= buffer.count else { return (nil, isItalic, isFixedPitch) }
         let byteCount = Int(needed) - 1 // FPDFText_GetFontInfo includes a trailing NUL
-        return (String(bytes: buffer[0..<byteCount], encoding: .utf8), isItalic)
+        return (String(bytes: buffer[0..<byteCount], encoding: .utf8), isItalic, isFixedPitch)
     }
 
     /// Maps a font name recovered from the PDF's embedded font descriptor to a PostScript
@@ -388,7 +433,8 @@ final class PDFTextAnalysisEngine {
     private static func resolveFontPostScriptName(
         from pdfFontName: String,
         weightHint: Int? = nil,
-        italicHint: Bool = false
+        italicHint: Bool = false,
+        fixedPitchHint: Bool = false
     ) -> String {
         var name = pdfFontName
         // Subsetted fonts are prefixed with a 6-letter tag + "+", e.g. "ABCDEF+Georgia-Bold".
@@ -403,10 +449,19 @@ final class PDFTextAnalysisEngine {
         let boldByWeight = (weightHint ?? 0) >= 600
         let wantsBold = boldByName || boldByWeight
         let wantsItalic = italicByName || italicHint
+        // Monospace must be decided BEFORE the private-system-font branch below: the
+        // system monospaced face embeds as '.SFNSMono-*' (dot-prefixed), and mapping it to
+        // the sans-serif stand-in silently turned every CSV/log/plain-text-derived PDF's
+        // fixed-pitch text into proportional HelveticaNeue on edit. The descriptor's
+        // fixed-pitch flag also covers uninstalled third-party monos ("Inconsolata",
+        // "Hack", …) whose names carry no recognizable token.
+        let wantsMono = fixedPitchHint || lower.contains("mono") || lower.contains("courier") || lower.contains("consolas")
         if lower.hasPrefix(".") ||
             lower.contains("sfns") ||
             lower.contains("apple") && lower.contains("system") {
-            return stableSansSerifPostScriptName(bold: wantsBold, italic: wantsItalic)
+            return wantsMono
+                ? stableMonospacePostScriptName(bold: wantsBold, italic: wantsItalic)
+                : stableSansSerifPostScriptName(bold: wantsBold, italic: wantsItalic)
         }
         // Even when the named font exists on the system, honor a descriptor weight/slant the
         // name itself omits by promoting to the matching face of the same family (e.g.
@@ -433,6 +488,11 @@ final class PDFTextAnalysisEngine {
             family = "Menlo"
         } else if lower.contains("avenir") {
             family = "Avenir"
+        } else if wantsMono {
+            // No name token matched but the font descriptor says fixed-pitch — an
+            // uninstalled/unrecognized monospace face must land on a monospace stand-in,
+            // not Helvetica, or column-aligned content (code, tables, CSVs) falls apart.
+            return stableMonospacePostScriptName(bold: wantsBold, italic: wantsItalic)
         } else {
             family = "Helvetica"
         }
@@ -447,14 +507,27 @@ final class PDFTextAnalysisEngine {
     }
 
     #if DEBUG
-    /// Test hook for the private font-resolution logic (weight/italic descriptor hints).
-    static func testResolveFontPostScriptName(from name: String, weightHint: Int?, italicHint: Bool) -> String {
-        resolveFontPostScriptName(from: name, weightHint: weightHint, italicHint: italicHint)
+    /// Test hook for the private font-resolution logic (weight/italic/fixed-pitch
+    /// descriptor hints).
+    static func testResolveFontPostScriptName(from name: String, weightHint: Int?, italicHint: Bool, fixedPitchHint: Bool = false) -> String {
+        resolveFontPostScriptName(from: name, weightHint: weightHint, italicHint: italicHint, fixedPitchHint: fixedPitchHint)
     }
     #endif
 
     private static func stableSansSerifPostScriptName(bold: Bool = false, italic: Bool = false) -> String {
         let base = NSFont(name: "HelveticaNeue", size: 12) != nil ? "HelveticaNeue" : "Helvetica"
+        if bold || italic, let promoted = promoteToTraits(fontNamed: base, bold: bold, italic: italic) {
+            return promoted
+        }
+        return base
+    }
+
+    /// Monospace counterpart of `stableSansSerifPostScriptName`: Menlo ships on every
+    /// macOS, resolves via `NSFont(name:)`, and is metrically the closest installed match
+    /// to SF Mono (both derive from the same Bitstream Vera lineage). Courier New is the
+    /// last-resort stand-in only because it's a base-14 name that always exists.
+    private static func stableMonospacePostScriptName(bold: Bool = false, italic: Bool = false) -> String {
+        let base = NSFont(name: "Menlo-Regular", size: 12) != nil ? "Menlo-Regular" : "Courier New"
         if bold || italic, let promoted = promoteToTraits(fontNamed: base, bold: bold, italic: italic) {
             return promoted
         }
@@ -780,9 +853,10 @@ final class PDFTextAnalysisEngine {
         let rawFontName = dominantFontName(among: inkSamples)
         let weightHint = dominantFontWeight(among: inkSamples)
         let italicHint = dominantItalic(among: inkSamples)
+        let fixedPitchHint = dominantFixedPitch(among: inkSamples)
         let fontName = rawFontName.map {
-            Self.resolveFontPostScriptName(from: $0, weightHint: weightHint, italicHint: italicHint)
-        } ?? Self.resolveFontPostScriptName(from: "Helvetica", weightHint: weightHint, italicHint: italicHint)
+            Self.resolveFontPostScriptName(from: $0, weightHint: weightHint, italicHint: italicHint, fixedPitchHint: fixedPitchHint)
+        } ?? Self.resolveFontPostScriptName(from: "Helvetica", weightHint: weightHint, italicHint: italicHint, fixedPitchHint: fixedPitchHint)
         let fontSize = resolveLineFontSize(sorted, lineBounds: bounds, resolvedFontName: fontName)
         let rotationDegrees = dominantAngle(among: inkSamples) ?? 0
         let transform = dominantTransform(among: inkSamples)
@@ -909,6 +983,15 @@ final class PDFTextAnalysisEngine {
         guard !samples.isEmpty else { return false }
         let italicCount = samples.filter(\.isItalic).count
         return italicCount * 2 > samples.count
+    }
+
+    /// True when MOST of the line's ink glyphs come from a fixed-pitch font descriptor —
+    /// same majority-vote reasoning as `dominantItalic`, so one inline code span can't
+    /// monospace a whole prose line (or vice-versa).
+    private func dominantFixedPitch(among samples: [CharacterSample]) -> Bool {
+        guard !samples.isEmpty else { return false }
+        let fixedCount = samples.filter(\.isFixedPitch).count
+        return fixedCount * 2 > samples.count
     }
 
     /// Median reported rotation across the line's ink glyphs, in degrees. Uses the same
@@ -1124,6 +1207,13 @@ final class PDFTextAnalysisEngine {
     private func shouldMergeWrappedLine(previous: EditableTextBlock, next: EditableTextBlock, graphics: PageGraphicsIndex = .empty, pageBounds: CGRect = .zero) -> Bool {
         guard previous.confidence != .low, next.confidence != .low else { return false }
         guard fontsMatch(previous, next), colorsMatch(previous.textColor, next.textColor) else { return false }
+        // A wrapped continuation always shares its paragraph's rotation — two same-font
+        // same-size lines at different angles (a sheared label above a mirrored one, a
+        // rotated margin note near upright body) are separate elements. Size detection
+        // used to scatter enough that `fontsMatch` accidentally kept these apart; with
+        // sizes now accurate, rotation is the honest discriminator.
+        let rotationDelta = abs((previous.rotation - next.rotation).truncatingRemainder(dividingBy: 360))
+        guard min(rotationDelta, 360 - rotationDelta) <= 2 else { return false }
         // A horizontal table rule between the two lines is a hard separator — never merge a
         // heading into the cell below it, or two stacked cells, across a ruled boundary.
         // The upper block's own underline stroke is exempt so an underlined line still merges
@@ -1150,7 +1240,18 @@ final class PDFTextAnalysisEngine {
         // undo that and reintroduce the "bullet moved after edit" bug.
         // Rows separated by more than typical single-spaced leading (chip rows, padded
         // labels, loose layouts) are standalone elements, not a wrapped continuation.
-        guard verticalGap >= -lineHeight * 0.35, verticalGap <= lineHeight * 0.9 else { return false }
+        //
+        // MONOSPACED text gets a much tighter gap bound: fixed-pitch content (CSV rows,
+        // logs, code) is line-oriented — each visual line is its own record, usually set
+        // with paragraph spacing between rows (measured ~0.45–0.85× line height across
+        // Orifold's own plain-text import and Quartz print-to-PDF of a CSV), while a
+        // genuinely wrapped monospace paragraph's internal leading gaps ~0.07–0.26×.
+        // Uniform row sizes used to be scattered by the ink model, which accidentally
+        // kept CSV rows separate; with sizes now detected correctly, this is the signal
+        // that keeps one row = one editable line instead of fusing the file into a block.
+        let monospaced = NSFont(name: previous.fontName, size: max(previous.fontSize, 1))?.isFixedPitch == true
+        let maxWrapGapRatio: CGFloat = monospaced ? 0.28 : 0.9
+        guard verticalGap >= -lineHeight * 0.35, verticalGap <= lineHeight * maxWrapGapRatio else { return false }
         guard columnBoundsCompatible(previous.columnBounds, next.columnBounds, tolerance: max(12, lineHeight)) else { return false }
         guard lineLooksWrapped(previous: previous, next: next, lineHeight: lineHeight) else { return false }
         // A stacked column of short cells (a rule-less table) shares font/left-x/spacing with
@@ -1382,6 +1483,13 @@ final class PDFTextAnalysisEngine {
     private static let fallbackInkRatio: CGFloat = 1 / 1.15
     private static let asciiAscenders = CharacterSet(charactersIn: "bdfhkltij")
     private static let asciiDescenders = CharacterSet(charactersIn: "gjpqy")
+    /// Punctuation whose ink dips below the baseline in essentially every text face:
+    /// commas/semicolons descend ~0.1–0.2 em and underscores sit fully below it. A line
+    /// like "MSFT,5,310.5,false,anchor," has no LETTER descenders, but its measured ink
+    /// still spans below the baseline — modeling it cap-to-baseline made the ink look
+    /// like a much larger font (11 pt CSV rows estimated at 13.9) whenever no reported
+    /// size was available to sanity-check the estimate.
+    private static let belowBaselinePunctuation = CharacterSet(charactersIn: ",;_")
     private static let capsOrDigits = CharacterSet.uppercaseLetters.union(.decimalDigits)
 
     private static func inkRatio(forFontName fontName: String, lineText: String?) -> CGFloat {
@@ -1402,7 +1510,11 @@ final class PDFTextAnalysisEngine {
             if isClassifiableLatin {
                 extentClass.hasCapsOrDigits = scalars.contains { capsOrDigits.contains($0) }
                 extentClass.hasAscenders = scalars.contains { asciiAscenders.contains($0) }
+                // Below-baseline punctuation (`,;_`) is checked against the FULL line —
+                // the letters/digits filter above would drop it — because its ink extends
+                // the measured line box below the baseline exactly like a letter descender.
                 extentClass.hasDescenders = scalars.contains { asciiDescenders.contains($0) }
+                    || lineText.unicodeScalars.contains { Self.belowBaselinePunctuation.contains($0) }
             }
         }
         if let cached = inkRatioCache[extentClass] { return cached }

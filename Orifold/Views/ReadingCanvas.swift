@@ -2874,7 +2874,7 @@ final class NoteEditorViewController: NSViewController {
         textView.isSelectable = true
         textView.allowsUndo = true
         textView.drawsBackground = false
-        textView.textColor = editorTextColor
+        textView.textColor = displayTextColor
         textView.insertionPointColor = .dsAccentNS
         textView.textContainerInset = NSSize(width: 3, height: 2)
         textView.textContainer?.lineFragmentPadding = 0
@@ -3576,6 +3576,14 @@ final class NoteEditorViewController: NSViewController {
     }
 
     func textDidChange(_ notification: Notification) {
+        // Safety net for an interrupted move/resize mouse sequence (window deactivation
+        // mid-drag, etc.) that never delivered its balancing "drag ended" callback: the
+        // patch would otherwise stay at 0.22 alpha forever, ghosting the original text
+        // under the editor. Typing can't happen mid-drag, so any keystroke is a safe
+        // point to restore full patch opacity.
+        if isPatchDimmedForInteraction {
+            setPatchDimmedForInteraction(false)
+        }
         resizeTextViewHeight()
     }
 
@@ -3900,18 +3908,45 @@ final class NoteEditorViewController: NSViewController {
         }
     }
 
+    /// The color the live editor DRAWS its text with — the committed color stays
+    /// `editorTextColor` untouched. Extracted document colors can be legitimately
+    /// invisible against the sampled paper patch behind the editor (near-zero alpha from
+    /// a transparency group, white-on-white, a stroke-only face whose fill is blank…);
+    /// the user must still be able to SEE what they're editing, so compensate for
+    /// display only. A deliberate user pick from the color menu passes through
+    /// unmodified whenever it has any workable contrast against the patch.
+    private var displayTextColor: NSColor {
+        let color = editorTextColor
+        // Alpha floor: near-transparent ink is invisible on ANY background.
+        let alphaFloored = color.alphaComponent < 0.35
+            ? color.withAlphaComponent(1)
+            : color
+        guard let text = alphaFloored.usingColorSpace(.sRGB),
+              let patch = livePatchColor.usingColorSpace(.sRGB) else { return alphaFloored }
+        // Contrast floor: if the text tone is indistinguishable from the patch tone
+        // (white-on-white paper is the common case), swap in the standard document ink
+        // color so glyphs and caret are visible while editing.
+        let textLuma = 0.2126 * text.redComponent + 0.7152 * text.greenComponent + 0.0722 * text.blueComponent
+        let patchLuma = 0.2126 * patch.redComponent + 0.7152 * patch.greenComponent + 0.0722 * patch.blueComponent
+        if patch.alphaComponent > 0.1, abs(textLuma - patchLuma) < 0.08 {
+            return CodableColor.documentText.nsColor
+        }
+        return alphaFloored
+    }
+
     private func applyFormatting() {
         refreshFormatControls()
         refreshSizeControls()
         refreshColorPopup()
         let font = displayFont()
         let underlineValue = editorUnderline ? NSUnderlineStyle.single.rawValue : 0
+        let displayColor = displayTextColor
         textView.font = font
-        textView.textColor = editorTextColor
+        textView.textColor = displayColor
         textView.alignment = editorAlignment
         textView.typingAttributes = [
             .font: font,
-            .foregroundColor: editorTextColor,
+            .foregroundColor: displayColor,
             .underlineStyle: underlineValue
         ]
         if let storage = textView.textStorage {
@@ -3926,7 +3961,7 @@ final class NoteEditorViewController: NSViewController {
             textView.undoManager?.disableUndoRegistration()
             storage.setAttributes([
                 .font: font,
-                .foregroundColor: editorTextColor,
+                .foregroundColor: displayColor,
                 .underlineStyle: underlineValue
             ], range: fullRange)
             textView.setAlignment(editorAlignment, range: fullRange)
