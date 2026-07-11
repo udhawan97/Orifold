@@ -1,0 +1,471 @@
+---
+/**
+ * Orifold docs search — an "expanding search button".
+ *
+ * Replaces Starlight's modal search with a quiet magnifier that springs open
+ * into an inline search pill, right-anchored in the header and growing leftward.
+ * The backend is unchanged: it drives Starlight's own Pagefind index via the
+ * low-level Pagefind API (`/pagefind/pagefind.js`, emitted at build time), so
+ * results only appear on the BUILT/preview site, never the dev server.
+ *
+ * Design follows the landing: calm, spring-eased, one ice-blue accent (red stays
+ * reserved for the tancho crown), an ELEVATED results card (lighter-than-page in
+ * dark = lift), matched terms tinted in the accent, both themes, reduced-motion.
+ */
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<site-search class="ofs" data-base={base}>
+	<div class="ofs__box" role="search">
+		<button
+			type="button"
+			class="ofs__toggle"
+			aria-label="Search docs"
+			aria-expanded="false"
+			aria-keyshortcuts="Meta+K Control+K"
+		>
+			<svg class="ofs__ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<circle cx="9" cy="9" r="6"></circle>
+				<path d="m17 17-3.7-3.7"></path>
+			</svg>
+		</button>
+		<input
+			type="search"
+			class="ofs__input"
+			placeholder="Search the docs…"
+			aria-label="Search the docs"
+			autocomplete="off"
+			autocorrect="off"
+			autocapitalize="off"
+			spellcheck="false"
+			enterkeyhint="search"
+			role="combobox"
+			aria-expanded="false"
+			aria-controls="ofs-panel"
+			aria-autocomplete="list"
+			tabindex="-1"
+		/>
+		<kbd class="ofs__hint" aria-hidden="true"><span class="ofs__cmd">⌘</span>K</kbd>
+		<button type="button" class="ofs__close" aria-label="Close search" tabindex="-1">
+			<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+				<path d="m5 5 10 10M15 5 5 15"></path>
+			</svg>
+		</button>
+	</div>
+	<div class="ofs__panel" id="ofs-panel" role="listbox" aria-label="Search results" hidden></div>
+</site-search>
+
+<style>
+	.ofs {
+		position: relative;
+		display: flex;
+		justify-content: flex-end;
+		--ofs-spring: cubic-bezier(0.16, 0.7, 0.3, 1);
+	}
+
+	/* the morphing control: a circle that grows leftward into a pill */
+	.ofs__box {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.15rem;
+		height: 2.4rem;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 999px;
+		background: transparent;
+		transition:
+			background 0.3s ease,
+			border-color 0.3s ease,
+			box-shadow 0.3s ease,
+			padding 0.45s var(--ofs-spring);
+	}
+
+	.ofs__toggle {
+		display: inline-grid;
+		place-items: center;
+		flex: 0 0 auto;
+		width: 2.4rem;
+		height: 2.4rem;
+		margin: 0;
+		padding: 0;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--of-text-2);
+		cursor: pointer;
+		transition:
+			color 0.25s ease,
+			border-color 0.25s ease,
+			background 0.25s ease,
+			transform 0.4s var(--ofs-spring);
+	}
+	.ofs__toggle:hover {
+		color: var(--of-accent);
+		border-color: var(--of-accent);
+	}
+	.ofs__ico { width: 1.05rem; height: 1.05rem; }
+
+	.ofs__input {
+		width: 0;
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: var(--of-text-1);
+		font: inherit;
+		font-size: 0.92rem;
+		opacity: 0;
+		transition:
+			width 0.46s var(--ofs-spring),
+			opacity 0.3s ease,
+			padding 0.46s var(--ofs-spring);
+	}
+	.ofs__input::placeholder { color: var(--of-text-3); }
+	/* strip the native search decorations */
+	.ofs__input::-webkit-search-cancel-button,
+	.ofs__input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+	.ofs__input:focus { outline: none; }
+
+	.ofs__hint {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.1rem;
+		margin-left: 0.1rem;
+		padding: 0.12rem 0.4rem;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 6px;
+		background: var(--sl-color-bg-nav);
+		color: var(--of-text-3);
+		font-family: inherit;
+		font-size: 0.68rem;
+		line-height: 1.4;
+		pointer-events: none;
+	}
+	.ofs__cmd { font-size: 0.78rem; }
+	@media (max-width: 800px) { .ofs__hint { display: none; } }
+
+	.ofs__close {
+		display: none;
+		place-items: center;
+		flex: 0 0 auto;
+		width: 1.7rem;
+		height: 1.7rem;
+		margin-right: 0.35rem;
+		padding: 0;
+		border: 0;
+		border-radius: 999px;
+		background: transparent;
+		color: var(--of-text-3);
+		cursor: pointer;
+		transition: color 0.2s ease, background 0.2s ease;
+	}
+	.ofs__close:hover { color: var(--of-accent); background: var(--of-accent-soft); }
+	.ofs__close svg { width: 0.9rem; height: 0.9rem; }
+
+	/* ── open state ───────────────────────────────────────────── */
+	.ofs.is-open .ofs__box {
+		padding-left: 0.25rem;
+		border-color: var(--of-separator);
+		background: color-mix(in srgb, var(--of-card) 94%, transparent);
+		box-shadow: 0 1px 0 rgb(255 255 255 / 4%) inset, 0 8px 24px -14px rgb(4 10 22 / 60%);
+		-webkit-backdrop-filter: saturate(1.4) blur(8px);
+		backdrop-filter: saturate(1.4) blur(8px);
+	}
+	.ofs.is-open .ofs__toggle {
+		border-color: transparent;
+		color: var(--of-accent);
+	}
+	.ofs.is-open .ofs__input {
+		width: min(17rem, 52vw);
+		padding: 0 0.3rem;
+		opacity: 1;
+	}
+	.ofs.is-open .ofs__hint { display: none; }
+	.ofs.is-open .ofs__close { display: inline-grid; }
+	/* accent focus ring once the field is focused */
+	.ofs.is-open:focus-within .ofs__box {
+		border-color: var(--of-accent);
+		box-shadow: 0 0 0 3px var(--of-accent-soft), 0 8px 24px -14px rgb(4 10 22 / 60%);
+	}
+
+	/* ── the elevated results card ────────────────────────────── */
+	.ofs__panel {
+		position: absolute;
+		top: calc(100% + 0.55rem);
+		right: 0;
+		z-index: 90;
+		width: min(30rem, 88vw);
+		max-height: min(28rem, 70vh);
+		overflow-y: auto;
+		padding: 0.4rem;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 14px;
+		/* elevation = lift toward white; --of-card is lighter than the page in
+		   both themes, so the panel reads as raised, never muddy/transparent */
+		background: var(--of-card);
+		box-shadow:
+			0 1px 0 rgb(255 255 255 / 5%) inset,
+			0 24px 48px -20px rgb(4 10 22 / 55%),
+			0 8px 16px -12px rgb(4 10 22 / 45%);
+		opacity: 0;
+		transform: translateY(-6px) scale(0.985);
+		transform-origin: top right;
+		transition: opacity 0.22s ease, transform 0.32s var(--ofs-spring);
+	}
+	.ofs__panel[hidden] { display: none; }
+	.ofs.is-open .ofs__panel:not([hidden]) { opacity: 1; transform: none; }
+
+	/* The results are injected via innerHTML, so they carry no scope attribute —
+	   style them with :global() descended from the (scoped) panel. */
+	.ofs__panel :global(.ofs__status) {
+		margin: 0;
+		padding: 0.85rem 0.9rem;
+		color: var(--of-text-3);
+		font-size: 0.85rem;
+		line-height: 1.5;
+	}
+	.ofs__panel :global(.ofs__result) {
+		display: block;
+		padding: 0.7rem 0.8rem;
+		border-radius: 10px;
+		color: var(--of-text-1);
+		text-decoration: none;
+		transition: background 0.15s ease;
+	}
+	.ofs__panel :global(.ofs__result:hover),
+	.ofs__panel :global(.ofs__result.is-active) {
+		background: var(--of-accent-soft);
+	}
+	.ofs__panel :global(.ofs__result-title) {
+		display: block;
+		font-size: 0.92rem;
+		font-weight: 600;
+		line-height: 1.35;
+	}
+	.ofs__panel :global(.ofs__result-excerpt) {
+		display: -webkit-box;
+		margin-top: 0.25rem;
+		color: var(--of-text-2);
+		font-size: 0.8rem;
+		line-height: 1.5;
+		overflow: hidden;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+	}
+	.ofs__panel :global(.ofs__result-excerpt mark) {
+		background: transparent;
+		color: var(--of-accent-bright);
+		font-weight: 700;
+	}
+	.ofs__panel :global(.ofs__result + .ofs__result) {
+		border-top: 1px solid var(--of-separator);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ofs__box, .ofs__input, .ofs__toggle, .ofs__panel { transition: none !important; }
+		.ofs__panel { transform: none; }
+	}
+</style>
+
+<script>
+	class OfSearch extends HTMLElement {
+		connectedCallback() {
+			// Guard against double-initialisation on client-side navigation.
+			if (this.dataset.ofsInit) return;
+			this.dataset.ofsInit = '1';
+
+			const base = this.dataset.base || '';
+			const box = this.querySelector('.ofs__box');
+			const toggle = this.querySelector('.ofs__toggle');
+			const input = this.querySelector('.ofs__input');
+			const closeBtn = this.querySelector('.ofs__close');
+			const panel = this.querySelector('.ofs__panel');
+			if (!(toggle && input && panel && closeBtn)) return;
+
+			let pfPromise = null;
+			let activeIndex = -1;
+
+			const open = () => {
+				if (this.classList.contains('is-open')) return;
+				this.classList.add('is-open');
+				toggle.setAttribute('aria-expanded', 'true');
+				input.setAttribute('aria-expanded', 'true');
+				input.tabIndex = 0;
+				loadPagefind();
+				// focus after the width spring starts so the caret lands cleanly
+				requestAnimationFrame(() => input.focus());
+			};
+
+			const close = (returnFocus) => {
+				if (!this.classList.contains('is-open')) return;
+				this.classList.remove('is-open');
+				toggle.setAttribute('aria-expanded', 'false');
+				input.setAttribute('aria-expanded', 'false');
+				input.tabIndex = -1;
+				hidePanel();
+				input.value = '';
+				if (returnFocus) toggle.focus();
+			};
+
+			const hidePanel = () => {
+				panel.hidden = true;
+				panel.innerHTML = '';
+				activeIndex = -1;
+				input.removeAttribute('aria-activedescendant');
+			};
+
+			const showPanel = () => {
+				panel.hidden = false;
+			};
+
+			// Memoise the LOAD PROMISE (not its value) so the input event that fires
+			// right after opening awaits the same in-flight import instead of racing
+			// it and getting a not-yet-ready null. The URL is a variable so Vite
+			// leaves this fully-dynamic import alone (the bundle is emitted at build).
+			function loadPagefind() {
+				if (pfPromise) return pfPromise;
+				const url = `${base}/pagefind/pagefind.js`;
+				pfPromise = (async () => {
+					try {
+						const mod = await import(/* @vite-ignore */ url);
+						await mod.options?.({ excerptLength: 22 });
+						return mod;
+					} catch {
+						return null;
+					}
+				})();
+				return pfPromise;
+			}
+
+			const esc = (s) =>
+				String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+			// Pagefind records URLs relative to the indexed output; make sure the
+			// site base is present and the trailing index.html is trimmed.
+			const fixUrl = (u) => {
+				if (!u) return u;
+				u = u.replace(/index\.html$/, '').replace(/\.html$/, '/');
+				if (base && u.startsWith('/') && !u.startsWith(base + '/') && u !== base) u = base + u;
+				return u;
+			};
+
+			const status = (msg) => {
+				showPanel();
+				panel.innerHTML = `<p class="ofs__status">${esc(msg)}</p>`;
+				activeIndex = -1;
+			};
+
+			const render = (results, term) => {
+				if (!results.length) {
+					status(`No results for “${term}”.`);
+					return;
+				}
+				showPanel();
+				const rows = results
+					.map((r, i) => {
+						const url = esc(fixUrl(r.url));
+						const title = esc(r.meta?.title || r.url);
+						// Pagefind's excerpt already wraps matched terms in <mark>.
+						const excerpt = r.excerpt || '';
+						return `<a class="ofs__result" role="option" id="ofs-r${i}" href="${url}">
+							<span class="ofs__result-title">${title}</span>
+							<span class="ofs__result-excerpt">${excerpt}</span>
+						</a>`;
+					})
+					.join('');
+				panel.innerHTML = rows;
+				activeIndex = -1;
+			};
+
+			let seq = 0;
+			async function run(term) {
+				const mine = ++seq;
+				const mod = await loadPagefind();
+				if (mine !== seq) return;
+				if (!mod) {
+					status('Search runs on the published site — try it there, or after a production build.');
+					return;
+				}
+				const search = await mod.debouncedSearch(term, {}, 180);
+				if (mine !== seq || search === null) return; // superseded
+				const data = await Promise.all(search.results.slice(0, 6).map((r) => r.data()));
+				if (mine !== seq) return;
+				render(data, term);
+			}
+
+			input.addEventListener('input', () => {
+				const term = input.value.trim();
+				if (!term) {
+					hidePanel();
+					return;
+				}
+				run(term);
+			});
+
+			// ── keyboard within the field: arrow nav + Esc ──
+			const rows = () => Array.from(panel.querySelectorAll('.ofs__result'));
+			const setActive = (i) => {
+				const els = rows();
+				if (!els.length) return;
+				activeIndex = (i + els.length) % els.length;
+				els.forEach((el, n) => el.classList.toggle('is-active', n === activeIndex));
+				const el = els[activeIndex];
+				el.scrollIntoView({ block: 'nearest' });
+				input.setAttribute('aria-activedescendant', el.id);
+			};
+
+			input.addEventListener('keydown', (e) => {
+				if (e.key === 'Escape') {
+					e.preventDefault();
+					if (input.value) {
+						input.value = '';
+						hidePanel();
+					} else {
+						close(true);
+					}
+				} else if (e.key === 'ArrowDown') {
+					e.preventDefault();
+					setActive(activeIndex + 1);
+				} else if (e.key === 'ArrowUp') {
+					e.preventDefault();
+					setActive(activeIndex - 1);
+				} else if (e.key === 'Enter') {
+					const els = rows();
+					if (activeIndex >= 0 && els[activeIndex]) {
+						e.preventDefault();
+						els[activeIndex].click();
+					}
+				}
+			});
+
+			toggle.addEventListener('click', () => {
+				if (this.classList.contains('is-open')) {
+					if (document.activeElement === input) close(true);
+					else input.focus();
+				} else {
+					open();
+				}
+			});
+			closeBtn.addEventListener('click', () => close(true));
+
+			// ── dismiss on outside click ──
+			document.addEventListener('pointerdown', (e) => {
+				if (this.classList.contains('is-open') && !this.contains(e.target)) close(false);
+			});
+
+			// ── global ⌘K / Ctrl+K ──
+			document.addEventListener('keydown', (e) => {
+				if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+					e.preventDefault();
+					open();
+				}
+			});
+		}
+	}
+
+	if (!customElements.get('site-search')) {
+		customElements.define('site-search', OfSearch);
+	}
+</script>

@@ -29,6 +29,9 @@ export default defineConfig({
 				baseUrl: 'https://github.com/udhawan97/Orifold/edit/main/docs-site/',
 			},
 			components: {
+				// Expanding search button — a quiet magnifier that springs into an
+				// inline Pagefind-backed search pill (replaces the modal search).
+				Search: './src/components/overrides/Search.astro',
 				Footer: './src/components/overrides/Footer.astro',
 				Hero: './src/components/overrides/Hero.astro',
 				MarkdownContent: './src/components/overrides/MarkdownContent.astro',
