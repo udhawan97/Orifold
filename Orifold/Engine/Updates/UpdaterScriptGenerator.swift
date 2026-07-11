@@ -109,14 +109,17 @@ struct UpdaterScriptGenerator {
         exit 1
     }
 
-    # After the old bundle has been moved aside, a failure must put it back.
+    # After the old bundle has been moved aside, a failure must put it back — even if the
+    # swap already succeeded and a (possibly-unlaunchable) new bundle now sits at APP_PATH
+    # (e.g. post-swap verification failed). Remove whatever is at the target first, then
+    # restore the known-good backup (or the rollback archive); never leave the new one.
     restore_and_fail() {
-        if [[ ! -d "$APP_PATH" ]]; then
-            if [[ -d "$BACKUP" ]]; then
-                mv "$BACKUP" "$APP_PATH" 2>/dev/null
-            elif [[ -n "$ROLLBACK_ZIP" && -f "$ROLLBACK_ZIP" ]]; then
-                ditto -x -k "$ROLLBACK_ZIP" "$(dirname "$APP_PATH")" 2>/dev/null
-            fi
+        if [[ -d "$BACKUP" ]]; then
+            rm -rf "$APP_PATH" 2>/dev/null
+            mv "$BACKUP" "$APP_PATH" 2>/dev/null
+        elif [[ -n "$ROLLBACK_ZIP" && -f "$ROLLBACK_ZIP" ]]; then
+            rm -rf "$APP_PATH" 2>/dev/null
+            ditto -x -k "$ROLLBACK_ZIP" "$(dirname "$APP_PATH")" 2>/dev/null
         fi
         fail "$1"
     }

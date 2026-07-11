@@ -104,7 +104,79 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         XCTAssertEqual(leftovers.sorted(), ["Orifold.app"], "no .previous/.staging debris")
     }
 
+    /// Regression guard for the post-swap rollback gap: when the swap already succeeded
+    /// (a new bundle sits at `$APP_PATH`) but post-swap verification then fails, the real
+    /// `restore_and_fail` helper must remove that bundle and restore the known-good backup —
+    /// not leave the possibly-unlaunchable new one in place and orphan the backup.
+    ///
+    /// A same-directory rename can't be made to fail in the full dry-run (writability is
+    /// pre-checked), so this drives the helper extracted verbatim from the shipped template
+    /// through exactly that caller-2 state.
+    func testRestoreAfterPostSwapVerifyFailurePutsOldBundleBack() throws {
+        let restoreFn = try extractedRestoreHelper()
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("orifold-restore-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        // Caller-2 state: the swap succeeded, so a NEW (bad) bundle is at APP_PATH and the
+        // known-good OLD bundle is parked at the backup path.
+        let appPath = root.appendingPathComponent("Orifold.app", isDirectory: true)
+        let backup = root.appendingPathComponent("Orifold.app.previous-1234", isDirectory: true)
+        try writeMarkedDir(appPath, marker: "NEW-BAD")
+        try writeMarkedDir(backup, marker: "OLD-GOOD")
+
+        // Harness: inject the caller-2 variables, stub the helpers the function calls, then
+        // run the real restore_and_fail. `fail` must exit non-zero (the update still fails).
+        let harness = root.appendingPathComponent("harness.sh")
+        try """
+        #!/bin/zsh -f
+        set -u
+        APP_PATH='\(appPath.path)'
+        BACKUP='\(backup.path)'
+        ROLLBACK_ZIP=''
+        say() { :; }
+        cleanup() { :; }
+        fail() { exit 3; }
+        \(restoreFn)
+        restore_and_fail "post-swap verify failed"
+        """.write(to: harness, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: harness.path)
+
+        let result = try runProcess("/bin/zsh", [harness.path])
+        XCTAssertEqual(result.status, 3, "restore_and_fail must still fail the update:\n\(result.output)")
+
+        // The old bundle is back in place…
+        let restored = try String(contentsOf: appPath.appendingPathComponent("marker.txt"), encoding: .utf8)
+        XCTAssertEqual(restored, "OLD-GOOD", "post-swap failure must roll back to the previous bundle")
+        // …and the backup was consumed, not orphaned.
+        XCTAssertFalse(FileManager.default.fileExists(atPath: backup.path), "backup should be moved back, not left behind")
+    }
+
     // MARK: - Helpers
+
+    /// Extracts the `restore_and_fail` shell function verbatim from the shipped template so
+    /// the test drives the real code, not a hand-copied approximation.
+    private func extractedRestoreHelper(file: StaticString = #filePath, line: UInt = #line) throws -> String {
+        // Indentation is normalized by Swift's multiline-literal stripping, so match the
+        // opening/closing braces by trimmed content rather than a fixed indent.
+        let lines = UpdaterScriptGenerator.template.components(separatedBy: "\n")
+        guard let startIdx = lines.firstIndex(where: { $0.contains("restore_and_fail() {") }) else {
+            XCTFail("restore_and_fail() not found in template", file: file, line: line)
+            throw XCTSkip("restore_and_fail() not found")
+        }
+        guard let relEnd = lines[(startIdx + 1)...].firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "}" }) else {
+            XCTFail("could not find end of restore_and_fail()", file: file, line: line)
+            throw XCTSkip("restore_and_fail() end not found")
+        }
+        return lines[startIdx...relEnd].joined(separator: "\n")
+    }
+
+    /// Creates a directory standing in for an app bundle, tagged with a marker file.
+    private func writeMarkedDir(_ url: URL, marker: String) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try marker.write(to: url.appendingPathComponent("marker.txt"), atomically: true, encoding: .utf8)
+    }
 
     private func makeSignedApp(at appURL: URL, marker: String) throws {
         let macOS = appURL.appendingPathComponent("Contents/MacOS")
