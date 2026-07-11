@@ -277,7 +277,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 			this.dataset.ofsInit = '1';
 
 			const base = this.dataset.base || '';
-			const box = this.querySelector('.ofs__box');
 			const toggle = this.querySelector('.ofs__toggle');
 			const input = this.querySelector('.ofs__input');
 			const closeBtn = this.querySelector('.ofs__close');
@@ -286,12 +285,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 			let pfPromise = null;
 			let activeIndex = -1;
+			let seq = 0; // bumped on every query AND every dismiss, so late/in-flight runs supersede
 
 			const open = () => {
 				if (this.classList.contains('is-open')) return;
 				this.classList.add('is-open');
 				toggle.setAttribute('aria-expanded', 'true');
-				input.setAttribute('aria-expanded', 'true');
 				input.tabIndex = 0;
 				loadPagefind();
 				// focus after the width spring starts so the caret lands cleanly
@@ -302,22 +301,25 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 				if (!this.classList.contains('is-open')) return;
 				this.classList.remove('is-open');
 				toggle.setAttribute('aria-expanded', 'false');
-				input.setAttribute('aria-expanded', 'false');
 				input.tabIndex = -1;
 				hidePanel();
 				input.value = '';
 				if (returnFocus) toggle.focus();
 			};
 
+			// aria-expanded on the combobox tracks whether the listbox popup is shown.
 			const hidePanel = () => {
+				seq++; // supersede any in-flight run() so late results can't re-open the panel
 				panel.hidden = true;
 				panel.innerHTML = '';
 				activeIndex = -1;
+				input.setAttribute('aria-expanded', 'false');
 				input.removeAttribute('aria-activedescendant');
 			};
 
 			const showPanel = () => {
 				panel.hidden = false;
+				input.setAttribute('aria-expanded', 'true');
 			};
 
 			// Memoise the LOAD PROMISE (not its value) so the input event that fires
@@ -353,6 +355,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 			const status = (msg) => {
 				showPanel();
+				// a bare <p> isn't valid inside role="listbox"; flip the panel to a live
+				// status region for messages, and back to listbox when options render.
+				panel.setAttribute('role', 'status');
 				panel.innerHTML = `<p class="ofs__status">${esc(msg)}</p>`;
 				activeIndex = -1;
 			};
@@ -363,13 +368,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 					return;
 				}
 				showPanel();
+				panel.setAttribute('role', 'listbox');
 				const rows = results
 					.map((r, i) => {
 						const url = esc(fixUrl(r.url));
 						const title = esc(r.meta?.title || r.url);
 						// Pagefind's excerpt already wraps matched terms in <mark>.
 						const excerpt = r.excerpt || '';
-						return `<a class="ofs__result" role="option" id="ofs-r${i}" href="${url}">
+						return `<a class="ofs__result" role="option" aria-selected="false" id="ofs-r${i}" href="${url}">
 							<span class="ofs__result-title">${title}</span>
 							<span class="ofs__result-excerpt">${excerpt}</span>
 						</a>`;
@@ -379,7 +385,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 				activeIndex = -1;
 			};
 
-			let seq = 0;
 			async function run(term) {
 				const mine = ++seq;
 				const mod = await loadPagefind();
@@ -410,7 +415,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 				const els = rows();
 				if (!els.length) return;
 				activeIndex = (i + els.length) % els.length;
-				els.forEach((el, n) => el.classList.toggle('is-active', n === activeIndex));
+				els.forEach((el, n) => {
+					const on = n === activeIndex;
+					el.classList.toggle('is-active', on);
+					el.setAttribute('aria-selected', on ? 'true' : 'false');
+				});
 				const el = els[activeIndex];
 				el.scrollIntoView({ block: 'nearest' });
 				input.setAttribute('aria-activedescendant', el.id);
@@ -430,12 +439,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 					setActive(activeIndex + 1);
 				} else if (e.key === 'ArrowUp') {
 					e.preventDefault();
-					setActive(activeIndex - 1);
+					// from no selection, ArrowUp lands on the LAST result
+					const n = rows().length;
+					setActive(activeIndex <= 0 ? n - 1 : activeIndex - 1);
 				} else if (e.key === 'Enter') {
+					// go to the highlighted result, or the first if none is highlighted
 					const els = rows();
-					if (activeIndex >= 0 && els[activeIndex]) {
+					if (els.length) {
 						e.preventDefault();
-						els[activeIndex].click();
+						(activeIndex >= 0 ? els[activeIndex] : els[0]).click();
 					}
 				}
 			});
@@ -459,7 +471,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 			document.addEventListener('keydown', (e) => {
 				if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
 					e.preventDefault();
-					open();
+					if (this.classList.contains('is-open')) input.focus();
+					else open();
 				}
 			});
 		}

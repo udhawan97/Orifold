@@ -826,6 +826,11 @@ html.theme-unchosen .theme-note { display: flex; }
 	.ff-copy { width: 100%; }
 	.only-wide { display: none; }
 	.landing-footer .row { align-items: flex-start; }
+	/* Below ~960px the wrap is too narrow for real right-margin, so the left-aligned
+	   numeral would sit on the copy — shrink it to a faint watermark and drop the
+	   right-aligned gloss (the centered watermark acts stay untouched). */
+	.act-head:not(.centered)::before, .seal-grid .act-head::before { font-size: clamp(4rem, 10vw, 6rem); top: -0.8rem; }
+	.act-head:not(.centered)::after { display: none; }
 }
 @media (max-width: 560px) {
 	.act { padding-block: 3.4rem; }
