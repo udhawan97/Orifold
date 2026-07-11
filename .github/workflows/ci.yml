@@ -79,10 +79,13 @@ jobs:
       - name: Swift Package tests
         run: swift test
 
-      - name: Generate Xcode project
+      - name: Generate and verify Xcode project
         run: |
           command -v xcodegen || brew install xcodegen
           xcodegen generate
+          git diff --exit-code -- \
+            Orifold.xcodeproj/project.pbxproj \
+            Orifold/Resources/Info.plist
 
       - name: Xcode build
         run: |

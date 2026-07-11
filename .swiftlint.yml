@@ -1,5 +1,6 @@
 excluded:
   - .build
+  - .claude/worktrees
   - Packages
   - docs-site
 
