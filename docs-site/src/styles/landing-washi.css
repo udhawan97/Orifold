@@ -856,3 +856,234 @@ html.theme-unchosen .theme-note { display: flex; }
 	.pet .fig, .pet .bubble { opacity: 1; transform: none; transition: none; }
 	body, .theme-toggle, .brand img { transition: none; }
 }
+
+/* ---- SVG showcase --------------------------------------------------------
+ * The supplied README artwork now carries the opening product story. The
+ * surrounding material is deliberately quiet: a wide Apple-like stage,
+ * generous type, and just enough glass/light to make the vector work feel
+ * dimensional without competing with it. */
+
+html { scroll-snap-type: y proximity; scroll-padding-top: 5.5rem; }
+main > section { scroll-snap-align: start; scroll-margin-top: 5.5rem; }
+
+#sheet .hero-grid {
+	grid-template-columns: minmax(0, 1fr);
+	gap: clamp(3rem, 7vw, 5.5rem);
+	min-height: auto;
+	padding: clamp(4.5rem, 9vh, 7.5rem) 0 clamp(5rem, 10vh, 8rem);
+}
+
+#sheet .hero-copy {
+	position: relative;
+	z-index: 2;
+	max-width: 61rem;
+	margin-inline: auto;
+	text-align: center;
+}
+
+#sheet h1 {
+	font-size: clamp(3.7rem, 8.2vw, 7.4rem);
+	line-height: 0.94;
+	letter-spacing: -0.045em;
+}
+
+#sheet .sub { max-width: 46rem; margin-inline: auto; }
+#sheet .btn-row,
+#sheet .meta-row { justify-content: center; }
+#sheet .theme-note { margin-inline: auto; text-align: left; }
+
+.hero-blueprint {
+	--py: 0px;
+	position: relative;
+	z-index: 1;
+	width: min(100%, 74rem);
+	margin: 0 auto;
+	transform: translateY(var(--py));
+	opacity: 0;
+	animation: of-blueprint-in 1.2s var(--ease-spring) 0.7s both;
+}
+
+@keyframes of-blueprint-in {
+	from { opacity: 0; transform: translateY(calc(var(--py) + 30px)) scale(0.975); }
+	to { opacity: 1; transform: translateY(var(--py)) scale(1); }
+}
+
+.blueprint-shell {
+	position: relative;
+	isolation: isolate;
+	overflow: hidden;
+	border: 1px solid rgb(148 163 184 / 18%);
+	border-radius: clamp(1rem, 2.4vw, 2rem);
+	background: #07111f;
+	box-shadow:
+		0 1px 0 rgb(255 255 255 / 12%) inset,
+		0 46px 110px -52px rgb(7 17 31 / 88%),
+		0 18px 48px -32px rgb(45 212 191 / 32%);
+	transition: transform 0.65s var(--ease-spring), box-shadow 0.65s ease;
+}
+
+.hero-blueprint:hover .blueprint-shell {
+	transform: translateY(-5px) scale(1.004);
+	box-shadow:
+		0 1px 0 rgb(255 255 255 / 14%) inset,
+		0 58px 130px -54px rgb(7 17 31 / 92%),
+		0 22px 62px -30px rgb(45 212 191 / 40%);
+}
+
+.theme-art { display: block; width: 100%; height: auto; }
+.mobile-svg-story { display: none; }
+
+.blueprint-glass {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+	background:
+		radial-gradient(32rem circle at var(--gx, 58%) var(--gy, 35%), rgb(255 255 255 / 10%), transparent 58%),
+		linear-gradient(112deg, transparent 38%, rgb(255 255 255 / 5%) 50%, transparent 62%);
+	mix-blend-mode: screen;
+}
+
+.blueprint-orbit {
+	position: absolute;
+	inset: 4% 8% -7%;
+	z-index: -1;
+	border-radius: 50%;
+	background: radial-gradient(ellipse, rgb(45 212 191 / 17%), rgb(56 189 248 / 9%) 42%, transparent 72%);
+	filter: blur(40px);
+	transform: translate3d(0, 0, 0);
+}
+
+.blueprint-caption {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-top: 1.15rem;
+	padding-inline: 0.5rem;
+	color: var(--faint);
+	font-size: 0.72rem;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+.blueprint-caption span:first-child { display: inline-flex; align-items: center; gap: 0.55rem; }
+.blueprint-caption i {
+	width: 0.48rem;
+	height: 0.48rem;
+	border-radius: 50%;
+	background: #2dd4bf;
+	box-shadow: 0 0 0.9rem rgb(45 212 191 / 85%);
+}
+
+.window-peek {
+	padding-block: clamp(4rem, 8vw, 7.5rem);
+	background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--card) 72%, transparent) 50%, transparent);
+}
+
+.promise-stage {
+	position: relative;
+	isolation: isolate;
+	padding-block: clamp(6rem, 14vh, 11rem);
+	overflow: hidden;
+}
+
+.promise-stage::before {
+	content: '';
+	position: absolute;
+	inset: 12% 5%;
+	z-index: -1;
+	background: radial-gradient(circle at 50% 55%, rgb(56 189 248 / 9%), transparent 60%);
+}
+
+.promise-copy { max-width: 49rem; margin: 0 auto clamp(2.6rem, 6vw, 4.5rem); text-align: center; }
+.promise-copy h2 { margin-inline: auto; }
+.promise-copy .lede { margin-inline: auto; }
+.promise-art { width: min(100%, 72rem); margin: 0 auto; }
+.promise-art .blueprint-shell { border-radius: clamp(1rem, 2vw, 1.65rem); }
+
+@media (max-width: 960px) {
+	#sheet .hero-grid { padding-top: 3.75rem; }
+	.hero-blueprint { order: initial; }
+	.promise-stage { padding-block: 5rem; }
+}
+
+@media (max-width: 960px) {
+	html { scroll-snap-type: none; }
+	#sheet .hero-grid { gap: 2.75rem; padding-block: 3.25rem 4.5rem; }
+	#sheet h1 { font-size: clamp(3.2rem, 16vw, 4.65rem); }
+	.hero-blueprint { width: calc(100% + 1.5rem); margin-left: -0.75rem; }
+	.blueprint-shell { border-radius: 1rem; }
+	.blueprint-shell > .theme-art { display: none; }
+	.mobile-svg-story { display: block; color: #e5eef7; }
+	.mobile-story-kicker {
+		margin: 0;
+		padding: 1.15rem 1rem 0;
+		color: #5eead4;
+		font-size: 0.65rem;
+		font-weight: 700;
+		letter-spacing: 0.16em;
+		text-align: center;
+		text-transform: uppercase;
+	}
+	.mobile-story-flow { display: grid; gap: 0.65rem; padding: 1rem; text-align: center; }
+	.mobile-story-flow > div {
+		display: grid;
+		gap: 0.18rem;
+		padding: 0.9rem;
+		border: 1px solid rgb(148 163 184 / 18%);
+		border-radius: 0.8rem;
+		background: rgb(15 28 46 / 88%);
+	}
+	.mobile-story-flow b { font-size: 0.94rem; }
+	.mobile-story-flow div:nth-of-type(2) b { color: #67e8f9; letter-spacing: 0.13em; text-transform: uppercase; }
+	.mobile-story-flow div span { color: #94a3b8; font-size: 0.72rem; }
+	.mobile-story-flow > span { height: 0.8rem; color: #a78bfa; font-size: 1rem; line-height: 0.8rem; transform: rotate(90deg); }
+	.mobile-story-stats {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		margin: 0;
+		padding: 1rem;
+		border-top: 1px solid rgb(148 163 184 / 14%);
+	}
+	.mobile-story-stats div { text-align: center; }
+	.mobile-story-stats dt { color: #67e8f9; font-size: 1.15rem; font-weight: 700; }
+	.mobile-story-stats div:nth-child(3) dt { color: #a78bfa; }
+	.mobile-story-stats div:nth-child(4) dt { color: #fbbf24; }
+	.mobile-story-stats dd { margin: 0.1rem 0 0; color: #94a3b8; font-size: 0.62rem; }
+	.mobile-promise-story { padding: 0.8rem; }
+	.mobile-promise-story article {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 0.8rem;
+		align-items: start;
+		padding: 1rem 0.75rem;
+		border-bottom: 1px solid rgb(148 163 184 / 14%);
+	}
+	.mobile-promise-story article:last-child { border-bottom: 0; }
+	.mobile-promise-story article > span { color: #5eead4; font: 700 0.65rem var(--sans); letter-spacing: 0.12em; }
+	.mobile-promise-story b { color: #f1f5f9; font-size: 0.88rem; letter-spacing: 0.08em; text-transform: uppercase; }
+	.mobile-promise-story p { margin: 0.25rem 0 0; color: #94a3b8; font-size: 0.75rem; line-height: 1.45; }
+	.blueprint-caption { align-items: flex-start; font-size: 0.62rem; letter-spacing: 0.06em; }
+	.blueprint-caption span:last-child { text-align: right; }
+	.promise-art { width: calc(100% + 1.2rem); margin-left: -0.6rem; }
+}
+
+@media (min-width: 641px) and (max-width: 960px) {
+	#sheet h1 { font-size: clamp(4.2rem, 10vw, 5.6rem); }
+	.mobile-story-flow {
+		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+		align-items: center;
+		padding: 1.35rem;
+	}
+	.mobile-story-flow > span { width: 1rem; height: auto; line-height: 1; transform: none; }
+	.mobile-promise-story { display: grid; grid-template-columns: repeat(3, 1fr); padding: 1rem; }
+	.mobile-promise-story article { border-right: 1px solid rgb(148 163 184 / 14%); border-bottom: 0; }
+	.mobile-promise-story article:last-child { border-right: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html { scroll-snap-type: none; }
+	.hero-blueprint { opacity: 1; transform: none; animation: none; }
+	.hero-blueprint:hover .blueprint-shell { transform: none; }
+}

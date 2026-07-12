@@ -16,7 +16,6 @@ import site from '../data/site.json';
 import stats from '../data/stats.json';
 import { getRelease } from '../lib/release';
 
-import craneFold from '../assets/orifold-crane-fold.svg?raw';
 import gamiWag from '../assets/pets/gami-wag.svg?raw';
 import oriTwitch from '../assets/pets/ori-twitch.svg?raw';
 
@@ -281,12 +280,30 @@ const heroBadges = [
 								</button>
 							</p>
 						</div>
-						<figure class="hero-crane" id="hero-crane" aria-label="The Orifold mark — one sheet folding into a crane">
-							<span class="crane-glow" aria-hidden="true"></span>
-							<figcaption class="cap"><b>折</b> · One sheet, folded</figcaption>
-							<div class="crane-art" set:html={craneFold}></div>
-							<span class="crane-sheen" aria-hidden="true"></span>
-							<div class="panel-word">ORIFOLD</div>
+						<figure class="hero-blueprint" id="hero-crane" aria-labelledby="hero-blueprint-caption" data-load="8">
+							<div class="blueprint-orbit" aria-hidden="true"></div>
+							<div class="blueprint-shell">
+								<img class="theme-art" src={`${base}/assets/hero-banner-light.svg`} width="1080" height="536" alt="Fifty messy files flow through Orifold's local merge, OCR, signing, compression, and encryption tools to become one polished, searchable, password-protected PDF. Up to 50 files per workspace, zero files uploaded, 12-plus PDF tools, and free forever." />
+								<div class="mobile-svg-story" aria-label="Orifold workflow and product facts">
+									<p class="mobile-story-kicker">Nothing leaves your Mac</p>
+									<div class="mobile-story-flow">
+										<div><b>50 messy files</b><span>PDFs, scans, notes</span></div>
+										<span aria-hidden="true">→</span>
+										<div><b>Orifold</b><span>Merge · OCR · Sign · Protect</span></div>
+										<span aria-hidden="true">→</span>
+										<div><b>One clean PDF</b><span>Searchable and secured</span></div>
+									</div>
+									<dl class="mobile-story-stats">
+										<div><dt>50</dt><dd>files</dd></div><div><dt>0</dt><dd>uploads</dd></div>
+										<div><dt>12+</dt><dd>tools</dd></div><div><dt>$0</dt><dd>forever</dd></div>
+									</dl>
+								</div>
+								<span class="blueprint-glass" aria-hidden="true"></span>
+							</div>
+							<figcaption id="hero-blueprint-caption" class="blueprint-caption">
+								<span><i aria-hidden="true"></i> One local workspace</span>
+								<span>50 files in · one polished PDF out</span>
+							</figcaption>
 						</figure>
 					</div>
 					<ul class="kanji-rail" aria-hidden="true">
@@ -307,6 +324,28 @@ const heroBadges = [
 							<img src={cap('the-orifold-window-annotated.png')} width="1600" height="1000" loading="lazy" decoding="async" alt="The Orifold workspace: a document sidebar on the left, a PDF open on the canvas, a floating markup toolbar across the top, and the paper companion resting in the corner." />
 						</div>
 						<figcaption class="tabnum">Real capture — Orifold v{rel.version}. Sidebar, canvas, markup toolbar — and a paper companion keeping an eye on things.</figcaption>
+					</figure>
+				</div>
+			</section>
+
+			<!-- The promise — the second supplied SVG becomes a quiet, full-width
+			     product manifesto between the opening proof and the workflow story. -->
+			<section class="promise-stage snap-stage" aria-labelledby="promise-title">
+				<div class="wrap">
+					<div class="promise-copy" data-reveal>
+						<p class="kicker">The quiet promise</p>
+						<h2 id="promise-title">Your document stays yours.</h2>
+						<p class="lede">No account to create. No cloud to trust. No subscription waiting at the end of the workflow.</p>
+					</div>
+					<figure class="promise-art" data-reveal>
+						<div class="blueprint-shell">
+							<img class="theme-art" src={`${base}/assets/value-props-light.svg`} width="1080" height="220" loading="lazy" decoding="async" alt="No account: nothing to sign up for. No upload: every merge, OCR pass, and export stays on-device with zero telemetry. No subscription: Orifold is free and open source under Apache 2.0." />
+							<div class="mobile-svg-story mobile-promise-story">
+								<article><span aria-hidden="true">01</span><div><b>No account</b><p>Nothing to sign up for. Open the app and drop files in.</p></div></article>
+								<article><span aria-hidden="true">02</span><div><b>No upload</b><p>Every merge, OCR pass, and export stays on your Mac.</p></div></article>
+								<article><span aria-hidden="true">03</span><div><b>No subscription</b><p>Free and open source. Apache 2.0.</p></div></article>
+							</div>
+						</div>
 					</figure>
 				</div>
 			</section>
@@ -927,61 +966,6 @@ const heroBadges = [
 							{ rootMargin: '-45% 0px -50%' }
 						);
 						navSections.forEach(function (s) { navIO.observe(s); });
-					}
-				}
-
-				// ── hero crane: play once, then freeze on the held crane pose ──
-				// This is the real animated brand mark (orifold-crane-fold.svg). Its SMIL
-				// animations all loop indefinitely over a 7.6s cycle, so the settle time
-				// must land on the fully-formed crane pose (WITH its tancho crown visible):
-				// verified frame-by-frame, 3.2s sits centered in the held window. That
-				// window is only ~300ms wide and setTimeout drifts under load, so we poll
-				// the SVG's own getCurrentTime() every animation frame and pause the
-				// instant it crosses the target — locked to the real clock.
-				var heroCrane = document.getElementById('hero-crane');
-				var craneArt = heroCrane && heroCrane.querySelector('.crane-art');
-				var heroCraneSvg = craneArt && craneArt.querySelector('svg');
-				if (heroCraneSvg && heroCraneSvg.pauseAnimations) {
-					var settleTime = 3.2;
-					var craneSettled = false;
-					// Snap to the held crane pose and freeze there, exactly once. Called both
-					// from the rAF poll below (the normal foreground-load path) AND from a
-					// visibilitychange listener — rAF is fully suspended in background tabs,
-					// so a page opened in a background tab may never get a single callback
-					// while hidden. Jumping straight to settleTime on becoming visible
-					// guarantees a correct, crown-visible pose the instant it is looked at.
-					var settleCrane = function () {
-						if (craneSettled) return;
-						try {
-							if (heroCraneSvg.getCurrentTime() !== settleTime) heroCraneSvg.setCurrentTime(settleTime);
-							heroCraneSvg.pauseAnimations();
-						} catch (e) {
-							return;
-						}
-						craneSettled = true;
-						// The crane holds its crown-visible pose: one quiet gleam across the
-						// tile (crest-lit → .crane-sheen one-shot) and a gentle float after.
-						if (heroCrane) heroCrane.classList.add('crest-lit');
-						if (craneArt) craneArt.classList.add('crane-settled');
-					};
-					if (reduce) {
-						settleCrane();
-					} else {
-						(function watchSettle() {
-							if (craneSettled) return;
-							try {
-								if (heroCraneSvg.getCurrentTime() >= settleTime) {
-									settleCrane();
-									return;
-								}
-							} catch (e) {
-								return;
-							}
-							requestAnimationFrame(watchSettle);
-						})();
-						document.addEventListener('visibilitychange', function () {
-							if (!document.hidden) settleCrane();
-						});
 					}
 				}
 
