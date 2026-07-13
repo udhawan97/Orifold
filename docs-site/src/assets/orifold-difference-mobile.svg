@@ -1,0 +1,212 @@
+<svg
+  id="orifold-difference-mobile"
+  viewBox="0 0 390 640"
+  xmlns="http://www.w3.org/2000/svg"
+  role="img"
+  aria-labelledby="difference-mobile-title difference-mobile-desc"
+>
+  <title id="difference-mobile-title">Orifold skips the PDF market's upload, subscription, and app-hopping detour</title>
+  <desc id="difference-mobile-desc">Scattered documents move through one native, on-device Orifold workspace and become one polished PDF, with zero uploads and no subscription.</desc>
+  <defs>
+    <linearGradient id="difference-mobile-stage" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="var(--difference-stage-a, #10233a)" />
+      <stop offset="0.55" stop-color="var(--difference-stage-b, #0d1b2a)" />
+      <stop offset="1" stop-color="var(--difference-stage-c, #091521)" />
+    </linearGradient>
+    <linearGradient id="difference-mobile-panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="var(--difference-panel-a, #172b43)" />
+      <stop offset="1" stop-color="var(--difference-panel-b, #0d1b2a)" />
+    </linearGradient>
+    <linearGradient id="difference-mobile-blue" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="var(--indigo, #2b4566)" />
+      <stop offset="0.55" stop-color="var(--ice-deep, #3d6d96)" />
+      <stop offset="1" stop-color="var(--ice, #75bfd4)" />
+    </linearGradient>
+    <linearGradient id="difference-mobile-paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffdfa" />
+      <stop offset="1" stop-color="#d6e1e8" />
+    </linearGradient>
+    <linearGradient id="difference-mobile-paper-shade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dfe8ed" />
+      <stop offset="1" stop-color="#aebfca" />
+    </linearGradient>
+    <radialGradient id="difference-mobile-aura">
+      <stop offset="0" stop-color="var(--ice, #75bfd4)" stop-opacity="0.3" />
+      <stop offset="0.6" stop-color="var(--ice, #75bfd4)" stop-opacity="0.07" />
+      <stop offset="1" stop-color="var(--ice, #75bfd4)" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="difference-mobile-dots" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="0.8" fill="var(--difference-grid, #9ed4e8)" opacity="0.12" />
+    </pattern>
+    <filter id="difference-mobile-shadow" x="-35%" y="-35%" width="170%" height="170%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#020817" flood-opacity="0.34" />
+    </filter>
+    <clipPath id="difference-mobile-clip"><rect x="1" y="1" width="388" height="638" rx="20" /></clipPath>
+    <style>
+      #orifold-difference-mobile {
+        display: block;
+        width: 100%;
+        height: auto;
+        color: var(--difference-ink, #edf4f8);
+        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #orifold-difference-mobile .eyebrow { fill: var(--difference-muted, #93a5b5); font-size: 10px; font-weight: 700; letter-spacing: 2px; }
+      #orifold-difference-mobile .headline { fill: var(--difference-ink, #edf4f8); font-family: Fraunces, "Iowan Old Style", Georgia, serif; font-size: 25px; font-weight: 500; }
+      #orifold-difference-mobile .label { fill: var(--difference-ink, #edf4f8); font-size: 11px; font-weight: 700; letter-spacing: 1.1px; }
+      #orifold-difference-mobile .body { fill: var(--difference-muted, #93a5b5); font-size: 10px; font-weight: 500; }
+      #orifold-difference-mobile .micro { fill: var(--difference-muted, #93a5b5); font-size: 8px; font-weight: 700; letter-spacing: 1.1px; }
+      #orifold-difference-mobile .metric { fill: var(--difference-ice, #9ed4e8); font-family: Fraunces, "Iowan Old Style", Georgia, serif; font-size: 24px; font-weight: 500; }
+      #orifold-difference-mobile .panel-stroke { stroke: var(--difference-line, #9ed4e8); stroke-opacity: 0.18; }
+      #orifold-difference-mobile .friction-stroke { stroke: var(--crest, #c13a2a); }
+      #orifold-difference-mobile .route { stroke-dasharray: 8 6; animation: difference-mobile-route 1.1s linear infinite; }
+      #orifold-difference-mobile .gate { transform-box: fill-box; transform-origin: center; animation: difference-mobile-gate 5.4s ease-in-out infinite; }
+      #orifold-difference-mobile .gate-two { animation-delay: -1.8s; }
+      #orifold-difference-mobile .gate-three { animation-delay: -3.6s; }
+      #orifold-difference-mobile .pulse { transform-box: fill-box; transform-origin: center; animation: difference-mobile-pulse 2.3s ease-out infinite; }
+      #orifold-difference-mobile .aura { transform-box: fill-box; transform-origin: center; animation: difference-mobile-breathe 4s ease-in-out infinite; }
+      #orifold-difference-mobile .crane { transform-box: fill-box; transform-origin: center; animation: difference-mobile-hover 4s ease-in-out infinite; }
+      #orifold-difference-mobile .wing { transform-box: fill-box; transform-origin: 72% 72%; animation: difference-mobile-wing 4s ease-in-out infinite; }
+      #orifold-difference-mobile .files { transform-box: fill-box; transform-origin: center; animation: difference-mobile-files 4s ease-in-out infinite; }
+      #orifold-difference-mobile .output { transform-box: fill-box; transform-origin: center; animation: difference-mobile-output 7s ease-in-out infinite; }
+      #orifold-difference-mobile .check { stroke-dasharray: 28; animation: difference-mobile-check 7s ease-in-out infinite; }
+      #orifold-difference-mobile .spark { offset-path: path("M100 360 C133 360 143 348 165 348"); animation: difference-mobile-travel 1.5s linear infinite; }
+      #orifold-difference-mobile .spark-out { offset-path: path("M229 348 C250 348 260 360 291 360"); animation: difference-mobile-travel 1.35s linear infinite; }
+      #orifold-difference-mobile .spark-two { animation-delay: -0.7s; }
+      @keyframes difference-mobile-route { to { stroke-dashoffset: -28; } }
+      @keyframes difference-mobile-gate { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+      @keyframes difference-mobile-pulse { 0% { opacity: .55; transform: scale(.65); } 72%,100% { opacity: 0; transform: scale(1.55); } }
+      @keyframes difference-mobile-breathe { 0%,100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.05); } }
+      @keyframes difference-mobile-hover { 0%,100% { transform: translateY(1px) rotate(-.4deg); } 50% { transform: translateY(-4px) rotate(.5deg); } }
+      @keyframes difference-mobile-wing { 0%,100% { transform: rotate(-1deg); } 50% { transform: rotate(2.3deg); } }
+      @keyframes difference-mobile-files { 0%,100% { transform: translateY(2px) rotate(-1deg); } 50% { transform: translateY(-3px) rotate(1deg); } }
+      @keyframes difference-mobile-output { 0%,13%,100% { opacity: 1; transform: none; } 20% { opacity: 0; transform: translateY(-4px); } 27% { opacity: 0; transform: translateX(-10px) scale(.96); } 39% { opacity: 1; transform: none; } }
+      @keyframes difference-mobile-check { 0%,18%,100% { stroke-dashoffset: 0; } 27%,42% { stroke-dashoffset: 28; } 55% { stroke-dashoffset: 0; } }
+      @keyframes difference-mobile-travel { 0% { opacity: 0; offset-distance: 0%; } 18%,82% { opacity: 1; } 100% { opacity: 0; offset-distance: 100%; } }
+      @media (prefers-reduced-motion: reduce) {
+        #orifold-difference-mobile * { animation: none !important; }
+        #orifold-difference-mobile .output { opacity: 1; transform: none; }
+        #orifold-difference-mobile .check { stroke-dashoffset: 0; }
+        #orifold-difference-mobile .spark { display: none; }
+      }
+      .no-motion #orifold-difference-mobile * { animation: none !important; }
+      .no-motion #orifold-difference-mobile .output { opacity: 1; transform: none; }
+      .no-motion #orifold-difference-mobile .check { stroke-dashoffset: 0; }
+      .no-motion #orifold-difference-mobile .spark { display: none; }
+    </style>
+  </defs>
+
+  <g clip-path="url(#difference-mobile-clip)">
+    <rect x="1" y="1" width="388" height="638" rx="20" fill="url(#difference-mobile-stage)" />
+    <rect x="1" y="1" width="388" height="638" rx="20" fill="url(#difference-mobile-dots)" />
+    <path d="M0 132 174 0M390 141 232 0M0 492l196 148m194-154L211 640M195 0v640" fill="none" class="panel-stroke" stroke-width="1" stroke-opacity="0.36" />
+
+    <text x="24" y="35" class="eyebrow">THE PDF MARKET TAKES THE LONG WAY</text>
+    <text x="24" y="69" class="headline">Orifold takes the short way.</text>
+    <text x="24" y="91" class="body">No upload wait. No paywall. No six-app relay race.</text>
+
+    <rect x="24" y="112" width="342" height="104" rx="18" fill="url(#difference-mobile-panel)" class="panel-stroke" />
+    <text x="42" y="137" class="micro" fill="var(--crest, #c13a2a)">THE DETOUR</text>
+    <path d="M45 177h298" fill="none" class="friction-stroke route" stroke-width="1.5" stroke-opacity="0.55" />
+
+    <g class="gate">
+      <circle cx="78" cy="177" r="22" fill="var(--crest, #c13a2a)" opacity="0.09" />
+      <circle class="pulse friction-stroke" cx="78" cy="177" r="18" fill="none" />
+      <path d="M72 178v-4a6 6 0 0 1 12 0v4m-14 0h16v12H70z" fill="none" class="friction-stroke" stroke-width="2" stroke-linecap="round" />
+      <text x="78" y="205" text-anchor="middle" class="micro">UPLOAD</text>
+    </g>
+    <g class="gate gate-two">
+      <circle cx="195" cy="177" r="22" fill="var(--crest, #c13a2a)" opacity="0.09" />
+      <path d="M195 166v22m-6-17c0-4 12-4 12 1s-12 4-12 9 12 5 12 1" fill="none" class="friction-stroke" stroke-width="2" stroke-linecap="round" />
+      <text x="195" y="205" text-anchor="middle" class="micro">RENT</text>
+    </g>
+    <g class="gate gate-three">
+      <circle cx="312" cy="177" r="22" fill="var(--crest, #c13a2a)" opacity="0.09" />
+      <path d="M304 171a11 11 0 0 1 18 0m0 12a11 11 0 0 1-18 0" fill="none" class="friction-stroke" stroke-width="2" stroke-linecap="round" />
+      <text x="312" y="205" text-anchor="middle" class="micro">APP-HOP</text>
+    </g>
+
+    <rect x="117" y="230" width="156" height="25" rx="12.5" fill="var(--difference-ice, #9ed4e8)" opacity="0.09" class="panel-stroke" />
+    <circle cx="132" cy="242.5" r="3.5" fill="#5eead4" />
+    <text x="195" y="246" text-anchor="middle" class="micro" fill="var(--difference-ice, #9ed4e8)">SKIP THE DETOUR</text>
+
+    <rect x="24" y="270" width="342" height="252" rx="24" fill="url(#difference-mobile-panel)" class="panel-stroke" filter="url(#difference-mobile-shadow)" />
+    <circle class="aura" cx="195" cy="357" r="104" fill="url(#difference-mobile-aura)" />
+    <text x="195" y="296" text-anchor="middle" class="micro" fill="var(--difference-ice, #9ed4e8)">ONE NATIVE WORKSPACE</text>
+
+    <g transform="translate(49 326)">
+      <g class="files">
+        <path d="M0 12h35l11 11v58H0z" fill="url(#difference-mobile-paper-shade)" transform="translate(-6 -8) rotate(-8 20 42)" opacity="0.52" />
+        <path d="M0 8h35l11 11v58H0z" fill="url(#difference-mobile-paper-shade)" transform="translate(-2 -3) rotate(-4 20 42)" opacity="0.75" />
+        <path d="M0 0h35l11 11v58H0z" fill="url(#difference-mobile-paper)" />
+        <path d="M35 0v11h11M9 26h27M9 37h23M9 48h25" fill="none" stroke="#7892a5" stroke-width="2" stroke-linecap="round" opacity="0.7" />
+      </g>
+    </g>
+
+    <path d="M100 360 C133 360 143 348 165 348" fill="none" stroke="var(--difference-ice, #9ed4e8)" class="route" stroke-width="2" stroke-opacity="0.6" />
+    <circle class="spark" r="3.2" fill="var(--difference-ice, #9ed4e8)" />
+    <circle class="spark spark-two" r="2" fill="#fff" />
+
+    <g transform="translate(128 294) scale(.38)">
+      <g class="crane">
+        <g class="wing">
+          <polygon points="190.4,176.8 79.9,44.2 142.8,185.3" fill="url(#difference-mobile-paper-shade)" />
+          <polygon points="221,176.8 79.9,44.2 190.4,176.8" fill="url(#difference-mobile-paper)" />
+        </g>
+        <polygon points="171.7,159.8 176.8,258.4 129.2,204" fill="url(#difference-mobile-paper-shade)" />
+        <polygon points="171.7,159.8 207.4,204 176.8,258.4" fill="url(#difference-mobile-paper)" />
+        <polygon points="146.2,224.4 51,263.5 139.4,239.7" fill="url(#difference-mobile-paper)" />
+        <polygon points="139.4,239.7 51,263.5 134.3,253.3" fill="url(#difference-mobile-paper-shade)" />
+        <polygon points="190.4,176.8 244.8,102 207.4,190.4" fill="url(#difference-mobile-paper)" />
+        <polygon points="207.4,190.4 244.8,102 226.1,195.5" fill="url(#difference-mobile-paper-shade)" />
+        <polygon points="244.8,102 259.1,81.6 238,117.3" fill="url(#difference-mobile-paper)" />
+        <polygon points="259.1,81.6 289,102 242.1,108.8" fill="url(#difference-mobile-paper-shade)" />
+        <polygon points="246.8,101.3 259.1,83.6 265.9,97.9" fill="var(--crest, #c13a2a)" />
+        <circle cx="269" cy="99" r="2.7" fill="#152231" />
+      </g>
+    </g>
+
+    <path d="M229 348 C250 348 260 360 291 360" fill="none" stroke="var(--difference-ice, #9ed4e8)" class="route" stroke-width="2" stroke-opacity="0.6" />
+    <circle class="spark-out" r="3.2" fill="var(--difference-ice, #9ed4e8)" />
+    <circle class="spark-out spark-two" r="2" fill="#fff" />
+
+    <g transform="translate(294 319)">
+      <g class="output">
+        <path d="M0 0h38l11 11v66H0z" fill="url(#difference-mobile-paper)" />
+        <path d="M38 0v11h11M9 24h30M9 34h25M9 44h28" fill="none" stroke="#7892a5" stroke-width="2" stroke-linecap="round" opacity="0.7" />
+        <circle cx="16" cy="61" r="10" fill="url(#difference-mobile-blue)" />
+        <path class="check" d="m11 61 4 4 7-9" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      </g>
+    </g>
+
+    <g transform="translate(51 430)">
+      <rect width="66" height="28" rx="14" fill="var(--difference-panel-a, #172b43)" class="panel-stroke" />
+      <text x="33" y="18" text-anchor="middle" class="micro">OCR</text>
+      <rect x="74" width="66" height="28" rx="14" fill="var(--difference-panel-a, #172b43)" class="panel-stroke" />
+      <text x="107" y="18" text-anchor="middle" class="micro">EDIT</text>
+      <rect x="148" width="66" height="28" rx="14" fill="var(--difference-panel-a, #172b43)" class="panel-stroke" />
+      <text x="181" y="18" text-anchor="middle" class="micro">SIGN</text>
+      <rect x="222" width="66" height="28" rx="14" fill="var(--difference-panel-a, #172b43)" class="panel-stroke" />
+      <text x="255" y="18" text-anchor="middle" class="micro">PROTECT</text>
+    </g>
+    <text x="195" y="493" text-anchor="middle" class="label">SCATTERED FILES → ONE POLISHED PDF</text>
+
+    <g transform="translate(30 544)">
+      <text x="43" y="24" text-anchor="middle" class="metric">0</text>
+      <text x="43" y="43" text-anchor="middle" class="micro">UPLOADS</text>
+      <path d="M92 0v48" class="panel-stroke" />
+      <text x="165" y="24" text-anchor="middle" class="metric">1</text>
+      <text x="165" y="43" text-anchor="middle" class="micro">WORKSPACE</text>
+      <path d="M238 0v48" class="panel-stroke" />
+      <text x="299" y="24" text-anchor="middle" class="metric">$0</text>
+      <text x="299" y="43" text-anchor="middle" class="micro">FOREVER</text>
+    </g>
+    <path d="M24 604h342" class="panel-stroke" />
+    <circle cx="44" cy="622" r="3.5" fill="#5eead4" />
+    <text x="57" y="625" class="micro">NATIVE macOS</text>
+    <circle cx="168" cy="622" r="2" fill="var(--difference-muted, #93a5b5)" />
+    <text x="179" y="625" class="micro">ON-DEVICE</text>
+    <circle cx="271" cy="622" r="2" fill="var(--difference-muted, #93a5b5)" />
+    <text x="282" y="625" class="micro">OPEN SOURCE</text>
+  </g>
+  <rect x="1" y="1" width="388" height="638" rx="20" fill="none" class="panel-stroke" />
+</svg>

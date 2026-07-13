@@ -17,6 +17,8 @@ import stats from '../data/stats.json';
 import { getRelease } from '../lib/release';
 
 import craneFold from '../assets/orifold-crane-fold.svg?raw';
+import differenceFlight from '../assets/orifold-difference.svg?raw';
+import differenceFlightMobile from '../assets/orifold-difference-mobile.svg?raw';
 import gamiWag from '../assets/pets/gami-wag.svg?raw';
 import oriTwitch from '../assets/pets/ori-twitch.svg?raw';
 
@@ -547,11 +549,10 @@ const heroBadges = [
 						</div>
 					</div>
 
-					<figure class="shot act-figure" data-reveal>
-						<div class="frame mid">
-							<img src={cap('language-switcher.png')} width="1200" height="752" loading="lazy" decoding="async" alt="Orifold's welcome screen: the app open with Gami in the corner and a language menu showing English, Español, Français, हिन्दी, 简体中文, 日本語." />
-						</div>
-						<figcaption class="tabnum">Real capture — Orifold v{rel.version}. Not a render — Gami greets you in the app, in six languages.</figcaption>
+					<figure class="shot act-figure difference-figure" data-reveal>
+						<div class="difference-stage difference-stage-desktop" set:html={differenceFlight}></div>
+						<div class="difference-stage difference-stage-mobile" set:html={differenceFlightMobile}></div>
+						<figcaption>The market adds gates. Orifold removes them — one native, on-device workspace from scattered files to a finished PDF.</figcaption>
 					</figure>
 				</div>
 			</section>

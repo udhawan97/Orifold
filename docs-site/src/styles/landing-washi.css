@@ -712,6 +712,44 @@ html.theme-unchosen .theme-note { display: flex; }
 .guide h3 { margin: 0 0 0.45rem; font-size: 0.86rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 .guide p { margin: 0; color: var(--muted); font-size: 0.88rem; line-height: 1.7; }
 
+/* The market-comparison flight: a wide, theme-aware SVG replaces the old
+ * language-switcher screenshot. Variables are passed into the inline SVG so
+ * the illustration changes with the site's paper / ink-night toggle. */
+.difference-figure { width: min(100%, 67.5rem); margin-inline: auto; }
+.difference-stage {
+	--difference-stage-a: #16304a;
+	--difference-stage-b: #0d1b2a;
+	--difference-stage-c: #08131f;
+	--difference-panel-a: #172b43;
+	--difference-panel-b: #0b1827;
+	--difference-ink: #edf4f8;
+	--difference-muted: #93a9b9;
+	--difference-ice: #a7dced;
+	--difference-line: #9ed4e8;
+	--difference-grid: #8cc6dc;
+	--difference-soft: #9ed4e8;
+	overflow: hidden;
+	border: 1px solid color-mix(in srgb, var(--indigo) 46%, transparent);
+	border-radius: clamp(1rem, 2.5vw, 1.75rem);
+	background: var(--night);
+	box-shadow: 0 38px 86px -46px rgb(13 27 42 / 74%);
+	transform: translateZ(0);
+}
+.difference-stage svg { display: block; width: 100%; height: auto; }
+.difference-stage-mobile { display: none; }
+[data-theme='dark'] .difference-stage {
+	--difference-stage-a: #10243a;
+	--difference-stage-b: #091725;
+	--difference-stage-c: #06111c;
+	--difference-panel-a: #152a42;
+	--difference-panel-b: #0a1726;
+	--difference-ink: #edf5f9;
+	--difference-muted: #9bb0c0;
+	--difference-ice: #b5e2f0;
+	border-color: rgb(158 212 232 / 24%);
+	box-shadow: 0 42px 90px -42px rgb(0 0 0 / 82%);
+}
+
 .update-when { text-align: center; max-width: 60ch; margin-top: clamp(2.2rem, 4vw, 3rem); }
 .centered-row { text-align: center; }
 
@@ -929,6 +967,12 @@ html.theme-unchosen .theme-note { display: flex; }
 	   right-aligned gloss (the centered watermark acts stay untouched). */
 	.act-head:not(.centered)::before, .seal-grid .act-head::before { font-size: clamp(4rem, 10vw, 6rem); top: -0.8rem; }
 	.act-head:not(.centered)::after { display: none; }
+}
+@media (max-width: 640px) {
+	.difference-figure { width: calc(100% + 1.5rem); margin-left: -0.75rem; }
+	.difference-stage { border-radius: 0.9rem; }
+	.difference-stage-desktop { display: none; }
+	.difference-stage-mobile { display: block; }
 }
 @media (max-width: 560px) {
 	.act { padding-block: 3.4rem; }
