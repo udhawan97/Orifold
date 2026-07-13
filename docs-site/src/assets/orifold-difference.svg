@@ -98,6 +98,12 @@
         font-weight: 720;
         letter-spacing: 1.25px;
       }
+      #orifold-difference .friction-summary {
+        fill: var(--difference-ink, #eaf0f5);
+        font-size: 10.5px;
+        font-weight: 740;
+        letter-spacing: 0.65px;
+      }
       #orifold-difference .metric {
         fill: var(--difference-ice, #9ed4e8);
         font-family: Fraunces, "Iowan Old Style", Georgia, serif;
@@ -108,6 +114,14 @@
       #orifold-difference .crease { stroke: var(--difference-grid, #9ed4e8); stroke-opacity: 0.075; }
       #orifold-difference .blue-stroke { stroke: var(--difference-ice, #9ed4e8); }
       #orifold-difference .friction-stroke { stroke: var(--crest, #c13a2a); }
+      #orifold-difference .friction-icon {
+        fill: none;
+        stroke: var(--crest, #c13a2a);
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vector-effect: non-scaling-stroke;
+      }
 
       #orifold-difference .detour-route {
         stroke-dasharray: 4 10;
@@ -199,10 +213,10 @@
       @keyframes difference-wing { 0%, 100% { transform: rotate(-.8deg); } 50% { transform: rotate(2.2deg); } }
       @keyframes difference-tool { 0%, 100% { opacity: .72; transform: scale(.97); } 50% { opacity: 1; transform: scale(1.04); } }
       @keyframes difference-output {
-        0%, 13%, 100% { opacity: 1; transform: none; }
-        20% { opacity: 0; transform: translateY(-5px); }
-        27% { opacity: 0; transform: translateX(-14px) scale(.96); }
-        39% { opacity: 1; transform: none; }
+        0%, 12%, 100% { opacity: 1; transform: none; }
+        24% { opacity: .82; transform: translateY(-3px) scale(.985); }
+        34% { opacity: .9; transform: translateY(2px) scale(.99); }
+        46% { opacity: 1; transform: none; }
       }
       @keyframes difference-write {
         0%, 16%, 100% { opacity: 1; transform: scaleX(1); }
@@ -257,23 +271,33 @@
 
       <g class="gate">
         <rect x="88" y="220" width="220" height="62" rx="15" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
-        <circle cx="116" cy="251" r="17" fill="var(--crest, #c13a2a)" opacity=".11" />
-        <circle class="pulse friction-stroke" cx="116" cy="251" r="15" fill="none" />
-        <path d="M110 253v-4a6 6 0 0 1 12 0v4m-14 0h16v12h-16z" fill="none" class="friction-stroke" stroke-width="2" stroke-linecap="round" />
+        <rect x="99" y="234" width="34" height="34" rx="10" fill="var(--crest, #c13a2a)" fill-opacity=".1" class="friction-stroke" stroke-opacity=".34" />
+        <rect class="pulse friction-stroke" x="101" y="236" width="30" height="30" rx="9" fill="none" />
+        <g transform="translate(104 239)" class="friction-icon">
+          <path d="M6.2 18.5H18a4.2 4.2 0 0 0 .5-8.4A6.6 6.6 0 0 0 6 8.4a5.1 5.1 0 0 0 .2 10.1Z" />
+          <path d="M12 16V8.5m-3 3 3-3 3 3" />
+        </g>
         <text x="143" y="247" class="label">ACCOUNT + UPLOAD</text>
         <text x="143" y="265" class="body">Wait for the cloud</text>
       </g>
       <g class="gate gate-two">
         <rect x="88" y="304" width="220" height="62" rx="15" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
-        <circle cx="116" cy="335" r="17" fill="var(--crest, #c13a2a)" opacity=".11" />
-        <path d="M116 324v22m-6-17c0-4 12-4 12 1s-12 4-12 9 12 5 12 1" fill="none" class="friction-stroke" stroke-width="2" stroke-linecap="round" />
+        <rect x="99" y="318" width="34" height="34" rx="10" fill="var(--crest, #c13a2a)" fill-opacity=".1" class="friction-stroke" stroke-opacity=".34" />
+        <g transform="translate(104 323)" class="friction-icon">
+          <rect x="3" y="5" width="18" height="14" rx="2.5" />
+          <path d="M3 9.5h18M7 15h4" />
+        </g>
         <text x="143" y="331" class="label">SUBSCRIPTION GATE</text>
-        <text x="143" y="349" class="body">Rent the next step</text>
+        <text x="143" y="349" class="body">Pay to keep moving</text>
       </g>
       <g class="gate gate-three">
         <rect x="88" y="388" width="220" height="62" rx="15" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
-        <circle cx="116" cy="419" r="17" fill="var(--crest, #c13a2a)" opacity=".11" />
-        <path d="M108 413a11 11 0 0 1 18 0m0 12a11 11 0 0 1-18 0" fill="none" class="friction-stroke" stroke-width="2" stroke-linecap="round" />
+        <rect x="99" y="402" width="34" height="34" rx="10" fill="var(--crest, #c13a2a)" fill-opacity=".1" class="friction-stroke" stroke-opacity=".34" />
+        <g transform="translate(104 407)" class="friction-icon">
+          <rect x="3" y="4" width="13" height="12" rx="2" />
+          <path d="M8 20h11a2 2 0 0 0 2-2V9" />
+          <path d="m13 10 3 3-3 3" />
+        </g>
         <text x="143" y="415" class="label">APP HOPPING</text>
         <text x="143" y="433" class="body">Merge · edit · sign · repeat</text>
       </g>
@@ -287,7 +311,7 @@
         </g>
       </g>
       <text x="137" y="491" class="micro" fill="var(--crest, #c13a2a)">FRICTION COMPOUNDS</text>
-      <text x="137" y="516" class="label">UPLOAD → WAIT → UNLOCK</text>
+      <text x="137" y="516" class="friction-summary">UPLOAD → WAIT → UNLOCK</text>
     </g>
 
     <g aria-hidden="true">
@@ -295,7 +319,8 @@
       <rect x="396" y="156" width="288" height="372" rx="22" fill="none" class="panel-stroke" stroke-opacity=".6" />
       <rect x="380" y="140" width="5" height="404" rx="2.5" fill="url(#difference-blue)" />
       <text x="408" y="182" class="panel-title">ORIFOLD</text>
-      <text x="408" y="204" class="body">Everything stays local. Everything stays together.</text>
+      <text x="408" y="204" class="body">One private workspace.</text>
+      <text x="408" y="220" class="body">Everything stays on your Mac.</text>
       <g transform="translate(566 166)">
         <rect width="92" height="25" rx="12.5" fill="var(--difference-ice, #9ed4e8)" opacity=".09" />
         <circle cx="14" cy="12.5" r="3.5" fill="#5eead4" />
@@ -307,12 +332,12 @@
       <circle cx="540" cy="330" r="77" fill="url(#difference-blue)" opacity=".12" />
 
       <g class="tool">
-        <rect x="422" y="232" width="62" height="28" rx="14" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
-        <text x="453" y="250" text-anchor="middle" class="micro">OCR</text>
+        <rect x="422" y="240" width="62" height="28" rx="14" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
+        <text x="453" y="258" text-anchor="middle" class="micro">OCR</text>
       </g>
       <g class="tool tool-two">
-        <rect x="596" y="232" width="62" height="28" rx="14" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
-        <text x="627" y="250" text-anchor="middle" class="micro">EDIT</text>
+        <rect x="596" y="240" width="62" height="28" rx="14" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
+        <text x="627" y="258" text-anchor="middle" class="micro">EDIT</text>
       </g>
       <g class="tool tool-three">
         <rect x="422" y="415" width="70" height="28" rx="14" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
