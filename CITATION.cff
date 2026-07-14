@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: "Orifold — a calm, local-first PDF workspace for macOS"
+message: "If you use Orifold in your work, please cite it using these metadata."
+type: software
+authors:
+  - family-names: Dhawan
+    given-names: Umang
+    email: umangdhawan97@gmail.com
+repository-code: "https://github.com/udhawan97/Orifold"
+url: "https://github.com/udhawan97/Orifold"
+abstract: >-
+  Orifold is a calm, local-first PDF workspace for macOS. It lets you merge,
+  edit, OCR, sign, compress, and password-protect PDFs entirely on-device —
+  no account, no upload, no subscription. One sheet, folded into flight.
+keywords:
+  - pdf
+  - macos
+  - swift
+  - swiftui
+  - local-first
+  - privacy
+  - ocr
+  - pdfium
+license: Apache-2.0
+version: "0.8.11"
+date-released: "2026-07-14"
