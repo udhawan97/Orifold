@@ -302,7 +302,7 @@
         <text x="143" y="433" class="body">Merge · edit · sign · repeat</text>
       </g>
 
-      <g transform="translate(79 472)" filter="url(#difference-soft-shadow)">
+      <g transform="translate(84 461)" filter="url(#difference-soft-shadow)">
         <g class="file-stack">
           <path d="M0 4h31l9 9v43H0z" fill="url(#difference-paper-shade)" transform="translate(-7 -5) rotate(-8 18 28)" opacity=".45" />
           <path d="M0 2h31l9 9v43H0z" fill="url(#difference-paper-shade)" transform="translate(-3 -2) rotate(-4 18 28)" opacity=".72" />
@@ -310,8 +310,8 @@
           <path d="M31 0v9h9M8 21h24M8 31h20M8 41h22" fill="none" stroke="#7892a5" stroke-width="1.7" stroke-linecap="round" opacity=".7" />
         </g>
       </g>
-      <text x="137" y="491" class="micro" fill="var(--crest, #c13a2a)">FRICTION COMPOUNDS</text>
-      <text x="137" y="516" class="friction-summary">UPLOAD → WAIT → UNLOCK</text>
+      <text x="142" y="480" class="micro" fill="var(--crest, #c13a2a)">FRICTION COMPOUNDS</text>
+      <text x="142" y="505" class="friction-summary">UPLOAD → WAIT → UNLOCK</text>
     </g>
 
     <g aria-hidden="true">
@@ -368,9 +368,9 @@
           <circle cx="269.8" cy="98.1" r=".8" fill="#fff" />
         </g>
       </g>
-      <rect x="426" y="471" width="228" height="38" rx="19" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
-      <circle cx="445" cy="490" r="4" fill="#5eead4" />
-      <text x="460" y="494" class="micro" fill="var(--difference-ice, #9ed4e8)">NO UPLOAD · NO RELAY · NO PAYWALL</text>
+      <rect x="402" y="471" width="276" height="38" rx="19" fill="var(--difference-stage-b, #0d1b2a)" class="panel-stroke" />
+      <circle cx="421" cy="490" r="4" fill="#5eead4" />
+      <text x="436" y="494" class="micro" fill="var(--difference-ice, #9ed4e8)" style="letter-spacing:0.6px">NO UPLOAD · NO RELAY · NO PAYWALL</text>
     </g>
 
     <g aria-hidden="true">
