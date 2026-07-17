@@ -12,6 +12,7 @@ struct SettingsView: View {
     @EnvironmentObject private var languageManager: LanguageManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("orifoldAppAppearanceMode") private var persistedAppAppearanceMode = AppAppearanceMode.system.rawValue
+    @AppStorage(SpellCheckPreference.defaultsKey) private var spellCheckEnabled = true
     @State private var updateController = UpdateController.shared
 
     private var appearanceModeBinding: Binding<AppAppearanceMode> {
@@ -37,11 +38,25 @@ struct SettingsView: View {
                 }
             }
 
+            spellCheckSection
+
             updatesSection
         }
         .padding(.dsXL)
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var spellCheckSection: some View {
+        Toggle(isOn: $spellCheckEnabled) {
+            Text(L10n.string("settings.spellcheck.label", locale: locale))
+        }
+
+        Text(L10n.string("settings.spellcheck.caption", locale: locale))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

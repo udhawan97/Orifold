@@ -32924,6 +32924,88 @@
         }
       }
     },
+    "settings.spellcheck.caption": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Underlines possible misspellings in editable text. Available for English, Spanish, French, and Hindi."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subraya posibles errores ortográficos en el texto editable. Disponible para inglés, español, francés e hindi."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Souligne les fautes d’orthographe possibles dans le texte modifiable. Disponible pour l’anglais, l’espagnol, le français et l’hindi."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपादन योग्य टेक्स्ट में संभावित वर्तनी गलतियों को रेखांकित करता है। अंग्रेज़ी, स्पैनिश, फ़्रेंच और हिंदी के लिए उपलब्ध।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集可能なテキスト内のスペルミスの可能性に下線を引きます。英語、スペイン語、フランス語、ヒンディー語に対応。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在可编辑文本中为可能拼错的单词加下划线。支持英语、西班牙语、法语和印地语。"
+          }
+        }
+      }
+    },
+    "settings.spellcheck.label": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spell-check while editing"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corrección ortográfica al editar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correction orthographique lors de l’édition"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपादन के दौरान वर्तनी जाँच"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集中のスペルチェック"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑时拼写检查"
+          }
+        }
+      }
+    },
     "settings.language.label": {
       "extractionState": "manual",
       "localizations": {
