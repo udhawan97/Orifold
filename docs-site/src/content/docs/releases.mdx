@@ -9,6 +9,18 @@ import Callout from '../../components/Callout.astro';
 
 <Badge variant="new" />
 
+## v0.8.12 — Edit the whole page, safely
+
+*Released July 2026*
+
+<Callout variant="note" label="Beta">
+	Orifold is in beta, on the road to 1.0.
+</Callout>
+
+This release removes a major editing limitation: **inline text edits and graphic-object edits now compose safely in the same PDF**. Orifold replays both kinds of changes from one canonical page, preserves live annotations and filled form values, keeps page rotation and edit history aligned through page operations, and refuses partial replays instead of risking a damaged or half-applied document. Selection, delete, escape, resize, and page-change behavior now follow one deterministic interaction sequence, while text and object tools share one bounded page-inspection pass for faster, more predictable editing on complex documents.
+
+Full changelog: [`docs/release-v0.8.12.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.8.12.md).
+
 ## v0.8.11 — Restack, and roll back
 
 *Released July 2026*
