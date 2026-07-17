@@ -103,4 +103,21 @@ final class PDFMetadataServiceTests: XCTestCase {
         XCTAssertEqual(restored.title, "Old Title", "undo should restore the previous title")
         XCTAssertNil(restored.author, "undo should restore the previous (absent) author")
     }
+
+    // The exporter re-serializes the live PDFDocument (loadedPDFs), not the qpdf
+    // byte lane, so a metadata edit must also land on the live doc's
+    // documentAttributes or it never reaches the exported file. This exercises
+    // the exact serialization the export path uses.
+    func testMetadataEditReachesExportSerializedBytes() throws {
+        let vm = try makeViewModel(title: "Old Title")
+        XCTAssertTrue(vm.applyMetadataEdit(
+            PDFDocumentMetadata(title: "Export Title", author: "Ori", subject: "S", keywords: "k1, k2"),
+            alsoRemoveXMP: false
+        ))
+        let liveDoc = try XCTUnwrap(vm.loadedPDFs.first).1
+        let exportBytes = try XCTUnwrap(PDFSerializer.data(from: liveDoc))
+        let meta = try PDFMetadataService.read(from: exportBytes)
+        XCTAssertEqual(meta.title, "Export Title")
+        XCTAssertEqual(meta.author, "Ori")
+    }
 }
