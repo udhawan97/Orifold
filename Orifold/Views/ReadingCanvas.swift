@@ -59,9 +59,87 @@ struct ReadingCanvas: View {
                         viewModel.editingStatus = nil
                     }
                 }
+                if viewModel.isReadingAloud {
+                    ReadAloudCapsule(viewModel: viewModel)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .padding(.bottom, .dsLG)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
         }
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.editingStatus?.id)
+        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.2), value: viewModel.isReadingAloud)
+    }
+}
+
+/// Floating transport shown over the canvas while read-aloud is active: play/pause, stop, and a
+/// speed picker. Reads the mirrored `readAloudState` (reactive) and drives the controller
+/// directly on tap.
+private struct ReadAloudCapsule: View {
+    @Bindable var viewModel: WorkspaceViewModel
+    // Read so SwiftUI re-invokes `body` when the app language changes (refreshes the help text).
+    @Environment(\.locale) private var locale
+
+    private var isPaused: Bool { viewModel.readAloudState == .paused }
+
+    var body: some View {
+        let _ = locale
+        HStack(spacing: .dsSM) {
+            Image(systemName: "speaker.wave.2.fill")
+                .foregroundStyle(Color.dsAccent)
+                .accessibilityHidden(true)
+
+            Button {
+                if isPaused { viewModel.readAloud.resume() } else { viewModel.readAloud.pause() }
+            } label: {
+                Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                    .frame(width: 22, height: 22)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(Color.dsTextPrimary)
+            .help(L10n.string(isPaused ? "readaloud.resume" : "readaloud.pause"))
+
+            Button {
+                viewModel.readAloud.stop()
+            } label: {
+                Image(systemName: "stop.fill")
+                    .frame(width: 22, height: 22)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(Color.dsTextPrimary)
+            .help(L10n.string("readaloud.stop"))
+
+            Divider().frame(height: 16)
+
+            Menu {
+                ForEach(ReadAloudRate.allCases) { rate in
+                    Button {
+                        viewModel.setReadAloudRate(rate)
+                    } label: {
+                        if viewModel.readAloudRate == rate {
+                            Label(rate.label, systemImage: "checkmark")
+                        } else {
+                            Text(rate.label)
+                        }
+                    }
+                }
+            } label: {
+                Text(viewModel.readAloudRate.label)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.dsTextSecondary)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help(L10n.string("readaloud.rate"))
+        }
+        .padding(.horizontal, .dsMD)
+        .padding(.vertical, .dsSM)
+        .background(.regularMaterial, in: Capsule())
+        .overlay {
+            Capsule().strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 4)
+        .accessibilityElement(children: .contain)
     }
 }
 

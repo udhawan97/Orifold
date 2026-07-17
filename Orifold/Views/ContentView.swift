@@ -562,6 +562,10 @@ struct ContentView: View {
                         set: { setReaderMode($0) }
                     ),
                     onRoute: { requestMoreRoute($0) },
+                    onReadAloud: {
+                        isShowingMoreMenu = false
+                        viewModel.toggleReadAloud()
+                    },
                     onRotateLeft: {
                         viewModel.rotatePages(viewModel.currentSelectionPageRefs, by: -90)
                         isShowingMoreMenu = false
@@ -3066,6 +3070,7 @@ private struct ToolbarMoreMenu: View {
     @Bindable var viewModel: WorkspaceViewModel
     var readerMode: Binding<Bool>
     var onRoute: (MoreRoute) -> Void
+    var onReadAloud: () -> Void
     var onRotateLeft: () -> Void
     var onRotateRight: () -> Void
     var onDuplicate: () -> Void
@@ -3099,6 +3104,13 @@ private struct ToolbarMoreMenu: View {
                 trailing: { MoreChevron() },
                 action: { onRoute(.outline) }
             )
+
+            MoreMenuRow(
+                systemImage: viewModel.isReadingAloud ? "stop.fill" : "speaker.wave.2",
+                titleKey: viewModel.isReadingAloud ? "readaloud.stop" : "readaloud.start",
+                action: onReadAloud
+            )
+            .disabled(viewModel.pageCount == 0)
 
             divider
 

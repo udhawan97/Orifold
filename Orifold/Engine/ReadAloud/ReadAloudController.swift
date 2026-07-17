@@ -1,6 +1,24 @@
 import Combine
 import Foundation
 
+/// User-selectable read-aloud speed, as a multiplier of the platform's default speech rate.
+/// Labels are numeric (×) and locale-independent, so they need no translation.
+enum ReadAloudRate: Double, CaseIterable, Identifiable {
+    case slow = 0.9
+    case normal = 1.0
+    case fast = 1.25
+
+    var id: Double { rawValue }
+
+    var label: String {
+        switch self {
+        case .slow: return "0.9×"
+        case .normal: return "1×"
+        case .fast: return "1.25×"
+        }
+    }
+}
+
 /// Drives read-aloud: a small state machine that speaks a document one sentence at a time,
 /// advancing page by page, and publishes the sentence/word currently being spoken so the
 /// canvas can follow along with a highlight.

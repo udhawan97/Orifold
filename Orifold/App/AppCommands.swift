@@ -41,6 +41,7 @@ struct AppCommands: Commands {
 
         CommandGroup(after: .toolbar) {
             ViewToggleCommandButtons(locale: locale)
+            ReadAloudCommandButton(locale: locale)
             Divider()
             PetBuddyCommandToggle(locale: locale)
             PetSpeciesCommandPicker(locale: locale)
@@ -265,6 +266,22 @@ private struct ViewToggleCommandButtons: View {
         }
         .keyboardShortcut("1", modifiers: [.command, .option])
         .disabled(viewModel == nil)
+    }
+}
+
+/// "Read Aloud" / "Stop Reading" — starts read-aloud from the current page, or stops it if
+/// already active. The title reflects the mirrored `isReadingAloud` state (menus re-query on
+/// open), so one command both starts and stops.
+private struct ReadAloudCommandButton: View {
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+    var locale: Locale
+
+    var body: some View {
+        let active = viewModel?.isReadingAloud == true
+        Button(L10n.string(active ? "readaloud.stop" : "readaloud.start", locale: locale)) {
+            viewModel?.toggleReadAloud()
+        }
+        .disabled(viewModel == nil || viewModel?.pageCount == 0)
     }
 }
 

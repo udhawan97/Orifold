@@ -1,6 +1,7 @@
 import SwiftUI
 import PDFKit
 import AppKit
+import Combine
 import Observation
 import UniformTypeIdentifiers
 
@@ -412,8 +413,18 @@ final class WorkspaceViewModel {
     /// Lazily-built read-aloud controller (Feature C). Constructed on first access from the
     /// main actor (its own isolation), so it's never created off-main and never for documents
     /// that are never spoken. `@ObservationIgnored` because it's a self-contained
-    /// `ObservableObject` the UI observes directly — Observation shouldn't track the reference.
+    /// `ObservableObject`; its `state` is mirrored into `readAloudState` (below) so SwiftUI
+    /// views — which observe this `@Observable` view model, not the nested controller — react.
     @ObservationIgnored private var _readAloud: ReadAloudController?
+    @ObservationIgnored private var readAloudCancellables = Set<AnyCancellable>()
+
+    /// The read-aloud controller's state, mirrored here so the toolbar/menu/capsule (which
+    /// observe this view model) show/hide and toggle reactively. `.idle` until reading starts.
+    private(set) var readAloudState: ReadAloudController.State = .idle
+
+    /// Selected read-aloud speed. Change it through `setReadAloudRate(_:)` so the value also
+    /// reaches the (main-actor-isolated) controller and takes effect on the next spoken sentence.
+    private(set) var readAloudRate: ReadAloudRate = .normal
 
     /// Raw PDF bytes captured ONCE when each member is first loaded or attached.
     /// Never mutated during editing — used as the immutable base for page regeneration
@@ -5156,8 +5167,27 @@ final class WorkspaceViewModel {
             pageTextProvider: { [weak self] index in self?.readAloudPageText(at: index) },
             pageCount: { [weak self] in self?.combinedPDF.pageCount ?? 0 }
         )
+        controller.rate = Float(readAloudRate.rawValue)
+        // Mirror the controller's published state onto this view model so the UI stays reactive
+        // without observing the nested ObservableObject directly.
+        controller.$state
+            .receive(on: RunLoop.main)
+            .sink { [weak self] state in self?.readAloudState = state }
+            .store(in: &readAloudCancellables)
         _readAloud = controller
         return controller
+    }
+
+    /// Whether read-aloud is currently active (speaking or paused). Derived from the mirrored
+    /// state, so reading it never forces the controller (and its synthesizer) into existence.
+    var isReadingAloud: Bool { readAloudState != .idle }
+
+    /// Set the read-aloud speed and forward it to the live controller (if any). Main-actor
+    /// because the controller's `rate` is main-actor-isolated.
+    @MainActor
+    func setReadAloudRate(_ rate: ReadAloudRate) {
+        readAloudRate = rate
+        _readAloud?.rate = Float(rate.rawValue)
     }
 
     /// Start reading, or stop if already active — the single entry point the toolbar/menu bind
