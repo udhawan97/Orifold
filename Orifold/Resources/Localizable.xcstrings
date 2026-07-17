@@ -19359,37 +19359,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This document also carries XMP metadata, which may repeat old values."
+            "value": "This document also carries XMP metadata, which may repeat old values. To remove it, turn on “Sanitize for sharing” when you export."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Este documento también contiene metadatos XMP, que pueden repetir valores antiguos."
+            "value": "Este documento también contiene metadatos XMP, que pueden repetir valores antiguos. Para eliminarlos, activa «Sanear para compartir» al exportar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce document contient aussi des métadonnées XMP, qui peuvent répéter d’anciennes valeurs."
+            "value": "Ce document contient aussi des métadonnées XMP, qui peuvent répéter d’anciennes valeurs. Pour les supprimer, activez « Nettoyer avant partage » lors de l’exportation."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "इस दस्तावेज़ में XMP मेटाडेटा भी है, जो पुराने मान दोहरा सकता है।"
+            "value": "इस दस्तावेज़ में XMP मेटाडेटा भी है, जो पुराने मान दोहरा सकता है। इसे हटाने के लिए, निर्यात करते समय “साझा करने के लिए सैनिटाइज़ करें” चालू करें।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このドキュメントには XMP メタデータも含まれており、古い値が残っている場合があります。"
+            "value": "このドキュメントには XMP メタデータも含まれており、古い値が残っている場合があります。削除するには、書き出し時に「共有用にサニタイズ」をオンにしてください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "此文档还包含 XMP 元数据，可能重复旧的值。"
+            "value": "此文档还包含 XMP 元数据，可能重复旧的值。如需移除，请在导出时开启“清理后再分享”。"
           }
         }
       }

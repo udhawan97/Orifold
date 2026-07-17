@@ -86,8 +86,7 @@ final class PDFMetadataServiceTests: XCTestCase {
         XCTAssertEqual(before.title, "Old Title")
 
         XCTAssertTrue(vm.applyMetadataEdit(
-            PDFDocumentMetadata(title: "New Title", author: "Ori"),
-            alsoRemoveXMP: false
+            PDFDocumentMetadata(title: "New Title", author: "Ori")
         ))
 
         let after = try PDFMetadataService.read(from: try XCTUnwrap(vm.document.memberPDFData[memberID]))
@@ -111,8 +110,7 @@ final class PDFMetadataServiceTests: XCTestCase {
     func testMetadataEditReachesExportSerializedBytes() throws {
         let vm = try makeViewModel(title: "Old Title")
         XCTAssertTrue(vm.applyMetadataEdit(
-            PDFDocumentMetadata(title: "Export Title", author: "Ori", subject: "S", keywords: "k1, k2"),
-            alsoRemoveXMP: false
+            PDFDocumentMetadata(title: "Export Title", author: "Ori", subject: "S", keywords: "k1, k2")
         ))
         let liveDoc = try XCTUnwrap(vm.loadedPDFs.first).1
         let exportBytes = try XCTUnwrap(PDFSerializer.data(from: liveDoc))
@@ -130,8 +128,7 @@ final class PDFMetadataServiceTests: XCTestCase {
     func testMetadataEditSurvivesFullExportPath() throws {
         let vm = try makeViewModel(title: "Old Title")
         XCTAssertTrue(vm.applyMetadataEdit(
-            PDFDocumentMetadata(title: "Export Title", author: "Ori", subject: "S", keywords: "k1, k2"),
-            alsoRemoveXMP: false
+            PDFDocumentMetadata(title: "Export Title", author: "Ori", subject: "S", keywords: "k1, k2")
         ))
         let snapshot = try vm.document.snapshot(contentType: .pdf)
         let exportedData = try vm.document.exportedPDFDataThrowing(from: snapshot)

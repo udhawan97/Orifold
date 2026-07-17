@@ -145,7 +145,6 @@ private struct InspectorInfoView: View {
     @State private var author = ""
     @State private var subject = ""
     @State private var keywords = ""
-    @State private var removeXMP = false
     // Whether qpdf could read the active member's metadata. False for an
     // encrypted member with no stored password (or an empty workspace) — the
     // editor is disabled in that case rather than silently writing nothing.
@@ -204,13 +203,6 @@ private struct InspectorInfoView: View {
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Toggle(isOn: $removeXMP) {
-                    Text(L10n.string("inspector.metadata.removeXMP", locale: locale))
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextPrimary)
-                }
-                .toggleStyle(.checkbox)
-                .disabled(!metadataReadable)
             }
 
             Button {
@@ -242,7 +234,6 @@ private struct InspectorInfoView: View {
     }
 
     private func seedMetadataFields() {
-        removeXMP = false
         if let metadata = viewModel.activeDocumentMetadata() {
             title = metadata.title ?? ""
             author = metadata.author ?? ""
@@ -264,9 +255,9 @@ private struct InspectorInfoView: View {
             subject: trimmedOrNil(subject),
             keywords: trimmedOrNil(keywords)
         )
-        if viewModel.applyMetadataEdit(metadata, alsoRemoveXMP: removeXMP) {
-            // Re-seed so the fields reflect the canonical stored state (e.g. XMP
-            // now gone) instead of the just-typed draft.
+        if viewModel.applyMetadataEdit(metadata) {
+            // Re-seed so the fields reflect the canonical stored state instead of
+            // the just-typed draft.
             seedMetadataFields()
         }
     }

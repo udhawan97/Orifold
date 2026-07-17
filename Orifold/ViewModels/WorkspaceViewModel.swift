@@ -2410,23 +2410,21 @@ final class WorkspaceViewModel {
     /// BOTH the text-layer-preserving qpdf lane (`memberPDFData` + the replay
     /// bases) and the PDFKit `documentAttributes` lane that export re-serializes
     /// -- so the edit survives future edit replays AND reaches the exported file.
-    /// `alsoRemoveXMP` additionally runs the shared sanitize pass on the qpdf
-    /// lane (it strips the `/Metadata` stream and `/Info`; the metadata write
-    /// then re-adds `/Info`). Registers a single named, atomic undo step.
+    /// This edits only the `/Info` dictionary; the separate XMP `/Metadata`
+    /// stream is deliberately left untouched. Stripping XMP is the job of
+    /// "Sanitize for sharing" on export, which removes `/Metadata` from the
+    /// FINAL exported bytes (this metadata edit runs on a lane that Save/Export
+    /// re-serialize past, so an XMP strip here would never reach the file).
+    /// Registers a single named, atomic undo step.
     @discardableResult
-    func applyMetadataEdit(_ metadata: PDFDocumentMetadata, alsoRemoveXMP: Bool) -> Bool {
+    func applyMetadataEdit(_ metadata: PDFDocumentMetadata) -> Bool {
         guard canPerformMutatingAction() else { return false }
         guard let memberID = activeMetadataMemberID(),
               let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == memberID }),
               let currentLive = document.memberPDFData[memberID] else { return false }
 
         func transform(_ data: Data) -> Data? {
-            var working = data
-            if alsoRemoveXMP {
-                guard let sanitized = QPDFService.sanitized(working, removingMetadata: true) else { return nil }
-                working = sanitized
-            }
-            return try? PDFMetadataService.write(metadata, to: working)
+            try? PDFMetadataService.write(metadata, to: data)
         }
 
         guard let newLive = transform(currentLive) else {

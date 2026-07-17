@@ -207,6 +207,45 @@ final class QPDFServiceTests: XCTestCase {
         XCTAssertNil(QPDFService.sanitized(Data("not a pdf".utf8), removingMetadata: true))
     }
 
+    // The metadata editor edits only `/Info` and deliberately does NOT strip the
+    // XMP `/Metadata` stream; its warning instead points users to "Sanitize for
+    // sharing" on export. This proves that redirect target genuinely removes XMP
+    // from the final bytes (and preserves it when not requested) -- the honest
+    // replacement for the old "Remove XMP too" toggle, which sanitized a byte
+    // lane the export path never serialized, so it removed nothing while hiding
+    // its own warning.
+    func testSanitizedRemovesXMPMetadataStreamOnlyWhenRequested() throws {
+        let xmp = "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>" +
+            "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">" +
+            "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">" +
+            "<rdf:Description xmlns:dc=\"http://purl.org/dc/elements/1.1/\">" +
+            "<dc:title>Stale XMP Title</dc:title></rdf:Description></rdf:RDF>" +
+            "</x:xmpmeta><?xpacket end=\"w\"?>"
+        // Length is computed so the stream body is exactly the XMP bytes, keeping
+        // the fixture structurally sound for qpdf_check_pdf.
+        let withXMP = Data("""
+        %PDF-1.6
+        1 0 obj<</Type/Catalog/Pages 2 0 R/Metadata 5 0 R>>endobj
+        2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+        3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj
+        4 0 obj<</Title(Info Title)>>endobj
+        5 0 obj<</Type/Metadata/Subtype/XML/Length \(xmp.utf8.count)>>stream
+        \(xmp)
+        endstream endobj
+        trailer<</Root 1 0 R/Info 4 0 R/Size 6>>
+        %%EOF
+        """.utf8)
+
+        XCTAssertTrue(QPDFService.hasXMPMetadata(withXMP), "fixture should be detected as carrying an XMP /Metadata stream")
+
+        let stripped = try XCTUnwrap(QPDFService.sanitized(withXMP, removingMetadata: true))
+        XCTAssertFalse(QPDFService.hasXMPMetadata(stripped), "\"Sanitize for sharing\" must remove the XMP /Metadata stream")
+        XCTAssertEqual(PDFDocument(data: stripped)?.pageCount, 1, "sanitizing must not remove page content")
+
+        let preserved = try XCTUnwrap(QPDFService.sanitized(withXMP, removingMetadata: false))
+        XCTAssertTrue(QPDFService.hasXMPMetadata(preserved), "XMP must survive when metadata removal is not requested")
+    }
+
     func testLockedObjectStreamEncryptedPDFImportsAsLockedInsteadOfEmpty() throws {
         // Regression test: PDFKit can't read a locked PDF's page tree when it
         // lives inside an encrypted object stream (produced by
