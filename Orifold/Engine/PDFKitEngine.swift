@@ -100,6 +100,15 @@ final class PDFKitEngine: PDFEngine {
         guard combined.pageCount > 0 else {
             throw ExportAssemblyError.emptyDocument
         }
+        // `combined` is a fresh PDFDocument that only received pages, so its
+        // document-level `/Info` dictionary (Title/Author/Subject/Keywords) is empty.
+        // Without this, every Save/Export drops the metadata the editor wrote onto the
+        // member docs. The merged file is one document with one `/Info` dict; for a
+        // multi-member workspace we adopt the first member's attributes — the same
+        // member whose identity the assembled document effectively takes on.
+        if let attributes = documents.first?.1.documentAttributes {
+            combined.documentAttributes = attributes
+        }
         return combined
     }
 }

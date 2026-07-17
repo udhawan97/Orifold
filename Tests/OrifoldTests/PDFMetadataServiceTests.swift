@@ -120,4 +120,25 @@ final class PDFMetadataServiceTests: XCTestCase {
         XCTAssertEqual(meta.title, "Export Title")
         XCTAssertEqual(meta.author, "Ori")
     }
+
+    // The full save/export path merges every member through
+    // `PDFKitEngine.concatenateForExport`, which assembles a fresh `PDFDocument`
+    // from pages only. If that merge drops the source `/Info` dictionary, the
+    // edited metadata never reaches the file even though each member's live doc
+    // carries it. This runs the REAL `WorkspaceDocument` export and reads the
+    // FINAL bytes — the assertion the direct-serialization test above can't make.
+    func testMetadataEditSurvivesFullExportPath() throws {
+        let vm = try makeViewModel(title: "Old Title")
+        XCTAssertTrue(vm.applyMetadataEdit(
+            PDFDocumentMetadata(title: "Export Title", author: "Ori", subject: "S", keywords: "k1, k2"),
+            alsoRemoveXMP: false
+        ))
+        let snapshot = try vm.document.snapshot(contentType: .pdf)
+        let exportedData = try vm.document.exportedPDFDataThrowing(from: snapshot)
+        let meta = try PDFMetadataService.read(from: exportedData)
+        XCTAssertEqual(meta.title, "Export Title", "the merged export must preserve the edited /Info title")
+        XCTAssertEqual(meta.author, "Ori")
+        XCTAssertEqual(meta.subject, "S")
+        XCTAssertEqual(meta.keywords, "k1, k2")
+    }
 }
