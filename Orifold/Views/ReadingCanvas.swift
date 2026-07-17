@@ -2298,6 +2298,7 @@ final class NoteEditorViewController: NSViewController {
         tv.isEditable = true
         tv.isSelectable = true
         tv.allowsUndo = true
+        tv.applySpellCheckPreference()
         tv.minSize = NSSize(width: 0, height: textHeight)
         tv.maxSize = NSSize(width: CGFloat.infinity, height: CGFloat.infinity)
         tv.isVerticallyResizable = true
@@ -2981,6 +2982,7 @@ final class NoteEditorViewController: NSViewController {
         textView.isEditable = true
         textView.isSelectable = true
         textView.allowsUndo = true
+        textView.applySpellCheckPreference()
         textView.drawsBackground = false
         textView.textColor = displayTextColor
         textView.insertionPointColor = .dsAccentNS
