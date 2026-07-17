@@ -111,6 +111,10 @@ struct EmptyStateView: View {
                             VStack(spacing: .dsSM) { chooseButtons }
                         }
 
+                        if SampleDocument.url != nil {
+                            sampleDocumentButton
+                        }
+
                         if !hasSeenFolderAccessHint {
                             folderAccessHint
                         }
@@ -246,6 +250,22 @@ struct EmptyStateView: View {
         }
     }
 
+    private var sampleDocumentButton: some View {
+        Button {
+            openSampleDocument()
+        } label: {
+            Label(L10n.string("emptystate.sample.button", locale: locale), systemImage: "doc.text")
+                .font(.dsCaption())
+                .padding(.horizontal, .dsMD)
+                .padding(.vertical, 7)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.dsAccent)
+        .background(Color.dsAccentSoft, in: Capsule())
+        .help(L10n.string("emptystate.sample.button", locale: locale))
+        .accessibilityHint(L10n.string("emptystate.sample.button", locale: locale))
+    }
+
     private var folderAccessHint: some View {
         HStack(alignment: .top, spacing: .dsXS) {
             Image(systemName: "info.circle")
@@ -361,6 +381,33 @@ struct EmptyStateView: View {
         configureFolderImportOpenPanel(panel)
         guard panel.runModal() == .OK else { return }
         handleResolvedDrop(ResolvedImportDrop(files: [], folders: panel.urls, wasLimited: false))
+    }
+
+    /// Opens the bundled sample document by importing a disposable COPY of it: the user
+    /// edits and exports a throwaway file in the temp directory, never the read-only bundle
+    /// asset. Routed through `importFilesWithBatchLimit` — the same entry `openFiles()` uses
+    /// — so it takes the normal import path (recents, Gami's `addFile` reaction, etc.).
+    private func openSampleDocument() {
+        guard let bundledURL = SampleDocument.url else { return }
+        // A per-open UUID directory keeps the copy unique across repeated opens while
+        // preserving the friendly filename, which becomes the document's display title.
+        let destination = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("Sample — My Lord Bag of Rice.pdf")
+        do {
+            try FileManager.default.createDirectory(
+                at: destination.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try FileManager.default.copyItem(at: bundledURL, to: destination)
+        } catch {
+            viewModel.importError = WorkspaceViewModel.ImportError(
+                fileName: destination.lastPathComponent,
+                message: L10n.string("contentView.dropImportError.noSupportedDocument")
+            )
+            return
+        }
+        importFilesWithBatchLimit(urls: [destination], into: viewModel)
     }
 
     private func handleResolvedDrop(_ resolved: ResolvedImportDrop) {
