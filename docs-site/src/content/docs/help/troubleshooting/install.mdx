@@ -33,6 +33,11 @@ xattr -dr com.apple.quarantine /Applications/Orifold.app
 
 Then open Orifold normally.
 
+If this warning appeared immediately after choosing **Install and Restart** in Orifold
+v0.8.13 or earlier, the old app's generated updater command was blocked before it ran; your
+installed app and documents were not replaced. Run the one-line installer once to install
+v0.8.14 or later. In-app updates remove that launch-blocking attribute from v0.8.14 onward.
+
 ## Double-clicking a .command file says it cannot be opened
 
 Open Terminal in the project folder and run:
