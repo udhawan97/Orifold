@@ -139,6 +139,19 @@ private struct InspectorInfoView: View {
     // Read so SwiftUI re-invokes `body` when the app language changes.
     @Environment(\.locale) private var locale
 
+    // Draft copies of the four editable Info-dict fields, seeded from the active
+    // member on appear and re-seeded when the targeted document changes.
+    @State private var title = ""
+    @State private var author = ""
+    @State private var subject = ""
+    @State private var keywords = ""
+    @State private var removeXMP = false
+    // Whether qpdf could read the active member's metadata. False for an
+    // encrypted member with no stored password (or an empty workspace) — the
+    // editor is disabled in that case rather than silently writing nothing.
+    @State private var metadataReadable = false
+    @State private var hasXMP = false
+
     private var visualSignatureCount: Int {
         viewModel.document.workspace.signatures.filter { !$0.isCryptographic }.count
     }
@@ -159,10 +172,108 @@ private struct InspectorInfoView: View {
             InspectorRow(label: L10n.string("inspector.info.comments", locale: locale),    value: "\(viewModel.totalCommentCount)")
             InspectorRow(label: L10n.string("inspector.info.created", locale: locale),     value: viewModel.document.workspace.createdAt.formatted(
                 date: .abbreviated, time: .omitted))
+
+            if !viewModel.document.workspace.documents.isEmpty {
+                Rectangle()
+                    .fill(Color.dsSeparator)
+                    .frame(height: 0.5)
+                metadataSection
+            }
         }
         .padding(.horizontal, .dsLG)
         .padding(.vertical, .dsXL)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear { seedMetadataFields() }
+        .onChange(of: viewModel.activeDocumentID) { _, _ in seedMetadataFields() }
+    }
+
+    private var metadataSection: some View {
+        VStack(alignment: .leading, spacing: .dsMD) {
+            Text(L10n.string("inspector.metadata.section", locale: locale).uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color.dsTextTertiary)
+                .tracking(0.5)
+
+            metadataField(L10n.string("inspector.metadata.title", locale: locale), text: $title)
+            metadataField(L10n.string("inspector.metadata.author", locale: locale), text: $author)
+            metadataField(L10n.string("inspector.metadata.subject", locale: locale), text: $subject)
+            metadataField(L10n.string("inspector.metadata.keywords", locale: locale), text: $keywords)
+
+            if hasXMP {
+                Text(L10n.string("inspector.metadata.xmpWarning", locale: locale))
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Toggle(isOn: $removeXMP) {
+                    Text(L10n.string("inspector.metadata.removeXMP", locale: locale))
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextPrimary)
+                }
+                .toggleStyle(.checkbox)
+                .disabled(!metadataReadable)
+            }
+
+            Button {
+                applyMetadata()
+            } label: {
+                Text(L10n.string("inspector.metadata.apply", locale: locale))
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 32)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.dsAccent)
+            .disabled(!metadataReadable)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func metadataField(_ label: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Color.dsTextTertiary)
+                .tracking(0.5)
+            TextField("", text: text)
+                .textFieldStyle(.roundedBorder)
+                .font(.dsBody())
+                .disabled(!metadataReadable)
+                .accessibilityLabel(label)
+        }
+    }
+
+    private func seedMetadataFields() {
+        removeXMP = false
+        if let metadata = viewModel.activeDocumentMetadata() {
+            title = metadata.title ?? ""
+            author = metadata.author ?? ""
+            subject = metadata.subject ?? ""
+            keywords = metadata.keywords ?? ""
+            metadataReadable = true
+            hasXMP = viewModel.activeDocumentHasXMPMetadata
+        } else {
+            title = ""; author = ""; subject = ""; keywords = ""
+            metadataReadable = false
+            hasXMP = false
+        }
+    }
+
+    private func applyMetadata() {
+        let metadata = PDFDocumentMetadata(
+            title: trimmedOrNil(title),
+            author: trimmedOrNil(author),
+            subject: trimmedOrNil(subject),
+            keywords: trimmedOrNil(keywords)
+        )
+        if viewModel.applyMetadataEdit(metadata, alsoRemoveXMP: removeXMP) {
+            // Re-seed so the fields reflect the canonical stored state (e.g. XMP
+            // now gone) instead of the just-typed draft.
+            seedMetadataFields()
+        }
+    }
+
+    private func trimmedOrNil(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

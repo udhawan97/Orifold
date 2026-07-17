@@ -2384,6 +2384,11 @@ final class WorkspaceViewModel {
         return document.workspace.documents.first?.id
     }
 
+    /// Identity of the member the metadata editor currently targets; the
+    /// Inspector re-seeds its fields when this changes (e.g. the user selects a
+    /// page belonging to a different document).
+    var activeDocumentID: UUID? { activeMetadataMemberID() }
+
     /// The Info-dict metadata of the member backing the currently-selected page,
     /// for seeding the Inspector editor. `nil` when there is no member or its
     /// bytes can't be read (e.g. an encrypted member with no stored password).
