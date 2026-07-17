@@ -44,6 +44,7 @@ targets:
       - path: Orifold/Resources/CERTIFICATE_GUIDE.md
       - path: Orifold/Resources/THIRD-PARTY-NOTICES.md
       - path: Orifold/Resources/Localizable.xcstrings
+      - path: Orifold/Resources/SampleDocument.pdf
     dependencies:
       - package: PDFiumBinary
         product: PDFium
