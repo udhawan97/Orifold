@@ -116,6 +116,15 @@ enum QPDFService {
         }
     }
 
+    /// True when the document catalog carries an XMP metadata stream
+    /// (`/Metadata`). The Info-dict editor edits only `/Info`, so the UI uses
+    /// this to warn that a separate XMP packet may still repeat old values.
+    static func hasXMPMetadata(_ data: Data, password: String? = nil) -> Bool {
+        withQPDF(data, description: "xmp-probe", password: password) { qpdf in
+            qpdf_oh_has_key(qpdf, qpdf_get_root(qpdf), "/Metadata") == QPDF_TRUE
+        } ?? false
+    }
+
     /// Replaces only page annotations and the document AcroForm in `destinationData` with
     /// their live counterparts from `sourceData`. Page contents/resources remain those of the
     /// destination. This is the preserving bridge used after canonical edit replay: PDFKit bytes

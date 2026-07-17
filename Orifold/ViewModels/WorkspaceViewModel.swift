@@ -2364,6 +2364,157 @@ final class WorkspaceViewModel {
         rebuild()
     }
 
+    // MARK: - Document metadata
+
+    private struct MemberMetadataSnapshot {
+        var live: Data
+        var original: Data?
+        var objectBase: Data?
+        var attributes: [AnyHashable: Any]?
+    }
+
+    /// The member backing the currently-selected page, else the first member.
+    /// The Info tab is workspace-level, so "which document" follows the current
+    /// page selection.
+    private func activeMetadataMemberID() -> UUID? {
+        if let selectedPageRefID,
+           let ref = document.workspace.pageOrder.first(where: { $0.id == selectedPageRefID }) {
+            return ref.memberDocId
+        }
+        return document.workspace.documents.first?.id
+    }
+
+    /// The Info-dict metadata of the member backing the currently-selected page,
+    /// for seeding the Inspector editor. `nil` when there is no member or its
+    /// bytes can't be read (e.g. an encrypted member with no stored password).
+    func activeDocumentMetadata() -> PDFDocumentMetadata? {
+        guard let memberID = activeMetadataMemberID(),
+              let data = document.memberPDFData[memberID] else { return nil }
+        return try? PDFMetadataService.read(from: data)
+    }
+
+    /// True when the active member also carries an XMP `/Metadata` stream, which
+    /// may repeat stale Info values independently of the fields edited here.
+    var activeDocumentHasXMPMetadata: Bool {
+        guard let memberID = activeMetadataMemberID(),
+              let data = document.memberPDFData[memberID] else { return false }
+        return QPDFService.hasXMPMetadata(data)
+    }
+
+    /// Applies edited Info-dict metadata to the active member, routed through
+    /// BOTH the text-layer-preserving qpdf lane (`memberPDFData` + the replay
+    /// bases) and the PDFKit `documentAttributes` lane that export re-serializes
+    /// -- so the edit survives future edit replays AND reaches the exported file.
+    /// `alsoRemoveXMP` additionally runs the shared sanitize pass on the qpdf
+    /// lane (it strips the `/Metadata` stream and `/Info`; the metadata write
+    /// then re-adds `/Info`). Registers a single named, atomic undo step.
+    @discardableResult
+    func applyMetadataEdit(_ metadata: PDFDocumentMetadata, alsoRemoveXMP: Bool) -> Bool {
+        guard canPerformMutatingAction() else { return false }
+        guard let memberID = activeMetadataMemberID(),
+              let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == memberID }),
+              let currentLive = document.memberPDFData[memberID] else { return false }
+
+        func transform(_ data: Data) -> Data? {
+            var working = data
+            if alsoRemoveXMP {
+                guard let sanitized = QPDFService.sanitized(working, removingMetadata: true) else { return nil }
+                working = sanitized
+            }
+            return try? PDFMetadataService.write(metadata, to: working)
+        }
+
+        guard let newLive = transform(currentLive) else {
+            showEditMessage(L10n.string("status.metadata.applyFailed"), isError: true)
+            return false
+        }
+        // The replay bases (pristine + object base) carry NO baked edits, so
+        // transform them independently: re-adding metadata to the pristine base
+        // keeps a later edit replay from resurrecting the old metadata without
+        // double-applying the committed edits that `newLive` already bakes in.
+        var newOriginal: Data? = nil
+        if let original = originalMemberPDFData[memberID] {
+            guard let transformed = transform(original) else {
+                showEditMessage(L10n.string("status.metadata.applyFailed"), isError: true)
+                return false
+            }
+            newOriginal = transformed
+        }
+        var newObjectBase: Data? = nil
+        if let objectBase = objectBaseData[memberID] {
+            guard let transformed = transform(objectBase) else {
+                showEditMessage(L10n.string("status.metadata.applyFailed"), isError: true)
+                return false
+            }
+            newObjectBase = transformed
+        }
+
+        let previous = MemberMetadataSnapshot(
+            live: currentLive,
+            original: originalMemberPDFData[memberID],
+            objectBase: objectBaseData[memberID],
+            attributes: loadedPDFs[loadedIndex].1.documentAttributes
+        )
+        let next = MemberMetadataSnapshot(
+            live: newLive,
+            original: newOriginal,
+            objectBase: newObjectBase,
+            attributes: documentAttributes(basedOn: previous.attributes, applying: metadata)
+        )
+        applyMemberMetadataSnapshot(next, to: memberID, previous: previous)
+        return true
+    }
+
+    private func applyMemberMetadataSnapshot(
+        _ snapshot: MemberMetadataSnapshot,
+        to memberID: UUID,
+        previous: MemberMetadataSnapshot
+    ) {
+        document.memberPDFData[memberID] = snapshot.live
+        if let original = snapshot.original {
+            originalMemberPDFData[memberID] = original
+        }
+        if let objectBase = snapshot.objectBase {
+            objectBaseData[memberID] = objectBase
+        }
+        if let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == memberID }) {
+            loadedPDFs[loadedIndex].1.documentAttributes = snapshot.attributes
+        }
+        invalidatePageInspection(for: memberID)
+        textAnalysisCache.removeAll()
+        objectAnalysisCache.removeAll()
+        rebuild()
+        markWorkspaceModified()
+        // Recursive inverse: each application registers the undo that restores the
+        // other state, so undo AND redo both work and each is its own atomic step.
+        registerIsolatedUndo {
+            undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation() else { return }
+                vm.applyMemberMetadataSnapshot(previous, to: memberID, previous: snapshot)
+            }
+            undoManager?.setActionName(L10n.string("undo.editMetadata"))
+        }
+    }
+
+    private func documentAttributes(
+        basedOn base: [AnyHashable: Any]?,
+        applying metadata: PDFDocumentMetadata
+    ) -> [AnyHashable: Any] {
+        var attributes = base ?? [:]
+        func set(_ key: PDFDocumentAttribute, _ value: String?) {
+            if let value, !value.isEmpty {
+                attributes[key] = value
+            } else {
+                attributes.removeValue(forKey: key)
+            }
+        }
+        set(.titleAttribute, metadata.title)
+        set(.authorAttribute, metadata.author)
+        set(.subjectAttribute, metadata.subject)
+        set(.keywordsAttribute, metadata.keywords)
+        return attributes
+    }
+
     // MARK: - Decorations
 
     func decoration(of kind: PageDecoration.Kind) -> PageDecoration? {
