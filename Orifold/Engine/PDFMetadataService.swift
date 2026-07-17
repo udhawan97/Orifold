@@ -51,6 +51,59 @@ enum PDFMetadataService {
         return metadata
     }
 
+    /// Writes the four surfaced Info-dict fields onto `data`, returning the
+    /// re-serialized bytes. A `nil` field removes that key; a non-nil field
+    /// sets it. Throws `.cannotOpen` if qpdf can't parse the source,
+    /// `.cannotWrite` if serialization fails, and `.invalidOutput` if the
+    /// result no longer passes qpdf's structural check.
+    static func write(_ metadata: PDFDocumentMetadata, to data: Data, password: String? = nil) throws -> Data {
+        let result: Data?? = QPDFService.withQPDF(data, description: "metadata-write", password: password) { qpdf -> Data? in
+            let info = infoDictionaryEnsuringExists(qpdf)
+            setInfo(qpdf, info, "/Title", metadata.title)
+            setInfo(qpdf, info, "/Author", metadata.author)
+            setInfo(qpdf, info, "/Subject", metadata.subject)
+            setInfo(qpdf, info, "/Keywords", metadata.keywords)
+            return QPDFService.write(qpdf) { _ in }
+        }
+        // `withQPDF` returns nil when it can't open the source; the inner body
+        // returns nil when the write pass fails. Distinguish the two so the UI
+        // can tell "couldn't read your file" from "couldn't save".
+        guard let inner = result else { throw PDFMetadataError.cannotOpen }
+        guard let out = inner else { throw PDFMetadataError.cannotWrite }
+        guard QPDFService.isStructurallySound(out, password: password) else {
+            throw PDFMetadataError.invalidOutput
+        }
+        return out
+    }
+
+    /// Returns the trailer's `/Info` dictionary, creating an empty indirect one
+    /// (referenced from the trailer) if the document has none yet.
+    private static func infoDictionaryEnsuringExists(_ qpdf: qpdf_data) -> qpdf_oh {
+        let trailer = qpdf_get_trailer(qpdf)
+        let existing = qpdf_oh_get_key(qpdf, trailer, "/Info")
+        if qpdf_oh_is_dictionary(qpdf, existing) == QPDF_TRUE {
+            return existing
+        }
+        let info = qpdf_make_indirect_object(qpdf, qpdf_oh_new_dictionary(qpdf))
+        qpdf_oh_replace_key(qpdf, trailer, "/Info", info)
+        return info
+    }
+
+    /// Sets or removes one Info-dict key. Deliberately *not* `qpdf_set_info_key`,
+    /// which stores the C string's raw bytes verbatim: a UTF-8 value then reads
+    /// back as PDFDocEncoding mojibake. `qpdf_oh_new_unicode_string` performs the
+    /// UTF-8 -> (PDFDoc or UTF-16BE) encode that mirrors the read path's decode.
+    private static func setInfo(_ qpdf: qpdf_data, _ info: qpdf_oh, _ key: String, _ value: String?) {
+        key.withCString { keyPtr in
+            if let value {
+                let string = value.withCString { qpdf_oh_new_unicode_string(qpdf, $0) }
+                qpdf_oh_replace_key(qpdf, info, keyPtr, string)
+            } else {
+                qpdf_oh_remove_key(qpdf, info, keyPtr)
+            }
+        }
+    }
+
     /// Reads one Info-dict string value as UTF-8. Deliberately *not*
     /// `qpdf_get_info_key`, whose C-string result is the raw, undecoded PDF
     /// string: a Unicode title is stored as UTF-16BE with a `FE FF` BOM, so

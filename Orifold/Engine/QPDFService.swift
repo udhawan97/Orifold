@@ -330,7 +330,11 @@ enum QPDFService {
     /// function (encryption, linearization, object-stream mode) -- it resets
     /// whatever was set earlier, so setting parameters first is a silent
     /// no-op at best and an unspecified-behavior crash at worst.
-    private static func write(_ qpdf: qpdf_data, configure: (qpdf_data) -> Void) -> Data? {
+    ///
+    /// `internal` (not `private`) so sibling engine services in this module --
+    /// e.g. `PDFMetadataService` -- can reuse the exact serialization sequence
+    /// instead of writing a second one.
+    static func write(_ qpdf: qpdf_data, configure: (qpdf_data) -> Void) -> Data? {
         guard hasErrors(qpdf_init_write_memory(qpdf)) == false else { return nil }
         configure(qpdf)
         guard hasErrors(qpdf_write(qpdf)) == false else { return nil }
