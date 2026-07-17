@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Generates the unsandboxed `.command` that performs the actual app swap and relaunch.
 ///
@@ -19,6 +20,7 @@ struct UpdaterScriptGenerator {
         case invalidDigest
         case unsafeValue(String)
         case writeFailed
+        case quarantineRemovalFailed
     }
 
     struct Inputs {
@@ -79,6 +81,7 @@ struct UpdaterScriptGenerator {
         guard let data = script.data(using: .utf8) else { throw GeneratorError.writeFailed }
         try data.write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+        try prepareForLaunch(url)
         return url
     }
 
@@ -112,7 +115,27 @@ struct UpdaterScriptGenerator {
         guard let data = script.data(using: .utf8) else { throw GeneratorError.writeFailed }
         try data.write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+        try prepareForLaunch(url)
         return url
+    }
+
+    /// Makes a generated executable eligible for LaunchServices hand-off.
+    ///
+    /// macOS quarantines files created by an App Sandbox process. Opening a quarantined
+    /// `.command` asks Gatekeeper to execute that newly-created file and is rejected with
+    /// OSStatus -67026 ("File created by an AppSandbox, exec/open not allowed"), surfaced to
+    /// users as a misleading damaged-file alert. The script is generated from a template
+    /// embedded in Orifold's signed bundle, so remove only that launch-blocking attribute
+    /// immediately after writing it. Sandbox provenance remains intact.
+    func prepareForLaunch(_ url: URL) throws {
+        let result = url.path.withCString { path in
+            "com.apple.quarantine".withCString { attribute in
+                removexattr(path, attribute, 0)
+            }
+        }
+        guard result == 0 || errno == ENOATTR else {
+            throw GeneratorError.quarantineRemovalFailed
+        }
     }
 
     // MARK: - Template

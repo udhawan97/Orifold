@@ -50,6 +50,35 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         }
     }
 
+    /// Files written by an App Sandbox process receive a quarantine attribute. LaunchServices
+    /// refuses to execute such a generated `.command` with OSStatus -67026 (reported to the
+    /// user as "damaged") even though the script is local and its contents are trusted.
+    func testPrepareForLaunchRemovesSandboxQuarantine() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("orifold-script-quarantine-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let script = root.appendingPathComponent("orifold-updater.command")
+        try "#!/bin/zsh\nexit 0\n".write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        try XCTAssertProcess("/usr/bin/xattr", ["-w", "com.apple.quarantine", "0086;00000000;Orifold;", script.path])
+        XCTAssertEqual(try runProcess("/usr/bin/xattr", ["-p", "com.apple.quarantine", script.path]).status, 0)
+        XCTAssertThrowsError(
+            try runProcess(script.path, []),
+            "the fixture must reproduce the sandbox-created executable rejection before the fix"
+        )
+
+        try generator.prepareForLaunch(script)
+
+        XCTAssertNotEqual(
+            try runProcess("/usr/bin/xattr", ["-p", "com.apple.quarantine", script.path]).status,
+            0,
+            "the generated executable must be de-quarantined before NSWorkspace opens it"
+        )
+        XCTAssertEqual(try runProcess(script.path, []).status, 0)
+    }
+
     // MARK: - Restore rendering & validation
 
     private func restoreInputs(

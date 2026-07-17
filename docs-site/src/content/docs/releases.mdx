@@ -9,6 +9,20 @@ import Callout from '../../components/Callout.astro';
 
 <Badge variant="new" />
 
+## v0.8.14 — Updates that actually update
+
+*Released July 2026*
+
+<Callout variant="note" label="Beta">
+	Orifold is in beta, on the road to 1.0.
+</Callout>
+
+This hotfix repairs **Install and Restart** on current macOS releases. The app sandbox was quarantining Orifold's generated updater command, so macOS rejected that command as “damaged” before it could install anything. Orifold now removes that one launch-blocking attribute from its own trusted, generated command before handing it to Terminal; checksum, signature, rollback, unsaved-document, and relaunch checks remain in place.
+
+Users on v0.8.13 or earlier need the [one-line installer](/Orifold/get-started/install/) once to reach this build, because the broken handoff lives in the older app. In-app updates work normally from v0.8.14 onward.
+
+Full changelog: [`docs/release-v0.8.14.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.8.14.md).
+
 ## v0.8.13 — Every edit action, in full
 
 *Released July 2026*
