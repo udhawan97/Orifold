@@ -21,14 +21,22 @@ post-release rebuild self-heals within 24h.
 
 ## Gotcha
 
-`src/lib/release.ts` (`LAST_KNOWN_GOOD`) and `src/data/stats.json` both hard-code the app
-version and must be bumped alongside `project.yml` on every release. They drift
-independently and nothing fails when they do:
+`src/lib/release.ts` (`LAST_KNOWN_GOOD`) and `src/data/stats.json` both hard-code app facts
+and must be refreshed on every release. Nothing fails when they drift.
 
-- `LAST_KNOWN_GOOD` is only read when the GitHub API is unreachable or rate-limited at build
-  time, so a stale value stays invisible until the day a build actually needs it.
-- `stats.json` numbers (tests, files, loc) are rendered as-is and are currently stale —
-  it claims 752 tests / 186 files, against an actual 877 tests / 129 app source files.
+`LAST_KNOWN_GOOD` is only read when the GitHub API is unreachable or rate-limited at build
+time, so a stale value stays invisible until the day a build actually needs it.
+
+`stats.json` feeds `<Stat name="…" />` and is rendered as-is. Regenerate with:
+
+```bash
+find Orifold Tests -name '*.swift' | wc -l          # files  (excludes Packages/)
+find Orifold Tests -name '*.swift' | xargs cat | wc -l   # loc, rounded to nearest 1,000
+swift test --list-tests | wc -l                      # tests
+```
+
+Note `files`/`loc` span **app + tests**, while README's "Under the hood" table counts the
+app alone — the two are meant to differ, so don't "reconcile" them.
 
 ## Reference
 
