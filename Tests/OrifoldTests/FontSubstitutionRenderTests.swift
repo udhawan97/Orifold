@@ -146,9 +146,36 @@ final class FontSubstitutionRenderTests: XCTestCase {
             "Embedding a substitution font added \(delta) bytes/doc -- over budget; substitution "
                 + "should be constrained to display-only with an export warning."
         )
-        // Sanity: the substitution font really is being embedded (non-trivial positive delta),
-        // so this test is actually measuring embedding rather than a no-op.
-        XCTAssertGreaterThan(liberationBytes, 0)
+        // NOTE: the delta is expected to be small and can even be NEGATIVE (Liberation subsets
+        // tighter than base-14 Helvetica's overlay -- observed ~ -1.2 KB), so this test only
+        // gates the upper bound. That the substitution font is genuinely embedded (not silently
+        // fallen back to a system face) is asserted separately by
+        // `testSubstitutionFontIsActuallyEmbedded`, which inspects the embedded /BaseFont name.
+    }
+
+    /// The teeth the size-spike test lacks: prove the exported overlay actually EMBEDS the
+    /// Liberation substitute rather than silently falling back to a system font. Extracts the
+    /// embedded font name straight from the rendered PDF via PDFium (`PDFTextAnalysisEngine`
+    /// analysis -> `rawFontName`, the same FPDFText path the editor uses -- never
+    /// `PDFPage.string`, which is unreliable on CI's older PDFKit) and asserts it is a
+    /// Liberation face. If substitution ever stops embedding (font unregistered, drawn with a
+    /// fallback), the embedded name changes and this fails.
+    func testSubstitutionFontIsActuallyEmbedded() throws {
+        let (sourceDocument, page) = try blankLetterPage()
+        _ = sourceDocument
+        let paragraph = "The quick brown fox jumps over the lazy dog. "
+            + "Sphinx of black quartz, judge my vow! 0123456789"
+
+        let overlay = try renderOverlay(fontName: "LiberationSans", text: paragraph, on: page)
+        let analysis = PDFTextAnalysisEngine().analyze(
+            data: overlay, pageIndex: 0, pageRefID: UUID(), fallbackPage: nil
+        )
+        let embeddedNames = analysis.blocks.compactMap(\.rawFontName)
+        XCTAssertFalse(analysis.blocks.isEmpty, "overlay must expose an analyzable text layer")
+        XCTAssertTrue(
+            embeddedNames.contains { $0.localizedCaseInsensitiveContains("Liberation") },
+            "substituted overlay must embed a Liberation face; embedded /BaseFont names were \(embeddedNames)"
+        )
     }
 
     // MARK: - Helpers
@@ -172,6 +199,12 @@ final class FontSubstitutionRenderTests: XCTestCase {
     }
 
     private func overlayByteCount(fontName: String, text: String, on page: PDFPage) throws -> Int {
+        try renderOverlay(fontName: fontName, text: text, on: page).count
+    }
+
+    /// Renders `text` as a committed replacement drawn in `fontName` and returns the exported
+    /// overlay PDF bytes, so callers can both size and re-analyze the embedded font.
+    private func renderOverlay(fontName: String, text: String, on page: PDFPage) throws -> Data {
         let bounds = CGRect(x: 72, y: 560, width: 460, height: 160)
         var op = PDFTextEditOperation(
             pageRefID: UUID(),
@@ -192,11 +225,10 @@ final class FontSubstitutionRenderTests: XCTestCase {
         op.editedBounds = PDFEditedPageRenderer.measuredBounds(
             for: op, pageBounds: page.bounds(for: .mediaBox), sourcePage: page
         )
-        let data = try XCTUnwrap(
+        return try XCTUnwrap(
             PDFEditedPageRenderer.replacementOverlayData(from: page, applying: [op]),
             "replacement overlay should render for \(fontName)"
         )
-        return data.count
     }
 
     private func blankLetterPage() throws -> (PDFDocument, PDFPage) {
