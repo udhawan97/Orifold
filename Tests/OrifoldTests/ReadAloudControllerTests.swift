@@ -157,6 +157,49 @@ final class ReadAloudControllerTests: XCTestCase {
         XCTAssertTrue(synth.spokenTexts.isEmpty)
     }
 
+    // MARK: - Highlight range clamping (crash guard for PDFPage.selection(for:))
+
+    /// AVSpeechSynthesizer can report a will-speak range that runs past the text it was handed:
+    /// it normalizes numbers/dates ("2020" → "twenty twenty") and counts offsets against the
+    /// expanded form. That range flows through to `PDFPage.selection(for:)`, which throws an
+    /// `NSRangeException` when it's out of bounds — so the controller must clamp it to the
+    /// current chunk's UTF-16 bounds before composing the page-global highlight.
+    func testWillSpeakRangeLongerThanChunkIsClampedToChunkBounds() {
+        let synth = FakeSynthesizer()
+        let text = "Alpha one."
+        let controller = makeController(pages: [0: text], pageCount: 1, synth: synth)
+        controller.start(fromPage: 0)
+
+        let chunk = SpeechChunker.chunks(forPageText: text, pageIndex: 0)[0]
+        let chunkLength = (chunk.text as NSString).length
+        // Length overruns the chunk; the highlight must be clamped to end at the chunk's bound.
+        synth.fireWillSpeakRange(NSRange(location: 0, length: chunkLength + 50))
+
+        let highlight = controller.highlight
+        XCTAssertEqual(highlight?.pageIndex, 0)
+        XCTAssertEqual(highlight?.rangeInPage.location, chunk.rangeInPage.location)
+        XCTAssertEqual(highlight?.rangeInPage.length, chunkLength)
+        // The composed range must stay inside the chunk's page span — the invariant that keeps
+        // `selection(for:)` from reading past the page's text.
+        let end = (highlight?.rangeInPage.location ?? 0) + (highlight?.rangeInPage.length ?? 0)
+        XCTAssertLessThanOrEqual(end, chunk.rangeInPage.location + chunkLength)
+    }
+
+    /// A will-speak range whose start is already past the end of the chunk has nothing to
+    /// highlight; the controller must publish no highlight rather than an out-of-bounds one.
+    func testWillSpeakRangeStartingBeyondChunkPublishesNoHighlight() {
+        let synth = FakeSynthesizer()
+        let text = "Alpha one."
+        let controller = makeController(pages: [0: text], pageCount: 1, synth: synth)
+        controller.start(fromPage: 0)
+        XCTAssertNotNil(controller.highlight)  // sentence-level highlight is set when a chunk starts
+
+        let chunkLength = (text as NSString).length
+        synth.fireWillSpeakRange(NSRange(location: chunkLength + 10, length: 5))
+
+        XCTAssertNil(controller.highlight)
+    }
+
     /// Guards: `pause` is a no-op unless speaking; `resume` a no-op unless paused. Prevents
     /// the capsule's buttons from desyncing the synthesizer.
     func testPauseIsIgnoredWhenIdle() {

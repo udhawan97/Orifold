@@ -684,8 +684,18 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 return
             }
             guard highlight.pageIndex < document.pageCount,
-                  let page = document.page(at: highlight.pageIndex),
-                  let selection = page.selection(for: highlight.rangeInPage) else { return }
+                  let page = document.page(at: highlight.pageIndex) else { return }
+            // Defensive length guard before `selection(for:)` — the only NSRange-based selection
+            // call in the app, and one that throws `NSRangeException` on an out-of-bounds range.
+            // The range was computed against a snapshot of the page's text; if the document
+            // changed underneath the in-flight highlight it could now exceed this page. Bail
+            // rather than trust it. This is a length guard only (not a content assertion), so the
+            // Xcode-16.4 `PDFPage.string` extraction quirk is irrelevant here.
+            let pageTextLength = ((page.string ?? "") as NSString).length
+            let range = highlight.rangeInPage
+            guard range.location >= 0, range.length >= 0,
+                  range.location + range.length <= pageTextLength,
+                  let selection = page.selection(for: range) else { return }
             pdfView.setCurrentSelection(selection, animate: false)
             // Auto-scroll on page change only, so within-page word tracking doesn't yank the view.
             if lastReadAloudPageIndex != highlight.pageIndex {

@@ -115,10 +115,24 @@ final class ReadAloudController: ObservableObject {
     private func handleWillSpeak(_ utteranceRange: NSRange) {
         guard state != .idle, chunks.indices.contains(chunkIndex) else { return }
         let chunk = chunks[chunkIndex]
+        // The synthesizer can report a range past the end of the text it was handed: it
+        // normalizes numbers/dates ("2020" → "twenty twenty") and counts offsets against the
+        // expanded form. An out-of-bounds range would flow to `PDFPage.selection(for:)` and
+        // throw `NSRangeException`, so clamp to the chunk's own UTF-16 bounds first.
+        let chunkLength = (chunk.text as NSString).length
+        let location = min(max(0, utteranceRange.location), chunkLength)
+        let length = min(utteranceRange.length, chunkLength - location)
+        // Nothing left to highlight once clamped — drop the word-level highlight rather than
+        // publish a zero/negative-length span.
+        guard length > 0 else {
+            highlight = nil
+            return
+        }
         // Utterance-relative offsets → page-global offsets by adding the chunk's page offset.
+        // Both operands are now within the chunk, so the result stays inside `chunk.rangeInPage`.
         let globalRange = NSRange(
-            location: chunk.rangeInPage.location + utteranceRange.location,
-            length: utteranceRange.length
+            location: chunk.rangeInPage.location + location,
+            length: length
         )
         highlight = (chunk.pageIndex, globalRange)
     }
