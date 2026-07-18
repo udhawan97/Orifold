@@ -846,19 +846,23 @@ struct PDFViewRepresentable: NSViewRepresentable {
                     viewModel.isShowingSignaturePalette = true
                 }
             case .stamp:
-                if viewModel.pendingBarcodeOptions != nil {
+                // The stamp tool carries three placements; which one is armed is a
+                // property of the single armed slot, so this is an exhaustive match
+                // rather than a priority chain over parallel optionals.
+                switch viewModel.armedPlacement {
+                case .barcode:
                     viewModel.placeBarcode(at: pagePoint, on: page)
                     refreshSignatureOverlay()
                     refreshDecorationOverlays()
-                } else if viewModel.pendingHankoOptions != nil {
+                case .hanko:
                     viewModel.placeHanko(at: pagePoint, on: page)
                     refreshSignatureOverlay()
                     refreshDecorationOverlays()
-                } else if viewModel.pendingStampOptions != nil {
+                case .stamp:
                     viewModel.placeStamp(at: pagePoint, on: page)
                     refreshSignatureOverlay()
                     refreshDecorationOverlays()
-                } else {
+                case .signature, .none:
                     viewModel.isShowingStampPalette = true
                 }
             case .eraser:

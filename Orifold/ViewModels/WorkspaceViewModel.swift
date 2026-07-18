@@ -293,11 +293,30 @@ final class WorkspaceViewModel {
     var searchResultIndex: Int = -1
     var isReplaceRevealed = false
     var replaceText = ""
-    var pendingSignatureData: Data? = nil
-    var pendingSignatureOptions: PendingSignaturePlacementOptions? = nil
-    var pendingStampOptions: PendingStampPlacementOptions? = nil
-    var pendingHankoOptions: PendingHankoPlacementOptions? = nil
-    var pendingBarcodeOptions: PendingBarcodePlacementOptions? = nil
+    /// The single armed click-to-place action; see `PendingPlacement`. The four
+    /// `pending*` properties below read out of this one slot, so exclusion between
+    /// placements is structural rather than hand-maintained.
+    var armedPlacement: PendingPlacement? = nil
+    var pendingSignatureData: Data? {
+        if case .signature(let data, _, _) = armedPlacement { return data }
+        return nil
+    }
+    var pendingSignatureOptions: PendingSignaturePlacementOptions? {
+        if case .signature(_, let options, _) = armedPlacement { return options }
+        return nil
+    }
+    var pendingStampOptions: PendingStampPlacementOptions? {
+        if case .stamp(let options) = armedPlacement { return options }
+        return nil
+    }
+    var pendingHankoOptions: PendingHankoPlacementOptions? {
+        if case .hanko(let options) = armedPlacement { return options }
+        return nil
+    }
+    var pendingBarcodeOptions: PendingBarcodePlacementOptions? {
+        if case .barcode(let options) = armedPlacement { return options }
+        return nil
+    }
     /// Drives the barcode/QR composer sheet (Feature G). Set from the More-menu "Insert
     /// barcode/QR" row; the sheet arms `pendingBarcodeOptions` on Insert, then dismisses.
     var isShowingBarcodeComposer = false
@@ -337,7 +356,8 @@ final class WorkspaceViewModel {
     var documentComfortSettings = DocumentComfortSettings.default
 
     var hasPendingSignaturePlacement: Bool {
-        pendingSignatureData != nil && pendingSignatureOptions != nil
+        if case .signature = armedPlacement { return true }
+        return false
     }
     var scannedPageCount = 0
     var ocrCandidatePageCount = 0
@@ -399,7 +419,10 @@ final class WorkspaceViewModel {
     // are derived from it by WorkspaceEditReplayEngine, so neither lane can bake over the other.
     private var objectAnalysisCache: [UUID: PageObjectMap] = [:]
     private var objectBaseData: [UUID: Data] = [:]
-    private var pendingSigningIdentity: (any SigningIdentity)?
+    private var pendingSigningIdentity: (any SigningIdentity)? {
+        if case .signature(_, _, let identity) = armedPlacement { return identity }
+        return nil
+    }
     private var signingIdentitiesByPlacementID: [UUID: any SigningIdentity] = [:]
     @ObservationIgnored private var searchDebounceTask: Task<Void, Never>?
     @ObservationIgnored private var activeCompressionTask: Task<Void, Never>?
@@ -583,6 +606,21 @@ final class WorkspaceViewModel {
     struct PendingBarcodePlacementOptions: Equatable {
         var imageData: Data
         var pixelSize: CGSize
+    }
+
+    /// The one armed click-to-place action. A page click resolves to exactly one
+    /// placement, so this is a single slot rather than four parallel optionals:
+    /// arming any placement structurally disarms the rest, instead of each entry
+    /// point having to remember to nil out its three siblings.
+    ///
+    /// The signature case carries its identity alongside its options because the
+    /// three travel together — a cryptographic placement is meaningless with the
+    /// identity dropped, which parallel optionals allowed.
+    enum PendingPlacement {
+        case signature(data: Data, options: PendingSignaturePlacementOptions, identity: (any SigningIdentity)?)
+        case stamp(PendingStampPlacementOptions)
+        case hanko(PendingHankoPlacementOptions)
+        case barcode(PendingBarcodePlacementOptions)
     }
 
     struct PDFNoteComment: Identifiable {
@@ -4590,17 +4628,20 @@ final class WorkspaceViewModel {
                                        kind: SignaturePlacement.Kind,
                                        signerName: String?) {
         guard canPerformSigningAction() else { return }
-        pendingSignatureData = imageData
-        pendingSignatureOptions = PendingSignaturePlacementOptions(
-            kind: kind,
-            signerName: signerName,
-            signerIdentityRef: nil,
-            reason: nil,
-            location: nil,
-            contactInfo: nil,
-            subFilter: nil,
-            timestampRequested: false,
-            certificateProfileID: nil
+        armedPlacement = .signature(
+            data: imageData,
+            options: PendingSignaturePlacementOptions(
+                kind: kind,
+                signerName: signerName,
+                signerIdentityRef: nil,
+                reason: nil,
+                location: nil,
+                contactInfo: nil,
+                subFilter: nil,
+                timestampRequested: false,
+                certificateProfileID: nil
+            ),
+            identity: nil
         )
         currentTool = .signature
         isShowingSignaturePalette = false
@@ -4618,18 +4659,20 @@ final class WorkspaceViewModel {
                                               identity: (any SigningIdentity)? = nil,
                                               certificateProfileID: UUID? = nil) {
         guard canPerformSigningAction() else { return }
-        pendingSignatureData = imageData
-        pendingSigningIdentity = identity
-        pendingSignatureOptions = PendingSignaturePlacementOptions(
-            kind: .cryptographic,
-            signerName: signerName,
-            signerIdentityRef: signerIdentityRef,
-            reason: reason,
-            location: location,
-            contactInfo: contactInfo,
-            subFilter: "ETSI.CAdES.detached",
-            timestampRequested: timestampRequested,
-            certificateProfileID: certificateProfileID
+        armedPlacement = .signature(
+            data: imageData,
+            options: PendingSignaturePlacementOptions(
+                kind: .cryptographic,
+                signerName: signerName,
+                signerIdentityRef: signerIdentityRef,
+                reason: reason,
+                location: location,
+                contactInfo: contactInfo,
+                subFilter: "ETSI.CAdES.detached",
+                timestampRequested: timestampRequested,
+                certificateProfileID: certificateProfileID
+            ),
+            identity: identity
         )
         currentTool = .signature
         isShowingSignaturePalette = false
@@ -4645,20 +4688,18 @@ final class WorkspaceViewModel {
         editingStatus = nil
     }
 
+    /// Disarms only a signature. Leaving the `.signature` tool must not disarm a
+    /// stamp the user armed separately, so this stays case-scoped rather than
+    /// clearing the slot outright.
     private func clearPendingSignaturePlacement() {
-        pendingSignatureData = nil
-        pendingSignatureOptions = nil
-        pendingSigningIdentity = nil
+        if case .signature = armedPlacement { armedPlacement = nil }
     }
 
     func beginStampPlacement(text: String, swatch: PageDecorationSwatch) {
         guard canPerformMutatingAction() else { return }
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
-        pendingStampOptions = PendingStampPlacementOptions(text: trimmedText, swatch: swatch)
-        pendingHankoOptions = nil
-        pendingBarcodeOptions = nil
-        clearPendingSignaturePlacement()
+        armedPlacement = .stamp(PendingStampPlacementOptions(text: trimmedText, swatch: swatch))
         currentTool = .stamp
         isShowingSignaturePalette = false
         isShowingStampPalette = false
@@ -4671,10 +4712,7 @@ final class WorkspaceViewModel {
         guard canPerformMutatingAction() else { return }
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
-        pendingHankoOptions = PendingHankoPlacementOptions(text: trimmedText, shape: shape)
-        pendingStampOptions = nil
-        pendingBarcodeOptions = nil
-        clearPendingSignaturePlacement()
+        armedPlacement = .hanko(PendingHankoPlacementOptions(text: trimmedText, shape: shape))
         currentTool = .stamp
         isShowingSignaturePalette = false
         isShowingStampPalette = false
@@ -4687,10 +4725,7 @@ final class WorkspaceViewModel {
     func beginBarcodePlacement(imageData: Data, pixelSize: CGSize) {
         guard canPerformMutatingAction() else { return }
         guard !imageData.isEmpty else { return }
-        pendingBarcodeOptions = PendingBarcodePlacementOptions(imageData: imageData, pixelSize: pixelSize)
-        pendingStampOptions = nil
-        pendingHankoOptions = nil
-        clearPendingSignaturePlacement()
+        armedPlacement = .barcode(PendingBarcodePlacementOptions(imageData: imageData, pixelSize: pixelSize))
         currentTool = .stamp
         isShowingSignaturePalette = false
         isShowingStampPalette = false
@@ -4870,7 +4905,7 @@ final class WorkspaceViewModel {
         decorations.append(decoration)
         selectedAnnotation = nil
         selectedStampDecorationID = decoration.id
-        pendingStampOptions = nil
+        armedPlacement = nil
         replaceDecorations(decorations, actionName: "Place stamp")
         return decoration
     }
@@ -4901,7 +4936,7 @@ final class WorkspaceViewModel {
         decorations.append(decoration)
         selectedAnnotation = nil
         selectedStampDecorationID = decoration.id
-        pendingHankoOptions = nil
+        armedPlacement = nil
         replaceDecorations(decorations, actionName: "Place hanko")
         return decoration
     }
@@ -4935,7 +4970,7 @@ final class WorkspaceViewModel {
         decorations.append(decoration)
         selectedAnnotation = nil
         selectedStampDecorationID = decoration.id
-        pendingBarcodeOptions = nil
+        armedPlacement = nil
         replaceDecorations(decorations, actionName: "Insert barcode")
         return decoration
     }
