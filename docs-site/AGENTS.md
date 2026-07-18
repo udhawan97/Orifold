@@ -1,22 +1,33 @@
+# Orifold docs site
+
+Astro + Starlight documentation site. Independent of the Swift app build — see the root
+[CLAUDE.md](../CLAUDE.md) for the app itself.
+
 ## Development
 
-When starting the dev server, use background mode:
-
+```bash
+npm run dev --prefix docs-site      # port 4321
+npm run build --prefix docs-site    # verify before pushing
 ```
-astro dev --background
-```
 
-Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
+Claude Code: use `preview_start` with the `orifold-docs` config from `.claude/launch.json`
+rather than running a server via bash.
 
-## Documentation
+## Deploys
 
-Full documentation: https://docs.astro.build
+`.github/workflows/docs.yml` deploys to GitHub Pages on push to `main` touching `docs-site/**`.
+A daily 06:17 UTC cron re-bakes the download button's version and file size, so a missed
+post-release rebuild self-heals within 24h.
 
-Consult these guides before working on related tasks:
+## Gotcha
 
-- [Adding pages, dynamic routes, or middleware](https://docs.astro.build/en/guides/routing/)
-- [Working with Astro components](https://docs.astro.build/en/basics/astro-components/)
-- [Using React, Vue, Svelte, or other framework components](https://docs.astro.build/en/guides/framework-components/)
-- [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
-- [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
-- [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+`src/lib/release.ts` and `src/data/stats.json` both hard-code the app version and must be
+bumped alongside `project.yml`. They drift independently — `release.ts` is currently stale at
+`0.8.10` while `stats.json` tracks the shipped `0.8.14`.
+
+## Reference
+
+- [Astro docs](https://docs.astro.build)
+- [Starlight docs](https://starlight.astro.build)
+- [Content collections](https://docs.astro.build/en/guides/content-collections/)
+- [Internationalization](https://docs.astro.build/en/guides/internationalization/)
