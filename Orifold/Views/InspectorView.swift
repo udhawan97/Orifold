@@ -187,13 +187,7 @@ private struct InspectorInfoView: View {
         .padding(.horizontal, .dsLG)
         .padding(.vertical, .dsXL)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onAppear { seedMetadataFields() }
-        .onChange(of: viewModel.activeDocumentID) { _, _ in seedMetadataFields() }
-        // Undo/redo of a metadata edit reverts the model but leaves activeDocumentID
-        // unchanged, so re-seed on structureRevision (bumped by every rebuild, incl.
-        // the undo/redo of applyMetadataEdit) or the fields would show stale values
-        // and a re-Apply would re-commit them.
-        .onChange(of: viewModel.structureRevision) { _, _ in seedMetadataFields() }
+        .inspectorDraft(from: viewModel, seed: seedMetadataFields)
     }
 
     private var metadataSection: some View {
@@ -1355,11 +1349,7 @@ private struct InspectorAttachmentsView: View {
             RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
                 .fill(isDropTargeted ? Color.dsAccent.opacity(0.08) : Color.clear)
         }
-        .onAppear(perform: reload)
-        .onChange(of: viewModel.activeDocumentID) { _, _ in reload() }
-        // Bumped by every add/remove/undo rebuild — re-seed so the list reflects
-        // the canonical state after a mutation or its undo.
-        .onChange(of: viewModel.structureRevision) { _, _ in reload() }
+        .inspectorDraft(from: viewModel, seed: reload)
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             handleDrop(providers)
         }
@@ -1396,7 +1386,6 @@ private struct InspectorAttachmentsView: View {
 
             Button {
                 viewModel.removeAttachment(named: attachment.name)
-                reload()
             } label: {
                 Image(systemName: "trash")
             }
@@ -1433,7 +1422,6 @@ private struct InspectorAttachmentsView: View {
         panel.title = L10n.string("attachments.add", locale: locale)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         viewModel.addAttachment(url)
-        reload()
     }
 
     private func presentExtractPanel(for attachment: PDFAttachment) {
@@ -1450,7 +1438,6 @@ private struct InspectorAttachmentsView: View {
             guard let url else { return }
             DispatchQueue.main.async {
                 viewModel.addAttachment(url)
-                reload()
             }
         }
         return true
@@ -1844,5 +1831,35 @@ private struct InspectorAnnotationRow: View {
         .padding(.vertical, .dsSM)
         .background(isSelected ? Color.dsAccentSoft.opacity(0.35) : Color.clear)
         .contentShape(Rectangle())
+    }
+}
+
+/// The lifecycle an inspector tab needs when it edits through a local draft: seed the draft
+/// from the model on appear, re-seed when the targeted member changes, and re-seed when the
+/// workspace rebuilds.
+///
+/// That third trigger is the load-bearing one and the least obvious. Undo/redo of a member
+/// edit reverts the model but leaves `activeDocumentID` unchanged, so without it the fields
+/// keep showing pre-undo values — and a re-Apply re-commits them. It was added once as a bug
+/// fix and then hand-copied to the next tab; as a modifier a new tab gets it by default rather
+/// than having to know it exists.
+///
+/// Tabs need no manual re-seed after their own mutations: every mutation that changes the
+/// model routes through `rebuild()`, which bumps `structureRevision` and fires this.
+private struct InspectorDraftLifecycle: ViewModifier {
+    let viewModel: WorkspaceViewModel
+    let seed: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear(perform: seed)
+            .onChange(of: viewModel.activeDocumentID) { _, _ in seed() }
+            .onChange(of: viewModel.structureRevision) { _, _ in seed() }
+    }
+}
+
+private extension View {
+    func inspectorDraft(from viewModel: WorkspaceViewModel, seed: @escaping () -> Void) -> some View {
+        modifier(InspectorDraftLifecycle(viewModel: viewModel, seed: seed))
     }
 }
