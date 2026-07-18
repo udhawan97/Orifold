@@ -6973,10 +6973,7 @@ final class WorkspaceViewModel {
         let pdf = loaded.1
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
-            for annotation in page.annotations {
-                // The invisible bake stamp is a FreeText annotation but pure engine
-                // bookkeeping — it must not count as a user PDF edit.
-                if BakeStamp.isStamp(annotation) { continue }
+            for annotation in BakeStamp.userAnnotations(on: page) {
                 if annotation.value(forAnnotationKey: Self.draftTextAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: Self.legacyDraftTextAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: Self.textReplacementAnnotationKey) != nil ||

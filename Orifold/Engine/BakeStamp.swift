@@ -15,7 +15,24 @@ import PDFKit
 /// it detects style-only stale bakes that the text-presence fallback cannot (a restyle that
 /// never re-baked leaves identical visible text but a different operation set).
 enum BakeStamp {
-    static let annotationKey = "/OrifoldBakeStamp"
+    /// The annotation key as PDFium takes it: raw, no leading slash.
+    static let pdfiumAnnotationKey = "OrifoldBakeStamp"
+
+    /// The same key as PDFKit spells it — PDFKit prefixes annotation keys with a slash,
+    /// PDFium does not. DERIVED rather than written out again: the stamp is written through
+    /// PDFium and read back through PDFKit, so two independently-spelled constants would be
+    /// linked only by an unwritten "minus the slash" rule, and renaming one would leave
+    /// stamps written but never detected — every reconcile silently falling back to
+    /// text-presence, or re-baking every page.
+    static let annotationKey = "/" + pdfiumAnnotationKey
+
+    /// FreeText, in PDFium's annotation-subtype numbering. The stamp must be a FreeText
+    /// annotation because it is the only subtype that reliably round-trips a custom key.
+    static let pdfiumFreeTextSubtype: Int32 = 3
+
+    /// Off-page and sub-point, so the stamp is never visible, clickable, or printable.
+    /// Shared by both writers so the convention is defined once.
+    static let bounds = CGRect(x: -10, y: -10, width: 1, height: 1)
 
     /// True for the invisible bake-stamp annotation. The stamp is a FreeText annotation (the
     /// only reliably round-tripping way to carry a custom key), so every markup check that
@@ -23,6 +40,13 @@ enum BakeStamp {
     /// markup, and must never count as an edit, list row, or reason to drop a source payload.
     static func isStamp(_ annotation: PDFAnnotation) -> Bool {
         annotation.value(forAnnotationKey: PDFAnnotationKey(rawValue: annotationKey)) != nil
+    }
+
+    /// Every annotation on `page` that is genuine user markup — the stamp excluded.
+    /// Prefer this over walking `page.annotations` directly: the exclusion is the kind of
+    /// step a new scan forgets, and forgetting it counts engine bookkeeping as a user edit.
+    static func userAnnotations(on page: PDFPage) -> [PDFAnnotation] {
+        page.annotations.filter { !isStamp($0) }
     }
 
     /// SHA-256 hex of a canonical, order-independent encoding of `operations`. Sorted by id
@@ -74,10 +98,14 @@ enum BakeStamp {
         return SHA256.hash(data: canonical).map { String(format: "%02x", $0) }.joined()
     }
 
-    /// Writes an invisible stamp annotation for the exact operation set baked into a page.
+    /// Writes an invisible stamp annotation for the exact operation set baked into a page,
+    /// through the PDFKit lane. Production bakes go through PDFium
+    /// (`PDFReplayMetadataEngine.finalize`), which is the writer that runs on real edits;
+    /// this is the PDFKit-side counterpart, and both take their key, subtype and bounds from
+    /// the constants above so the two lanes cannot encode the convention differently.
     static func attach(_ hash: String, to page: PDFPage) {
         let annotation = PDFAnnotation(
-            bounds: CGRect(x: -10, y: -10, width: 1, height: 1),
+            bounds: bounds,
             forType: .freeText,
             withProperties: nil
         )
