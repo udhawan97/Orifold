@@ -31,7 +31,7 @@
 | 2 | Hanko stamp studio | Med-High | ✅ |
 | 2 | Barcode/QR insert + scan | High | ✅ |
 | 3 | Compression pack v2 (zopfli, mozjpeg, JBIG2) | Med-High | ☐ |
-| 3 | Attachments manager | Med-High | ☐ |
+| 3 | Attachments manager | Med-High | ✅ |
 | 3 | Booklet / N-up imposition | Med-High | ✅ |
 | 3 | Scan cleanup ("Scan mode") | Med-High | ☐ |
 | 4 | Offline translation (macOS 15 gate) | High | ☐ |

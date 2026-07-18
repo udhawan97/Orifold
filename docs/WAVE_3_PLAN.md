@@ -256,7 +256,7 @@ enum AttachmentsService {
 ```
 - Consumes: the existing `withQPDF(_:description:password:)` lifecycle wrapper + `qpdf_get_root`, `qpdf_oh_has_key`/`qpdf_oh_get_key`, `qpdf_oh_get_array_n_items`/`qpdf_oh_get_array_item`, `qpdf_oh_get_utf8_value`, `qpdf_oh_get_stream_data` — all already imported via `CQPDF`. Reuse `QPDFService`'s private helpers (`hasKey`, `qpdf_oh_get_key` idioms) — extract/reuse rather than duplicate.
 
-- [ ] **Step 1: Failing tests.** Fixture: qpdf can't easily *create* an attachment in-test without the add path, so seed the fixture by running I2's add first (order I2 before I1's round-trip test), OR ship a tiny committed fixture PDF with one known embedded file. Minimal red test:
+- [x] **Step 1: Failing tests.** Fixture: qpdf can't easily *create* an attachment in-test without the add path, so seed the fixture by running I2's add first (order I2 before I1's round-trip test), OR ship a tiny committed fixture PDF with one known embedded file. Minimal red test:
 
 ```swift
 final class AttachmentsServiceTests: XCTestCase {
@@ -268,8 +268,8 @@ final class AttachmentsServiceTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2:** FAIL. **Step 3: Implement** `list` by walking the `/Names/EmbeddedFiles` name tree: the tree is either a flat `/Names` array of alternating `(name, filespec)` pairs or a `/Kids` subtree — handle both (recurse on `/Kids`). For each Filespec, read `/UF` (or `/F`) for the display name and `/EF /F` (the embedded-file stream) for `/Params /Size` (byte count) and `/Subtype` (MIME). `extract`: locate the matching Filespec, get its `/EF /F` stream `qpdf_oh`, call `qpdf_oh_get_stream_data(qpdf, streamOh, qpdf_dl_all, &filtered, &bufPtr, &len)` → copy into `Data(bytes:count:)` → free with the qpdf-provided buffer-free function. Throw `.notFound` if absent.
-- [ ] **Step 4:** PASS (with I2's round-trip). **Step 5: Commit** — `feat: list/extract embedded files via qpdf name-tree walk`.
+- [x] **Step 2:** FAIL. **Step 3: Implement** `list` by walking the `/Names/EmbeddedFiles` name tree: the tree is either a flat `/Names` array of alternating `(name, filespec)` pairs or a `/Kids` subtree — handle both (recurse on `/Kids`). For each Filespec, read `/UF` (or `/F`) for the display name and `/EF /F` (the embedded-file stream) for `/Params /Size` (byte count) and `/Subtype` (MIME). `extract`: locate the matching Filespec, get its `/EF /F` stream `qpdf_oh`, call `qpdf_oh_get_stream_data(qpdf, streamOh, qpdf_dl_all, &filtered, &bufPtr, &len)` → copy into `Data(bytes:count:)` → free with the qpdf-provided buffer-free function. Throw `.notFound` if absent.
+- [x] **Step 4:** PASS (with I2's round-trip). **Step 5: Commit** — `feat: list/extract embedded files via qpdf name-tree walk`.
 
 **Gotchas:** name-tree may be nested under `/Kids` — do not assume a flat `/Names`. `qpdf_oh_get_stream_data` returns a **qpdf-allocated** buffer → copy immediately, then free with the documented `qpdf_..._free_buffer` (qpdf-c.h ~:934) — never `free()` it yourself. Password-protected members: thread `password` into `withQPDF`.
 
@@ -283,7 +283,7 @@ static func add(_ fileData: Data, name: String, mimeType: String?, to data: Data
 static func remove(_ name: String, from data: Data, password: String? = nil) throws -> Data
 ```
 
-- [ ] **Step 1: Failing tests** — full round-trip through the real path:
+- [x] **Step 1: Failing tests** — full round-trip through the real path:
 
 ```swift
 func testAddListExtractRoundTrip() throws {
@@ -299,11 +299,11 @@ func testAddListExtractRoundTrip() throws {
 }
 ```
 
-- [ ] **Step 2:** FAIL. **Step 3: Implement** via temp files + `qpdfjob_run_from_argv`:
+- [x] **Step 2:** FAIL. **Step 3: Implement** via temp files + `qpdfjob_run_from_argv`:
   - `add`: write `fileData` to a temp file; argv = `["qpdf", inTmp, outTmp, "--add-attachment", attTmp, "--key=\(name)", "--filename=\(name)", "--mimetype=\(mime)", "--"]` (the trailing `--` terminates the add-attachment sub-options). Read `outTmp` back.
   - `remove`: argv = `["qpdf", inTmp, outTmp, "--remove-attachment=\(name)"]`.
   - `qpdfjob_run_from_argv` returns a qpdf exit code: `0` success, `3` warnings (tolerate), `2` errors → throw `.addFailed`/`.removeFailed`. Clean up all temp files in `defer`. Gate `outTmp` bytes with `isStructurallySound`.
-- [ ] **Step 4:** PASS + full `swift test`. **Step 5: Commit** — `feat: add/remove embedded files via qpdfjob`.
+- [x] **Step 4:** PASS + full `swift test`. **Step 5: Commit** — `feat: add/remove embedded files via qpdfjob`.
 
 **Gotchas:** build the C `argv` as a null-terminated `[UnsafeMutablePointer<CChar>?]` and free each `strdup`'d string after the call. `--key` must be unique — qpdf refuses a duplicate key (mirror `FPDFDoc_AddAttachment`'s "empty or existing name → no-op"): pre-check via `list` and disambiguate. Filenames with spaces/Unicode: qpdf handles UTF-8 argv, but sanitize path separators out of `name`.
 
@@ -319,7 +319,7 @@ func addAttachment(_ fileURL: URL) ; func removeAttachment(named: String) ; func
 ```
 mutating the active member's preserved bytes, named undo, `structureRevision` bump, `rebuild()` — mirror `applyOCRResult` (:2327) exactly (set `document.memberPDFData[id]`, reset `originalMemberPDFData[id]` pristine base, `invalidatePageInspection`, undo registered INSIDE its group with `setActionName`).
 
-- [ ] **Step 1:** Study `applyOCRResult` (:2327) for the byte-swap + pristine-base reset discipline. **Step 2: Failing test** — add to a one-member workspace, assert `AttachmentsService.list` on the member's current bytes returns it, `undoManager.canUndo`, undo restores empty. **Step 3: Implement** following that precedent; extract uses `NSSavePanel` + writes the bytes with an `NSURL` **quarantine** attribute (untrusted content from an arbitrary PDF). **Step 4:** Also add the **export regression test** — attachments must survive `dataForPDFExport` (historical bug: export paths bypassing gates); and a **sanitize interaction test** — `sanitized(removingMetadata:)` still strips ALL attachments (:108 unchanged). **Step 5: Commit** — `feat: attachments flow through preserving pipeline with undo`.
+- [x] **Step 1:** Study `applyOCRResult` (:2327) for the byte-swap + pristine-base reset discipline. **Step 2: Failing test** — add to a one-member workspace, assert `AttachmentsService.list` on the member's current bytes returns it, `undoManager.canUndo`, undo restores empty. **Step 3: Implement** following that precedent; extract uses `NSSavePanel` + writes the bytes with an `NSURL` **quarantine** attribute (untrusted content from an arbitrary PDF). **Step 4:** Also add the **export regression test** — attachments must survive `dataForPDFExport` (historical bug: export paths bypassing gates); and a **sanitize interaction test** — `sanitized(removingMetadata:)` still strips ALL attachments (:108 unchanged). **Step 5: Commit** — `feat: attachments flow through preserving pipeline with undo`.
 
 **Gotchas:** quarantine the extracted file (`kLSQuarantineTypeKey`). Attachments must round-trip through the export bake path — add the regression test, don't assume. Encrypted members lacking a stored password: disable add/remove, surface a hint.
 
@@ -328,9 +328,9 @@ mutating the active member's preserved bytes, named undo, `structureRevision` bu
 **Files:**
 - Modify: `Orifold/Views/InspectorView.swift` (add `case attachments = "Attachments"` to `Tab` :13, `iconName` = `"paperclip"` :21, `titleKey` = `"inspector.tab.attachments"` :35, + the tab body view), `Orifold/Resources/Localizable.xcstrings`
 
-- [ ] **Step 1:** New tab: list rows (name, size via `ByteCountFormatter`, MIME); drag-in a file to add; per-row Extract (NSSavePanel) / Remove. Keys ×6: `inspector.tab.attachments`, `attachments.empty`, `attachments.add`, `attachments.extract`, `attachments.remove`, `attachments.dropHint`, `attachments.encrypted.disabled`. Coverage + RawLocalizationKeyLeak pass.
-- [ ] **Step 2:** `swift test`; **hands-on**: drag a .txt in → row appears → export → reopen exported file in Preview → attachment present; Extract writes byte-identical file; Remove + undo works.
-- [ ] **Step 3: Commit** — `feat: attachments inspector tab + localization`. Tick master Status row.
+- [x] **Step 1:** New tab: list rows (name, size via `ByteCountFormatter`, MIME); drag-in a file to add; per-row Extract (NSSavePanel) / Remove. Keys ×6: `inspector.tab.attachments`, `attachments.empty`, `attachments.add`, `attachments.extract`, `attachments.remove`, `attachments.dropHint`, `attachments.encrypted.disabled`. Coverage + RawLocalizationKeyLeak pass.
+- [x] **Step 2:** `swift test`; **hands-on**: drag a .txt in → row appears → export → reopen exported file in Preview → attachment present; Extract writes byte-identical file; Remove + undo works.
+- [x] **Step 3: Commit** — `feat: attachments inspector tab + localization`. Tick master Status row.
 
 ---
 
