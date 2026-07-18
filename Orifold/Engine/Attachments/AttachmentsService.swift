@@ -64,15 +64,136 @@ enum AttachmentsService {
     /// Throws `.invalidPDF` when qpdf can't parse `data`, or `.notFound` when no
     /// such attachment exists.
     static func extract(_ name: String, from data: Data, password: String? = nil) throws -> Data {
-        let result: Data?? = QPDFService.withQPDF(data, description: "attachments-extract", password: password) { qpdf -> Data? in
+        // Capture the bytes in an outer var rather than returning `Data?` from the
+        // body: `withQPDF` already overloads its own `nil` return to mean "couldn't
+        // open", so a body-returned `nil` (attachment absent) would be
+        // indistinguishable from that. A `Bool` "did open" return keeps the two
+        // failure modes cleanly separated.
+        var extracted: Data? = nil
+        let opened = QPDFService.withQPDF(data, description: "attachments-extract", password: password) { qpdf -> Bool in
             guard let node = embeddedFilesNode(qpdf),
                   let filespec = findFilespec(qpdf, node: node, name: name, depth: 0),
-                  let stream = embeddedFileStream(qpdf, filespec: filespec) else { return nil }
-            return streamData(qpdf, stream)
+                  let stream = embeddedFileStream(qpdf, filespec: filespec) else { return true }
+            extracted = streamData(qpdf, stream)
+            return true
         }
-        guard let inner = result else { throw AttachmentsError.invalidPDF }
-        guard let bytes = inner else { throw AttachmentsError.notFound }
+        guard opened != nil else { throw AttachmentsError.invalidPDF }
+        guard let bytes = extracted else { throw AttachmentsError.notFound }
         return bytes
+    }
+
+    // MARK: - Add / remove (qpdfjob argv)
+
+    /// Adds `fileData` as an attachment named `name`, returning the rewritten
+    /// bytes. Path separators in `name` are stripped, and a colliding key is
+    /// disambiguated (`note.txt` → `note-2.txt`) because qpdf refuses a duplicate
+    /// key outright. Throws `.addFailed` when qpdf's add pass can't produce
+    /// structurally sound bytes.
+    static func add(_ fileData: Data, name: String, mimeType: String?, to data: Data, password: String? = nil) throws -> Data {
+        let existingKeys = Set(((try? list(in: data, password: password)) ?? []).map(\.name))
+        let filename = sanitizedKey(name)
+        let key = disambiguated(filename, against: existingKeys)
+
+        let attachmentURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Orifold-attachment-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: attachmentURL) }
+        try fileData.write(to: attachmentURL)
+
+        let output = try runJobPreservingSource(data, password: password) { inputURL, outputURL in
+            var arguments = ["qpdf"]
+            if let password { arguments.append("--password=\(password)") }
+            arguments.append(contentsOf: [
+                inputURL.path, outputURL.path,
+                "--add-attachment", attachmentURL.path,
+                "--key=\(key)", "--filename=\(filename)"
+            ])
+            if let mimeType, !mimeType.isEmpty { arguments.append("--mimetype=\(mimeType)") }
+            arguments.append("--") // terminates the --add-attachment sub-options
+            return runJob(arguments)
+        }
+        guard let output else { throw AttachmentsError.addFailed }
+        return output
+    }
+
+    /// Removes the attachment whose name-tree key is `name`, returning the
+    /// rewritten bytes. Throws `.removeFailed` when qpdf's remove pass can't
+    /// produce structurally sound bytes (including when no such key exists).
+    static func remove(_ name: String, from data: Data, password: String? = nil) throws -> Data {
+        let output = try runJobPreservingSource(data, password: password) { inputURL, outputURL in
+            var arguments = ["qpdf"]
+            if let password { arguments.append("--password=\(password)") }
+            arguments.append(contentsOf: [inputURL.path, outputURL.path, "--remove-attachment=\(name)"])
+            return runJob(arguments)
+        }
+        guard let output else { throw AttachmentsError.removeFailed }
+        return output
+    }
+
+    // MARK: - qpdfjob plumbing
+
+    // qpdf exit codes (Constants.h, qpdf_exit_code_e): 0 = success, 3 = warnings
+    // (tolerated — e.g. a recovered xref), 2 = errors.
+    private static let jobExitSuccess: Int32 = 0
+    private static let jobExitWarnings: Int32 = 3
+
+    /// Writes `source` to a temp input, runs `job` (which must write to the temp
+    /// output), then reads the output back and gates it through qpdf's structural
+    /// check. Returns `nil` on any non-success/warning exit, empty output, or a
+    /// failed structural check. All temp files are cleaned up in `defer`
+    /// (precedent: `PDFCompressionService`).
+    private static func runJobPreservingSource(
+        _ source: Data,
+        password: String?,
+        _ job: (URL, URL) throws -> Int32
+    ) throws -> Data? {
+        let directory = FileManager.default.temporaryDirectory
+        let inputURL = directory.appendingPathComponent("Orifold-att-in-\(UUID().uuidString).pdf")
+        let outputURL = directory.appendingPathComponent("Orifold-att-out-\(UUID().uuidString).pdf")
+        defer {
+            try? FileManager.default.removeItem(at: inputURL)
+            try? FileManager.default.removeItem(at: outputURL)
+        }
+        try source.write(to: inputURL)
+        let code = try job(inputURL, outputURL)
+        guard code == jobExitSuccess || code == jobExitWarnings else { return nil }
+        guard let output = try? Data(contentsOf: outputURL), !output.isEmpty else { return nil }
+        guard QPDFService.isStructurallySound(output, password: password) else { return nil }
+        return output
+    }
+
+    /// Bridges a Swift `[String]` into the null-terminated C `argv` qpdfjob
+    /// expects, `strdup`-ing each argument and freeing every copy after the call.
+    private static func runJob(_ arguments: [String]) -> Int32 {
+        let copies = arguments.map { strdup($0) }
+        defer { copies.forEach { free($0) } }
+        var argv: [UnsafePointer<CChar>?] = copies.map { $0.map { UnsafePointer($0) } }
+        argv.append(nil)
+        return qpdfjob_run_from_argv(argv)
+    }
+
+    /// Strips path separators so a crafted `name` can't smuggle a path into the
+    /// name tree; keeps the key a flat identifier.
+    private static func sanitizedKey(_ name: String) -> String {
+        let cleaned = name
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "\\", with: "_")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? "attachment" : cleaned
+    }
+
+    /// Returns `key` unchanged unless it collides with an existing name-tree key,
+    /// in which case it inserts a `-N` suffix before the extension.
+    private static func disambiguated(_ key: String, against existing: Set<String>) -> String {
+        guard existing.contains(key) else { return key }
+        let asNSString = key as NSString
+        let ext = asNSString.pathExtension
+        let base = ext.isEmpty ? key : asNSString.deletingPathExtension
+        var index = 2
+        while true {
+            let candidate = ext.isEmpty ? "\(base)-\(index)" : "\(base)-\(index).\(ext)"
+            if !existing.contains(candidate) { return candidate }
+            index += 1
+        }
     }
 
     // MARK: - Name-tree walk helpers
@@ -177,16 +298,20 @@ enum AttachmentsService {
     /// yields a zero count and a missing `/Subtype` yields `nil`.
     private static func embeddedFileInfo(_ qpdf: qpdf_data, filespec: qpdf_oh) -> (Int, String?) {
         guard let stream = embeddedFileStream(qpdf, filespec: filespec) else { return (0, nil) }
+        // `/Params` and `/Subtype` live on the stream's *dictionary*; a stream
+        // object handle isn't itself a dictionary, so `qpdf_oh_get_dict` is
+        // required before any key read (unlike the plain filespec dict above).
+        let dictionary = qpdf_oh_get_dict(qpdf, stream)
         var byteCount = 0
-        if hasKey(qpdf, stream, "/Params") {
-            let params = qpdf_oh_get_key(qpdf, stream, "/Params")
+        if hasKey(qpdf, dictionary, "/Params") {
+            let params = qpdf_oh_get_key(qpdf, dictionary, "/Params")
             if qpdf_oh_is_dictionary(qpdf, params) == QPDF_TRUE, hasKey(qpdf, params, "/Size") {
                 byteCount = max(0, Int(qpdf_oh_get_int_value_as_int(qpdf, qpdf_oh_get_key(qpdf, params, "/Size"))))
             }
         }
         var mimeType: String? = nil
-        if hasKey(qpdf, stream, "/Subtype") {
-            mimeType = nameValue(qpdf, qpdf_oh_get_key(qpdf, stream, "/Subtype"))
+        if hasKey(qpdf, dictionary, "/Subtype") {
+            mimeType = nameValue(qpdf, qpdf_oh_get_key(qpdf, dictionary, "/Subtype"))
         }
         return (byteCount, mimeType)
     }
