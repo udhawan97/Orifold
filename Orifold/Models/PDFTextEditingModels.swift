@@ -121,6 +121,16 @@ struct EditableTextBlock: Codable, Identifiable, Equatable {
     var lines: [PDFTextLine]
     var columnBounds: CGRect? = nil
     var fontName: String
+    /// The RAW unembedded PDF `/BaseFont` name this block's dominant run referenced (e.g.
+    /// "Calibri", "ABCDEF+Cambria"), captured BEFORE `PDFTextAnalysisEngine.resolveFontPostScriptName`
+    /// normalized it into `fontName`'s coarse display family (Calibri→Arial, Cambria→Times New
+    /// Roman). Used ONLY as the key for metric-compatible font substitution (`FontSubstitution`):
+    /// the table needs the real Windows-font name to reach its Carlito/Caladea entries, whereas
+    /// the normalized `fontName` would collapse them to Liberation Sans/Serif. Keep `fontName`
+    /// for display/trait logic; consult `rawFontName` only for the substitution decision. `nil`
+    /// when no font name could be read (callers fall back to `fontName`). Optional + defaulted so
+    /// persisted pre-migration workspace state still decodes (`decodeIfPresent` → nil).
+    var rawFontName: String? = nil
     var fontSize: CGFloat
     var textColor: CodableColor
     var alignment: CodableTextAlignment? = nil
@@ -341,6 +351,12 @@ struct PDFTextEditSession: Equatable {
 
 struct PDFTextEditFormat: Codable, Equatable {
     var fontName: String
+    /// The RAW unembedded PDF `/BaseFont` name behind `fontName` (see
+    /// `EditableTextBlock.rawFontName`), carried so Match/Copy/Apply-Style and nearby-style
+    /// insertion key font substitution off the real font name rather than `fontName`'s
+    /// normalized Arial/Times fallback. `nil` for formats built from a live edited font
+    /// (there is no source `/BaseFont`) — callers fall back to `fontName`.
+    var rawFontName: String? = nil
     var fontSize: CGFloat
     var textColor: CodableColor
     var alignment: CodableTextAlignment
@@ -350,6 +366,7 @@ struct PDFTextEditFormat: Codable, Equatable {
 
     init(
         fontName: String,
+        rawFontName: String? = nil,
         fontSize: CGFloat,
         textColor: CodableColor,
         alignment: CodableTextAlignment,
@@ -358,6 +375,7 @@ struct PDFTextEditFormat: Codable, Equatable {
         columnBounds: CGRect? = nil
     ) {
         self.fontName = fontName
+        self.rawFontName = rawFontName
         self.fontSize = fontSize
         self.textColor = textColor
         self.alignment = alignment
@@ -368,6 +386,7 @@ struct PDFTextEditFormat: Codable, Equatable {
 
     init(block: EditableTextBlock) {
         self.fontName = block.fontName
+        self.rawFontName = block.rawFontName
         self.fontSize = block.fontSize
         self.textColor = block.textColor
         self.alignment = block.alignment ?? .left

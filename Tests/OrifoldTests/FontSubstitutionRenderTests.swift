@@ -57,6 +57,63 @@ final class FontSubstitutionRenderTests: XCTestCase {
         XCTAssertEqual(InlineTextEditorOverlay.editingFamilyName(for: helvetica, fallback: "Helvetica"), "Helvetica")
     }
 
+    // MARK: - Analysis -> substitution seam (Feature E CRITICAL)
+
+    /// The substitution DECISION must key off the block's RAW unembedded `/BaseFont` name, not
+    /// the display `fontName` that `resolveFontPostScriptName` already collapsed onto a stock
+    /// family. Calibri/Cambria normalize to Arial/Times *before* substitution runs, so keying
+    /// off the resolved name silently degrades them to Liberation Sans/Serif and never reaches
+    /// Carlito/Caladea. This routes a synthetic block -- the raw name plus the SAME normalized
+    /// `fontName` the engine would derive (computed via the real resolver, so the test rides
+    /// the actual analysis->substitution seam) -- through the editor's `editingFamilyName` and
+    /// asserts the editing family lands on the right metric-clone even for the Windows-only
+    /// faces that never install on macOS. The family string comes from the substitution table,
+    /// so the assertion holds whether or not Arial/Calibri/Cambria are installed.
+    func testEditingFamilyKeysOffRawPDFFontNameNotNormalizedFallback() {
+        let cases: [(raw: String, expectedFamily: String)] = [
+            ("Calibri", "Carlito"),
+            ("Cambria", "Caladea"),
+            ("ArialMT", "Liberation Sans"),  // control: Arial ships on macOS, always worked
+        ]
+        for (raw, expectedFamily) in cases {
+            // What the engine stores in `block.fontName`: the resolver's normalized display
+            // name (Calibri->Arial*, Cambria->Times*).
+            let normalized = PDFTextAnalysisEngine.testResolveFontPostScriptName(
+                from: raw, weightHint: nil, italicHint: false
+            )
+            let block = makeBlock(fontName: normalized, rawFontName: raw)
+            let font = NSFont(name: block.fontName, size: 12) ?? .systemFont(ofSize: 12)
+
+            let family = InlineTextEditorOverlay.editingFamilyName(
+                for: font, fallback: block.fontName, substitutionSource: block.rawFontName
+            )
+            XCTAssertEqual(
+                family, expectedFamily,
+                "raw \(raw) (normalized to \(normalized)) should edit as \(expectedFamily)"
+            )
+        }
+    }
+
+    /// The mirror of the seam test: keying substitution off the NORMALIZED display name alone
+    /// (the pre-fix wiring) cannot reach Carlito/Caladea, because Calibri/Cambria have already
+    /// been collapsed to Arial/Times by then. Locks in *why* `editingFamilyName` must consult
+    /// `substitutionSource` rather than `fallback` for the decision -- if this ever starts
+    /// passing via the fallback path, the raw-name plumbing has been silently short-circuited.
+    func testNormalizedFallbackAloneCannotReachCarlitoOrCaladea() {
+        for (raw, wrongIfReached) in [("Calibri", "Carlito"), ("Cambria", "Caladea")] {
+            let normalized = PDFTextAnalysisEngine.testResolveFontPostScriptName(
+                from: raw, weightHint: nil, italicHint: false
+            )
+            let font = NSFont(name: normalized, size: 12) ?? .systemFont(ofSize: 12)
+            // No substitutionSource -> the decision falls back to the normalized name.
+            let viaNormalized = InlineTextEditorOverlay.editingFamilyName(for: font, fallback: normalized)
+            XCTAssertNotEqual(
+                viaNormalized, wrongIfReached,
+                "normalized \(normalized) must NOT reach the raw-\(raw) substitute via fallback alone"
+            )
+        }
+    }
+
     // MARK: - Export size spike
 
     /// SIZE SPIKE (medium-confidence risk in docs/WAVE_2_PLAN.md): editing text with a
@@ -95,6 +152,24 @@ final class FontSubstitutionRenderTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// A minimal detected block carrying a normalized display `fontName` alongside the raw
+    /// `/BaseFont` name, matching what `PDFTextAnalysisEngine.buildBlock` now produces.
+    private func makeBlock(fontName: String, rawFontName: String?) -> EditableTextBlock {
+        EditableTextBlock(
+            pageRefID: nil,
+            text: "sample",
+            bounds: CGRect(x: 0, y: 0, width: 100, height: 20),
+            lines: [],
+            fontName: fontName,
+            rawFontName: rawFontName,
+            fontSize: 12,
+            textColor: .documentText,
+            rotation: 0,
+            baseline: 0,
+            confidence: .high
+        )
+    }
 
     private func overlayByteCount(fontName: String, text: String, on page: PDFPage) throws -> Int {
         let bounds = CGRect(x: 72, y: 560, width: 460, height: 160)

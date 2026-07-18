@@ -2991,7 +2991,7 @@ final class NoteEditorViewController: NSViewController {
         // replacement onto the line below. Only guard against a non-positive/garbage detection.
         documentFontSize = block.fontSize > 0 ? block.fontSize : 12
         let initialFont = NSFont(name: block.fontName, size: documentFontSize) ?? .systemFont(ofSize: documentFontSize)
-        editorFontFamily = Self.editingFamilyName(for: initialFont, fallback: block.fontName)
+        editorFontFamily = Self.editingFamilyName(for: initialFont, fallback: block.fontName, substitutionSource: block.rawFontName)
         editorFontTraits = NSFontManager.shared.traits(of: initialFont).intersection([.boldFontMask, .italicFontMask])
         editorTextColor = Self.initialTextColor(for: block)
         textColorChoices = Self.textColorChoices(for: block, document: pdfView.document, initialColor: editorTextColor)
@@ -4066,7 +4066,7 @@ final class NoteEditorViewController: NSViewController {
         )
         documentFontSize = format.fontSize > 0 ? format.fontSize : originalFontSize
         let sourceFont = NSFont(name: format.fontName, size: documentFontSize) ?? .systemFont(ofSize: documentFontSize)
-        editorFontFamily = Self.editingFamilyName(for: sourceFont, fallback: format.fontName)
+        editorFontFamily = Self.editingFamilyName(for: sourceFont, fallback: format.fontName, substitutionSource: format.rawFontName)
         editorFontTraits = NSFontManager.shared.traits(of: sourceFont).intersection([.boldFontMask, .italicFontMask])
         editorTextColor = format.textColor.nsColor
         editorAlignment = format.alignment.nsTextAlignment
@@ -4514,12 +4514,19 @@ final class NoteEditorViewController: NSViewController {
         max(minimum, ceil(button.fittingSize.width))
     }
 
-    static func editingFamilyName(for font: NSFont, fallback: String) -> String {
+    /// - Parameter substitutionSource: the RAW unembedded PDF `/BaseFont` name
+    ///   (`EditableTextBlock.rawFontName`), used ONLY to key metric-compatible font
+    ///   substitution. It must be the pre-normalization name: `resolveFontPostScriptName`
+    ///   collapses Calibri→Arial and Cambria→Times, so keying substitution off the resolved
+    ///   `fallback` never reaches the Carlito/Caladea entries. Falls back to `fallback` when nil.
+    static func editingFamilyName(for font: NSFont, fallback: String, substitutionSource: String? = nil) -> String {
         // A known unembedded standard font (Arial/Times New Roman/Courier New/Calibri/
         // Cambria) resolves to its bundled metric-compatible face so editing keeps the
         // original layout — taking precedence over whatever the system happens to
-        // substitute (or nothing at all, for the Windows-only Calibri/Cambria).
-        if let substitute = FontSubstitution.substituteFamily(for: fallback) {
+        // substitute (or nothing at all, for the Windows-only Calibri/Cambria). Key the
+        // decision off the RAW font name so the already-normalized display name can't hide
+        // Calibri/Cambria behind Arial/Times.
+        if let substitute = FontSubstitution.substituteFamily(for: substitutionSource ?? fallback) {
             return substitute
         }
 

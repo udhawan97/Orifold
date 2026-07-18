@@ -834,6 +834,10 @@ final class PDFTextAnalysisEngine {
             lines: [line],
             columnBounds: nil,
             fontName: fontName,
+            // The RAW `/BaseFont` name (dominant run), kept separate from the normalized
+            // `fontName` so font substitution can key off the real Windows-font name
+            // (Calibri/Cambria) instead of the coarse Arial/Times fallback it collapses to.
+            rawFontName: rawFontName,
             fontSize: fontSize,
             textColor: color,
             underline: underline,
