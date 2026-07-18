@@ -50,14 +50,14 @@ final class PDFImpositionEngineTests: XCTestCase {
     // MARK: - N-up
 
     func testImportNPagesToOneProducesOnePage() throws {
-        let out = try PDFImpositionEngine.impose(twoBlankPageFixture(), layout: .nUp(rows: 1, cols: 2))
+        let out = try PDFImpositionEngine.impose(BakedPDFData(alreadyFlattened: twoBlankPageFixture()), layout: .nUp(rows: 1, cols: 2))
         let rendered = try XCTUnwrap(PDFDocument(data: out))
         XCTAssertEqual(rendered.pageCount, 1)                 // 2 src pages -> 1 sheet
         XCTAssertTrue(QPDFService.isStructurallySound(out))   // preserving-pipeline gate (f)
     }
 
     func testFourUpProducesOneSheet() throws {
-        let out = try PDFImpositionEngine.impose(fourPageMarkedFixture(), layout: .nUp(rows: 2, cols: 2))
+        let out = try PDFImpositionEngine.impose(BakedPDFData(alreadyFlattened: fourPageMarkedFixture()), layout: .nUp(rows: 2, cols: 2))
         let rendered = try XCTUnwrap(PDFDocument(data: out))
         XCTAssertEqual(rendered.pageCount, 1)                 // 4 src pages -> 1 sheet (2x2)
         XCTAssertTrue(QPDFService.isStructurallySound(out))
@@ -67,7 +67,7 @@ final class PDFImpositionEngineTests: XCTestCase {
 
     func testBookletFourPagesProducesTwoUpSheets() throws {
         let src = fourPageMarkedFixture()
-        let out = try PDFImpositionEngine.impose(src, layout: .booklet)
+        let out = try PDFImpositionEngine.impose(BakedPDFData(alreadyFlattened: src), layout: .booklet)
         let doc = try XCTUnwrap(PDFDocument(data: out))
         XCTAssertEqual(doc.pageCount, 2)                       // 4 pages, 2-up, 1 sheet = 2 physical sides
         XCTAssertTrue(QPDFService.isStructurallySound(out))
@@ -88,7 +88,7 @@ final class PDFImpositionEngineTests: XCTestCase {
             ctx.endPDFPage()
         }
         ctx.closePDF()
-        let out = try PDFImpositionEngine.impose(data as Data, layout: .booklet)
+        let out = try PDFImpositionEngine.impose(BakedPDFData(alreadyFlattened: data as Data), layout: .booklet)
         let doc = try XCTUnwrap(PDFDocument(data: out))
         XCTAssertEqual(doc.pageCount, 2)                       // 3 -> padded 4 -> 2 sheets
         XCTAssertTrue(QPDFService.isStructurallySound(out))
@@ -97,14 +97,14 @@ final class PDFImpositionEngineTests: XCTestCase {
     /// Bake-before-impose proof: the source's black marks survive into the imposed sheet content
     /// (they are not annotations, so imposition's XObject flattening keeps them).
     func testBookletPreservesPageContent() throws {
-        let out = try PDFImpositionEngine.impose(fourPageMarkedFixture(), layout: .booklet)
+        let out = try PDFImpositionEngine.impose(BakedPDFData(alreadyFlattened: fourPageMarkedFixture()), layout: .booklet)
         let doc = try XCTUnwrap(PDFDocument(data: out))
         let firstSheet = try XCTUnwrap(doc.page(at: 0))
         XCTAssertTrue(hasDarkPixels(firstSheet), "imposed booklet sheet lost its source content")
     }
 
     func testInvalidDataThrows() {
-        XCTAssertThrowsError(try PDFImpositionEngine.impose(Data(), layout: .booklet))
-        XCTAssertThrowsError(try PDFImpositionEngine.impose(Data("not a pdf".utf8), layout: .nUp(rows: 1, cols: 2)))
+        XCTAssertThrowsError(try PDFImpositionEngine.impose(BakedPDFData(alreadyFlattened: Data()), layout: .booklet))
+        XCTAssertThrowsError(try PDFImpositionEngine.impose(BakedPDFData(alreadyFlattened: Data("not a pdf".utf8)), layout: .nUp(rows: 1, cols: 2)))
     }
 }

@@ -356,9 +356,12 @@ final class WorkspaceDocument: ReferenceFileDocument {
         let editableOriginalMemberPDFData = options.embedsEditableWorkspaceState
             ? snapshot.originalMemberPDFData.filter { membersWithEdits.contains($0.key) }
             : [:]
-        let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
-        guard !visualPlacements.isEmpty else {
-            let formData = try Self.applyFormExportAdditions(to: pdfData, workspace: snapshot.workspace, options: options)
+        // The tail every branch shares: flatten forms, decorations and comments into page
+        // content, then embed the workspace metadata. Only the STARTING bytes differ between
+        // branches — whether visual signatures were baked in first — so the stage order lives
+        // here once rather than being retyped per branch.
+        func flattenAndEmbed(_ data: Data) throws -> Data {
+            let formData = try Self.applyFormExportAdditions(to: data, workspace: snapshot.workspace, options: options)
             let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
             let commentData = try Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace)
             return try Self.embedMetadata(
@@ -372,37 +375,18 @@ final class WorkspaceDocument: ReferenceFileDocument {
             )
         }
 
+        let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
+        guard !visualPlacements.isEmpty else { return try flattenAndEmbed(pdfData) }
+
         do {
             let bakedData = try SignatureExportBaker.bake(placements: visualPlacements, into: pdfData) { placement in
                 snapshot.workspace.pageOrder.firstIndex { $0.id == placement.pageRefId }
             }
-            let formData = try Self.applyFormExportAdditions(to: bakedData, workspace: snapshot.workspace, options: options)
-            let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
-            let commentData = try Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace)
-            return try Self.embedMetadata(
-                in: commentData,
-                workspace: snapshot.workspace,
-                sourcePayloads: sourcePayloads,
-                editableWorkspace: editableWorkspace,
-                editableMemberPDFData: editableMemberPDFData,
-                editableOriginalMemberPDFData: editableOriginalMemberPDFData,
-                omittingComments: omitsCommentMetadata
-            )
+            return try flattenAndEmbed(bakedData)
         } catch SigningError.notImplemented {
-            let formData = try Self.applyFormExportAdditions(to: pdfData, workspace: snapshot.workspace, options: options)
-            let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
-            let commentData = try Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace)
-            return try Self.embedMetadata(
-                in: commentData,
-                workspace: snapshot.workspace,
-                sourcePayloads: sourcePayloads,
-                editableWorkspace: editableWorkspace,
-                editableMemberPDFData: editableMemberPDFData,
-                editableOriginalMemberPDFData: editableOriginalMemberPDFData,
-                omittingComments: omitsCommentMetadata
-            )
-        } catch {
-            throw error
+            // No visual-signature baker on this platform: export everything else rather than
+            // failing the whole document.
+            return try flattenAndEmbed(pdfData)
         }
     }
 

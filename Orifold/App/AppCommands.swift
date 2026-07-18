@@ -131,7 +131,7 @@ private struct AddFilesCommandButton: View {
                 }
             }
         }
-        .keyboardShortcut("o", modifiers: [.command, .shift])
+        .keyboardShortcut(.addFiles)
         .disabled(viewModel == nil)
     }
 }
@@ -235,13 +235,13 @@ private struct UndoRedoCommandButtons: View {
         Button(undoTitle) {
             viewModel?.performUndoCommand()
         }
-        .keyboardShortcut("z", modifiers: .command)
+        .keyboardShortcut(.undo)
         .disabled(importInProgress || viewModel == nil || undo?.canUndo != true)
 
         Button(redoTitle) {
             viewModel?.performRedoCommand()
         }
-        .keyboardShortcut("y", modifiers: .command)
+        .keyboardShortcut(.redo)
         .disabled(importInProgress || undo?.canRedo != true)
     }
 }
@@ -259,13 +259,13 @@ private struct ViewToggleCommandButtons: View {
         Button(L10n.string("toolbar.readerMode.label", locale: locale)) {
             NotificationCenter.default.post(name: .orifoldToggleReaderMode, object: nil)
         }
-        .keyboardShortcut("r", modifiers: [.command, .shift])
+        .keyboardShortcut(.readerMode)
         .disabled(viewModel == nil)
 
         Button(L10n.string("toolbar.contents.label", locale: locale)) {
             NotificationCenter.default.post(name: .orifoldToggleTableOfContents, object: nil)
         }
-        .keyboardShortcut("1", modifiers: [.command, .option])
+        .keyboardShortcut(.toggleContents)
         .disabled(viewModel == nil)
     }
 }
@@ -294,13 +294,13 @@ private struct FindNavigationCommandButtons: View {
         Button(L10n.string("appCommands.findNext.button", locale: locale)) {
             viewModel?.searchNext()
         }
-        .keyboardShortcut("g", modifiers: .command)
+        .keyboardShortcut(.findNext)
         .disabled(viewModel == nil || viewModel?.searchResults.isEmpty != false)
 
         Button(L10n.string("appCommands.findPrevious.button", locale: locale)) {
             viewModel?.searchPrevious()
         }
-        .keyboardShortcut("g", modifiers: [.command, .shift])
+        .keyboardShortcut(.findPrevious)
         .disabled(viewModel == nil || viewModel?.searchResults.isEmpty != false)
     }
 }
@@ -313,7 +313,7 @@ private struct PrintCommandButton: View {
         Button(L10n.string("appCommands.print.button", locale: locale)) {
             NotificationCenter.default.post(name: .orifoldPrint, object: nil)
         }
-        .keyboardShortcut("p", modifiers: .command)
+        .keyboardShortcut(.print)
         .disabled(viewModel == nil)
     }
 }
@@ -327,7 +327,7 @@ private struct PrintNUpCommandButton: View {
         Button(L10n.string("imposition.print.nup", locale: locale)) {
             NotificationCenter.default.post(name: .orifoldPrintNUp, object: nil)
         }
-        .keyboardShortcut("p", modifiers: [.command, .shift])
+        .keyboardShortcut(.printNUp)
         .disabled(viewModel == nil)
     }
 }
@@ -362,19 +362,19 @@ private struct ZoomCommandButtons: View {
         Button(L10n.string("appCommands.zoomIn.button", locale: locale)) {
             viewModel?.zoomIn()
         }
-        .keyboardShortcut("+", modifiers: .command)
+        .keyboardShortcut(.zoomIn)
         .disabled(viewModel == nil)
 
         Button(L10n.string("appCommands.zoomOut.button", locale: locale)) {
             viewModel?.zoomOut()
         }
-        .keyboardShortcut("-", modifiers: .command)
+        .keyboardShortcut(.zoomOut)
         .disabled(viewModel == nil)
 
         Button(L10n.string("appCommands.zoomFit.button", locale: locale)) {
             viewModel?.zoomFit()
         }
-        .keyboardShortcut("0", modifiers: .command)
+        .keyboardShortcut(.zoomFit)
         .disabled(viewModel == nil)
     }
 }
@@ -386,7 +386,7 @@ private struct ShowKeyboardShortcutsCommandButton: View {
         Button(L10n.string("appCommands.keyboardShortcuts.button", locale: locale)) {
             NotificationCenter.default.post(name: .orifoldShowShortcuts, object: nil)
         }
-        .keyboardShortcut("/", modifiers: .command)
+        .keyboardShortcut(.keyboardShortcuts)
     }
 }
 

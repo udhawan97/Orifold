@@ -846,19 +846,23 @@ struct PDFViewRepresentable: NSViewRepresentable {
                     viewModel.isShowingSignaturePalette = true
                 }
             case .stamp:
-                if viewModel.pendingBarcodeOptions != nil {
+                // The stamp tool carries three placements; which one is armed is a
+                // property of the single armed slot, so this is an exhaustive match
+                // rather than a priority chain over parallel optionals.
+                switch viewModel.armedPlacement {
+                case .barcode:
                     viewModel.placeBarcode(at: pagePoint, on: page)
                     refreshSignatureOverlay()
                     refreshDecorationOverlays()
-                } else if viewModel.pendingHankoOptions != nil {
+                case .hanko:
                     viewModel.placeHanko(at: pagePoint, on: page)
                     refreshSignatureOverlay()
                     refreshDecorationOverlays()
-                } else if viewModel.pendingStampOptions != nil {
+                case .stamp:
                     viewModel.placeStamp(at: pagePoint, on: page)
                     refreshSignatureOverlay()
                     refreshDecorationOverlays()
-                } else {
+                case .signature, .none:
                     viewModel.isShowingStampPalette = true
                 }
             case .eraser:
@@ -4957,25 +4961,24 @@ final class InlineEditableTextView: NSTextView {
         let hasCommand = event.modifierFlags.contains(.command)
         let hasShift = event.modifierFlags.contains(.shift)
         let hasOptionOrControl = !event.modifierFlags.intersection([.option, .control]).isEmpty
-        if hasCommand, hasShift, !hasOptionOrControl {
-            // Format Painter's Word-style shortcuts. Distinct from the plain ⌘C/⌘V the
-            // system already handles for ordinary text copy/paste, so there is no clash.
-            switch key {
-            case "c": onCopyStyleShortcut?(); return
-            case "v": onPasteStyleShortcut?(); return
-            default: break
-            }
+        // Matched against the registry rather than against literals, so these chords
+        // cannot drift away from the ones the cheat sheet documents — they did exactly
+        // that while the two were maintained separately.
+        func matches(_ chord: ShortcutChord) -> Bool {
+            guard key == String(chord.character).lowercased(), !hasOptionOrControl else { return false }
+            return hasCommand == chord.modifiers.contains(.command)
+                && hasShift == chord.modifiers.contains(.shift)
         }
-        if hasCommand, !hasShift, !hasOptionOrControl {
-            // The bold/italic/underline buttons' tooltips have long advertised these
-            // chords; wire them so the shortcut is real rather than a dead promise.
-            switch key {
-            case "b": onBoldShortcut?(); return
-            case "i": onItalicShortcut?(); return
-            case "u": onUnderlineShortcut?(); return
-            default: break
-            }
-        }
+
+        // Format Painter's Word-style shortcuts. Distinct from the plain ⌘C/⌘V the
+        // system already handles for ordinary text copy/paste, so there is no clash.
+        if matches(.copyStyle) { onCopyStyleShortcut?(); return }
+        if matches(.pasteStyle) { onPasteStyleShortcut?(); return }
+        // The bold/italic/underline buttons' tooltips have long advertised these
+        // chords; wire them so the shortcut is real rather than a dead promise.
+        if matches(.bold) { onBoldShortcut?(); return }
+        if matches(.italic) { onItalicShortcut?(); return }
+        if matches(.underline) { onUnderlineShortcut?(); return }
         if key == "z", !event.modifierFlags.intersection([.command, .control]).isEmpty {
             onUndoShortcut?()
             return

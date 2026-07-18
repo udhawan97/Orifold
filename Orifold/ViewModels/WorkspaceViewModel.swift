@@ -293,11 +293,30 @@ final class WorkspaceViewModel {
     var searchResultIndex: Int = -1
     var isReplaceRevealed = false
     var replaceText = ""
-    var pendingSignatureData: Data? = nil
-    var pendingSignatureOptions: PendingSignaturePlacementOptions? = nil
-    var pendingStampOptions: PendingStampPlacementOptions? = nil
-    var pendingHankoOptions: PendingHankoPlacementOptions? = nil
-    var pendingBarcodeOptions: PendingBarcodePlacementOptions? = nil
+    /// The single armed click-to-place action; see `PendingPlacement`. The four
+    /// `pending*` properties below read out of this one slot, so exclusion between
+    /// placements is structural rather than hand-maintained.
+    var armedPlacement: PendingPlacement? = nil
+    var pendingSignatureData: Data? {
+        if case .signature(let data, _, _) = armedPlacement { return data }
+        return nil
+    }
+    var pendingSignatureOptions: PendingSignaturePlacementOptions? {
+        if case .signature(_, let options, _) = armedPlacement { return options }
+        return nil
+    }
+    var pendingStampOptions: PendingStampPlacementOptions? {
+        if case .stamp(let options) = armedPlacement { return options }
+        return nil
+    }
+    var pendingHankoOptions: PendingHankoPlacementOptions? {
+        if case .hanko(let options) = armedPlacement { return options }
+        return nil
+    }
+    var pendingBarcodeOptions: PendingBarcodePlacementOptions? {
+        if case .barcode(let options) = armedPlacement { return options }
+        return nil
+    }
     /// Drives the barcode/QR composer sheet (Feature G). Set from the More-menu "Insert
     /// barcode/QR" row; the sheet arms `pendingBarcodeOptions` on Insert, then dismisses.
     var isShowingBarcodeComposer = false
@@ -337,7 +356,8 @@ final class WorkspaceViewModel {
     var documentComfortSettings = DocumentComfortSettings.default
 
     var hasPendingSignaturePlacement: Bool {
-        pendingSignatureData != nil && pendingSignatureOptions != nil
+        if case .signature = armedPlacement { return true }
+        return false
     }
     var scannedPageCount = 0
     var ocrCandidatePageCount = 0
@@ -399,7 +419,10 @@ final class WorkspaceViewModel {
     // are derived from it by WorkspaceEditReplayEngine, so neither lane can bake over the other.
     private var objectAnalysisCache: [UUID: PageObjectMap] = [:]
     private var objectBaseData: [UUID: Data] = [:]
-    private var pendingSigningIdentity: (any SigningIdentity)?
+    private var pendingSigningIdentity: (any SigningIdentity)? {
+        if case .signature(_, _, let identity) = armedPlacement { return identity }
+        return nil
+    }
     private var signingIdentitiesByPlacementID: [UUID: any SigningIdentity] = [:]
     @ObservationIgnored private var searchDebounceTask: Task<Void, Never>?
     @ObservationIgnored private var activeCompressionTask: Task<Void, Never>?
@@ -583,6 +606,21 @@ final class WorkspaceViewModel {
     struct PendingBarcodePlacementOptions: Equatable {
         var imageData: Data
         var pixelSize: CGSize
+    }
+
+    /// The one armed click-to-place action. A page click resolves to exactly one
+    /// placement, so this is a single slot rather than four parallel optionals:
+    /// arming any placement structurally disarms the rest, instead of each entry
+    /// point having to remember to nil out its three siblings.
+    ///
+    /// The signature case carries its identity alongside its options because the
+    /// three travel together — a cryptographic placement is meaningless with the
+    /// identity dropped, which parallel optionals allowed.
+    enum PendingPlacement {
+        case signature(data: Data, options: PendingSignaturePlacementOptions, identity: (any SigningIdentity)?)
+        case stamp(PendingStampPlacementOptions)
+        case hanko(PendingHankoPlacementOptions)
+        case barcode(PendingBarcodePlacementOptions)
     }
 
     struct PDFNoteComment: Identifiable {
@@ -2423,17 +2461,12 @@ final class WorkspaceViewModel {
 
     // MARK: - Document metadata
 
-    private struct MemberMetadataSnapshot {
-        var live: Data
-        var original: Data?
-        var objectBase: Data?
-        var attributes: [AnyHashable: Any]?
-    }
-
     /// The member backing the currently-selected page, else the first member.
-    /// The Info tab is workspace-level, so "which document" follows the current
-    /// page selection.
-    private func activeMetadataMemberID() -> UUID? {
+    ///
+    /// Correct for per-member state like attachments: the export collects embedded
+    /// files from EVERY member, so each one's attachments reach the file and
+    /// following the page selection is what the user means.
+    private func activeAttachmentsMemberID() -> UUID? {
         if let selectedPageRefID,
            let ref = document.workspace.pageOrder.first(where: { $0.id == selectedPageRefID }) {
             return ref.memberDocId
@@ -2441,16 +2474,27 @@ final class WorkspaceViewModel {
         return document.workspace.documents.first?.id
     }
 
-    /// Identity of the member the metadata editor currently targets; the
-    /// Inspector re-seeds its fields when this changes (e.g. the user selects a
-    /// page belonging to a different document).
-    var activeDocumentID: UUID? { activeMetadataMemberID() }
+    /// The member whose document properties the exported file will actually carry.
+    ///
+    /// A merged PDF has exactly ONE `/Info` dictionary, so assembling several members
+    /// has to pick whose properties survive, and `concatenateForExport` adopts the
+    /// first member's. The Info tab therefore reads and writes THAT member rather than
+    /// following the page selection: targeting the selected member instead let a user
+    /// edit the title on page 5, watch it stick in the app, and export a file still
+    /// carrying member 1's title -- the edit discarded by the merge with no error.
+    private func metadataMemberID() -> UUID? {
+        document.workspace.documents.first?.id
+    }
+
+    /// Identity of the member the Inspector currently targets; its tabs re-seed when
+    /// this changes (e.g. the user selects a page belonging to a different document).
+    var activeDocumentID: UUID? { activeAttachmentsMemberID() }
 
     /// The Info-dict metadata of the member backing the currently-selected page,
     /// for seeding the Inspector editor. `nil` when there is no member or its
     /// bytes can't be read (e.g. an encrypted member with no stored password).
     func activeDocumentMetadata() -> PDFDocumentMetadata? {
-        guard let memberID = activeMetadataMemberID(),
+        guard let memberID = metadataMemberID(),
               let data = document.memberPDFData[memberID] else { return nil }
         return try? PDFMetadataService.read(from: data)
     }
@@ -2458,7 +2502,7 @@ final class WorkspaceViewModel {
     /// True when the active member also carries an XMP `/Metadata` stream, which
     /// may repeat stale Info values independently of the fields edited here.
     var activeDocumentHasXMPMetadata: Bool {
-        guard let memberID = activeMetadataMemberID(),
+        guard let memberID = metadataMemberID(),
               let data = document.memberPDFData[memberID] else { return false }
         return QPDFService.hasXMPMetadata(data)
     }
@@ -2476,83 +2520,26 @@ final class WorkspaceViewModel {
     @discardableResult
     func applyMetadataEdit(_ metadata: PDFDocumentMetadata) -> Bool {
         guard canPerformMutatingAction() else { return false }
-        guard let memberID = activeMetadataMemberID(),
-              let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == memberID }),
+        // Unlike an attachment edit, this one also writes the PDFKit lane, so the
+        // member must be loaded — without a live document there is nowhere to put
+        // the `documentAttributes` half and export would silently lose the edit.
+        guard let memberID = metadataMemberID(),
+              loadedPDFs.contains(where: { $0.0.id == memberID }),
               let currentLive = document.memberPDFData[memberID] else { return false }
 
-        func transform(_ data: Data) -> Data? {
+        return mutateMemberBytes(
+            of: memberID,
+            currentLive: currentLive,
+            actionNameKey: "undo.editMetadata",
+            failureKey: "status.metadata.applyFailed",
+            options: MemberMutationOptions(
+                nextDocumentAttributes: { [self] base in
+                    documentAttributes(basedOn: base, applying: metadata)
+                },
+                invalidatesAnalysisCaches: true
+            )
+        ) { data in
             try? PDFMetadataService.write(metadata, to: data)
-        }
-
-        guard let newLive = transform(currentLive) else {
-            showEditMessage(L10n.string("status.metadata.applyFailed"), isError: true)
-            return false
-        }
-        // The replay bases (pristine + object base) carry NO baked edits, so
-        // transform them independently: re-adding metadata to the pristine base
-        // keeps a later edit replay from resurrecting the old metadata without
-        // double-applying the committed edits that `newLive` already bakes in.
-        var newOriginal: Data? = nil
-        if let original = originalMemberPDFData[memberID] {
-            guard let transformed = transform(original) else {
-                showEditMessage(L10n.string("status.metadata.applyFailed"), isError: true)
-                return false
-            }
-            newOriginal = transformed
-        }
-        var newObjectBase: Data? = nil
-        if let objectBase = objectBaseData[memberID] {
-            guard let transformed = transform(objectBase) else {
-                showEditMessage(L10n.string("status.metadata.applyFailed"), isError: true)
-                return false
-            }
-            newObjectBase = transformed
-        }
-
-        let previous = MemberMetadataSnapshot(
-            live: currentLive,
-            original: originalMemberPDFData[memberID],
-            objectBase: objectBaseData[memberID],
-            attributes: loadedPDFs[loadedIndex].1.documentAttributes
-        )
-        let next = MemberMetadataSnapshot(
-            live: newLive,
-            original: newOriginal,
-            objectBase: newObjectBase,
-            attributes: documentAttributes(basedOn: previous.attributes, applying: metadata)
-        )
-        applyMemberMetadataSnapshot(next, to: memberID, previous: previous)
-        return true
-    }
-
-    private func applyMemberMetadataSnapshot(
-        _ snapshot: MemberMetadataSnapshot,
-        to memberID: UUID,
-        previous: MemberMetadataSnapshot
-    ) {
-        document.memberPDFData[memberID] = snapshot.live
-        if let original = snapshot.original {
-            originalMemberPDFData[memberID] = original
-        }
-        if let objectBase = snapshot.objectBase {
-            objectBaseData[memberID] = objectBase
-        }
-        if let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == memberID }) {
-            loadedPDFs[loadedIndex].1.documentAttributes = snapshot.attributes
-        }
-        invalidatePageInspection(for: memberID)
-        textAnalysisCache.removeAll()
-        objectAnalysisCache.removeAll()
-        rebuild()
-        markWorkspaceModified()
-        // Recursive inverse: each application registers the undo that restores the
-        // other state, so undo AND redo both work and each is its own atomic step.
-        registerIsolatedUndo {
-            undoManager?.registerUndo(withTarget: self) { vm in
-                guard vm.canPerformUndoMutation() else { return }
-                vm.applyMemberMetadataSnapshot(previous, to: memberID, previous: snapshot)
-            }
-            undoManager?.setActionName(L10n.string("undo.editMetadata"))
         }
     }
 
@@ -2577,18 +2564,12 @@ final class WorkspaceViewModel {
 
     // MARK: - Attachments
 
-    private struct MemberAttachmentsSnapshot {
-        var live: Data
-        var original: Data?
-        var objectBase: Data?
-    }
-
     /// Every attachment on the currently-targeted member, for the Attachments
     /// inspector tab. `nil` distinguishes "can't manage attachments" (no member,
     /// or an encrypted member qpdf can't open) from `[]` ("readable, none yet") —
     /// the tab disables add/remove and shows a hint on `nil`.
     func activeMemberAttachments() -> [PDFAttachment]? {
-        guard let memberID = activeMetadataMemberID(),
+        guard let memberID = activeAttachmentsMemberID(),
               let data = document.memberPDFData[memberID] else { return nil }
         return try? AttachmentsService.list(in: data)
     }
@@ -2601,7 +2582,7 @@ final class WorkspaceViewModel {
     @discardableResult
     func addAttachment(_ fileURL: URL) -> Bool {
         guard canPerformMutatingAction() else { return false }
-        guard let memberID = activeMetadataMemberID(),
+        guard let memberID = activeAttachmentsMemberID(),
               let currentLive = document.memberPDFData[memberID] else { return false }
         let fileData = SecurityScopedAccess.withAccess(to: fileURL) { url in
             try? Data(contentsOf: url)
@@ -2612,8 +2593,8 @@ final class WorkspaceViewModel {
         }
         let name = fileURL.lastPathComponent
         let mimeType = attachmentMIMEType(for: fileURL)
-        return applyAttachmentsTransform(
-            to: memberID,
+        return mutateMemberBytes(
+            of: memberID,
             currentLive: currentLive,
             actionNameKey: "undo.addAttachment",
             failureKey: "status.attachments.addFailed"
@@ -2627,10 +2608,10 @@ final class WorkspaceViewModel {
     @discardableResult
     func removeAttachment(named name: String) -> Bool {
         guard canPerformMutatingAction() else { return false }
-        guard let memberID = activeMetadataMemberID(),
+        guard let memberID = activeAttachmentsMemberID(),
               let currentLive = document.memberPDFData[memberID] else { return false }
-        return applyAttachmentsTransform(
-            to: memberID,
+        return mutateMemberBytes(
+            of: memberID,
             currentLive: currentLive,
             actionNameKey: "undo.removeAttachment",
             failureKey: "status.attachments.removeFailed"
@@ -2648,7 +2629,7 @@ final class WorkspaceViewModel {
     /// with a quarantine attribute — the payload is untrusted content lifted out
     /// of an arbitrary PDF, so it should trip Gatekeeper like any other download.
     func extractAttachment(named name: String, to url: URL) {
-        guard let memberID = activeMetadataMemberID(),
+        guard let memberID = activeAttachmentsMemberID(),
               let data = document.memberPDFData[memberID],
               let bytes = try? AttachmentsService.extract(name, from: data) else {
             showEditMessage(L10n.string("status.attachments.extractFailed"), isError: true)
@@ -2671,54 +2652,98 @@ final class WorkspaceViewModel {
         UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
     }
 
+    // MARK: - Member byte mutation
+
+    /// Every lane one member-byte mutation swaps, captured so it can be restored
+    /// wholesale by undo. `original` and `objectBase` are nil when the member has
+    /// no such lane; `attributes` is meaningful only when the mutation declares
+    /// `nextDocumentAttributes`, and nil there legitimately means "this member had
+    /// no attributes", which undo must restore faithfully.
+    private struct MemberByteSnapshot {
+        var live: Data
+        var original: Data?
+        var objectBase: Data?
+        var attributes: [AnyHashable: Any]?
+    }
+
+    /// The lanes a mutation touches BEYOND the three byte lanes every mutation
+    /// swaps. Both are opt-in because the two callers genuinely differ, and the
+    /// difference is load-bearing rather than incidental:
+    ///
+    /// - `nextDocumentAttributes` — metadata must also land on the live PDFDocument
+    ///   because export re-serializes `loadedPDFs`, not the qpdf byte lane. Supply
+    ///   a closure mapping the member's current attributes to the edited ones.
+    ///   Attachment edits leave the PDFKit lane alone.
+    /// - `invalidatesAnalysisCaches` — metadata clears the text/object analysis
+    ///   caches, attachments does not. Both edits are document-level and change no
+    ///   page content, so the metadata clear looks like over-invalidation; it is
+    ///   preserved here rather than quietly dropped, because narrowing it is a
+    ///   behaviour change that deserves its own commit and its own test.
+    private struct MemberMutationOptions {
+        var nextDocumentAttributes: (([AnyHashable: Any]?) -> [AnyHashable: Any])?
+        var invalidatesAnalysisCaches: Bool = false
+    }
+
     /// Applies `transform` to the member's live bytes and, when present, its
-    /// pristine and object-edit bases (so a later edit replay can't resurrect the
-    /// old attachment set), then commits the swap with a recursive-inverse undo.
-    /// Any lane failing aborts the whole edit without mutating state.
+    /// pristine and object-edit bases, then commits the swap with a single
+    /// recursive-inverse undo step.
+    ///
+    /// The replay bases carry NO baked edits, so they are transformed
+    /// independently: re-applying the change to the pristine base keeps a later
+    /// edit replay from resurrecting the old state without double-applying the
+    /// committed edits the live bytes already bake in.
+    ///
+    /// Any lane failing aborts the whole edit having mutated nothing — every
+    /// transform runs and is validated before the first byte is written.
     @discardableResult
-    private func applyAttachmentsTransform(
-        to memberID: UUID,
+    private func mutateMemberBytes(
+        of memberID: UUID,
         currentLive: Data,
         actionNameKey: String,
         failureKey: String,
+        options: MemberMutationOptions = MemberMutationOptions(),
         _ transform: (Data) -> Data?
     ) -> Bool {
-        guard let newLive = transform(currentLive) else {
+        func failed() -> Bool {
             showEditMessage(L10n.string(forKey: failureKey), isError: true)
             return false
         }
+
+        guard let newLive = transform(currentLive) else { return failed() }
         var newOriginal: Data? = nil
         if let original = originalMemberPDFData[memberID] {
-            guard let transformed = transform(original) else {
-                showEditMessage(L10n.string(forKey: failureKey), isError: true)
-                return false
-            }
+            guard let transformed = transform(original) else { return failed() }
             newOriginal = transformed
         }
         var newObjectBase: Data? = nil
         if let objectBase = objectBaseData[memberID] {
-            guard let transformed = transform(objectBase) else {
-                showEditMessage(L10n.string(forKey: failureKey), isError: true)
-                return false
-            }
+            guard let transformed = transform(objectBase) else { return failed() }
             newObjectBase = transformed
         }
 
-        let previous = MemberAttachmentsSnapshot(
+        let currentAttributes = loadedPDFs.first { $0.0.id == memberID }?.1.documentAttributes
+        let previous = MemberByteSnapshot(
             live: currentLive,
             original: originalMemberPDFData[memberID],
-            objectBase: objectBaseData[memberID]
+            objectBase: objectBaseData[memberID],
+            attributes: currentAttributes
         )
-        let next = MemberAttachmentsSnapshot(live: newLive, original: newOriginal, objectBase: newObjectBase)
-        applyMemberAttachmentsSnapshot(next, to: memberID, previous: previous, actionNameKey: actionNameKey)
+        let next = MemberByteSnapshot(
+            live: newLive,
+            original: newOriginal,
+            objectBase: newObjectBase,
+            attributes: options.nextDocumentAttributes?(currentAttributes)
+        )
+        applyMemberByteSnapshot(next, to: memberID, previous: previous, actionNameKey: actionNameKey, options: options)
         return true
     }
 
-    private func applyMemberAttachmentsSnapshot(
-        _ snapshot: MemberAttachmentsSnapshot,
+    private func applyMemberByteSnapshot(
+        _ snapshot: MemberByteSnapshot,
         to memberID: UUID,
-        previous: MemberAttachmentsSnapshot,
-        actionNameKey: String
+        previous: MemberByteSnapshot,
+        actionNameKey: String,
+        options: MemberMutationOptions
     ) {
         document.memberPDFData[memberID] = snapshot.live
         if let original = snapshot.original {
@@ -2727,13 +2752,25 @@ final class WorkspaceViewModel {
         if let objectBase = snapshot.objectBase {
             objectBaseData[memberID] = objectBase
         }
+        if options.nextDocumentAttributes != nil,
+           let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == memberID }) {
+            loadedPDFs[loadedIndex].1.documentAttributes = snapshot.attributes
+        }
         invalidatePageInspection(for: memberID)
+        if options.invalidatesAnalysisCaches {
+            textAnalysisCache.removeAll()
+            objectAnalysisCache.removeAll()
+        }
         rebuild()
         markWorkspaceModified()
+        // Recursive inverse: each application registers the undo that restores the
+        // other state, so undo AND redo both work and each is its own atomic step.
         registerIsolatedUndo {
             undoManager?.registerUndo(withTarget: self) { vm in
                 guard vm.canPerformUndoMutation() else { return }
-                vm.applyMemberAttachmentsSnapshot(previous, to: memberID, previous: snapshot, actionNameKey: actionNameKey)
+                vm.applyMemberByteSnapshot(
+                    previous, to: memberID, previous: snapshot,
+                    actionNameKey: actionNameKey, options: options)
             }
             undoManager?.setActionName(L10n.string(forKey: actionNameKey))
         }
@@ -4604,17 +4641,20 @@ final class WorkspaceViewModel {
                                        kind: SignaturePlacement.Kind,
                                        signerName: String?) {
         guard canPerformSigningAction() else { return }
-        pendingSignatureData = imageData
-        pendingSignatureOptions = PendingSignaturePlacementOptions(
-            kind: kind,
-            signerName: signerName,
-            signerIdentityRef: nil,
-            reason: nil,
-            location: nil,
-            contactInfo: nil,
-            subFilter: nil,
-            timestampRequested: false,
-            certificateProfileID: nil
+        armedPlacement = .signature(
+            data: imageData,
+            options: PendingSignaturePlacementOptions(
+                kind: kind,
+                signerName: signerName,
+                signerIdentityRef: nil,
+                reason: nil,
+                location: nil,
+                contactInfo: nil,
+                subFilter: nil,
+                timestampRequested: false,
+                certificateProfileID: nil
+            ),
+            identity: nil
         )
         currentTool = .signature
         isShowingSignaturePalette = false
@@ -4632,18 +4672,20 @@ final class WorkspaceViewModel {
                                               identity: (any SigningIdentity)? = nil,
                                               certificateProfileID: UUID? = nil) {
         guard canPerformSigningAction() else { return }
-        pendingSignatureData = imageData
-        pendingSigningIdentity = identity
-        pendingSignatureOptions = PendingSignaturePlacementOptions(
-            kind: .cryptographic,
-            signerName: signerName,
-            signerIdentityRef: signerIdentityRef,
-            reason: reason,
-            location: location,
-            contactInfo: contactInfo,
-            subFilter: "ETSI.CAdES.detached",
-            timestampRequested: timestampRequested,
-            certificateProfileID: certificateProfileID
+        armedPlacement = .signature(
+            data: imageData,
+            options: PendingSignaturePlacementOptions(
+                kind: .cryptographic,
+                signerName: signerName,
+                signerIdentityRef: signerIdentityRef,
+                reason: reason,
+                location: location,
+                contactInfo: contactInfo,
+                subFilter: "ETSI.CAdES.detached",
+                timestampRequested: timestampRequested,
+                certificateProfileID: certificateProfileID
+            ),
+            identity: identity
         )
         currentTool = .signature
         isShowingSignaturePalette = false
@@ -4659,20 +4701,18 @@ final class WorkspaceViewModel {
         editingStatus = nil
     }
 
+    /// Disarms only a signature. Leaving the `.signature` tool must not disarm a
+    /// stamp the user armed separately, so this stays case-scoped rather than
+    /// clearing the slot outright.
     private func clearPendingSignaturePlacement() {
-        pendingSignatureData = nil
-        pendingSignatureOptions = nil
-        pendingSigningIdentity = nil
+        if case .signature = armedPlacement { armedPlacement = nil }
     }
 
     func beginStampPlacement(text: String, swatch: PageDecorationSwatch) {
         guard canPerformMutatingAction() else { return }
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
-        pendingStampOptions = PendingStampPlacementOptions(text: trimmedText, swatch: swatch)
-        pendingHankoOptions = nil
-        pendingBarcodeOptions = nil
-        clearPendingSignaturePlacement()
+        armedPlacement = .stamp(PendingStampPlacementOptions(text: trimmedText, swatch: swatch))
         currentTool = .stamp
         isShowingSignaturePalette = false
         isShowingStampPalette = false
@@ -4685,10 +4725,7 @@ final class WorkspaceViewModel {
         guard canPerformMutatingAction() else { return }
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
-        pendingHankoOptions = PendingHankoPlacementOptions(text: trimmedText, shape: shape)
-        pendingStampOptions = nil
-        pendingBarcodeOptions = nil
-        clearPendingSignaturePlacement()
+        armedPlacement = .hanko(PendingHankoPlacementOptions(text: trimmedText, shape: shape))
         currentTool = .stamp
         isShowingSignaturePalette = false
         isShowingStampPalette = false
@@ -4701,10 +4738,7 @@ final class WorkspaceViewModel {
     func beginBarcodePlacement(imageData: Data, pixelSize: CGSize) {
         guard canPerformMutatingAction() else { return }
         guard !imageData.isEmpty else { return }
-        pendingBarcodeOptions = PendingBarcodePlacementOptions(imageData: imageData, pixelSize: pixelSize)
-        pendingStampOptions = nil
-        pendingHankoOptions = nil
-        clearPendingSignaturePlacement()
+        armedPlacement = .barcode(PendingBarcodePlacementOptions(imageData: imageData, pixelSize: pixelSize))
         currentTool = .stamp
         isShowingSignaturePalette = false
         isShowingStampPalette = false
@@ -4884,7 +4918,7 @@ final class WorkspaceViewModel {
         decorations.append(decoration)
         selectedAnnotation = nil
         selectedStampDecorationID = decoration.id
-        pendingStampOptions = nil
+        armedPlacement = nil
         replaceDecorations(decorations, actionName: "Place stamp")
         return decoration
     }
@@ -4915,7 +4949,7 @@ final class WorkspaceViewModel {
         decorations.append(decoration)
         selectedAnnotation = nil
         selectedStampDecorationID = decoration.id
-        pendingHankoOptions = nil
+        armedPlacement = nil
         replaceDecorations(decorations, actionName: "Place hanko")
         return decoration
     }
@@ -4949,7 +4983,7 @@ final class WorkspaceViewModel {
         decorations.append(decoration)
         selectedAnnotation = nil
         selectedStampDecorationID = decoration.id
-        pendingBarcodeOptions = nil
+        armedPlacement = nil
         replaceDecorations(decorations, actionName: "Insert barcode")
         return decoration
     }
@@ -5545,7 +5579,7 @@ final class WorkspaceViewModel {
     /// pages with no speakable text, so boundary banners and image-only pages are passed over.
     @MainActor
     var readAloud: ReadAloudController {
-        if let _readAloud { return _readAloud }
+        if let existing = _readAloud { return existing }
         let controller = ReadAloudController(
             synthesizer: AVSpeechSynthesizerAdapter(),
             pageTextProvider: { [weak self] index in self?.readAloudPageText(at: index) },
@@ -6136,26 +6170,27 @@ final class WorkspaceViewModel {
             sourcePayloads: document.sourcePayloads,
             originalMemberPDFData: pristineDataForMembersWithCommittedEdits()
         )
-        let pdfData = try document.exportedPDFDataThrowing(from: snapshot, options: options)
-        let reducedData: Data
+        // The assembly flattens signatures, decorations, comments and form fields into page
+        // content. That is what makes the bytes safe to impose, so this is the one place that
+        // mints `BakedPDFData` -- downstream stages carry the proof rather than restate it.
+        var baked = BakedPDFData(alreadyFlattened:
+            try document.exportedPDFDataThrowing(from: snapshot, options: options))
         if let preset = options.compressionPreset {
-            reducedData = try PDFCompressionService.reduceFileSize(
-                of: pdfData,
-                preset: preset,
-                processingEngine: processingEngine
-            ).data
-        } else {
-            reducedData = pdfData
+            baked = try baked.mapping { data in
+                try PDFCompressionService.reduceFileSize(
+                    of: data,
+                    preset: preset,
+                    processingEngine: processingEngine
+                ).data
+            }
         }
-        // Imposition runs AFTER bake + compression so it operates on bytes whose annotations
-        // (stamps/signatures/markup) are already flattened into page content -- N-up flattens pages
-        // into form XObjects and would drop any live annotations. It then flows through sanitize +
-        // encryption below so those options are never silently dropped when combined with a layout.
+        // Imposition flows through sanitize + encryption below, so those options are never
+        // silently dropped when combined with a layout.
         let imposedData: Data
         if let layout = options.imposition {
-            imposedData = try PDFImpositionEngine.impose(reducedData, layout: layout)
+            imposedData = try PDFImpositionEngine.impose(baked, layout: layout)
         } else {
-            imposedData = reducedData
+            imposedData = baked.bytes
         }
         // Re-graft attachments after every page-content pass (assembly, compression,
         // imposition — all of which drop them) but before sanitize, which
@@ -6952,10 +6987,7 @@ final class WorkspaceViewModel {
         let pdf = loaded.1
         for pageIndex in 0..<pdf.pageCount {
             guard let page = pdf.page(at: pageIndex) else { continue }
-            for annotation in page.annotations {
-                // The invisible bake stamp is a FreeText annotation but pure engine
-                // bookkeeping — it must not count as a user PDF edit.
-                if BakeStamp.isStamp(annotation) { continue }
+            for annotation in BakeStamp.userAnnotations(on: page) {
                 if annotation.value(forAnnotationKey: Self.draftTextAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: Self.legacyDraftTextAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: Self.textReplacementAnnotationKey) != nil ||
@@ -8275,14 +8307,15 @@ final class WorkspaceViewModel {
     // MARK: - Print
 
     /// Prints the workspace. When `imposition` is non-nil the exported bytes are imposed
-    /// (booklet / N-up) before printing -- imposition runs on the fully-baked export data, so baked
-    /// annotations survive into the flattened sheets, exactly as the export path does.
+    /// (booklet / N-up) before printing, exactly as the export path does.
     func printWorkspace(imposition: ImpositionLayout? = nil) {
         let printableDocument: PDFDocument
         do {
+            // `dataForPDFExport` returns fully-assembled export bytes, so the bake has run.
             var data = try dataForPDFExport()
             if let imposition {
-                data = try PDFImpositionEngine.impose(data, layout: imposition)
+                data = try PDFImpositionEngine.impose(
+                    BakedPDFData(alreadyFlattened: data), layout: imposition)
             }
             guard let document = PDFDocument(data: data) else {
                 exportError = ExportError(message: L10n.string("error.export.preparePrinting"))

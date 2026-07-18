@@ -4,8 +4,11 @@ import Foundation
 /// Existing bake stamps are removed from every page after live annotations are grafted, then
 /// exact current stamps and rotations are applied in one final preserving write.
 enum PDFReplayMetadataEngine {
-    private static let bakeStampKey = "OrifoldBakeStamp"
-    private static let freeTextAnnotationSubtype: Int32 = 3
+    // The stamp convention — key spelling, annotation subtype, off-page rect — is defined
+    // once in `BakeStamp` and read here, so this PDFium writer and the PDFKit reader that
+    // detects its output can never disagree about what a stamp looks like.
+    private static let bakeStampKey = BakeStamp.pdfiumAnnotationKey
+    private static let freeTextAnnotationSubtype = BakeStamp.pdfiumFreeTextSubtype
 
     static func finalize(
         memberData: Data,
@@ -62,7 +65,12 @@ enum PDFReplayMetadataEngine {
     private static func attachBakeStamp(_ hash: String, to page: OpaquePointer?) -> Bool {
         guard let annotation = poe_CreateAnnotation(page, freeTextAnnotationSubtype) else { return false }
         defer { poe_CloseAnnotation(annotation) }
-        var rect = POEFSRect(left: -10, bottom: -10, right: -9, top: -9)
+        var rect = POEFSRect(
+            left: Float(BakeStamp.bounds.minX),
+            bottom: Float(BakeStamp.bounds.minY),
+            right: Float(BakeStamp.bounds.maxX),
+            top: Float(BakeStamp.bounds.maxY)
+        )
         guard poe_SetAnnotationRect(annotation, &rect) != 0 else { return false }
         let utf16 = Array(hash.utf16) + [0]
         return bakeStampKey.withCString { key in
