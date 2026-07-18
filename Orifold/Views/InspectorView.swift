@@ -1,6 +1,7 @@
 import SwiftUI
 import PDFKit
 import AppKit
+import UniformTypeIdentifiers
 
 struct InspectorView: View {
     @Bindable var viewModel: WorkspaceViewModel
@@ -17,6 +18,7 @@ struct InspectorView: View {
         case markup = "Markup"
         case decorate = "Decorate"
         case ocr = "OCR"
+        case attachments = "Attachments"
 
         var iconName: String {
             switch self {
@@ -26,6 +28,7 @@ struct InspectorView: View {
             case .markup: return "highlighter"
             case .decorate: return "paintbrush.pointed"
             case .ocr: return "doc.text.viewfinder"
+            case .attachments: return "paperclip"
             }
         }
 
@@ -40,6 +43,7 @@ struct InspectorView: View {
             case .markup: return "inspector.tab.markup"
             case .decorate: return "inspector.tab.decorate"
             case .ocr: return "inspector.tab.ocr"
+            case .attachments: return "inspector.tab.attachments"
             }
         }
 
@@ -78,6 +82,7 @@ struct InspectorView: View {
                 case .markup: InspectorMarkupView(viewModel: viewModel)
                 case .decorate: InspectorDecorateView(viewModel: viewModel)
                 case .ocr: InspectorOCRView(viewModel: viewModel)
+                case .attachments: InspectorAttachmentsView(viewModel: viewModel)
                 }
             }
         }
@@ -1284,6 +1289,171 @@ private struct InspectorOCRView: View {
 
     private var statusIconColor: Color {
         viewModel.ocrCandidatePageCount > 0 ? Color.dsAccent : Color.dsAnnotationSage
+    }
+}
+
+// MARK: - Attachments tab
+
+private struct InspectorAttachmentsView: View {
+    var viewModel: WorkspaceViewModel
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
+
+    // Attachments of the active member; `manageable == false` means qpdf can't
+    // read the member (encrypted, no stored password) or there is no member, in
+    // which case add/remove are disabled and a hint is shown.
+    @State private var attachments: [PDFAttachment] = []
+    @State private var manageable = false
+    @State private var isDropTargeted = false
+
+    private static let sizeFormatter: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter
+    }()
+
+    var body: some View {
+        let _ = locale
+        VStack(alignment: .leading, spacing: .dsLG) {
+            if manageable {
+                if attachments.isEmpty {
+                    Text(L10n.string("attachments.empty", locale: locale))
+                        .font(.dsBody())
+                        .foregroundStyle(Color.dsTextSecondary)
+                } else {
+                    VStack(spacing: .dsSM) {
+                        ForEach(attachments, id: \.name) { attachment in
+                            attachmentRow(attachment)
+                        }
+                    }
+                }
+
+                Button {
+                    presentAddPanel()
+                } label: {
+                    Label(L10n.string("attachments.add", locale: locale), systemImage: "paperclip")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.dsAccent)
+
+                Text(L10n.string("attachments.dropHint", locale: locale))
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextTertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            } else {
+                Text(L10n.string("attachments.encrypted.disabled", locale: locale))
+                    .font(.dsBody())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsXL)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                .fill(isDropTargeted ? Color.dsAccent.opacity(0.08) : Color.clear)
+        }
+        .onAppear(perform: reload)
+        .onChange(of: viewModel.activeDocumentID) { _, _ in reload() }
+        // Bumped by every add/remove/undo rebuild — re-seed so the list reflects
+        // the canonical state after a mutation or its undo.
+        .onChange(of: viewModel.structureRevision) { _, _ in reload() }
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+            handleDrop(providers)
+        }
+    }
+
+    private func attachmentRow(_ attachment: PDFAttachment) -> some View {
+        HStack(spacing: .dsMD) {
+            Image(systemName: "doc")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.dsTextSecondary)
+                .frame(width: 16)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(attachment.name)
+                    .font(.dsBody())
+                    .foregroundStyle(Color.dsTextPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(subtitle(for: attachment))
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextTertiary)
+            }
+
+            Spacer(minLength: .dsSM)
+
+            Button {
+                presentExtractPanel(for: attachment)
+            } label: {
+                Image(systemName: "square.and.arrow.down")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.string("attachments.extract", locale: locale))
+            .accessibilityLabel(L10n.string("attachments.extract", locale: locale))
+
+            Button {
+                viewModel.removeAttachment(named: attachment.name)
+                reload()
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.string("attachments.remove", locale: locale))
+            .accessibilityLabel(L10n.string("attachments.remove", locale: locale))
+        }
+        .padding(.vertical, .dsXS)
+    }
+
+    private func subtitle(for attachment: PDFAttachment) -> String {
+        let size = Self.sizeFormatter.string(fromByteCount: Int64(attachment.byteCount))
+        if let mime = attachment.mimeType, !mime.isEmpty {
+            return "\(size) · \(mime)"
+        }
+        return size
+    }
+
+    private func reload() {
+        if let list = viewModel.activeMemberAttachments() {
+            attachments = list
+            manageable = true
+        } else {
+            attachments = []
+            manageable = false
+        }
+    }
+
+    private func presentAddPanel() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.title = L10n.string("attachments.add", locale: locale)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        viewModel.addAttachment(url)
+        reload()
+    }
+
+    private func presentExtractPanel(for attachment: PDFAttachment) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = attachment.name
+        panel.title = L10n.string("attachments.extract", locale: locale)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        viewModel.extractAttachment(named: attachment.name, to: url)
+    }
+
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard manageable, let provider = providers.first else { return false }
+        _ = provider.loadObject(ofClass: URL.self) { url, _ in
+            guard let url else { return }
+            DispatchQueue.main.async {
+                viewModel.addAttachment(url)
+                reload()
+            }
+        }
+        return true
     }
 }
 

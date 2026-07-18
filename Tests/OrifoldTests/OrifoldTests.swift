@@ -25,8 +25,9 @@ final class PDFSerializerTests: XCTestCase {
 
 final class InspectorViewTests: XCTestCase {
     func testOCRTabAppearsAfterDecorate() {
-        XCTAssertEqual(Array(InspectorView.Tab.allCases.suffix(2)), [.decorate, .ocr])
+        XCTAssertEqual(Array(InspectorView.Tab.allCases.suffix(3)), [.decorate, .ocr, .attachments])
         XCTAssertEqual(InspectorView.Tab.ocr.iconName, "doc.text.viewfinder")
+        XCTAssertEqual(InspectorView.Tab.attachments.iconName, "paperclip")
     }
 }
 
