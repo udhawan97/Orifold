@@ -381,6 +381,11 @@ struct ContentView: View {
                 .environmentObject(languageManager)
                 .environment(\.locale, languageManager.effectiveLocale)
         }
+        .sheet(isPresented: $viewModel.isShowingBarcodeComposer) {
+            BarcodeComposerView(viewModel: viewModel)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
         .popover(isPresented: $showTOC, arrowEdge: .top) {
             TOCView(viewModel: viewModel) { pageIndex in
                 NotificationCenter.default.post(name: .orifoldJumpToPageIndex, object: pageIndex)

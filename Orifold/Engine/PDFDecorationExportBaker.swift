@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import ImageIO
 import PDFKit
 
 enum PDFDecorationExportBaker {
@@ -99,6 +100,16 @@ enum PDFDecorationExportBaker {
                       !decoration.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     throw BakeError.invalidStampDecoration
                 }
+            case .image:
+                guard let pageRefID = decoration.pageRefID,
+                      pageRefIDs.contains(pageRefID),
+                      let rect = decoration.rect?.standardized,
+                      rect.width > 4,
+                      rect.height > 4,
+                      let imageData = decoration.imageData,
+                      !imageData.isEmpty else {
+                    throw BakeError.invalidStampDecoration
+                }
             case .pageNumber, .bates:
                 break
             }
@@ -125,7 +136,7 @@ enum PDFDecorationExportBaker {
 
     static func text(for decoration: PageDecoration, pageIndex: Int, pageCount: Int) -> String {
         switch decoration.kind {
-        case .watermark, .stamp, .hanko:
+        case .watermark, .stamp, .hanko, .image:
             return decoration.text
         case .pageNumber:
             return String(localized: "Page \(pageIndex + 1) of \(pageCount)", locale: L10n.currentLocale)
@@ -156,6 +167,9 @@ enum PDFDecorationExportBaker {
             case .hanko:
                 guard decoration.pageRefID == pageRefID else { continue }
                 drawHanko(decoration, in: context)
+            case .image:
+                guard decoration.pageRefID == pageRefID else { continue }
+                drawImage(decoration, in: context)
             }
         }
     }
@@ -251,6 +265,25 @@ enum PDFDecorationExportBaker {
         let config = HankoConfig(shape: decoration.hankoShape, text: value, inkColor: ink)
         context.saveGState()
         try? HankoRenderer.draw(config, in: rect, context: context)
+        context.restoreGState()
+    }
+
+    /// Bakes a placed barcode/QR straight into the page's content stream as image content.
+    /// Like `drawHanko`, it never creates a `PDFAnnotation`, so there is no internal
+    /// annotation that could survive into the export (only the document's own annotations are
+    /// carried forward, via `copyAnnotations`). `interpolationQuality = .none` keeps the
+    /// barcode modules hard-edged so a scanner can still resolve them after scaling.
+    private static func drawImage(_ decoration: PageDecoration, in context: CGContext) {
+        guard let rect = decoration.rect?.standardized,
+              rect.width > 4,
+              rect.height > 4,
+              let data = decoration.imageData,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return }
+        context.saveGState()
+        context.interpolationQuality = .none
+        context.setAlpha(CGFloat(decoration.opacity))
+        context.draw(image, in: rect)
         context.restoreGState()
     }
 

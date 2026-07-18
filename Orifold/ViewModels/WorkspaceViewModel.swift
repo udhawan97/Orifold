@@ -296,6 +296,10 @@ final class WorkspaceViewModel {
     var pendingSignatureOptions: PendingSignaturePlacementOptions? = nil
     var pendingStampOptions: PendingStampPlacementOptions? = nil
     var pendingHankoOptions: PendingHankoPlacementOptions? = nil
+    var pendingBarcodeOptions: PendingBarcodePlacementOptions? = nil
+    /// Drives the barcode/QR composer sheet (Feature G). Set from the More-menu "Insert
+    /// barcode/QR…" row; the sheet arms `pendingBarcodeOptions` on Insert, then dismisses.
+    var isShowingBarcodeComposer = false
     var selectedStampDecorationID: UUID? = nil {
         didSet { if selectedStampDecorationID != nil { objectSelection = nil } }
     }
@@ -567,6 +571,14 @@ final class WorkspaceViewModel {
     struct PendingHankoPlacementOptions: Equatable {
         var text: String
         var shape: HankoShape
+    }
+
+    /// The generated barcode image armed for click-to-place. `pixelSize` lets `placeBarcode`
+    /// derive an aspect-correct page rect so a wide 1-D code (Code 128) isn't squished into a
+    /// square, while a QR stays square.
+    struct PendingBarcodePlacementOptions: Equatable {
+        var imageData: Data
+        var pixelSize: CGSize
     }
 
     struct PDFNoteComment: Identifiable {
@@ -2693,6 +2705,8 @@ final class WorkspaceViewModel {
             return PageDecoration(kind: .stamp)
         case .hanko:
             return PageDecoration(kind: .hanko)
+        case .image:
+            return PageDecoration(kind: .image)
         }
     }
 
@@ -2704,7 +2718,7 @@ final class WorkspaceViewModel {
             return L10n.string("undo.changePageNumbers")
         case .bates:
             return L10n.string("undo.changeBatesStamp")
-        case .stamp, .hanko:
+        case .stamp, .hanko, .image:
             return L10n.string("undo.changeStamp")
         }
     }
@@ -4452,6 +4466,7 @@ final class WorkspaceViewModel {
         guard !trimmedText.isEmpty else { return }
         pendingStampOptions = PendingStampPlacementOptions(text: trimmedText, swatch: swatch)
         pendingHankoOptions = nil
+        pendingBarcodeOptions = nil
         clearPendingSignaturePlacement()
         currentTool = .stamp
         isShowingSignaturePalette = false
@@ -4467,6 +4482,23 @@ final class WorkspaceViewModel {
         guard !trimmedText.isEmpty else { return }
         pendingHankoOptions = PendingHankoPlacementOptions(text: trimmedText, shape: shape)
         pendingStampOptions = nil
+        pendingBarcodeOptions = nil
+        clearPendingSignaturePlacement()
+        currentTool = .stamp
+        isShowingSignaturePalette = false
+        isShowingStampPalette = false
+    }
+
+    /// Arms a generated barcode/QR image for click-to-place. Reuses the `.stamp` tool + canvas
+    /// gesture (which checks `pendingBarcodeOptions` first), so the barcode lands on the next
+    /// page click exactly as a text stamp does. Called by `BarcodeComposerView` once it has
+    /// rendered the PNG.
+    func beginBarcodePlacement(imageData: Data, pixelSize: CGSize) {
+        guard canPerformMutatingAction() else { return }
+        guard !imageData.isEmpty else { return }
+        pendingBarcodeOptions = PendingBarcodePlacementOptions(imageData: imageData, pixelSize: pixelSize)
+        pendingStampOptions = nil
+        pendingHankoOptions = nil
         clearPendingSignaturePlacement()
         currentTool = .stamp
         isShowingSignaturePalette = false
@@ -4681,6 +4713,50 @@ final class WorkspaceViewModel {
         pendingHankoOptions = nil
         replaceDecorations(decorations, actionName: "Place hanko")
         return decoration
+    }
+
+    /// Commits the armed barcode image onto `page` at the clicked point, sized to an
+    /// aspect-correct rect. Clones the `placeStamp`/`placeHanko` flow so the placed barcode is
+    /// selectable, movable, resizable, and part of the same atomic decoration undo.
+    @discardableResult
+    func placeBarcode(at pagePoint: CGPoint,
+                      on page: PDFPage,
+                      longestEdge: CGFloat = 132) -> PageDecoration? {
+        guard canPerformMutatingAction() else { return nil }
+        guard let options = pendingBarcodeOptions,
+              let refID = pageRefID(for: page) else { return nil }
+        let size = fittedBarcodeSize(pixelSize: options.pixelSize, longestEdge: longestEdge)
+        let bounds = constrainedSignatureBounds(
+            CGRect(
+                x: pagePoint.x - size.width / 2,
+                y: pagePoint.y - size.height / 2,
+                width: size.width,
+                height: size.height
+            ),
+            on: page
+        )
+        let decoration = PageDecoration.image(
+            imageData: options.imageData,
+            pageRefID: refID,
+            rect: bounds
+        )
+        var decorations = document.workspace.decorations
+        decorations.append(decoration)
+        selectedAnnotation = nil
+        selectedStampDecorationID = decoration.id
+        pendingBarcodeOptions = nil
+        replaceDecorations(decorations, actionName: "Insert barcode")
+        return decoration
+    }
+
+    /// Scales a barcode's pixel dimensions down to a page rect whose longest edge is
+    /// `longestEdge` points, preserving aspect ratio (square QR stays square, wide Code 128
+    /// stays wide).
+    private func fittedBarcodeSize(pixelSize: CGSize, longestEdge: CGFloat) -> CGSize {
+        let width = max(1, pixelSize.width)
+        let height = max(1, pixelSize.height)
+        let scale = longestEdge / max(width, height)
+        return CGSize(width: width * scale, height: height * scale)
     }
 
     func stampDecoration(id: UUID) -> PageDecoration? {

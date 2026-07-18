@@ -1,6 +1,7 @@
 import SwiftUI
 import PDFKit
 import Combine
+import ImageIO
 
 // MARK: - Reading canvas shell (PDF + zoom/page bar)
 
@@ -841,7 +842,11 @@ struct PDFViewRepresentable: NSViewRepresentable {
                     viewModel.isShowingSignaturePalette = true
                 }
             case .stamp:
-                if viewModel.pendingHankoOptions != nil {
+                if viewModel.pendingBarcodeOptions != nil {
+                    viewModel.placeBarcode(at: pagePoint, on: page)
+                    refreshSignatureOverlay()
+                    refreshDecorationOverlays()
+                } else if viewModel.pendingHankoOptions != nil {
                     viewModel.placeHanko(at: pagePoint, on: page)
                     refreshSignatureOverlay()
                     refreshDecorationOverlays()
@@ -1843,6 +1848,9 @@ final class PageDecorationOverlayView: NSView {
             case .hanko:
                 guard decoration.pageRefID == pageRef.id else { continue }
                 drawHanko(decoration)
+            case .image:
+                guard decoration.pageRefID == pageRef.id else { continue }
+                drawImage(decoration)
             }
         }
     }
@@ -1948,6 +1956,25 @@ final class PageDecorationOverlayView: NSView {
             in: rect,
             context: context
         )
+    }
+
+    /// Live on-canvas preview of a placed barcode/QR image, drawn the same way the exporter
+    /// bakes it (`interpolationQuality = .none`, so modules stay crisp). This overlay is y-up,
+    /// which matches `CGContext.draw(_:in:)`'s image orientation — no flip needed.
+    private func drawImage(_ decoration: PageDecoration) {
+        guard let pageRect = decoration.rect,
+              let rect = pageRectToOverlayRect(pageRect)?.standardized,
+              rect.width > 4,
+              rect.height > 4,
+              let data = decoration.imageData,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              let context = NSGraphicsContext.current?.cgContext else { return }
+        context.saveGState()
+        context.interpolationQuality = .none
+        context.setAlpha(CGFloat(decoration.opacity))
+        context.draw(image, in: rect)
+        context.restoreGState()
     }
 
     private func pageRectToOverlayRect(_ rect: CGRect) -> CGRect? {
