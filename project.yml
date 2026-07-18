@@ -39,6 +39,16 @@ targets:
       - path: Orifold
         excludes:
           - Resources/Info.plist
+          # Added explicitly below as a folder reference; excluded here so the recursive
+          # scan doesn't also add each font file flat into the Resources root.
+          - Resources/Fonts
+      # Folder reference (type: folder) so Xcode copies the whole tree preserving the
+      # `Fonts/` + `Fonts/AFM/` structure the FontRegistrar resolver expects -- matching
+      # SwiftPM's `.copy("Resources/Fonts")`. A plain group would flatten the files into
+      # the Resources root and the fonts/AFMs would ship dead in the Xcode-built app.
+      - path: Orifold/Resources/Fonts
+        type: folder
+        buildPhase: resources
     resources:
       - path: Orifold/Resources/Assets.xcassets
       - path: Orifold/Resources/CERTIFICATE_GUIDE.md

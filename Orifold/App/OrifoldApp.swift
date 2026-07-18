@@ -55,6 +55,10 @@ struct OrifoldApp: App {
 
 final class OrifoldAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Register the bundled substitution fonts before the first editor render, so
+        // unembedded Arial/Times/Calibri/… resolve to their metric-compatible faces.
+        FontRegistrar.registerBundledFonts()
+
         UpdateLaunchCoordinator.shared.applicationDidFinishLaunching()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {

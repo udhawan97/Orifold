@@ -98,10 +98,11 @@ enum AFMMetricsStore {
     }
 
     /// Loads a bundled Core-14 AFM by its PostScript resource name (e.g. `"Helvetica"`,
-    /// `"Times-Roman"`). Returns `nil` — never traps — when the metrics aren't bundled in
-    /// this build, so the substitution feature degrades gracefully without them.
+    /// `"Times-Roman"`). Resolves the asset through `FontRegistrar` (the shared bundled-
+    /// resource resolver) and returns `nil` — never traps — when the metrics aren't
+    /// bundled in this build, so the substitution feature degrades gracefully without them.
     static func core14(_ fontName: String) -> AFMFont? {
-        guard let url = afmURL(forResource: fontName),
+        guard let url = FontRegistrar.afmURL(forResource: fontName),
               let text = afmText(at: url) else { return nil }
         return parse(text)
     }
@@ -109,42 +110,5 @@ enum AFMMetricsStore {
     private static func afmText(at url: URL) -> String? {
         if let utf8 = try? String(contentsOf: url, encoding: .utf8) { return utf8 }
         return try? String(contentsOf: url, encoding: .isoLatin1)
-    }
-
-    // MARK: Bundled-resource resolution
-    //
-    // Same non-trapping resolver as `SampleDocument`/`L10n`: SwiftPM's `Bundle.module`
-    // traps when `Orifold_Orifold.bundle` can't be found, so resolve the candidates by
-    // hand and degrade to nil. AFMs live in the copied `Fonts/AFM` subdirectory.
-
-    #if SWIFT_PACKAGE
-    private final class BundleAnchor {}
-    private static let bundle: Bundle = {
-        let bundleName = "Orifold_Orifold.bundle"
-        let anchor = Bundle(for: BundleAnchor.self)
-        let candidates: [URL?] = [
-            Bundle.main.resourceURL,
-            Bundle.main.bundleURL,
-            Bundle.main.executableURL?.deletingLastPathComponent(),
-            Bundle.main.bundleURL.deletingLastPathComponent(),
-            anchor.resourceURL,
-            anchor.bundleURL,
-            anchor.bundleURL.deletingLastPathComponent(),
-            anchor.executableURL?.deletingLastPathComponent(),
-        ]
-        for base in candidates {
-            guard let url = base?.appendingPathComponent(bundleName),
-                  let found = Bundle(url: url) else { continue }
-            return found
-        }
-        return .main
-    }()
-    #else
-    private final class BundleAnchor {}
-    private static let bundle = Bundle(for: BundleAnchor.self)
-    #endif
-
-    private static func afmURL(forResource name: String) -> URL? {
-        bundle.url(forResource: name, withExtension: "afm", subdirectory: "Fonts/AFM")
     }
 }

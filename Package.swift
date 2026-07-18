@@ -35,7 +35,8 @@ let package = Package(
                 .process("Resources/Localizable.xcstrings"),
                 .copy("Resources/CERTIFICATE_GUIDE.md"),
                 .copy("Resources/THIRD-PARTY-NOTICES.md"),
-                .copy("Resources/SampleDocument.pdf")
+                .copy("Resources/SampleDocument.pdf"),
+                .copy("Resources/Fonts")
             ],
             linkerSettings: [
                 .linkedLibrary("c++"),

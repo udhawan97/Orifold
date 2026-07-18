@@ -4505,6 +4505,14 @@ final class NoteEditorViewController: NSViewController {
     }
 
     static func editingFamilyName(for font: NSFont, fallback: String) -> String {
+        // A known unembedded standard font (Arial/Times New Roman/Courier New/Calibri/
+        // Cambria) resolves to its bundled metric-compatible face so editing keeps the
+        // original layout — taking precedence over whatever the system happens to
+        // substitute (or nothing at all, for the Windows-only Calibri/Cambria).
+        if let substitute = FontSubstitution.substituteFamily(for: fallback) {
+            return substitute
+        }
+
         if let family = font.familyName, !family.isEmpty {
             return family
         }
@@ -4553,7 +4561,7 @@ final class NoteEditorViewController: NSViewController {
 
         let base = manager.font(withFamily: family, traits: [], weight: 5, size: size)
             ?? NSFont(name: family, size: size)
-            ?? NSFont(name: "Helvetica", size: size)
+            ?? NSFont(name: FontSubstitution.substituteFamily(for: family) ?? "Helvetica", size: size)
             ?? NSFont.systemFont(ofSize: size)
 
         var resolved = base

@@ -2962,6 +2962,19 @@ final class WorkspaceViewModel {
         return base.lowercased()
     }
 
+    /// The font name to seed a fresh insertion with. A known unembedded standard font
+    /// (Arial/Times New Roman/Courier New/Calibri/Cambria) is swapped for its bundled
+    /// metric-compatible face — preserving bold/italic so the new text matches nearby
+    /// styling and renders identically on export instead of depending on whether the
+    /// substituted Windows font happens to be installed. Anything else is kept verbatim.
+    private static func substitutedInsertionFontName(for fontName: String) -> String {
+        guard let family = FontSubstitution.substituteFamily(for: fontName) else { return fontName }
+        let source = NSFont(name: fontName, size: 12) ?? .systemFont(ofSize: 12)
+        let traits = NSFontManager.shared.traits(of: source).intersection([.boldFontMask, .italicFontMask])
+        let styled = NSFontManager.shared.font(withFamily: family, traits: traits, weight: 5, size: 12)
+        return styled?.fontName ?? family
+    }
+
     private func reopenedBounds(for operation: PDFTextEditOperation) -> CGRect {
         let edited = operation.editedBounds.standardized
         guard !operation.didManuallyReposition,
@@ -3037,7 +3050,7 @@ final class WorkspaceViewModel {
             bounds: bounds,
             lines: [],
             columnBounds: pageBounds.insetBy(dx: 12, dy: 12),
-            fontName: nearbyStyle?.fontName ?? "Helvetica",
+            fontName: Self.substitutedInsertionFontName(for: nearbyStyle?.fontName ?? "Helvetica"),
             fontSize: nearbyStyle?.fontSize ?? 14,
             textColor: nearbyStyle?.textColor ?? .documentText,
             alignment: nearbyStyle?.alignment,
