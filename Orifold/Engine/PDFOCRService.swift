@@ -274,6 +274,14 @@ enum PDFOCRService {
         return data as Data
     }
 
+    /// Rasterizes a page to a high-DPI bitmap for downstream Vision detection — currently the
+    /// barcode scanner (Feature G3). A thin exposure of the OCR renderer so barcode scan and
+    /// OCR share one rasterization path (same 300-DPI target, same long-edge cap) rather than
+    /// duplicating the CGContext setup.
+    static func rasterizedImage(for page: PDFPage) -> CGImage? {
+        renderedImage(for: page)
+    }
+
     private static func renderedImage(for page: PDFPage) -> CGImage? {
         let bounds = page.bounds(for: .mediaBox)
         guard bounds.width.isFinite, bounds.height.isFinite, bounds.width > 0, bounds.height > 0 else {
