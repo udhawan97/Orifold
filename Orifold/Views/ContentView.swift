@@ -467,7 +467,7 @@ struct ContentView: View {
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .keyboardShortcut("o", modifiers: [.command, .shift])
+            .keyboardShortcut(.addFiles)
         }
 
         // Center: annotation tools + color swatch
@@ -514,7 +514,7 @@ struct ContentView: View {
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .keyboardShortcut("f", modifiers: .command)
+            .keyboardShortcut(.find)
 
             Menu {
                 Button(L10n.string("toolbar.export.menuItem.export")) {
@@ -533,7 +533,7 @@ struct ContentView: View {
                 handleDrop(providers: providers)
             }
             .help(L10n.string("toolbar.export.help"))
-            .keyboardShortcut("e", modifiers: .command)
+            .keyboardShortcut(.export)
 
             ToolbarIconButton(
                 labelKey: "toolbar.inspector.label",
@@ -547,7 +547,7 @@ struct ContentView: View {
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .keyboardShortcut("i", modifiers: [.command, .option])
+            .keyboardShortcut(.toggleInspector)
 
             // Everything secondary now folds into one calm overflow. Its own active tint is the
             // *soft* variant, not the full accent pill Inspector uses — a persistent solid-accent
