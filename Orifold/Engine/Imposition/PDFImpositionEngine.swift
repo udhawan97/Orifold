@@ -17,25 +17,28 @@ enum PDFImpositionError: LocalizedError {
     }
 }
 
-/// Byte-level imposition (booklet / N-up) on top of PDFium's page-porting API.
-///
-/// IMPORTANT: `FPDF_ImportNPagesToOne` flattens every source page into a form XObject, which
-/// DROPS annotations (stamps, signatures, markup). So `impose` must run on bytes whose decoration
-/// has already been baked into page content — i.e. the fully-baked, post-compression export bytes
-/// (`WorkspaceViewModel.dataForPDFExport` calls it last). Never impose the live document.
-///
-/// All PDFium calls hold the global `pdfiumLock`; the save accumulator (`impositionSaveData`) is a
-/// file-private global mirroring `PDFCompressionService`'s pattern, safe because the lock serialises
-/// every call. Lifecycle (`FPDF_LoadMemDocument`/`FPDF_CloseDocument`/`FPDF_GetPageCount`), the save
-/// binding (`FPDFCompression_SaveAsCopy` + `FPDFCompressionFileWrite`) and the page-size getters
-/// (`poe_*`) are REUSED, not re-declared — only the `imp_*` port bindings are new.
+/// Save accumulator for the PDFium write callback — a file-private global mirroring
+/// `PDFCompressionService`'s pattern, safe only because `pdfiumLock` serialises every call.
 private var impositionSaveData = Data()
 
+/// Byte-level imposition (booklet / N-up) on top of PDFium's page-porting API.
+///
+/// `FPDF_ImportNPagesToOne` flattens every source page into a form XObject, which DROPS
+/// annotations (stamps, signatures, markup). That is why `impose` takes `BakedPDFData` rather
+/// than raw bytes: the requirement is a type, not a comment, because the failure is silent —
+/// imposing a live document yields structurally valid output with the annotations quietly
+/// missing, so no error and no soundness check can catch it.
+///
+/// All PDFium calls hold the global `pdfiumLock`. Lifecycle
+/// (`FPDF_LoadMemDocument`/`FPDF_CloseDocument`/`FPDF_GetPageCount`), the save binding
+/// (`FPDFCompression_SaveAsCopy` + `FPDFCompressionFileWrite`) and the page-size getters
+/// (`poe_*`) are REUSED, not re-declared — only the `imp_*` port bindings are new.
 enum PDFImpositionEngine {
-    /// Loads `data` (already fully baked + compressed), imposes per `layout`, and returns new bytes.
+    /// Imposes already-flattened export bytes per `layout` and returns new bytes.
     /// Holds `pdfiumLock` for the whole call. The output is gated through
     /// `QPDFService.isStructurallySound` before it is returned.
-    static func impose(_ data: Data, layout: ImpositionLayout) throws -> Data {
+    static func impose(_ baked: BakedPDFData, layout: ImpositionLayout) throws -> Data {
+        let data = baked.bytes
         guard !data.isEmpty, data.count <= Int(Int32.max) else { throw PDFImpositionError.invalidPDF }
 
         pdfiumLock.lock()

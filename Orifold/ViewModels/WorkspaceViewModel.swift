@@ -6157,26 +6157,27 @@ final class WorkspaceViewModel {
             sourcePayloads: document.sourcePayloads,
             originalMemberPDFData: pristineDataForMembersWithCommittedEdits()
         )
-        let pdfData = try document.exportedPDFDataThrowing(from: snapshot, options: options)
-        let reducedData: Data
+        // The assembly flattens signatures, decorations, comments and form fields into page
+        // content. That is what makes the bytes safe to impose, so this is the one place that
+        // mints `BakedPDFData` -- downstream stages carry the proof rather than restate it.
+        var baked = BakedPDFData(alreadyFlattened:
+            try document.exportedPDFDataThrowing(from: snapshot, options: options))
         if let preset = options.compressionPreset {
-            reducedData = try PDFCompressionService.reduceFileSize(
-                of: pdfData,
-                preset: preset,
-                processingEngine: processingEngine
-            ).data
-        } else {
-            reducedData = pdfData
+            baked = try baked.mapping { data in
+                try PDFCompressionService.reduceFileSize(
+                    of: data,
+                    preset: preset,
+                    processingEngine: processingEngine
+                ).data
+            }
         }
-        // Imposition runs AFTER bake + compression so it operates on bytes whose annotations
-        // (stamps/signatures/markup) are already flattened into page content -- N-up flattens pages
-        // into form XObjects and would drop any live annotations. It then flows through sanitize +
-        // encryption below so those options are never silently dropped when combined with a layout.
+        // Imposition flows through sanitize + encryption below, so those options are never
+        // silently dropped when combined with a layout.
         let imposedData: Data
         if let layout = options.imposition {
-            imposedData = try PDFImpositionEngine.impose(reducedData, layout: layout)
+            imposedData = try PDFImpositionEngine.impose(baked, layout: layout)
         } else {
-            imposedData = reducedData
+            imposedData = baked.bytes
         }
         // Re-graft attachments after every page-content pass (assembly, compression,
         // imposition — all of which drop them) but before sanitize, which
@@ -8293,14 +8294,15 @@ final class WorkspaceViewModel {
     // MARK: - Print
 
     /// Prints the workspace. When `imposition` is non-nil the exported bytes are imposed
-    /// (booklet / N-up) before printing -- imposition runs on the fully-baked export data, so baked
-    /// annotations survive into the flattened sheets, exactly as the export path does.
+    /// (booklet / N-up) before printing, exactly as the export path does.
     func printWorkspace(imposition: ImpositionLayout? = nil) {
         let printableDocument: PDFDocument
         do {
+            // `dataForPDFExport` returns fully-assembled export bytes, so the bake has run.
             var data = try dataForPDFExport()
             if let imposition {
-                data = try PDFImpositionEngine.impose(data, layout: imposition)
+                data = try PDFImpositionEngine.impose(
+                    BakedPDFData(alreadyFlattened: data), layout: imposition)
             }
             guard let document = PDFDocument(data: data) else {
                 exportError = ExportError(message: L10n.string("error.export.preparePrinting"))
