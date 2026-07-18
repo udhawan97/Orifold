@@ -5579,7 +5579,7 @@ final class WorkspaceViewModel {
     /// pages with no speakable text, so boundary banners and image-only pages are passed over.
     @MainActor
     var readAloud: ReadAloudController {
-        if let _readAloud { return _readAloud }
+        if let existing = _readAloud { return existing }
         let controller = ReadAloudController(
             synthesizer: AVSpeechSynthesizerAdapter(),
             pageTextProvider: { [weak self] index in self?.readAloudPageText(at: index) },
