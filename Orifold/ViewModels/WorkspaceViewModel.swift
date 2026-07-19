@@ -8417,6 +8417,22 @@ final class WorkspaceViewModel {
         return try? StructureInspectionService.inspect(data, pageIndex: localIndex)
     }
 
+    /// Bytes of the member the reader is currently in, for read-only introspection.
+    ///
+    /// Archival readiness is a per-document question, not a per-page one, so this returns
+    /// the whole member rather than a page — the font walk and the catalog probes both
+    /// need the full object graph.
+    func activeMemberDataForArchivalReadiness() -> Data? {
+        let orderIndex = max(currentPageNumber - 1, 0)
+        guard document.workspace.pageOrder.indices.contains(orderIndex) else {
+            // Fall back to the first member so an untouched workspace still reports
+            // something rather than looking broken.
+            return document.workspace.documents.first.flatMap { document.memberPDFData[$0.id] }
+        }
+        let ref = document.workspace.pageOrder[orderIndex]
+        return document.memberPDFData[ref.memberDocId]
+    }
+
     // MARK: - Print
 
     /// Prints the workspace. When `imposition` is non-nil the exported bytes are imposed

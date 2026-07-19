@@ -104,11 +104,69 @@ def untagged() -> bytes:
     ])
 
 
+def active_content() -> bytes:
+    """Carries every key `hasActiveContent` looks for: /OpenAction, /AA, /Names/JavaScript."""
+    ops = "BT /F1 18 Tf 72 700 Td (Active content) Tj ET\n"
+    return build_pdf([
+        "<< /Type /Catalog /Pages 2 0 R /OpenAction << /S /JavaScript /JS (app.alert\\(1\\);) >> "
+        "/AA << /WC << /S /JavaScript /JS (app.alert\\(2\\);) >> >> "
+        "/Names << /JavaScript << /Names [(script) 6 0 R] >> >> >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        "/Resources << /Font << /F1 5 0 R >> >> >>",
+        f"<< /Length {len(ops)} >>\nstream\n{ops}endstream",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        "<< /S /JavaScript /JS (app.alert\\(3\\);) >>",
+    ])
+
+
+def output_intent() -> bytes:
+    """Has /Root/OutputIntents and no fonts at all.
+
+    The absent /Font dict is deliberate: it exercises the vacuous case where a page
+    references no fonts, which must read as "all fonts embedded" rather than as a
+    failure. Authoring a genuinely embedded font would mean shipping a font binary.
+    """
+    ops = "0.2 0.4 0.8 rg 72 500 200 150 re f\n"
+    return build_pdf([
+        "<< /Type /Catalog /Pages 2 0 R /OutputIntents [6 0 R] >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        "/Resources << >> >>",
+        f"<< /Length {len(ops)} >>\nstream\n{ops}endstream",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        "<< /Type /OutputIntent /S /GTS_PDFA1 /OutputConditionIdentifier (sRGB) >>",
+    ])
+
+
+def xmp_metadata() -> bytes:
+    """Catalog carries a /Metadata XMP stream."""
+    xmp = (
+        '<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>'
+        '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF '
+        'xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        "</rdf:RDF></x:xmpmeta><?xpacket end=\"w\"?>"
+    )
+    ops = "0.5 g 72 500 100 100 re f\n"
+    return build_pdf([
+        "<< /Type /Catalog /Pages 2 0 R /Metadata 6 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        "/Resources << >> >>",
+        f"<< /Length {len(ops)} >>\nstream\n{ops}endstream",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        f"<< /Type /Metadata /Subtype /XML /Length {len(xmp)} >>\nstream\n{xmp}\nendstream",
+    ])
+
+
 if __name__ == "__main__":
     written = {
         "tagged-sample.pdf": tagged("A red rectangle"),
         "tagged-no-alt.pdf": tagged(None),
         "untagged-sample.pdf": untagged(),
+        "active-content.pdf": active_content(),
+        "output-intent.pdf": output_intent(),
+        "xmp-metadata.pdf": xmp_metadata(),
     }
     for name, payload in written.items():
         (HERE / name).write_bytes(payload)
