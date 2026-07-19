@@ -64,6 +64,31 @@ enum PDFOutlineBuilder {
         return result
     }
 
+    /// Rewrites `data`'s bookmark tree to match `source`'s, returning nil when `source` has
+    /// none (leaving the caller's bytes untouched).
+    ///
+    /// Works around a PDFKit defect: serializing a `PDFDocument` the app has held open
+    /// writes its outline destinations one page LATE, while a pristine parse of the very
+    /// same bytes serializes correctly. Reading is never affected — only writing — so the
+    /// repair is to take the tree from the live document, where it still reads correctly,
+    /// and re-anchor it onto a freshly parsed copy whose write path is sound.
+    ///
+    /// Page content is unaffected by the defect, so `data` remains the authority for
+    /// everything except `/Outlines`.
+    static func reanchoring(_ data: Data, toOutlineOf source: PDFDocument) -> Data? {
+        let nodes = PDFOutlineReader.nodes(in: source)
+        guard !nodes.isEmpty else { return nil }
+        guard let reparsed = PDFDocument(data: data) else { return nil }
+
+        reparsed.outlineRoot = outline(
+            from: nodes.map {
+                Heading(title: $0.title, level: $0.depth + 1, pageIndex: $0.localPageIndex)
+            },
+            in: reparsed
+        )
+        return PDFSerializer.data(from: reparsed)
+    }
+
     /// Assembles a nested outline, or `nil` when there is nothing to show.
     ///
     /// Nesting is by CONTAINMENT, not by level arithmetic: each heading hangs off the

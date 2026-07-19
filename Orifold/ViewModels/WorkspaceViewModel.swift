@@ -1543,7 +1543,12 @@ final class WorkspaceViewModel {
                   PDFDocument(data: data)?.pageCount == pdf.pageCount else {
                 throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
             }
-            result[member.id] = data
+            // Serializing a long-held document writes its bookmark destinations one page
+            // late (see `PDFOutlineBuilder.reanchoring`). Repair here, at the one place the
+            // LIVE document is still in hand — every later stage sees only bytes and has no
+            // way to know the destinations drifted. Falls back to `data` when the member has
+            // no bookmarks or the repair cannot serialize, so export never fails over this.
+            result[member.id] = PDFOutlineBuilder.reanchoring(data, toOutlineOf: pdf) ?? data
         }
         return result
     }

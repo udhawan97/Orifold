@@ -5,25 +5,24 @@ import XCTest
 
 /// Embedded PDF bookmarks (`/Outlines`) surviving the export pipeline.
 ///
-/// Export rebuilds the object graph repeatedly — assembly starts from a fresh
-/// `PDFDocument`, and the form-flatten and decoration bakes re-render pages
-/// through a `CGContext` — and no rebuild carries `/Outlines` across. So the
-/// tree is not preserved by leaving it alone: it is captured as page indices up
-/// front and written once, late, by `WorkspaceViewModel.applyingOutline`.
+/// Two defects, two repairs, and both are load-bearing:
 ///
-/// Indices rather than `PDFDestination` objects, because a destination holds a
-/// `PDFPage` reference that stops resolving the moment assembly moves pages
-/// into a new document. Written once and late, because re-serializing a parsed
-/// outline can slip every destination forward a page — reliably so through the
-/// member byte lane, which is what makes "apply at assembly and let it ride"
-/// quietly wrong. The index assertions below are the part that catches it;
-/// asserting titles alone passes against a tree pointing at the wrong pages.
+/// - Every rebuild drops the tree. Assembly starts from a fresh `PDFDocument`, and the
+///   form-flatten and decoration bakes re-render pages through a `CGContext`. So the
+///   outline is captured as page INDICES and written once, late, by
+///   `WorkspaceViewModel.applyingOutline` — indices because a `PDFDestination` holds a
+///   `PDFPage` reference that stops resolving once assembly moves pages elsewhere.
+/// - Serializing a document the app has held open writes destinations a page LATE, while
+///   a pristine parse of the same bytes writes them correctly. `PDFOutlineBuilder
+///   .reanchoring` repairs that in the member byte lane, which the late write cannot
+///   reach — see the embedded-workspace-state test.
 ///
-/// Imposition is the deliberate exception; qpdf sanitize is exonerated. Both
-/// have their own test below.
+/// Assert on page indices, not titles. Titles survive both defects; a tree pointing one
+/// page past every heading passes a title-only check, which is how this stayed invisible.
+/// Each test also states what went IN: asserting only that an export HAS an outline would
+/// pass against a fixture whose bookmarks were never at risk.
 ///
-/// Note the assertions on the input side: asserting only that an export HAS an
-/// outline would pass against a fixture whose bookmarks were never at risk.
+/// Imposition is the deliberate exception; qpdf sanitize is exonerated. Both tested below.
 final class PDFOutlineExportTests: XCTestCase {
 
     // MARK: - Preservation through the pipeline
@@ -235,6 +234,45 @@ final class PDFOutlineExportTests: XCTestCase {
         XCTAssertEqual(nodes.map(\.depth), [0, 1, 1], "the generated nesting survives too")
     }
 
+    /// The export's *flattened* outline and its *embedded member bytes* are two different
+    /// artefacts, and fixing the first does not fix the second. `embedsEditableWorkspaceState`
+    /// stores `snapshot.memberPDFData` inside the PDF so a workspace can be reopened from
+    /// it; those bytes come off the serializer that writes destinations a page late, so
+    /// without `PDFOutlineBuilder.reanchoring` a reopened workspace shows every bookmark
+    /// pointing one page past its heading — while the flattened outline beside it reads
+    /// correctly. Measured: pages 1 and 3 with the repair, 2 and 4 without.
+    func testReopenedWorkspaceKeepsBookmarkPagesAfterAnEmbeddedStateExport() throws {
+        let fixture = try OutlineFixtures.outlinedMember(
+            name: "Manual", pageCount: 4,
+            outline: [
+                OutlineFixtureSpec(title: "Chapter One", page: 0),
+                OutlineFixtureSpec(title: "Chapter Two", page: 2)
+            ]
+        )
+        let viewModel = OutlineFixtures.viewModel(members: [fixture])
+
+        let exported = try viewModel.dataForPDFExport(
+            options: WorkspaceExportOptions(embedsEditableWorkspaceState: true)
+        )
+        let reopened = WorkspaceViewModel(
+            document: try WorkspaceDocument(
+                testingFile: FileWrapper(regularFileWithContents: exported),
+                contentType: .pdf,
+                filename: "Manual.pdf"
+            ),
+            processingEngine: PDFiumProcessingEngine()
+        )
+
+        let member = try XCTUnwrap(reopened.loadedPDFs.first?.1)
+        XCTAssertEqual(
+            PDFOutlineReader.nodes(in: member).map(\.localPageIndex), [0, 2],
+            "restored member bookmarks must not drift a page on the way through the byte lane"
+        )
+        XCTAssertEqual(
+            reopened.tableOfContents.filter { $0.depth > 0 }.map(\.displayPageNumber), [1, 3]
+        )
+    }
+
     // MARK: - The deliberate exception
 
     /// The one stage where dropping bookmarks is correct rather than lossy.
@@ -284,78 +322,6 @@ final class PDFOutlineExportTests: XCTestCase {
         )
         XCTAssertEqual(PDFOutlineReader.nodes(in: reopened).map(\.title), ["Chapter One"])
     }
-
-    // MARK: - PDFOutlineBuilder
-
-    func testBuilderRebuildsNestingFromAFlatDepthOrderedList() throws {
-        let document = OutlineFixtures.blankPDF(pageCount: 4)
-
-        PDFOutlineBuilder.apply([
-            outlineNode("Chapter One", depth: 0, page: 0),
-            outlineNode("Section 1.1", depth: 1, page: 1),
-            outlineNode("Section 1.2", depth: 1, page: 2),
-            outlineNode("Chapter Two", depth: 0, page: 3)
-        ], to: document)
-
-        let root = try XCTUnwrap(document.outlineRoot)
-        XCTAssertEqual(root.numberOfChildren, 2, "two top-level chapters, sections nested beneath the first")
-        XCTAssertEqual(root.child(at: 0)?.numberOfChildren, 2)
-        XCTAssertEqual(root.child(at: 1)?.numberOfChildren, 0)
-
-        // Round-trip through bytes: an outline that cannot be re-read from
-        // serialized output is not preserved in any sense that matters.
-        let reopened = try XCTUnwrap(PDFDocument(data: try XCTUnwrap(document.dataRepresentation())))
-        let nodes = PDFOutlineReader.nodes(in: reopened)
-        XCTAssertEqual(nodes.map(\.title), ["Chapter One", "Section 1.1", "Section 1.2", "Chapter Two"])
-        XCTAssertEqual(nodes.map(\.depth), [0, 1, 1, 0])
-        XCTAssertEqual(nodes.map(\.localPageIndex), [0, 1, 2, 3])
-    }
-
-    func testBuilderSkipsNodesPointingOutsideTheDocument() throws {
-        let document = OutlineFixtures.blankPDF(pageCount: 2)
-
-        PDFOutlineBuilder.apply([
-            outlineNode("Real", depth: 0, page: 0),
-            outlineNode("Past the end", depth: 0, page: 7)
-        ], to: document)
-
-        XCTAssertEqual(PDFOutlineReader.nodes(in: document).map(\.title), ["Real"])
-    }
-
-    func testBuilderLeavesTheDocumentUntouchedWhenThereAreNoNodes() throws {
-        let document = OutlineFixtures.blankPDF(pageCount: 2)
-
-        PDFOutlineBuilder.apply([], to: document)
-
-        XCTAssertNil(
-            document.outlineRoot,
-            "an empty outline root would show as an empty navigation pane rather than none"
-        )
-    }
-
-    /// A child arriving without a parent must land somewhere rather than being dropped.
-    /// Real `/Outlines` trees are not always well-formed, and the reader's own
-    /// promotion rule (lifting an unreadable node's children) emits exactly this.
-    func testBuilderClampsOrphanedDepthsToTheDeepestAvailableParent() throws {
-        let document = OutlineFixtures.blankPDF(pageCount: 3)
-
-        PDFOutlineBuilder.apply([
-            outlineNode("Deep opener", depth: 2, page: 0),
-            outlineNode("Chapter", depth: 0, page: 1),
-            outlineNode("Skipped a level", depth: 2, page: 2)
-        ], to: document)
-
-        let nodes = PDFOutlineReader.nodes(in: document)
-        XCTAssertEqual(nodes.map(\.title), ["Deep opener", "Chapter", "Skipped a level"])
-        XCTAssertEqual(nodes.map(\.depth), [0, 0, 1], "orphans clamp to one level below what exists")
-    }
 }
 
 // MARK: - Fixtures
-
-/// Reader-shaped node, the input side of `PDFOutlineBuilder`. Stays local: it builds
-/// `PDFOutlineReader.OutlineNode`, not a PDF, so it has nothing to share with
-/// `OutlineFixtures`.
-private func outlineNode(_ title: String, depth: Int, page: Int) -> PDFOutlineReader.OutlineNode {
-    PDFOutlineReader.OutlineNode(title: title, depth: depth, localPageIndex: page, hasChildren: false)
-}

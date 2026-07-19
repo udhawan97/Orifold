@@ -83,18 +83,38 @@ final class PDFKitEngine: PDFEngine {
     func concatenateForExport(documents: [(MemberDocument, PDFDocument)]) throws -> PDFDocument {
         let combined = PDFDocument()
         var insertIndex = 0
+        /// Every member's bookmarks, rebased onto the assembled page numbering as we go.
+        /// Collected during the walk because a member's page offset is only known here.
+        var bookmarks: [PDFOutlineBuilder.Heading] = []
         for (member, pdf) in documents {
             guard let memberData = PDFSerializer.data(from: pdf),
                   let freshMemberDoc = PDFDocument(data: memberData),
                   freshMemberDoc.pageCount == pdf.pageCount else {
                 throw ExportAssemblyError.unreadableMember(member.displayName)
             }
+            let pageOffset = insertIndex
             for pageIndex in 0..<freshMemberDoc.pageCount {
                 guard let page = freshMemberDoc.page(at: pageIndex) else {
                     throw ExportAssemblyError.unreadableMember(member.displayName)
                 }
                 combined.insert(page, at: insertIndex)
                 insertIndex += 1
+            }
+            // Read the flattened tree rather than walking `PDFOutline` again: the reader
+            // already drops blank labels and destinations whose page has gone, so only
+            // bookmarks that still resolve are carried forward. `depth + 1` becomes the
+            // builder's level, which reproduces the original nesting by containment and
+            // keeps each member's top level top-level instead of nesting members.
+            //
+            // Read from `pdf`, whose destinations callers have already re-anchored (see
+            // `PDFOutlineBuilder.reanchoring`), not from `freshMemberDoc` — one more
+            // serialization hop is one more chance to inherit a drifted destination.
+            bookmarks += PDFOutlineReader.nodes(in: pdf).map { node in
+                PDFOutlineBuilder.Heading(
+                    title: node.title,
+                    level: node.depth + 1,
+                    pageIndex: pageOffset + node.localPageIndex
+                )
             }
         }
         guard combined.pageCount > 0 else {
@@ -109,6 +129,11 @@ final class PDFKitEngine: PDFEngine {
         if let attributes = documents.first?.1.documentAttributes {
             combined.documentAttributes = attributes
         }
+        // Bookmarks are document-level state too, and are lost for the same reason the
+        // attributes above were. Rebuilt rather than reassigned: the members' own
+        // `PDFDestination`s point at pages in their source documents, so handing that tree
+        // over verbatim would give the export destinations pointing outside it.
+        combined.outlineRoot = PDFOutlineBuilder.outline(from: bookmarks, in: combined)
         return combined
     }
 }
