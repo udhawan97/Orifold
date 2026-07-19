@@ -8288,8 +8288,21 @@ private func makeMemberFixture(
     return (member, refs, pdfData)
 }
 
+/// Waits for an in-flight import to settle.
+///
+/// The deadline is a HANG detector, not a performance budget, and has to sit far above any
+/// plausible real duration or CPU contention fails an import that was working correctly.
+/// It was 2 seconds, which lands *inside* the normal spread: the 50- and 51-file batch
+/// imports run ~0.4s typically but reach 2.0s at the tail even with nothing else running,
+/// so `testImportFilesLimitsBatchToMaximumBatchSizeAndExplainsHowToContinue` failed here
+/// roughly one full-suite run in six on a loaded machine.
+///
+/// Tests that care how long an import takes assert that for themselves — see the
+/// 15-second budget at the end of `testImportFilesLoadsFiftyPDFsReliably`, which this cap
+/// made unreachable: nothing slower than 2s ever got that far, so the check that was meant
+/// to catch a slow import could never fire. Raising the cap is what puts it back in play.
 private func waitForImportsToFinish(in viewModel: WorkspaceViewModel) async throws {
-    let deadline = Date().addingTimeInterval(2)
+    let deadline = Date().addingTimeInterval(30)
     while viewModel.isImporting && Date() < deadline {
         try await Task.sleep(nanoseconds: 20_000_000)
     }
