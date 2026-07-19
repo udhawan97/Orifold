@@ -8281,23 +8281,93 @@ final class WorkspaceViewModel {
     // MARK: - TOC synthesis
 
     struct TOCEntry: Identifiable {
-        var id: UUID
+        /// Stable across recomputation — `tableOfContents` is a computed property, so a
+        /// freshly minted `UUID()` here would hand `ForEach` a new identity on every
+        /// body pass and reset the outline's expand/collapse state as the user reads.
+        var id: String
         var title: String
         var jumpPageIndex: Int
         var displayPageNumber: Int
+        /// 0 for a source-file row; a file's own bookmarks start at 1.
+        var depth: Int = 0
+        var hasChildren: Bool = false
+
+        /// Flattens the pre-order tree to the rows that should actually be drawn.
+        /// A collapsed row hides every following row deeper than it, up to the next row
+        /// at its own depth or shallower — so collapsing a file hides all of its
+        /// bookmarks without touching the file that follows.
+        ///
+        /// Lives here rather than in `TOCView` so the rule is testable without standing
+        /// up a SwiftUI view; the view supplies only the expansion predicate.
+        static func visibleEntries(
+            in entries: [Self],
+            isExpanded: (Self) -> Bool
+        ) -> [Self] {
+            var visible: [Self] = []
+            var hiddenBelowDepth: Int?
+
+            for entry in entries {
+                if let threshold = hiddenBelowDepth {
+                    if entry.depth > threshold { continue }
+                    hiddenBelowDepth = nil
+                }
+                visible.append(entry)
+                if entry.hasChildren && !isExpanded(entry) {
+                    hiddenBelowDepth = entry.depth
+                }
+            }
+            return visible
+        }
     }
 
+    /// One row per source file, each followed by that file's embedded bookmarks
+    /// (`/Outlines`) indented beneath it. A file with no bookmarks contributes exactly
+    /// the one row it always did.
+    ///
+    /// Bookmark rows resolve through `combinedPageIndex(for:)` — the single mapping
+    /// helper that already knows the composed index space interleaves a boundary banner
+    /// ahead of every member. The arithmetic is deliberately not repeated here.
     var tableOfContents: [TOCEntry] {
         var entries: [TOCEntry] = []
         var combinedIdx = 0
         var realPageNumber = 1
-        for member in document.workspace.documents {
+        let refsByID = Dictionary(
+            document.workspace.pageOrder.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        for (memberIndex, member) in document.workspace.documents.enumerated() {
+            // `loadedPDFs` is held parallel to `workspace.documents`; guard anyway so a
+            // transient mismatch degrades to "no bookmarks" instead of trapping.
+            let bookmarks = loadedPDFs.indices.contains(memberIndex)
+                ? PDFOutlineReader.nodes(in: loadedPDFs[memberIndex].1)
+                : []
+
             entries.append(TOCEntry(
-                id: member.id,
+                id: member.id.uuidString,
                 title: member.displayName,
                 jumpPageIndex: combinedIdx + 1,
-                displayPageNumber: realPageNumber
+                displayPageNumber: realPageNumber,
+                depth: 0,
+                hasChildren: !bookmarks.isEmpty
             ))
+
+            for (bookmarkIndex, bookmark) in bookmarks.enumerated() {
+                guard member.pageRefs.indices.contains(bookmark.localPageIndex),
+                      let ref = refsByID[member.pageRefs[bookmark.localPageIndex]],
+                      let combined = combinedPageIndex(for: ref)
+                else { continue }
+
+                entries.append(TOCEntry(
+                    id: "\(member.id.uuidString)#\(bookmarkIndex)",
+                    title: bookmark.title,
+                    jumpPageIndex: combined,
+                    displayPageNumber: realPageNumber + bookmark.localPageIndex,
+                    depth: bookmark.depth + 1,
+                    hasChildren: bookmark.hasChildren
+                ))
+            }
+
             combinedIdx += 1 + member.pageRefs.count  // 1 banner + N pages
             realPageNumber += member.pageRefs.count
         }
