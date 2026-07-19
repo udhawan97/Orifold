@@ -95,3 +95,51 @@ enum OutlineFixtures {
         return outline
     }
 }
+
+/// Puts a known-black mark on a page and measures how much ink an exported page carries.
+/// Lets a test assert "the decoration bake actually ran" as a pixel question rather than a
+/// text-extraction one — `PDFPage.string` is off-limits on CI.
+enum DecorationProbe {
+
+    /// Solid black makes "did the bake run?" an unambiguous pixel question.
+    static func addBlackDecoration(to viewModel: WorkspaceViewModel) throws {
+        let pageRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 64, bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        NSColor.black.setFill()
+        NSRect(x: 0, y: 0, width: 64, height: 64).fill()
+        NSGraphicsContext.restoreGraphicsState()
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+
+        viewModel.document.workspace.decorations.append(PageDecoration.image(
+            imageData: png,
+            pageRefID: pageRef.id,
+            rect: CGRect(x: 40, y: 300, width: 400, height: 160)
+        ))
+    }
+
+    /// Fraction of sampled pixels visibly non-white. Never asserts on `PDFPage.string`.
+    static func inkCoverage(of data: Data, pageIndex: Int = 0) throws -> Double {
+        let pdf = try XCTUnwrap(PDFDocument(data: data))
+        let page = try XCTUnwrap(pdf.page(at: pageIndex))
+        let bounds = page.bounds(for: .mediaBox)
+        let thumbnail = page.thumbnail(of: CGSize(width: bounds.width, height: bounds.height), for: .mediaBox)
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(thumbnail.tiffRepresentation)))
+
+        var inked = 0
+        var sampled = 0
+        for sampleX in stride(from: 0, to: bitmap.pixelsWide, by: 7) {
+            for sampleY in stride(from: 0, to: bitmap.pixelsHigh, by: 7) {
+                guard let color = bitmap.colorAt(x: sampleX, y: sampleY)?.usingColorSpace(.deviceRGB) else { continue }
+                sampled += 1
+                if color.brightnessComponent < 0.85 { inked += 1 }
+            }
+        }
+        guard sampled > 0 else { return 0 }
+        return Double(inked) / Double(sampled)
+    }
+}

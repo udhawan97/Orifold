@@ -96,13 +96,13 @@ final class PDFOutlineExportTests: XCTestCase {
             ]
         )
         let viewModel = OutlineFixtures.viewModel(members: [fixture])
-        try addBlackDecoration(to: viewModel)
+        try DecorationProbe.addBlackDecoration(to: viewModel)
 
         let exported = try viewModel.dataForPDFExport()
         let reopened = try XCTUnwrap(PDFDocument(data: exported))
 
         XCTAssertGreaterThan(
-            try inkCoverage(of: exported), 0.01,
+            try DecorationProbe.inkCoverage(of: exported), 0.01,
             "precondition: the decoration really did bake, so the CGContext rebuild really did run"
         )
         XCTAssertEqual(PDFOutlineReader.nodes(in: reopened).map(\.title), ["Chapter One", "Chapter Two"])
@@ -186,6 +186,53 @@ final class PDFOutlineExportTests: XCTestCase {
         let nodes = PDFOutlineReader.nodes(in: reopened)
         XCTAssertEqual(nodes.map(\.title), ["Chapter One", "Chapter Two"])
         XCTAssertEqual(nodes.map(\.localPageIndex), [0, 2], "compression must not shift destinations")
+    }
+
+    /// Where the two halves of the bookmark feature meet: markdown import GENERATES an
+    /// outline, and export preserves it. Each side is covered alone — `MarkdownOutlineTests`
+    /// stops at the imported document, and the tests above start from a synthetic fixture —
+    /// so nothing else would notice if generated bookmarks were the one kind that did not
+    /// survive. Markdown is now the app's main source of bookmarks, which makes this the
+    /// path most users actually hit.
+    func testMarkdownGeneratedBookmarksSurviveExport() throws {
+        let markdown = """
+        # Title
+
+        ## Chapter One
+
+        Body.
+
+        ## Chapter Two
+
+        Body.
+        """
+        let imported = try DocumentImportConverter.importedDocument(
+            from: Data(markdown.utf8),
+            contentType: .markdown,
+            filename: "Outline.md",
+            baseURL: nil
+        )
+        XCTAssertEqual(
+            PDFOutlineReader.nodes(in: imported.pdfDocument).map(\.title),
+            ["Title", "Chapter One", "Chapter Two"],
+            "precondition: import generated the outline"
+        )
+
+        var member = MemberDocument(displayName: "Outline", sourcePDFRef: "Outline.md")
+        let pdf = imported.pdfDocument
+        let refs = (0..<pdf.pageCount).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+        member.pageRefs = refs.map(\.id)
+        let data = try XCTUnwrap(PDFSerializer.data(from: pdf))
+        let viewModel = OutlineFixtures.viewModel(members: [
+            OutlineFixtureMember(member: member, refs: refs, data: data)
+        ])
+
+        let exported = try viewModel.dataForPDFExport()
+        let reopened = try XCTUnwrap(PDFDocument(data: exported))
+        let nodes = PDFOutlineReader.nodes(in: reopened)
+
+        XCTAssertEqual(nodes.map(\.title), ["Title", "Chapter One", "Chapter Two"])
+        XCTAssertEqual(nodes.map(\.depth), [0, 1, 1], "the generated nesting survives too")
     }
 
     // MARK: - The deliberate exception
@@ -301,50 +348,6 @@ final class PDFOutlineExportTests: XCTestCase {
         let nodes = PDFOutlineReader.nodes(in: document)
         XCTAssertEqual(nodes.map(\.title), ["Deep opener", "Chapter", "Skipped a level"])
         XCTAssertEqual(nodes.map(\.depth), [0, 0, 1], "orphans clamp to one level below what exists")
-    }
-
-    // MARK: - Harness
-
-    /// Solid black makes "did the bake run?" an unambiguous pixel question.
-    private func addBlackDecoration(to viewModel: WorkspaceViewModel) throws {
-        let pageRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
-        let bitmap = try XCTUnwrap(NSBitmapImageRep(
-            bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 64, bitsPerSample: 8,
-            samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-        NSColor.black.setFill()
-        NSRect(x: 0, y: 0, width: 64, height: 64).fill()
-        NSGraphicsContext.restoreGraphicsState()
-        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
-
-        viewModel.document.workspace.decorations.append(PageDecoration.image(
-            imageData: png,
-            pageRefID: pageRef.id,
-            rect: CGRect(x: 40, y: 300, width: 400, height: 160)
-        ))
-    }
-
-    /// Fraction of sampled pixels visibly non-white. Never asserts on `PDFPage.string`.
-    private func inkCoverage(of data: Data, pageIndex: Int = 0) throws -> Double {
-        let pdf = try XCTUnwrap(PDFDocument(data: data))
-        let page = try XCTUnwrap(pdf.page(at: pageIndex))
-        let bounds = page.bounds(for: .mediaBox)
-        let thumbnail = page.thumbnail(of: CGSize(width: bounds.width, height: bounds.height), for: .mediaBox)
-        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(thumbnail.tiffRepresentation)))
-
-        var inked = 0
-        var sampled = 0
-        for sampleX in stride(from: 0, to: bitmap.pixelsWide, by: 7) {
-            for sampleY in stride(from: 0, to: bitmap.pixelsHigh, by: 7) {
-                guard let color = bitmap.colorAt(x: sampleX, y: sampleY)?.usingColorSpace(.deviceRGB) else { continue }
-                sampled += 1
-                if color.brightnessComponent < 0.85 { inked += 1 }
-            }
-        }
-        guard sampled > 0 else { return 0 }
-        return Double(inked) / Double(sampled)
     }
 }
 

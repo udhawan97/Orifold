@@ -10,9 +10,13 @@ struct TOCView: View {
     @Environment(\.locale) private var locale
 
     /// Explicit user toggles only. Anything absent falls back to the default rule in
-    /// `isExpanded(_:)`, so no `onAppear` seeding is needed and the popover opens in a
-    /// known state every time. The popover dismisses on jump, so resetting expansion
-    /// between openings is the intended behaviour rather than lost state.
+    /// `isExpanded(_:)`, so no `onAppear` seeding is needed and a file the user has
+    /// never touched always opens in a known state.
+    ///
+    /// Verified against the running app: because `ContentView` retains this view across
+    /// presentations of the popover, these toggles survive closing and reopening it —
+    /// the reader keeps their place instead of re-expanding the same chapter each time.
+    /// Do not "fix" this by seeding the dictionary on appear.
     @State private var expansionOverrides: [String: Bool] = [:]
 
     private static let fileRowHeight: CGFloat = 54

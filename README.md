@@ -45,7 +45,7 @@
 
 > [!NOTE]
 > Orifold is a **work-in-progress beta**, built in the open. Everyday PDF work — merge,
-> annotate, OCR, sign, protect, export — is solid and gated by 700+ tests. Object editing
+> annotate, OCR, sign, protect, export — is solid and gated by 800+ tests. Object editing
 > landed in v0.8.8 and is still hardening; a few folds (real redaction, side-by-side compare)
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
@@ -230,8 +230,8 @@ metadata stripped before flat PDF export.
 | | |
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
-| **Codebase** | 129 Swift source files in the app, ~49,500 lines |
-| **Tests** | 877 tests gating every release |
+| **Codebase** | 131 Swift source files in the app, ~49,900 lines |
+| **Tests** | 901 tests gating every release |
 | **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds a universal (Apple Silicon + Intel) app and packages a signed-capable DMG (`scripts/make-dmg.sh`) plus the release zip and a checksummed `manifest.json`; installer, Homebrew cask, and uninstaller ship from this repo |
