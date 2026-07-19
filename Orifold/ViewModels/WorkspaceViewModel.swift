@@ -6170,6 +6170,12 @@ final class WorkspaceViewModel {
             sourcePayloads: document.sourcePayloads,
             originalMemberPDFData: pristineDataForMembersWithCommittedEdits()
         )
+        // Read here rather than carried down from the assembly: a `PDFDestination` holds
+        // a page reference, so once the assembly moves pages into a new document the
+        // members' own destinations no longer resolve against anything we hold. Indices
+        // do survive, which is why the outline travels as page numbers and is re-applied
+        // further down.
+        let outlineNodes = concatenatedOutlineNodes()
         // The assembly flattens signatures, decorations, comments and form fields into page
         // content. That is what makes the bytes safe to impose, so this is the one place that
         // mints `BakedPDFData` -- downstream stages carry the proof rather than restate it.
@@ -6192,10 +6198,21 @@ final class WorkspaceViewModel {
         } else {
             imposedData = baked.bytes
         }
+        // Bookmarks are written HERE, once, rather than carried down from the assembly.
+        // Re-serializing a document that carries a PARSED outline can move every
+        // destination forward a page: it happens reliably to member documents on the way
+        // through `currentPDFDataForExport`, though it does not reproduce on every
+        // synthetic round-trip, so the mechanism is not fully pinned down. The safe rule
+        // it implies is narrow and sufficient — never let a parsed outline make extra
+        // trips through PDFKit. Writing last means one write and one serialization, with
+        // only qpdf after it, which rewrites the object graph faithfully. It must also
+        // come BEFORE attachment re-injection: this is a PDFKit round-trip, and those
+        // drop embedded files.
+        let outlinedData = Self.applyingOutline(outlineNodes, to: imposedData, options: options)
         // Re-graft attachments after every page-content pass (assembly, compression,
         // imposition — all of which drop them) but before sanitize, which
         // deliberately strips embedded files, and encryption, which preserves them.
-        let attachedData = reinjectingAttachments(preservedAttachments, into: imposedData)
+        let attachedData = reinjectingAttachments(preservedAttachments, into: outlinedData)
         let sanitizedData = try Self.sanitized(attachedData, options: options.sanitization)
         guard let encryption = options.encryption else { return sanitizedData }
         let encryptedData = try PDFEncryptionService.encryptedData(from: sanitizedData, options: encryption)
@@ -6203,6 +6220,50 @@ final class WorkspaceViewModel {
             _ = try PDFiumProcessingEngine().validatePDF(data: encryptedData, password: encryption.userPassword)
         }
         return encryptedData
+    }
+
+    /// Every member's embedded bookmarks, re-indexed onto the single page list the
+    /// export assembly produces.
+    ///
+    /// Mirrors `PDFKitEngine.concatenateForExport`: members in `workspace.documents`
+    /// order, every page of each, in order. The two must agree — if the assembly ever
+    /// starts reordering or dropping pages, this mapping silently aims bookmarks at the
+    /// wrong pages, which is why the multi-member offset case is covered end-to-end in
+    /// `PDFOutlineExportTests` rather than against this function alone.
+    ///
+    /// Reads the LIVE member documents, deliberately not `snapshot.memberPDFData`. Those
+    /// bytes have already been through `PDFSerializer`, which is observably where a
+    /// parsed outline's destinations slip forward a page — the loaded document resolves
+    /// its bookmarks correctly and its own serialized bytes do not. Reading the snapshot
+    /// back would bake in exactly the corruption this indirection exists to avoid, so
+    /// this must keep reading the live documents even though the snapshot is right there.
+    private func concatenatedOutlineNodes() -> [PDFOutlineReader.OutlineNode] {
+        var nodes: [PDFOutlineReader.OutlineNode] = []
+        var pagesSoFar = 0
+        for member in document.workspace.documents {
+            guard let pdf = loadedPDFs.first(where: { $0.0.id == member.id })?.1 else { continue }
+            nodes.append(contentsOf: PDFOutlineReader.nodes(in: pdf).map { $0.offsetting(by: pagesSoFar) })
+            pagesSoFar += pdf.pageCount
+        }
+        return nodes
+    }
+
+    /// Writes `nodes` into `data` as a `/Outlines` tree, or returns `data` untouched.
+    ///
+    /// Skipped entirely when imposing: `imp_ImportNPagesToOne` wraps N source pages into
+    /// one sheet and booklet order interleaves the sequence, so no index mapping is
+    /// faithful and a preserved tree would be confidently wrong rather than merely
+    /// absent. Degrades silently on any failure — unlike sanitize, a missing bookmark
+    /// costs navigation convenience, not privacy, so it must never fail an export.
+    private static func applyingOutline(
+        _ nodes: [PDFOutlineReader.OutlineNode],
+        to data: Data,
+        options: WorkspaceExportOptions
+    ) -> Data {
+        guard options.imposition == nil, !nodes.isEmpty else { return data }
+        guard let pdf = PDFDocument(data: data) else { return data }
+        PDFOutlineBuilder.apply(nodes, to: pdf)
+        return PDFSerializer.data(from: pdf) ?? data
     }
 
     /// Applies `options.sanitization` if present. Throws rather than falling

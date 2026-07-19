@@ -36,6 +36,18 @@ enum PDFOutlineReader {
         /// True only when this node has children that were actually emitted, so a
         /// disclosure control never expands to nothing.
         let hasChildren: Bool
+
+        /// Same node against a document where this one's pages start at `offset`.
+        /// Used when concatenating members for export, where each member's
+        /// bookmarks are indexed within that member but land in one page list.
+        func offsetting(by offset: Int) -> OutlineNode {
+            OutlineNode(
+                title: title,
+                depth: depth,
+                localPageIndex: localPageIndex + offset,
+                hasChildren: hasChildren
+            )
+        }
     }
 
     /// Returns the document's bookmarks in reading order, or an empty array when it has

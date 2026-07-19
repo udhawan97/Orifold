@@ -10,7 +10,7 @@ and spans files. This file covers mechanics; CONTEXT.md covers meaning.
 ## Commands
 
 ```bash
-swift build && swift test          # what ships; 877 tests, XCTest only
+swift build && swift test          # what ships; 906 tests, XCTest only
 swift build -c release             # REQUIRED after touching @_silgen_name bindings
 swift test --filter PDFSmokeTests  # fast smoke
 swiftlint lint --quiet
@@ -108,8 +108,15 @@ static methods, called synchronously under the lock.
 - **`BakedPDFData` is a type-level precondition** — imposition on unflattened bytes silently
   drops annotations and still produces a valid PDF. No throw catches it.
 - **Export order is load-bearing**: capture attachments → reconcile → assemble+flatten →
-  compress → impose → re-inject attachments → sanitize → encrypt. Sanitize runs *after*
-  re-injection on purpose, and throws rather than falling back.
+  compress → impose → write bookmarks → re-inject attachments → sanitize → encrypt.
+  Sanitize runs *after* re-injection on purpose, and throws rather than falling back.
+- **Bookmarks are written once, late** — `/Outlines` is applied after imposition and
+  *before* attachment re-injection. Re-serializing a parsed outline can slip every
+  destination forward a page, so one carried down from the assembly arrives pointing at
+  the wrong pages; and the write is a PDFKit round-trip, which drops embedded files, so
+  it cannot run after re-injection. Capture reads the live member documents, never
+  `snapshot.memberPDFData` — those bytes are already shifted. Imposition skips the write:
+  N-up merges pages, so no index mapping is faithful.
 - **Operations, not bytes, are the source of truth** — never trust stored bytes on open.
 - **Sandbox** — all file reads go through `SecurityScopedAccess.withAccess(to:)`.
 
