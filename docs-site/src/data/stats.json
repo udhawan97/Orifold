@@ -1,8 +1,8 @@
 {
 	"version": "v0.8.14",
-	"tests": 877,
-	"files": 233,
-	"loc": "~75,000",
+	"tests": 901,
+	"files": 237,
+	"loc": "~76,000",
 	"languages": 6,
 	"maxFilesPerWorkspace": 50,
 	"entitlements": 4

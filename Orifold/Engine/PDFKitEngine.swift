@@ -848,14 +848,22 @@ enum DocumentImportConverter {
             }
 
             let inline = run.inlinePresentationIntent ?? []
-            let isHeading: Bool = { if case .heading = currentKind { return true }; return false }()
-            let bold = isHeading || inline.contains(.stronglyEmphasized)
+            let headingLevel: Int? = { if case .heading(let level) = currentKind { return level }; return nil }()
+            let bold = headingLevel != nil || inline.contains(.stronglyEmphasized)
             let italic = inline.contains(.emphasized) || { if case .blockQuote = currentKind { return true }; return false }()
-            result.append(NSAttributedString(string: text, attributes: [
+            var attributes: [NSAttributedString.Key: Any] = [
                 .font: font(bold: bold, italic: italic, size: baseSize(currentKind)),
                 .foregroundColor: NSColor.black,
                 .paragraphStyle: paragraphStyle(currentKind)
-            ]))
+            ]
+            // Carried to `renderAttributedString`, which turns headings into bookmarks once
+            // pagination reveals what page each landed on. Stamped on heading CONTENT only,
+            // never the block-terminating newline above — that gap is what keeps two
+            // adjacent same-level headings from merging into one bookmark.
+            if let headingLevel {
+                attributes[PDFOutlineBuilder.headingLevelAttribute] = headingLevel
+            }
+            result.append(NSAttributedString(string: text, attributes: attributes))
         }
 
         if result.length == 0 { return NSAttributedString(string: " ") }
@@ -1056,6 +1064,10 @@ enum DocumentImportConverter {
 
         let output = PDFDocument()
         var pageIndex = 0
+        /// Character range each emitted page covers, held parallel to `output`'s pages.
+        /// A heading's page is only knowable here, once the layout manager has decided
+        /// where the text broke.
+        var pageCharacterRanges: [NSRange] = []
 
         while pageIndex == 0 || layoutManager.numberOfGlyphs > 0 {
             let textContainer = NSTextContainer(size: textSize)
@@ -1081,12 +1093,23 @@ enum DocumentImportConverter {
                 throw ConversionError.renderingFailed
             }
             output.insert(page, at: output.pageCount)
+            pageCharacterRanges.append(
+                layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+            )
 
             pageIndex += 1
             if NSMaxRange(glyphRange) >= layoutManager.numberOfGlyphs { break }
             if pageIndex >= maxRenderedTextPages {
                 throw ConversionError.documentRenderedTooLarge(maxPages: maxRenderedTextPages)
             }
+        }
+
+        // Markdown headings become embedded bookmarks, so an imported document arrives with
+        // a real table of contents. Every other caller of this renderer (plain text, CSV,
+        // extracted OCR text) stamps no heading attribute and falls through with no outline.
+        let headings = PDFOutlineBuilder.headings(in: content, pageCharacterRanges: pageCharacterRanges)
+        if let outline = PDFOutlineBuilder.outline(from: headings, in: output) {
+            output.outlineRoot = outline
         }
 
         output.documentAttributes = [

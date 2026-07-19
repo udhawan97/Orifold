@@ -10,7 +10,7 @@ and spans files. This file covers mechanics; CONTEXT.md covers meaning.
 ## Commands
 
 ```bash
-swift build && swift test          # what ships; 877 tests, XCTest only
+swift build && swift test          # what ships; ~900 tests, XCTest only
 swift build -c release             # REQUIRED after touching @_silgen_name bindings
 swift test --filter PDFSmokeTests  # fast smoke
 swiftlint lint --quiet
@@ -74,7 +74,7 @@ static methods, called synchronously under the lock.
 
 ## Localization — test-enforced, will fail your build
 
-1175 keys × 6 languages (en, es, fr, hi, ja, zh-Hans) in `Localizable.xcstrings`.
+~1,180 keys × 6 languages (en, es, fr, hi, ja, zh-Hans) in `Localizable.xcstrings`.
 
 - Every user-facing string goes through `L10n` **and** gets all 6 translations.
   `LocalizationCoverageTests` fails on gaps.
@@ -96,6 +96,9 @@ static methods, called synchronously under the lock.
   `SourceDocumentPayload` mapping + a `DocumentImportConverter` branch.
 - **Version bump** — `project.yml`, `README.md` (3 spots), `docs-site/src/data/stats.json`,
   `docs-site/src/lib/release.ts`.
+- **Test/file/line counts** — `README.md` (3 spots) + `docs-site/src/data/stats.json`, which
+  feeds the docs site. Regenerate per `docs-site/AGENTS.md`; nothing enforces them and the two
+  have silently desynced before. Counts in *this* file stay approximate so they can't rot.
 - **Undo/redo menu** — read `viewModel.undoManager` (not `@Environment(\.undoManager)`, nil in
   `.commands`) and touch `structureRevision` to force re-evaluation.
 
