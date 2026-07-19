@@ -186,6 +186,7 @@ struct ContentView: View {
     @State private var isConfirmingDiscardClose = false
     @State private var isShowingDocumentComfortPopover = false
     @State private var isShowingShortcutsCheatSheet = false
+    @State private var isShowingArchivalReadiness = false
     @State private var isShowingShortcutsFirstRun = false
     @State private var isShowingGuide = false
     @State private var isShowingMoreMenu = false
@@ -376,6 +377,10 @@ struct ContentView: View {
                 .environmentObject(languageManager)
                 .environment(\.locale, languageManager.effectiveLocale)
         }
+        .sheet(isPresented: $isShowingArchivalReadiness) {
+            ArchivalReadinessView(viewModel: viewModel)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
         .sheet(isPresented: $isShowingExportSheet) {
             ExportSheet(viewModel: viewModel, isPresented: $isShowingExportSheet)
                 .environmentObject(languageManager)
@@ -416,6 +421,7 @@ struct ContentView: View {
             isShowingMoreMenu: $isShowingMoreMenu,
             pendingMoreRoute: $pendingMoreRoute,
             showTOC: $showTOC,
+            isShowingArchivalReadiness: $isShowingArchivalReadiness,
             onToggleReaderMode: { toggleReaderMode() },
             onAutoShowOnboarding: { maybeAutoShowOnboarding() }
         ))
@@ -2994,6 +3000,7 @@ private struct ToolbarOverflowPresentations: ViewModifier {
     @Binding var isShowingMoreMenu: Bool
     @Binding var pendingMoreRoute: MoreRoute?
     @Binding var showTOC: Bool
+    @Binding var isShowingArchivalReadiness: Bool
     let onToggleReaderMode: () -> Void
     let onAutoShowOnboarding: () -> Void
 
@@ -3064,6 +3071,7 @@ private struct ToolbarOverflowPresentations: ViewModifier {
                     case .discardAndClose: isConfirmingDiscardClose = true
                     case .insertBarcode: viewModel.isShowingBarcodeComposer = true
                     case .scanBarcodes: viewModel.scanBarcodesOnCurrentPage()
+                    case .archivalReadiness: isShowingArchivalReadiness = true
                     }
                 }
             }
@@ -3102,6 +3110,7 @@ enum MoreRoute: Equatable {
     case discardAndClose
     case insertBarcode
     case scanBarcodes
+    case archivalReadiness
 }
 
 /// Resolves the AppKit window hosting this document scene and hands it back so the view
@@ -3164,6 +3173,14 @@ private struct ToolbarMoreMenu: View {
                 subtitleKey: "more.contents.subtitle",
                 trailing: { MoreChevron() },
                 action: { onRoute(.outline) }
+            )
+
+            MoreMenuRow(
+                systemImage: "checkmark.seal",
+                titleKey: "archival.menu.open",
+                subtitleKey: "archival.menu.subtitle",
+                trailing: { MoreChevron() },
+                action: { onRoute(.archivalReadiness) }
             )
 
             MoreMenuRow(

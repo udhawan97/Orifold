@@ -8440,6 +8440,65 @@ final class WorkspaceViewModel {
         return entries
     }
 
+    // MARK: - Structure inspection
+
+    /// Cached so the inspector can read the structure tree from `body` without walking it
+    /// on every render — the walk is cheap on a small page and decidedly not on a large
+    /// tagged document. `@ObservationIgnored` matters: without it, writing the cache
+    /// during a read would invalidate the very view that triggered the read.
+    @ObservationIgnored
+    private var structureCache: (revision: Int, pageNumber: Int, structure: PageStructure?)?
+
+    /// The tagged-structure tree for the page the reader is currently on, or nil when the
+    /// workspace is empty or the page's bytes cannot be read.
+    ///
+    /// Keyed on `structureRevision` *and* `currentPageNumber`, so it refreshes both when
+    /// the document changes underneath and when the reader simply turns the page.
+    func currentPageStructure() -> PageStructure? {
+        let revision = structureRevision
+        let pageNumber = currentPageNumber
+
+        if let cache = structureCache, cache.revision == revision, cache.pageNumber == pageNumber {
+            return cache.structure
+        }
+
+        let structure = computeCurrentPageStructure(pageNumber: pageNumber)
+        structureCache = (revision, pageNumber, structure)
+        return structure
+    }
+
+    private func computeCurrentPageStructure(pageNumber: Int) -> PageStructure? {
+        // `currentPageNumber` is a 1-based workspace page number with banners excluded,
+        // which is exactly `pageOrder`'s indexing once shifted. It sits at 0 before the
+        // canvas has reported a position, so treat that as "the first page".
+        let orderIndex = max(pageNumber - 1, 0)
+        guard document.workspace.pageOrder.indices.contains(orderIndex) else { return nil }
+
+        let ref = document.workspace.pageOrder[orderIndex]
+        guard let member = document.workspace.documents.first(where: { $0.id == ref.memberDocId }),
+              let localIndex = member.pageRefs.firstIndex(of: ref.id),
+              let data = document.memberPDFData[member.id]
+        else { return nil }
+
+        return try? StructureInspectionService.inspect(data, pageIndex: localIndex)
+    }
+
+    /// Bytes of the member the reader is currently in, for read-only introspection.
+    ///
+    /// Archival readiness is a per-document question, not a per-page one, so this returns
+    /// the whole member rather than a page — the font walk and the catalog probes both
+    /// need the full object graph.
+    func activeMemberDataForArchivalReadiness() -> Data? {
+        let orderIndex = max(currentPageNumber - 1, 0)
+        guard document.workspace.pageOrder.indices.contains(orderIndex) else {
+            // Fall back to the first member so an untouched workspace still reports
+            // something rather than looking broken.
+            return document.workspace.documents.first.flatMap { document.memberPDFData[$0.id] }
+        }
+        let ref = document.workspace.pageOrder[orderIndex]
+        return document.memberPDFData[ref.memberDocId]
+    }
+
     // MARK: - Print
 
     /// Prints the workspace. When `imposition` is non-nil the exported bytes are imposed

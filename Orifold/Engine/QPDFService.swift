@@ -235,7 +235,10 @@ enum QPDFService {
 
     // MARK: - Private helpers
 
-    private static func hasKey(_ qpdf: qpdf_data, _ oh: qpdf_oh, _ key: String) -> Bool {
+    /// `internal` for the same reason `withQPDF` is: sibling engine services in this
+    /// module — `ArchivalReadinessService` — need the identical key probe, and a second
+    /// copy would be one more place for the `QPDF_FALSE` comparison to drift.
+    static func hasKey(_ qpdf: qpdf_data, _ oh: qpdf_oh, _ key: String) -> Bool {
         key.withCString { qpdf_oh_has_key(qpdf, oh, $0) != QPDF_FALSE }
     }
 

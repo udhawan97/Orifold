@@ -1,0 +1,65 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot 6 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> /StructParents 0 >>
+endobj
+4 0 obj
+<< /Length 205 >>
+stream
+/H1 <</MCID 0>> BDC
+BT /F1 24 Tf 72 700 Td (Heading One) Tj ET
+EMC
+/P <</MCID 1>> BDC
+BT /F1 12 Tf 72 660 Td (Body paragraph text.) Tj ET
+EMC
+/Figure <</MCID 2>> BDC
+0.85 0.2 0.2 rg 72 540 120 80 re f
+EMC
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Type /StructTreeRoot /K [7 0 R] /ParentTree 11 0 R /ParentTreeNextKey 1 >>
+endobj
+7 0 obj
+<< /Type /StructElem /S /Document /P 6 0 R /Pg 3 0 R /K [8 0 R 9 0 R 10 0 R] >>
+endobj
+8 0 obj
+<< /Type /StructElem /S /H1 /P 7 0 R /Pg 3 0 R /K 0 /T (Heading One) >>
+endobj
+9 0 obj
+<< /Type /StructElem /S /P /P 7 0 R /Pg 3 0 R /K 1 >>
+endobj
+10 0 obj
+<< /Type /StructElem /S /Figure /P 7 0 R /Pg 3 0 R /K 2 >>
+endobj
+11 0 obj
+<< /Nums [0 [8 0 R 9 0 R 10 0 R]] >>
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000015 00000 n 
+0000000115 00000 n 
+0000000172 00000 n 
+0000000315 00000 n 
+0000000570 00000 n 
+0000000640 00000 n 
+0000000734 00000 n 
+0000000829 00000 n 
+0000000916 00000 n 
+0000000985 00000 n 
+0000001060 00000 n 
+trailer
+<< /Size 12 /Root 1 0 R >>
+startxref
+1113
+%%EOF

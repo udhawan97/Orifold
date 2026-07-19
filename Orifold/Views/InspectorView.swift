@@ -19,6 +19,7 @@ struct InspectorView: View {
         case decorate = "Decorate"
         case ocr = "OCR"
         case attachments = "Attachments"
+        case structure = "Structure"
 
         var iconName: String {
             switch self {
@@ -29,6 +30,7 @@ struct InspectorView: View {
             case .decorate: return "paintbrush.pointed"
             case .ocr: return "doc.text.viewfinder"
             case .attachments: return "paperclip"
+            case .structure: return "list.bullet.indent"
             }
         }
 
@@ -44,6 +46,7 @@ struct InspectorView: View {
             case .decorate: return "inspector.tab.decorate"
             case .ocr: return "inspector.tab.ocr"
             case .attachments: return "inspector.tab.attachments"
+            case .structure: return "inspector.tab.structure"
             }
         }
 
@@ -83,6 +86,7 @@ struct InspectorView: View {
                 case .decorate: InspectorDecorateView(viewModel: viewModel)
                 case .ocr: InspectorOCRView(viewModel: viewModel)
                 case .attachments: InspectorAttachmentsView(viewModel: viewModel)
+                case .structure: InspectorStructureView(viewModel: viewModel)
                 }
             }
         }
@@ -1861,5 +1865,124 @@ private struct InspectorDraftLifecycle: ViewModifier {
 private extension View {
     func inspectorDraft(from viewModel: WorkspaceViewModel, seed: @escaping () -> Void) -> some View {
         modifier(InspectorDraftLifecycle(viewModel: viewModel, seed: seed))
+    }
+}
+
+// MARK: - Structure
+
+/// `OutlineGroup` needs stable identity, and `StructureNode` deliberately carries none —
+/// it is derived from bytes, so a per-walk UUID would make two reads of the same document
+/// compare unequal. The index path supplies identity here, at the display layer, where it
+/// belongs.
+private struct StructureRow: Identifiable {
+    let id: String
+    let node: StructureNode
+    /// nil rather than empty: `OutlineGroup` draws a disclosure control for an empty
+    /// array, which would expand to nothing.
+    let children: [StructureRow]?
+
+    static func rows(from nodes: [StructureNode], prefix: String = "") -> [StructureRow] {
+        nodes.enumerated().map { index, node in
+            let id = prefix.isEmpty ? "\(index)" : "\(prefix).\(index)"
+            return StructureRow(
+                id: id,
+                node: node,
+                children: node.children.isEmpty ? nil : rows(from: node.children, prefix: id)
+            )
+        }
+    }
+}
+
+/// Reports a page's tagged structure, and says plainly when there is none.
+///
+/// Read-only by design: PDFium exposes no tag-writing API, so this tab can tell a user
+/// their document is inaccessible to screen readers but cannot offer to fix it. Saying so
+/// honestly is the whole feature — a silent empty tab would read as "nothing to see here"
+/// rather than "this document has an accessibility problem."
+private struct InspectorStructureView: View {
+    @Bindable var viewModel: WorkspaceViewModel
+    // Read so SwiftUI re-invokes `body` when the app language changes.
+    @Environment(\.locale) private var locale
+
+    private var structure: PageStructure? {
+        // Touch both so the view re-evaluates when the document changes and when the
+        // reader turns the page; the view model caches on exactly this pair.
+        _ = viewModel.structureRevision
+        _ = viewModel.currentPageNumber
+        return viewModel.currentPageStructure()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsMD) {
+            if let structure {
+                if !structure.isTagged {
+                    untaggedCard
+                } else if structure.roots.isEmpty {
+                    Text(L10n.string("structure.empty", locale: locale))
+                        .font(.dsBody())
+                        .foregroundStyle(Color.dsTextSecondary)
+                } else {
+                    tree(for: structure)
+                }
+            } else {
+                Text(L10n.string("structure.empty", locale: locale))
+                    .font(.dsBody())
+                    .foregroundStyle(Color.dsTextSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.dsLG)
+    }
+
+    private var untaggedCard: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            HStack(spacing: .dsSM) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.dsWarningAccent)
+                Text(L10n.string("structure.untagged.title", locale: locale))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.dsTextPrimary)
+            }
+            Text(L10n.string("structure.untagged.body", locale: locale))
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.dsMD)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.dsCard)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func tree(for structure: PageStructure) -> some View {
+        OutlineGroup(
+            StructureRow.rows(from: structure.roots),
+            children: \.children
+        ) { row in
+            HStack(spacing: .dsSM) {
+                Text(row.node.role)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.dsAccent)
+                if let title = row.node.title {
+                    Text(title)
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextPrimary)
+                        .lineLimit(1)
+                }
+                if row.node.isImageLike, row.node.altText?.isEmpty ?? true {
+                    Text(L10n.string("structure.noAltText", locale: locale))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.dsWarningAccent)
+                        .padding(.horizontal, .dsXS)
+                        .padding(.vertical, 1)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 3)
+                                .stroke(Color.dsWarningAccent.opacity(0.5), lineWidth: 0.5)
+                        )
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 1)
+        }
     }
 }

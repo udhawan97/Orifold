@@ -24,10 +24,27 @@ final class PDFSerializerTests: XCTestCase {
 }
 
 final class InspectorViewTests: XCTestCase {
-    func testOCRTabAppearsAfterDecorate() {
-        XCTAssertEqual(Array(InspectorView.Tab.allCases.suffix(3)), [.decorate, .ocr, .attachments])
+    /// Asserts relative order rather than a fixed suffix: the guarantee this test's name
+    /// describes is that OCR follows Decorate, not that any particular tab is last.
+    /// Pinning `suffix(3)` made every new tab a false failure.
+    func testOCRTabAppearsAfterDecorate() throws {
+        let order = InspectorView.Tab.allCases
+        let decorate = try XCTUnwrap(order.firstIndex(of: .decorate))
+        let ocr = try XCTUnwrap(order.firstIndex(of: .ocr))
+        let attachments = try XCTUnwrap(order.firstIndex(of: .attachments))
+
+        XCTAssertLessThan(decorate, ocr)
+        XCTAssertLessThan(ocr, attachments)
         XCTAssertEqual(InspectorView.Tab.ocr.iconName, "doc.text.viewfinder")
         XCTAssertEqual(InspectorView.Tab.attachments.iconName, "paperclip")
+    }
+
+    func testEveryTabHasAnIconAndADistinctRawValue() {
+        let tabs = InspectorView.Tab.allCases
+
+        XCTAssertEqual(Set(tabs.map(\.rawValue)).count, tabs.count)
+        XCTAssertTrue(tabs.allSatisfy { !$0.iconName.isEmpty })
+        XCTAssertEqual(InspectorView.Tab.structure.iconName, "list.bullet.indent")
     }
 }
 

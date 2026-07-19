@@ -35,8 +35,8 @@
 | 3 | Booklet / N-up imposition | Med-High | ✅ |
 | 3 | Scan cleanup ("Scan mode") | Med-High | ☐ |
 | 4 | Offline translation (macOS 15 gate) | High | ☐ |
-| 4 | Archival readiness hints | Med-High | ☐ |
-| 4 | Structure/reading-order inspector | Med-High | ☐ |
+| 4 | Archival readiness hints | Med-High | ✅ |
+| 4 | Structure/reading-order inspector | Med-High | ✅ |
 | 4 | CJK/brand font pack (+ embedding spike) | Med-High | ☐ |
 | 4 | CBZ → PDF import | Med-High | ☐ |
 
