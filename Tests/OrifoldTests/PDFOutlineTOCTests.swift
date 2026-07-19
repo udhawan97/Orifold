@@ -22,7 +22,7 @@ final class PDFOutlineTOCTests: XCTestCase {
     // MARK: - PDFOutlineReader
 
     func testReadsNestedOutlineWithDepthsAndPageIndices() throws {
-        let pdf = makeOutlinedPDF(
+        let pdf = OutlineFixturePDFBuilder.outlinedPDF(
             pageCount: 5,
             outline: [
                 .init(title: "Chapter 1", page: 0, children: [
@@ -41,7 +41,7 @@ final class PDFOutlineTOCTests: XCTestCase {
     }
 
     func testMarksOnlyNodesWhoseChildrenWereEmitted() throws {
-        let pdf = makeOutlinedPDF(
+        let pdf = OutlineFixturePDFBuilder.outlinedPDF(
             pageCount: 3,
             outline: [
                 .init(title: "Has children", page: 0, children: [.init(title: "Child", page: 1)]),
@@ -55,13 +55,13 @@ final class PDFOutlineTOCTests: XCTestCase {
     }
 
     func testReturnsNoNodesForDocumentWithoutOutline() throws {
-        let pdf = makeBlankPDF(pageCount: 3)
+        let pdf = OutlineFixturePDFBuilder.blankPDF(pageCount: 3)
 
         XCTAssertTrue(PDFOutlineReader.nodes(in: pdf).isEmpty)
     }
 
     func testResolvesNewPageIndexAfterPagesAreReordered() throws {
-        let pdf = makeOutlinedPDF(
+        let pdf = OutlineFixturePDFBuilder.outlinedPDF(
             pageCount: 5,
             outline: [.init(title: "Chapter 1", page: 0), .init(title: "Chapter 2", page: 3)]
         )
@@ -75,7 +75,7 @@ final class PDFOutlineTOCTests: XCTestCase {
     }
 
     func testDropsEntriesWhoseDestinationPageWasRemoved() throws {
-        let pdf = makeOutlinedPDF(
+        let pdf = OutlineFixturePDFBuilder.outlinedPDF(
             pageCount: 4,
             outline: [
                 .init(title: "Kept", page: 0),
@@ -92,7 +92,7 @@ final class PDFOutlineTOCTests: XCTestCase {
     }
 
     func testSkipsEntriesWithBlankLabels() throws {
-        let pdf = makeOutlinedPDF(
+        let pdf = OutlineFixturePDFBuilder.outlinedPDF(
             pageCount: 3,
             outline: [
                 .init(title: "Real", page: 0),
@@ -106,11 +106,11 @@ final class PDFOutlineTOCTests: XCTestCase {
 
     func testStopsDescendingPastTheDepthCap() throws {
         // A chain 12 levels deep; only the first `maximumDepth` levels may be emitted.
-        var deepest = OutlineSpec(title: "level-11", page: 0)
+        var deepest = OutlineFixturePDFBuilder.Spec(title: "level-11", page: 0)
         for level in stride(from: 10, through: 0, by: -1) {
-            deepest = OutlineSpec(title: "level-\(level)", page: 0, children: [deepest])
+            deepest = OutlineFixturePDFBuilder.Spec(title: "level-\(level)", page: 0, children: [deepest])
         }
-        let pdf = makeOutlinedPDF(pageCount: 1, outline: [deepest])
+        let pdf = OutlineFixturePDFBuilder.outlinedPDF(pageCount: 1, outline: [deepest])
 
         let nodes = PDFOutlineReader.nodes(in: pdf)
 
@@ -124,9 +124,9 @@ final class PDFOutlineTOCTests: XCTestCase {
 
     func testStopsAtTheNodeCap() throws {
         let overCap = PDFOutlineReader.maximumNodeCount + 50
-        let pdf = makeOutlinedPDF(
+        let pdf = OutlineFixturePDFBuilder.outlinedPDF(
             pageCount: 1,
-            outline: (0..<overCap).map { OutlineSpec(title: "entry-\($0)", page: 0) }
+            outline: (0..<overCap).map { OutlineFixturePDFBuilder.Spec(title: "entry-\($0)", page: 0) }
         )
 
         XCTAssertEqual(PDFOutlineReader.nodes(in: pdf).count, PDFOutlineReader.maximumNodeCount)
@@ -293,82 +293,28 @@ final class PDFOutlineTOCTests: XCTestCase {
 
 // MARK: - Fixtures
 
-/// File-scope rather than members of the test class: they are shared by both the reader
-/// and the composition tests, and keeping them out of the class body keeps it inside
-/// SwiftLint's type-body-length budget.
-private struct OutlineSpec {
-    var title: String
-    var page: Int
-    var children: [OutlineSpec] = []
-}
-
+/// File-scope rather than members of the test class: keeping them out of the class body
+/// keeps it inside SwiftLint's type-body-length budget. The PDF builders themselves live
+/// in `Support/OutlineFixturePDFBuilder.swift`, shared with `PDFOutlinePromotionTests`.
 private struct Fixture {
     var member: MemberDocument
     var refs: [PageRef]
     var data: Data
 }
 
-private func makeBlankPDF(pageCount: Int) -> PDFDocument {
-    let document = PDFDocument()
-    let bounds = CGRect(x: 0, y: 0, width: 612, height: 792)
-    for index in 0..<pageCount {
-        let image = NSImage(size: bounds.size)
-        image.lockFocus()
-        NSColor.white.setFill()
-        bounds.fill()
-        ("page \(index)" as NSString).draw(
-            at: NSPoint(x: 72, y: 700),
-            withAttributes: [.font: NSFont.systemFont(ofSize: 24)]
-        )
-        image.unlockFocus()
-        if let page = PDFPage(image: image) {
-            document.insert(page, at: index)
-        }
-    }
-    return document
-}
-
-/// Builds the outline, then round-trips through bytes before handing the document back.
-/// This is not incidental: the app only ever reads outlines from documents parsed out of
-/// `memberPDFData`, and PDFKit rejects `exchangePage` on an in-memory document whose
-/// `outlineRoot` was assigned programmatically. Serializing first both matches production
-/// and keeps the fixture out of that quirk.
-private func makeOutlinedPDF(pageCount: Int, outline: [OutlineSpec]) -> PDFDocument {
-    let document = makeBlankPDF(pageCount: pageCount)
-    let root = PDFOutline()
-    for (index, spec) in outline.enumerated() {
-        root.insertChild(makeOutlineNode(spec, in: document), at: index)
-    }
-    document.outlineRoot = root
-    guard let data = document.dataRepresentation(), let reloaded = PDFDocument(data: data) else {
-        XCTFail("fixture PDF failed to round-trip through bytes")
-        return document
-    }
-    return reloaded
-}
-
-private func makeOutlineNode(_ spec: OutlineSpec, in document: PDFDocument) -> PDFOutline {
-    let node = PDFOutline()
-    node.label = spec.title
-    if let page = document.page(at: spec.page) {
-        node.destination = PDFDestination(page: page, at: NSPoint(x: 0, y: 792))
-    }
-    for (index, child) in spec.children.enumerated() {
-        node.insertChild(makeOutlineNode(child, in: document), at: index)
-    }
-    return node
-}
-
 private func makeMember(name: String, pageCount: Int) throws -> Fixture {
-    try makeFixture(name: name, pdf: makeBlankPDF(pageCount: pageCount))
+    try makeFixture(name: name, pdf: OutlineFixturePDFBuilder.blankPDF(pageCount: pageCount))
 }
 
 private func makeOutlinedMember(
     name: String,
     pageCount: Int,
-    outline: [OutlineSpec]
+    outline: [OutlineFixturePDFBuilder.Spec]
 ) throws -> Fixture {
-    try makeFixture(name: name, pdf: makeOutlinedPDF(pageCount: pageCount, outline: outline))
+    try makeFixture(
+        name: name,
+        pdf: OutlineFixturePDFBuilder.outlinedPDF(pageCount: pageCount, outline: outline)
+    )
 }
 
 private func makeFixture(name: String, pdf: PDFDocument) throws -> Fixture {

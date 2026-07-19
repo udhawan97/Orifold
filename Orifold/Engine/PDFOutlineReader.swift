@@ -17,13 +17,60 @@ import PDFKit
 enum PDFOutlineReader {
 
     /// Levels of nesting emitted. Beyond this the tree is truncated: the popover has no
-    /// room to indent further, and a cap bounds traversal of a malformed or cyclic
-    /// `/Outlines` graph, which is a real corruption mode in the wild.
+    /// room to indent further. This is a *display* bound and nothing else — see
+    /// `maximumTraversalDepth` for the one that bounds the walk itself.
     static let maximumDepth = 8
 
-    /// Upper bound on emitted nodes. Checked as a traversal guard rather than only a
-    /// collection guard, so a pathological tree cannot burn time walking branches whose
-    /// results would be discarded.
+    /// Recursion frames one walk may consume, counting every level descended including
+    /// the ones promotion hides.
+    ///
+    /// Neither other cap can do this job. Promotion re-descends at the *same* display
+    /// depth on purpose, so `maximumDepth` freezes along a run of unresolvable nodes; and
+    /// an unresolvable node emits nothing, so `maximumNodeCount` cannot advance either.
+    /// Both measure what the walk produces, and this branch produces nothing — so without
+    /// this cap a chain of blank-labelled or dead-destination nodes is walked all the way
+    /// down: measured at ~0.9s for a 10,000-level chain, against ~0.2ms with the cap.
+    /// `nodes(in:)` is reached from `tableOfContents`, a computed property read during a
+    /// SwiftUI `body` pass, so that cost lands on the main thread on *every* render — a
+    /// visible hang, with stack exhaustion the limit case past it.
+    ///
+    /// PDFKit truncates genuine `/Outlines` *cycles* on its own — it will not re-enter a
+    /// node already on the path it is materialising, so a cycle arrives here as a short
+    /// finite chain. But it passes deep finite nesting through intact, tens of thousands
+    /// of levels deep. So a cycle is not the threat this cap answers; unbounded depth is,
+    /// and this makes that guarantee ours rather than borrowed from undocumented
+    /// framework behaviour.
+    ///
+    /// 64 leaves the 8 display levels roughly 56 levels of promotion headroom — far more
+    /// than a real file stacks — while keeping the stack cost trivial on any thread.
+    static let maximumTraversalDepth = 64
+
+    /// Child slots one walk may examine, resolved or not, across the whole tree.
+    ///
+    /// `maximumTraversalDepth` bounds how *deep* the walk goes; this bounds how *much* it
+    /// does, which is a genuinely different failure mode. A fan-out of unresolvable
+    /// siblings is one level deep and would still be iterated in full: `maximumNodeCount`
+    /// counts what was emitted, and an unresolvable node emits nothing.
+    ///
+    /// Counted before the child is materialised, so a run of nil slots spends budget too
+    /// and the loop itself is bounded rather than only the nodes it yields.
+    ///
+    /// 10,000 is five times the emit cap. A legitimate outline cannot emit more than
+    /// `maximumNodeCount`, so it has room for thousands of dead entries alongside its
+    /// live ones before this is reached.
+    ///
+    /// Keeps this walk flat rather than linear in sibling count: measured at a steady
+    /// ~3ms across 10k/20k/40k unresolvable siblings, against 4.6/14/16ms uncapped. Worth
+    /// stating the honest proportion, though — for a *wide* outline the dominant cost is
+    /// PDFKit materialising `outlineRoot` at all (~1.3s at 10k siblings, ~12.6s at 40k,
+    /// quadratic, then cached), which nothing here can touch. This bounds our share of
+    /// the work, not that.
+    static let maximumTraversalSteps = 10_000
+
+    /// Upper bound on emitted nodes: how long the table of contents may get. It also ends
+    /// the walk once enough has been collected — but it can only advance when something
+    /// resolves, so `maximumTraversalSteps` is what bounds work on a tree that resolves
+    /// nothing.
     static let maximumNodeCount = 2000
 
     struct OutlineNode: Equatable {
@@ -50,10 +97,6 @@ enum PDFOutlineReader {
         }
     }
 
-    /// Returns the document's bookmarks in reading order, or an empty array when it has
-    /// none. Never throws: an unreadable bookmark is dropped, not surfaced as an error,
-    /// because a broken outline must degrade to "no table of contents" rather than block
-    /// navigation.
     /// A node that survived resolution, before `hasChildren` can be known — that answer
     /// depends on what the rest of the walk emits.
     private struct ResolvedNode {
@@ -62,11 +105,25 @@ enum PDFOutlineReader {
         let localPageIndex: Int
     }
 
+    /// What one walk accumulates. The two values travel together because both must
+    /// survive across siblings and across the recursion, unlike the depths, which are
+    /// per-frame; bundling them also keeps the recursive call inside SwiftLint's
+    /// parameter budget.
+    private struct Walk {
+        var collected: [ResolvedNode] = []
+        var visited = 0
+    }
+
+    /// Returns the document's bookmarks in reading order, or an empty array when it has
+    /// none. Never throws: an unreadable bookmark is dropped, not surfaced as an error,
+    /// because a broken outline must degrade to "no table of contents" rather than block
+    /// navigation.
     static func nodes(in document: PDFDocument) -> [OutlineNode] {
         guard let root = document.outlineRoot else { return [] }
 
-        var collected: [ResolvedNode] = []
-        collect(children: root, depth: 0, in: document, into: &collected)
+        var walk = Walk()
+        collect(children: root, displayDepth: 0, traversalDepth: 0, in: document, into: &walk)
+        let collected = walk.collected
 
         // `hasChildren` is derived from what was emitted rather than from the source
         // tree: a node whose only child was dropped (blank label, deleted page) or cut
@@ -82,30 +139,52 @@ enum PDFOutlineReader {
         }
     }
 
+    /// `displayDepth` is where emitted rows land; `traversalDepth` is how far the
+    /// recursion has actually gone. They are deliberately separate values: promotion
+    /// advances only the second, and conflating them is what leaves the walk unbounded.
     private static func collect(
         children parent: PDFOutline,
-        depth: Int,
+        displayDepth: Int,
+        traversalDepth: Int,
         in document: PDFDocument,
-        into collected: inout [ResolvedNode]
+        into walk: inout Walk
     ) {
-        guard depth < maximumDepth else { return }
+        guard displayDepth < maximumDepth, traversalDepth < maximumTraversalDepth else { return }
 
         for index in 0..<parent.numberOfChildren {
-            guard collected.count < maximumNodeCount else { return }
+            guard walk.collected.count < maximumNodeCount,
+                  walk.visited < maximumTraversalSteps else { return }
+            walk.visited += 1
             guard let child = parent.child(at: index) else { continue }
 
             if let resolved = resolve(child, in: document) {
-                collected.append(ResolvedNode(
+                walk.collected.append(ResolvedNode(
                     title: resolved.title,
-                    depth: depth,
+                    depth: displayDepth,
                     localPageIndex: resolved.page
                 ))
-                collect(children: child, depth: depth + 1, in: document, into: &collected)
+                collect(
+                    children: child,
+                    displayDepth: displayDepth + 1,
+                    traversalDepth: traversalDepth + 1,
+                    in: document,
+                    into: &walk
+                )
             } else {
                 // The node itself is unusable, but its children may still be good.
                 // Promote them to this level rather than dropping the subtree or
                 // leaving them indented under a parent that was never drawn.
-                collect(children: child, depth: depth, in: document, into: &collected)
+                //
+                // `displayDepth` must NOT advance — that is what "promote" means — so
+                // `traversalDepth` is the only thing standing between a malformed file
+                // and unbounded recursion here. Advance it.
+                collect(
+                    children: child,
+                    displayDepth: displayDepth,
+                    traversalDepth: traversalDepth + 1,
+                    in: document,
+                    into: &walk
+                )
             }
         }
     }
