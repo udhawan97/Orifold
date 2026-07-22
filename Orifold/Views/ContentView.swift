@@ -522,23 +522,19 @@ struct ContentView: View {
             }
             .keyboardShortcut(.find)
 
-            Menu {
-                Button(L10n.string("toolbar.export.menuItem.export")) {
-                    isShowingExportSheet = true
-                }
-                Divider()
-                Button(L10n.string("toolbar.export.menuItem.print")) {
-                    NotificationCenter.default.post(name: .orifoldPrint, object: nil)
-                }
-            } label: {
-                ToolbarMenuGlyph(labelKey: "toolbar.export.label", systemImage: "square.and.arrow.up")
+            // Keep the primary delivery action direct. A nested Menu becomes disabled
+            // when macOS moves it into the toolbar overflow menu at compact widths.
+            // Print remains available from File → Print and ⌘P.
+            ToolbarIconButton(
+                labelKey: "toolbar.export.label",
+                systemImage: "square.and.arrow.up",
+                helpKey: "toolbar.export.help"
+            ) {
+                isShowingExportSheet = true
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .help(L10n.string("toolbar.export.help"))
             .keyboardShortcut(.export)
 
             ToolbarIconButton(
@@ -1378,20 +1374,16 @@ private struct ExportSheet: View {
     @Binding var isPresented: Bool
     @State private var selectedFormat: WorkspaceExportFormat = .pdf
     @State private var imposition: ImpositionChoice = .none
-    @State private var isProtectionExpanded = false
     @State private var protectWithPassword = false
     @State private var password = ""
     @State private var passwordConfirmation = ""
     @State private var allowsPrinting = true
     @State private var allowsCopying = true
     @State private var lockFormAnswers = false
-    @State private var isFormLockExpanded = false
     @State private var reduceFileSize = false
-    @State private var isCompressionExpanded = false
     @State private var compressionPreset: PDFCompressionPreset = .balanced
     @State private var sanitizeForSharing = false
     @State private var removesMetadata = false
-    @State private var isSanitizeExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     // Passed into L10n.string() below so this view's `body` actually reads it —
     // SwiftUI only re-invokes `body` on a locale change for views that read
@@ -1476,172 +1468,139 @@ private struct ExportSheet: View {
                 .font(.dsTitle())
                 .foregroundStyle(Color.dsTextPrimary)
 
-            Picker(L10n.string("contentView.exportSheet.format.picker"), selection: $selectedFormat) {
-                ForEach(WorkspaceExportFormat.allCases) { format in
-                    Text(format.menuTitle).tag(format)
-                }
-            }
-            .pickerStyle(.menu)
-
-            VStack(alignment: .leading, spacing: .dsSM) {
-                DisclosureGroup(isExpanded: $isProtectionExpanded) {
-                    VStack(alignment: .leading, spacing: .dsSM) {
-                        SecureField(L10n.string("contentView.exportSheet.password.field"), text: $password)
-                            .textFieldStyle(.roundedBorder)
-                            .disabled(!protectWithPassword || !canProtectSelectedFormat)
-                        SecureField(L10n.string("contentView.exportSheet.confirmPassword.field"), text: $passwordConfirmation)
-                            .textFieldStyle(.roundedBorder)
-                            .disabled(!protectWithPassword || !canProtectSelectedFormat)
-
-                        Toggle(L10n.string("contentView.exportSheet.allowPrinting.toggle"), isOn: $allowsPrinting)
-                            .disabled(!protectWithPassword || !canProtectSelectedFormat)
-                        Toggle(L10n.string("contentView.exportSheet.allowCopying.toggle"), isOn: $allowsCopying)
-                            .disabled(!protectWithPassword || !canProtectSelectedFormat)
-
-                        if let passwordValidationMessage {
-                            Text(passwordValidationMessage)
-                                .font(.dsCaption())
-                                .foregroundStyle(Color.dsAnnotationCoral)
-                        } else if let passwordStrengthHint {
-                            Text(passwordStrengthHint)
-                                .font(.dsCaption())
-                                .foregroundStyle(Color.dsTextTertiary)
-                        }
-                    }
-                    .padding(.top, .dsSM)
-                } label: {
-                    Toggle(L10n.string("contentView.exportSheet.protectWithPassword.toggle"), isOn: Binding(
-                        get: { protectWithPassword },
-                        set: { newValue in
-                            protectWithPassword = newValue && canProtectSelectedFormat
-                            if protectWithPassword {
-                                isProtectionExpanded = true
-                            }
-                        }
-                    ))
-                    .disabled(!canProtectSelectedFormat)
-                }
-
-                if selectedFormat != .pdf {
-                    Text(L10n.string("contentView.exportSheet.passwordProtectionPdfOnly.message"))
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextTertiary)
-                } else if viewModel.hasCryptographicSignaturePlacement {
-                    Text(L10n.string("contentView.exportSheet.passwordProtectionUnavailableSigned.message"))
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextTertiary)
-                }
-            }
-            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isProtectionExpanded)
-            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: protectWithPassword)
-            .onChange(of: viewModel.hasCryptographicSignaturePlacement) { _, hasSignature in
-                guard hasSignature else { return }
-                protectWithPassword = false
-                isProtectionExpanded = false
-                sanitizeForSharing = false
-                isSanitizeExpanded = false
-            }
-            .onChange(of: selectedFormat) { _, _ in
-                if !canProtectSelectedFormat {
-                    protectWithPassword = false
-                }
-                if selectedFormat != .pdf {
-                    reduceFileSize = false
-                    sanitizeForSharing = false
-                }
-            }
-
-            DisclosureGroup(isExpanded: $isCompressionExpanded) {
-                Picker(L10n.string("contentView.exportSheet.compressionPreset.picker"), selection: $compressionPreset) {
-                    ForEach(PDFCompressionPreset.allCases) { preset in
-                        Text(preset.label).tag(preset)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .disabled(!reduceFileSize || selectedFormat != .pdf)
-                .padding(.top, .dsSM)
-
-                if selectedFormat != .pdf {
-                    Text(L10n.string("contentView.exportSheet.fileSizeReductionPdfOnly.message"))
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextTertiary)
-                }
-            } label: {
-                Toggle(L10n.string("contentView.exportSheet.reduceFileSize.toggle"), isOn: Binding(
-                    get: { reduceFileSize },
-                    set: { newValue in
-                        reduceFileSize = newValue && selectedFormat == .pdf
-                        if reduceFileSize {
-                            isCompressionExpanded = true
-                        }
-                    }
-                ))
-                .disabled(selectedFormat != .pdf)
-            }
-            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isCompressionExpanded)
-            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: reduceFileSize)
-
-            if selectedFormat == .pdf {
-                VStack(alignment: .leading, spacing: .dsSM) {
-                    Picker(L10n.string("imposition.label"), selection: $imposition) {
-                        ForEach(ImpositionChoice.allCases) { choice in
-                            Text(choice.label).tag(choice)
+            ScrollView {
+                VStack(alignment: .leading, spacing: .dsLG) {
+                    Picker(L10n.string("contentView.exportSheet.format.picker"), selection: $selectedFormat) {
+                        ForEach(WorkspaceExportFormat.allCases) { format in
+                            Text(format.menuTitle).tag(format)
                         }
                     }
                     .pickerStyle(.menu)
 
-                    if imposition != .none {
-                        Text(L10n.string("imposition.flattenNote.message"))
-                            .font(.dsCaption())
-                            .foregroundStyle(Color.dsTextTertiary)
-                    }
-                }
-            }
-
-            if selectedFormat == .pdf {
-                DisclosureGroup(isExpanded: $isSanitizeExpanded) {
                     VStack(alignment: .leading, spacing: .dsSM) {
-                        Toggle(L10n.string("contentView.exportSheet.removeMetadata.toggle"), isOn: $removesMetadata)
-                            .disabled(!sanitizeForSharing)
-                        Text(L10n.string("contentView.exportSheet.sanitizeStripsDetail.message"))
-                            .font(.dsCaption())
-                            .foregroundStyle(Color.dsTextTertiary)
-                    }
-                    .padding(.top, .dsSM)
-                } label: {
-                    Toggle(L10n.string("contentView.exportSheet.sanitizeForSharing.toggle"), isOn: Binding(
-                        get: { sanitizeForSharing },
-                        set: { newValue in
-                            sanitizeForSharing = newValue && !viewModel.hasCryptographicSignaturePlacement
-                            if sanitizeForSharing {
-                                isSanitizeExpanded = true
+                        Toggle(L10n.string("contentView.exportSheet.protectWithPassword.toggle"), isOn: Binding(
+                            get: { protectWithPassword },
+                            set: { protectWithPassword = $0 && canProtectSelectedFormat }
+                        ))
+                        .disabled(!canProtectSelectedFormat)
+
+                        if protectWithPassword {
+                            SecureField(L10n.string("contentView.exportSheet.password.field"), text: $password)
+                                .textFieldStyle(.roundedBorder)
+                            SecureField(L10n.string("contentView.exportSheet.confirmPassword.field"), text: $passwordConfirmation)
+                                .textFieldStyle(.roundedBorder)
+
+                            Toggle(L10n.string("contentView.exportSheet.allowPrinting.toggle"), isOn: $allowsPrinting)
+                            Toggle(L10n.string("contentView.exportSheet.allowCopying.toggle"), isOn: $allowsCopying)
+
+                            if let passwordValidationMessage {
+                                Text(passwordValidationMessage)
+                                    .font(.dsCaption())
+                                    .foregroundStyle(Color.dsAnnotationCoral)
+                            } else if let passwordStrengthHint {
+                                // Non-blocking, and only once the password is otherwise
+                                // valid, so a quality nudge never competes with an error.
+                                Text(passwordStrengthHint)
+                                    .font(.dsCaption())
+                                    .foregroundStyle(Color.dsTextTertiary)
                             }
                         }
-                    ))
-                    .disabled(viewModel.hasCryptographicSignaturePlacement)
-                }
-                .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isSanitizeExpanded)
-                .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: sanitizeForSharing)
 
-                if viewModel.hasCryptographicSignaturePlacement {
-                    Text(L10n.string("contentView.exportSheet.sanitizeUnavailableSigned.message"))
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextTertiary)
-                }
-            }
+                        if selectedFormat != .pdf {
+                            Text(L10n.string("contentView.exportSheet.passwordProtectionPdfOnly.message"))
+                                .font(.dsCaption())
+                                .foregroundStyle(Color.dsTextTertiary)
+                        } else if viewModel.hasCryptographicSignaturePlacement {
+                            Text(L10n.string("contentView.exportSheet.passwordProtectionUnavailableSigned.message"))
+                                .font(.dsCaption())
+                                .foregroundStyle(Color.dsTextTertiary)
+                        }
+                    }
+                    .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: protectWithPassword)
+                    .onChange(of: viewModel.hasCryptographicSignaturePlacement) { _, hasSignature in
+                        guard hasSignature else { return }
+                        protectWithPassword = false
+                        sanitizeForSharing = false
+                    }
+                    .onChange(of: selectedFormat) { _, _ in
+                        if !canProtectSelectedFormat {
+                            protectWithPassword = false
+                        }
+                        if selectedFormat != .pdf {
+                            reduceFileSize = false
+                            sanitizeForSharing = false
+                        }
+                    }
 
-            if viewModel.hasFillableFormFields && selectedFormat == .pdf {
-                DisclosureGroup(isExpanded: $isFormLockExpanded) {
-                    Toggle(L10n.string("contentView.exportSheet.lockFormAnswers.toggle"), isOn: $lockFormAnswers)
-                        .padding(.top, .dsSM)
-                } label: {
-                    Text(L10n.string("contentView.exportSheet.lockFormAnswers.toggle"))
-                        .font(.dsBody())
-                        .foregroundStyle(Color.dsTextPrimary)
-                }
-                .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: isFormLockExpanded)
-                .onAppear {
-                    lockFormAnswers = true
+                    VStack(alignment: .leading, spacing: .dsSM) {
+                        Toggle(L10n.string("contentView.exportSheet.reduceFileSize.toggle"), isOn: Binding(
+                            get: { reduceFileSize },
+                            set: { reduceFileSize = $0 && selectedFormat == .pdf }
+                        ))
+                        .disabled(selectedFormat != .pdf)
+
+                        if reduceFileSize {
+                            Picker(L10n.string("contentView.exportSheet.compressionPreset.picker"), selection: $compressionPreset) {
+                                ForEach(PDFCompressionPreset.allCases) { preset in
+                                    Text(preset.label).tag(preset)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        } else if selectedFormat != .pdf {
+                            Text(L10n.string("contentView.exportSheet.fileSizeReductionPdfOnly.message"))
+                                .font(.dsCaption())
+                                .foregroundStyle(Color.dsTextTertiary)
+                        }
+                    }
+                    .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: reduceFileSize)
+
+                    if selectedFormat == .pdf {
+                        VStack(alignment: .leading, spacing: .dsSM) {
+                            Picker(L10n.string("imposition.label"), selection: $imposition) {
+                                ForEach(ImpositionChoice.allCases) { choice in
+                                    Text(choice.label).tag(choice)
+                                }
+                            }
+                            .pickerStyle(.menu)
+
+                            if imposition != .none {
+                                Text(L10n.string("imposition.flattenNote.message"))
+                                    .font(.dsCaption())
+                                    .foregroundStyle(Color.dsTextTertiary)
+                            }
+                        }
+                    }
+
+                    if selectedFormat == .pdf {
+                        VStack(alignment: .leading, spacing: .dsSM) {
+                            Toggle(L10n.string("contentView.exportSheet.sanitizeForSharing.toggle"), isOn: Binding(
+                                get: { sanitizeForSharing },
+                                set: { sanitizeForSharing = $0 && !viewModel.hasCryptographicSignaturePlacement }
+                            ))
+                            .disabled(viewModel.hasCryptographicSignaturePlacement)
+
+                            if sanitizeForSharing {
+                                Toggle(L10n.string("contentView.exportSheet.removeMetadata.toggle"), isOn: $removesMetadata)
+                                Text(L10n.string("contentView.exportSheet.sanitizeStripsDetail.message"))
+                                    .font(.dsCaption())
+                                    .foregroundStyle(Color.dsTextTertiary)
+                            }
+                        }
+                        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.16), value: sanitizeForSharing)
+
+                        if viewModel.hasCryptographicSignaturePlacement {
+                            Text(L10n.string("contentView.exportSheet.sanitizeUnavailableSigned.message"))
+                                .font(.dsCaption())
+                                .foregroundStyle(Color.dsTextTertiary)
+                        }
+                    }
+
+                    if viewModel.hasFillableFormFields && selectedFormat == .pdf {
+                        Toggle(L10n.string("contentView.exportSheet.lockFormAnswers.toggle"), isOn: $lockFormAnswers)
+                            .onAppear {
+                                lockFormAnswers = true
+                            }
+                    }
                 }
             }
 
@@ -1660,6 +1619,7 @@ private struct ExportSheet: View {
         }
         .padding(.dsXL)
         .frame(width: 380)
+        .frame(minHeight: 320, maxHeight: 620)
         .background(Color.dsSurface)
     }
 

@@ -1,0 +1,30 @@
+---
+title: Embedded attachments
+description: List, add, extract, or remove files embedded inside a PDF.
+keywords: [attachments, embedded files, portfolio, extract attachment]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+<Callout variant="whentouse">
+	A PDF needs to carry a source spreadsheet, evidence file, or other supporting attachment inside it.
+</Callout>
+
+## Add or manage an attachment
+
+1. Select the document in the sidebar.
+2. Open **Inspector → Attachments**.
+3. Click **Add attachment**, or drop one file into the panel.
+4. Use the download button beside an item to extract a copy, or the trash button to remove it.
+
+Add and remove are undoable. A normal PDF export preserves attachments even though assembly, compression, and imposition rebuild the document internally.
+
+<Callout variant="warning">
+	**Sanitize for sharing** deliberately strips every embedded attachment. Attachment controls are also unavailable when Orifold cannot manage the selected member's bytes, such as an encrypted PDF without an available password.
+</Callout>
+
+## Related
+
+- [Tags & document details](/Orifold/annotate/tags-details/)
+- [Sanitize before sharing](/Orifold/export/sanitize/)
+- [Booklet, 2-up & 4-up](/Orifold/export/imposition/)

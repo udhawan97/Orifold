@@ -1,0 +1,28 @@
+---
+title: Contents & bookmarks
+description: Navigate a PDF's nested bookmarks and preserve them through normal export.
+keywords: [contents, table of contents, outline, bookmarks, navigation]
+---
+
+import Callout from '../../../components/Callout.astro';
+import Kbd from '../../../components/Kbd.astro';
+
+<Callout variant="whentouse">
+	A long PDF already has bookmarks, or a Markdown import supplied headings you want to navigate.
+</Callout>
+
+## Open Contents
+
+Choose **View → Contents**, use **More → Contents**, or press <Kbd>⌥⌘1</Kbd>. Expand nested rows and click a title to jump to its destination page.
+
+Orifold reads embedded PDF outlines and creates a hierarchy from Markdown headings during import. Normal PDF export writes the outline back after page assembly.
+
+<Callout variant="note">
+	Booklet and N-up output intentionally omits original bookmarks: several source pages can map onto one imposed sheet, so preserving the old destinations would be misleading.
+</Callout>
+
+## Related
+
+- [Read aloud](/Orifold/reading/read-aloud/)
+- [Search & replace](/Orifold/reading/search/)
+- [Booklet, 2-up & 4-up](/Orifold/export/imposition/)

@@ -156,9 +156,21 @@ private struct RecentFileCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            thumbnailArea
-            textBlock
+        ZStack(alignment: .topTrailing) {
+            Button(action: open) {
+                VStack(alignment: .leading, spacing: 0) {
+                    thumbnailArea
+                    textBlock
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityHint(L10n.string("recentFiles.card.accessibilityHint"))
+
+            overflowMenu
+                .opacity(isHovered || shouldReduceMotion ? 1 : 0)
+                .padding(4)
         }
         .frame(width: Self.thumbnailSize.width)
         .background(Color.dsCard, in: RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous))
@@ -177,8 +189,6 @@ private struct RecentFileCard: View {
                 withAnimation(.easeOut(duration: 0.14)) { isHovered = hovering }
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture { open() }
         .contextMenu { menuItems }
         .task(id: entry.thumbnailCacheKey) {
             thumbnail = store.thumbnailImage(for: entry)
@@ -186,10 +196,6 @@ private struct RecentFileCard: View {
         .onAppear {
             isAvailable = store.isAvailable(entry)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(L10n.string("recentFiles.card.accessibilityHint"))
-        .accessibilityAddTraits(.isButton)
     }
 
     private var borderColor: Color {
@@ -233,11 +239,6 @@ private struct RecentFileCard: View {
                     .padding(.dsXS)
                     .transition(.opacity)
             }
-        }
-        .overlay(alignment: .topTrailing) {
-            overflowMenu
-                .opacity(isHovered || shouldReduceMotion ? 1 : 0)
-                .padding(4)
         }
     }
 

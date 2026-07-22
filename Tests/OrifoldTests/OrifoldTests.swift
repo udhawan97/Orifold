@@ -4234,6 +4234,25 @@ final class InlineTextEditPlacementTests: XCTestCase {
         XCTAssertTrue(pdfView.document === secondDoc)
     }
 
+    func testSyncDocumentPreservingViewportStartsInitialLoadOnFirstPage() throws {
+        let pdfView = OrifoldPDFView(frame: CGRect(x: 0, y: 0, width: 600, height: 800))
+        pdfView.displayMode = .singlePageContinuous
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument())
+        let coordinator = PDFViewRepresentable.Coordinator(viewModel: viewModel)
+        let initialDocument = makePDF(pageTexts: ["Page one", "Page two"])
+        let regeneratedDocument = makePDF(pageTexts: ["Page one", "Page two", "Page three"])
+
+        XCTAssertTrue(coordinator.syncDocumentPreservingViewport(pdfView, newDocument: initialDocument))
+        // Import normalization can replace the combined PDF again before PDFKit finishes
+        // its first continuous-layout pass. The replacement is still part of initial load,
+        // not a user viewport that should be preserved.
+        XCTAssertTrue(coordinator.syncDocumentPreservingViewport(pdfView, newDocument: regeneratedDocument))
+        RunLoop.main.run(until: Date().addingTimeInterval(0.35))
+
+        XCTAssertTrue(pdfView.document === regeneratedDocument)
+        XCTAssertEqual(regeneratedDocument.index(for: try XCTUnwrap(pdfView.currentPage)), 0)
+    }
+
     func testInlineEditorCommitsParagraphBoundsWidthWhenTextIsShorter() throws {
         let pageRef = PageRef(memberDocId: UUID(), sourcePageIndex: 0)
         let firstLine = PDFTextLine(

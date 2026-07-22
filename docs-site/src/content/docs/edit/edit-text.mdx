@@ -47,6 +47,8 @@ import Card from '../../../components/Card.astro';
 
 The edited text renders in place on the page, in a font as close to the original as Orifold's engine can match.
 
+Orifold uses metric-compatible bundled substitutes for common unavailable document fonts so replacement text stays closer to the original geometry. Continuous spell-check is on by default while you type; change it in **Orifold → Settings**.
+
 <Details summary="How editing keeps the original text layer intact">
 	Orifold measures where each glyph sits from PDFium's real transforms and imports through a text-layer-preserving normalizer, so an edit lands exactly on the text it replaces rather than on top of an invisible copy. The [Developer FAQ](/Orifold/developers/faq/) has the full "edit lands on top" history.
 </Details>

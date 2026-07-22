@@ -1,49 +1,36 @@
-# Starlight Starter Kit: Basics
+# Orifold website and documentation
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+The public Astro/Starlight site for [Orifold](https://github.com/udhawan97/Orifold), including the custom product landing page, user guide, release notes, and developer documentation published at [udhawan97.github.io/Orifold](https://udhawan97.github.io/Orifold/).
 
-```
-npm create astro@latest -- --template starlight
-```
+## Project structure
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
-
-## 🚀 Project Structure
-
-Inside of your Astro + Starlight project, you'll see the following folders and files:
-
-```
+```text
 .
-├── public/
+├── public/                 Static images, GIFs, icons, and install assets
 ├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
+│   ├── content/docs/       User and developer documentation
+│   ├── data/               Public product and release facts
+│   ├── pages/index.astro   Custom product landing page
+│   └── styles/             Shared docs and landing-page styles
+├── astro.config.mjs        Site, navigation, and Starlight configuration
+└── package.json
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
+## Commands
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
+Run from `docs-site/`:
 
-Static assets, like favicons, can be placed in the `public/` directory.
+| Command | Action |
+| :--- | :--- |
+| `npm ci` | Install locked dependencies |
+| `npm run dev` | Start the local site at `localhost:4321` |
+| `npm run build` | Build the production site into `dist/` |
+| `npm run preview` | Preview the production build locally |
+| `npm run astro -- --help` | Show Astro CLI help |
 
-## 🧞 Commands
+## Documentation contract
 
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+- Describe behavior the shipped app actually supports and keep limitations visible.
+- Keep `src/data/stats.json` and release fallback metadata current for a new release.
+- Use root-relative `/Orifold/...` links so the GitHub Pages base path is preserved.
+- Run `npm run build` before publishing. GitHub Pages deployment remains separate from the native-app release workflow.

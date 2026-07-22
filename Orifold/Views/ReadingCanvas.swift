@@ -706,6 +706,8 @@ struct PDFViewRepresentable: NSViewRepresentable {
         // the canvas jumps only when speech crosses onto a new page, not on every word.
         private var readAloudHighlightCancellable: AnyCancellable?
         private var lastReadAloudPageIndex: Int?
+        private var isEstablishingInitialViewport = false
+        private var initialViewportGeneration = 0
 
         init(viewModel: WorkspaceViewModel) {
             self.viewModel = viewModel
@@ -1264,6 +1266,10 @@ struct PDFViewRepresentable: NSViewRepresentable {
         @discardableResult
         func syncDocumentPreservingViewport(_ pdfView: OrifoldPDFView?, newDocument: PDFDocument?) -> Bool {
             guard let pdfView, pdfView.document !== newDocument else { return false }
+            let startsAtFirstPage = pdfView.document == nil || isEstablishingInitialViewport
+            if pdfView.document == nil {
+                isEstablishingInitialViewport = true
+            }
             let savedViewportOrigin = visibleDocumentOrigin(in: pdfView)
             let savedDestination = pdfView.currentDestination
             let savedPageIdx: Int? = {
@@ -1275,7 +1281,15 @@ struct PDFViewRepresentable: NSViewRepresentable {
 
             pdfView.document = newDocument
             pdfView.layoutDocumentView()
-            if let origin = savedViewportOrigin {
+            if startsAtFirstPage {
+                // A newly assigned PDF has no prior viewport to preserve. PDFKit's
+                // continuous document view uses a zero clip origin for the visual end of
+                // some documents, so restoring the pre-document origin can land first-time
+                // readers on the final page. PDFKit also completes continuous-layout work on
+                // the next run-loop turn, which can overwrite a synchronous navigation.
+                // Navigate immediately and once more after that layout settles.
+                navigateInitialDocumentToFirstPage(newDocument, in: pdfView)
+            } else if let origin = savedViewportOrigin {
                 restoreVisibleDocumentOrigin(origin, in: pdfView)
             } else if let idx = savedPageIdx, let newDocument, idx < newDocument.pageCount,
                       let targetPage = newDocument.page(at: idx) {
@@ -1295,6 +1309,31 @@ struct PDFViewRepresentable: NSViewRepresentable {
             }
             pdfView.needsDisplay = true
             return true
+        }
+
+        private func navigateInitialDocumentToFirstPage(_ document: PDFDocument?, in pdfView: OrifoldPDFView) {
+            guard let document, let firstPage = document.page(at: 0) else { return }
+            initialViewportGeneration += 1
+            let generation = initialViewportGeneration
+            let firstPageTop = CGPoint(x: firstPage.bounds(for: .cropBox).minX, y: firstPage.bounds(for: .cropBox).maxY)
+            pdfView.go(to: PDFDestination(page: firstPage, at: firstPageTop))
+
+            // Import can regenerate the combined PDF more than once while pages are being
+            // normalized. Keep the initial-load policy active across those swaps, then let
+            // the last generation settle before regular viewport preservation takes over.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self, weak pdfView, weak document] in
+                guard let self, generation == self.initialViewportGeneration,
+                      let pdfView, let document, pdfView.document === document,
+                      let firstPage = document.page(at: 0) else { return }
+                pdfView.layoutDocumentView()
+                let firstPageTop = CGPoint(
+                    x: firstPage.bounds(for: .cropBox).minX,
+                    y: firstPage.bounds(for: .cropBox).maxY
+                )
+                pdfView.go(to: PDFDestination(page: firstPage, at: firstPageTop))
+                pdfView.needsDisplay = true
+                self.isEstablishingInitialViewport = false
+            }
         }
 
         private func visibleDocumentOrigin(in pdfView: PDFView?) -> CGPoint? {

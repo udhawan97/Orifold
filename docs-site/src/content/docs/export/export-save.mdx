@@ -17,9 +17,10 @@ import Figure from '../../../components/Figure.astro';
 
 ## Steps
 
-1. Press <Kbd>⌘E</Kbd> or choose **File → Export**.
-2. Choose a format: PDF, DOCX, Markdown, plain text, HTML, PNG pages, or JPEG pages. Choose Print to send straight to a printer.
-3. Pick a location in the save panel and confirm.
+1. Click **Export** in the toolbar, press <Kbd>⌘E</Kbd>, or choose **File → Export**.
+2. Choose a format: PDF, DOCX, Markdown, plain text, HTML, PNG pages, or JPEG pages. Printing remains in **File → Print** or <Kbd>⌘P</Kbd>.
+3. For PDF, optionally turn on password protection, file-size reduction, sanitize-for-sharing, or an imposition layout. The extra settings appear directly below the option you enabled.
+4. Pick a location in the save panel and confirm.
 
 <Figure src="/Orifold/assets/gifs/export-save-confirmation.png" alt="The Export dialog: Format set to PDF (.pdf), with Protect with password, Reduce file size, and Sanitize for sharing checkboxes, and Cancel / Export buttons." caption="The Export dialog — pick a format, toggle protection, compression, or sanitize, then Export." />
 
@@ -44,6 +45,9 @@ A new file at the location you chose, in the format you picked, reflecting every
 <CardGrid>
 	<Card title="Compress a PDF" href="export/compress/">
 		Shrinking a file before you send it.
+	</Card>
+	<Card title="Booklet, 2-up & 4-up" href="export/imposition/">
+		Arrange pages onto printable sheets.
 	</Card>
 	<Card title="Password-protect a PDF" href="export/protect/">
 		Encrypting a file at export.

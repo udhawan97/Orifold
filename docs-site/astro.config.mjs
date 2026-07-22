@@ -94,7 +94,9 @@ export default defineConfig({
 						{ label: 'Notes & ink', slug: 'annotate/notes-ink' },
 						{ label: 'Comments & review', slug: 'annotate/comments' },
 						{ label: 'Tags & document details', slug: 'annotate/tags-details' },
+						{ label: 'Embedded attachments', slug: 'annotate/attachments' },
 						{ label: 'Stamps, watermarks & Bates labels', slug: 'annotate/stamps' },
+						{ label: 'Hanko seals & barcodes', slug: 'annotate/hanko-barcodes' },
 					],
 				},
 				{
@@ -109,6 +111,7 @@ export default defineConfig({
 					label: 'Export & Protect',
 					items: [
 						{ label: 'Export & save', slug: 'export/export-save' },
+						{ label: 'Booklet, 2-up & 4-up', slug: 'export/imposition' },
 						{ label: 'Compress a PDF', slug: 'export/compress' },
 						{ label: 'Password-protect a PDF', slug: 'export/protect' },
 						{ label: 'Sanitize before sharing', slug: 'export/sanitize' },
@@ -118,9 +121,12 @@ export default defineConfig({
 				{
 					label: 'Read Comfortably',
 					items: [
+						{ label: 'Contents & bookmarks', slug: 'reading/contents' },
+						{ label: 'Read aloud', slug: 'reading/read-aloud' },
 						{ label: 'Reader Mode', slug: 'reading/reader-mode' },
 						{ label: 'Document Comfort', slug: 'reading/night-mode' },
 						{ label: 'Search & replace', slug: 'reading/search' },
+						{ label: 'Structure & archival readiness', slug: 'reading/structure-archival' },
 					],
 				},
 				{

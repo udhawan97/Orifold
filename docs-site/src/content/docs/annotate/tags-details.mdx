@@ -1,25 +1,41 @@
 ---
 title: Tags & document details
-description: Tag documents in a workspace and view their metadata from the inspector.
-keywords: [tags, document details, metadata]
+description: Organize a workspace with tags and edit the PDF's title, author, subject, and keywords.
+keywords: [tags, document details, metadata, title, author, subject, keywords]
 ---
 
 import Callout from '../../../components/Callout.astro';
 
 <Callout variant="whentouse">
-	You're managing several documents in one workspace and want to label or find them quickly.
+	You want workspace labels for yourself, or correct document properties that other PDF apps and search tools can read.
 </Callout>
 
-## Steps
+## Workspace tags
 
 1. Select a document in the sidebar.
-2. Open the inspector to view its details (title, page count, size).
-3. Add a tag to categorize it within the workspace.
+2. Open the Inspector and choose **Tags**.
+3. Add a tag to categorize the document inside this workspace.
+
+Tags belong to the Orifold workspace. They help with organization but are not written as standard PDF metadata.
+
+## PDF document properties
+
+1. Select the document whose properties you want to change.
+2. Open **Inspector → Info**.
+3. Edit **Title**, **Author**, **Subject**, or **Keywords**.
+4. Click **Apply metadata**.
+
+The change is undoable and is written into a normal PDF export. In a combined workspace, these fields target the first member because a merged PDF can carry only one document-info dictionary.
+
+<Callout variant="note">
+	If the PDF also contains XMP metadata, Orifold warns that some readers may prefer that separate metadata packet. The editor updates the standard PDF document-info fields; it does not rewrite the XMP packet.
+</Callout>
 
 ## What you should see
 
-The document's tag appears in the sidebar next to its name; its details are visible in the inspector.
+The tag stays with the workspace, while applied document properties appear in the exported PDF's metadata.
 
 ## Related
 
 - [Comments & review](/Orifold/annotate/comments/)
+- [Embedded attachments](/Orifold/annotate/attachments/)

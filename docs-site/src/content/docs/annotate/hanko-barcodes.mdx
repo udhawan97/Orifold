@@ -1,0 +1,33 @@
+---
+title: Hanko seals & barcodes
+description: Place visual hanko seals, generate QR and barcodes, and scan codes on the current page locally.
+keywords: [hanko, seal, qr code, barcode, code 128, aztec, pdf417, scan]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+## Place a hanko seal
+
+1. Open the stamp palette.
+2. Enter the name or short text for the seal.
+3. Choose a circle or square preview, then click **Place hanko**.
+4. Click the page where the seal should land. You can move or resize it before export.
+
+<Callout variant="warning">
+	A hanko in Orifold is a visual page decoration. It is not a certificate-backed digital signature and does not prove identity or document integrity.
+</Callout>
+
+## Generate and place a code
+
+1. Choose **More → Insert barcode / QR**.
+2. Select **QR**, **Code 128**, **Aztec**, or **PDF417**, then enter the payload.
+3. Check the preview, click **Place**, and click the destination on the page.
+
+## Scan the current page
+
+Choose **More → Scan barcodes on this page**. Orifold uses macOS Vision on-device, lists detected payloads, and lets you copy a value or open a supported link. Nothing is uploaded.
+
+## Related
+
+- [Stamps, watermarks & Bates labels](/Orifold/annotate/stamps/)
+- [Sign documents](/Orifold/fill-sign/signatures/)

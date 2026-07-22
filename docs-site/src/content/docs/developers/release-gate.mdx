@@ -21,14 +21,19 @@ zsh -n "Install or Update Orifold.app/Contents/MacOS/OrifoldInstaller"
 plutil -lint "Install or Update Orifold.app/Contents/Info.plist"
 swift build
 swift test
+xcodegen generate
+git diff --exit-code -- Orifold.xcodeproj/project.pbxproj Orifold/Resources/Info.plist
 xcodebuild build -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO
 xcodebuild test -quiet -project Orifold.xcodeproj -scheme Orifold -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
-./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
+ORIFOLD_UNIVERSAL=1 ./scripts/install-mac.sh --clean --no-open --package-only --package /tmp/Orifold.zip
+zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --output /tmp/Orifold-X.Y.Z-macOS-universal.dmg --version X.Y.Z
+npm ci --prefix docs-site
+npm run build --prefix docs-site
 ```
 
 ## Manual pass
 
-A manual walk through the user workflow: import, search, annotate, forms, OCR, stamps, compression, protected export, update, uninstall.
+A manual walk through the installed app: compact first run, sample import, page-one landing, search, Contents, toolbar overflow, Export and its advanced options, recent-file keyboard access, then a normal workflow through annotate, forms, OCR, stamps, compression, protected export, update, and uninstall.
 
 ## Related
 

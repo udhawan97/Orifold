@@ -1,0 +1,33 @@
+---
+title: Booklet, 2-up & 4-up
+description: Arrange PDF pages onto printable sheets with booklet or N-up imposition.
+keywords: [imposition, booklet, 2-up, 4-up, n-up, print]
+---
+
+import Callout from '../../../components/Callout.astro';
+import Kbd from '../../../components/Kbd.astro';
+
+<Callout variant="whentouse">
+	You need a folded booklet or want several document pages on each output sheet.
+</Callout>
+
+## Export imposed pages
+
+1. Click **Export**, press <Kbd>⌘E</Kbd>, or choose **File → Export**.
+2. Keep the format set to **PDF**.
+3. Set **Imposition** to **Booklet**, **2-up**, or **4-up**.
+4. Export normally.
+
+**Booklet** pads the document to a multiple of four and places folios in saddle-stitch order. **2-up** puts two pages on each sheet; **4-up** uses a two-by-two grid. For a quick two-up print without saving first, choose **File → Print 2-up** or press <Kbd>⇧⌘P</Kbd>.
+
+<Callout variant="warning">
+	Imposition flattens annotations and decorations into the arranged sheets. Original bookmarks are not recreated because several source pages can share one output page, so destinations no longer have a one-to-one mapping.
+</Callout>
+
+Password protection and sanitize-for-sharing still run after imposition. Normal exports preserve embedded attachments; sanitize removes them by design.
+
+## Related
+
+- [Export & save](/Orifold/export/export-save/)
+- [Embedded attachments](/Orifold/annotate/attachments/)
+- [Export integrity checks](/Orifold/export/integrity/)

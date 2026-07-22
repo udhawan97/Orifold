@@ -27,11 +27,12 @@ Two more workflows guard quality: **CodeQL** (scheduled Swift analysis) and **De
 
 The **Release** workflow triggers on a `v*` or `release-v*` tag (or manual dispatch):
 
-1. Build the distributable via `./scripts/install-mac.sh --package-only --package Orifold.zip`.
-2. Upload the zip as a workflow artifact.
-3. Publish it to a tagged GitHub Release and update the rolling "latest" release.
+1. Build a universal Apple Silicon + Intel app via `./scripts/install-mac.sh --clean --no-open --package-only --package Orifold.zip`.
+2. Package and mount-test the versioned DMG, then verify the exact shipped app's resource bundle and code signature.
+3. Generate SHA-256 sidecars and `manifest.json`, while keeping stable-name `Orifold.dmg` and `Orifold.zip` assets.
+4. Publish every asset to the tagged GitHub Release, mark it latest, and dispatch a documentation rebuild.
 
-The one-line installer and Homebrew cask both pull `Orifold.zip` from that latest release.
+The website serves the universal DMG. The one-line installer and Homebrew cask use `Orifold.zip` from the same latest release; the in-app updater verifies the published checksum before installation.
 
 <Callout variant="note">
 	**Signing & notarization, honestly.** Release builds are ad-hoc signed and *not* notarized by default, so macOS shows an "unidentified developer" prompt on first open — the installer and cask clear the download quarantine to smooth this. If the Developer ID secrets are configured, the same workflow imports the certificate and produces a properly signed (and optionally notarized) build instead.
@@ -43,13 +44,13 @@ When these repository secrets are present, the release job imports the certifica
 
 `ORIFOLD_DEVELOPER_ID_CERTIFICATE_BASE64`, `ORIFOLD_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `ORIFOLD_SIGNING_IDENTITY`, `ORIFOLD_APPLE_ID`, `ORIFOLD_APPLE_TEAM_ID`, `ORIFOLD_APPLE_APP_SPECIFIC_PASSWORD`.
 
-The identical path works locally — set the same variables and run the `--package-only` command to produce a signed/notarized zip on your own machine.
+The identical path works locally — set the same variables and run the `--package-only` and `make-dmg.sh` commands to produce signed/notarized artifacts on your own machine.
 
 </Details>
 
 ## The full release gate
 
-Before shipping, the same command list in [Testing & the release gate](/Orifold/developers/release-gate/) must pass, plus a manual pass through the user workflow (import, search, annotate, forms, OCR, stamps, compression, protected export, update, uninstall).
+Before shipping, the same command list in [Testing & the release gate](/Orifold/developers/release-gate/) must pass, plus the installed-app workflow audit and a final smoke check of the published artifact.
 
 ## Where the logs are
 

@@ -34898,37 +34898,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Double-click to open this file"
+            "value": "Open this file"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Haz doble clic para abrir este archivo"
+            "value": "Abrir este archivo"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Double-cliquez pour ouvrir ce fichier"
+            "value": "Ouvrir ce fichier"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "यह फ़ाइल खोलने के लिए डबल-क्लिक करें"
+            "value": "यह फ़ाइल खोलें"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ダブルクリックしてこのファイルを開く"
+            "value": "このファイルを開く"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "双击以打开此文件"
+            "value": "打开此文件"
           }
         }
       }

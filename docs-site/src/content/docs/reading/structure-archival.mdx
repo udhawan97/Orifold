@@ -1,0 +1,34 @@
+---
+title: Structure & archival readiness
+description: Inspect tagged reading order and review useful archival signals without claiming PDF/A compliance.
+keywords: [tagged pdf, reading order, alt text, archival, pdf a, accessibility]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+## Inspect tagged structure
+
+Open **Inspector → Structure**. For the current page, Orifold shows the nested tagged reading-order tree, roles, titles where present, and a warning for image-like elements without alt text.
+
+This view is read-only. It can reveal that a file is untagged or has missing alt text, but this release cannot author or repair PDF structure.
+
+## Check archival-readiness signals
+
+Choose **More → Archival readiness**. Orifold checks the active document for six signals:
+
+- no encryption;
+- no active content such as JavaScript or automatic actions;
+- embedded fonts;
+- an output intent;
+- XMP metadata;
+- tagged structure.
+
+<Callout variant="warning">
+	This checklist is guidance, not PDF/A validation, certification, or conversion. A green signal only means that one inexpensive check looked favorable; use a dedicated standards validator for archival acceptance.
+</Callout>
+
+## Related
+
+- [Accessibility](/Orifold/settings/accessibility/)
+- [Sanitize before sharing](/Orifold/export/sanitize/)
+- [Tags & document details](/Orifold/annotate/tags-details/)

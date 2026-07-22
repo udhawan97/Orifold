@@ -23,7 +23,7 @@
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-2b4566?style=flat-square&logo=apple&logoColor=white">
   <img alt="Universal — Apple Silicon + Intel" src="https://img.shields.io/badge/universal-Apple_Silicon_%2B_Intel-2b4566?style=flat-square">
-  <img alt="version v0.8.14" src="https://img.shields.io/badge/version-v0.8.14-46536b?style=flat-square">
+  <img alt="version v0.9.0" src="https://img.shields.io/badge/version-v0.9.0-46536b?style=flat-square">
   <img alt="100% local" src="https://img.shields.io/badge/privacy-100%25_local-3f6b52?style=flat-square">
   <img alt="6 languages" src="https://img.shields.io/badge/i18n-6_languages-46536b?style=flat-square">
   <img alt="Apache 2.0 License" src="https://img.shields.io/badge/license-Apache_2.0-46536b?style=flat-square">
@@ -45,7 +45,7 @@
 
 > [!NOTE]
 > Orifold is a **work-in-progress beta**, built in the open. Everyday PDF work — merge,
-> annotate, OCR, sign, protect, export — is solid and gated by 800+ tests. Object editing
+> annotate, OCR, sign, protect, export — is solid and gated by 900+ tests. Object editing
 > landed in v0.8.8 and is still hardening; a few folds (real redaction, side-by-side compare)
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
@@ -79,11 +79,12 @@ Everything below runs on your Mac. The cloud was not consulted.
 | 🧩 | **Edit objects** *(beta)* — the **Select** tool clicks a real graphic on the page, then moves, resizes, or deletes it | Fix the layout itself, not just a note stuck on top of it |
 | 🖋️ | **Sign & fill forms** — draw signatures or place a real PAdES digital signature, complete and lock form fields | Finished, tamper-evident paperwork — no third-party e-sign service |
 | 🔍 | **OCR scans** — local Vision OCR makes scanned pages searchable | ⌘F finally works on the thing your printer emailed you |
-| 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels | Packets and exhibits that look intentional |
+| 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels, hanko seals, barcodes and QR codes | Packets and exhibits that look intentional |
 | 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
 | 🧼 | **Sanitize** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't mean to send |
 | 🔒 | **Protect & export** — real AES-256 password, or export to DOCX, Markdown, HTML, PNG, JPEG | The format the next person needs, locked when it matters |
-| 📖 | **Read comfortably** — distraction-free Reader Mode, plus Night Mode with Gentle/Paper/Amber warmth | Long documents that don't fight your eyes |
+| 📖 | **Read comfortably** — nested Contents, read aloud with follow-along highlighting, Reader Mode, and Document Comfort | Long documents that are easier to navigate and absorb |
+| 🧭 | **Inspect & archive** — edit metadata, manage attachments, inspect tagged structure, and check archival-readiness signals | Fewer surprises hidden inside the file |
 | 🌐 | **Work in your language** — full UI in English, Spanish, French, Hindi, Simplified Chinese, Japanese | An app that speaks your language, switchable from the landing screen |
 
 <details>
@@ -95,18 +96,20 @@ Everything below runs on your Mac. The cloud was not consulted.
 | --- | --- |
 | **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, and common images — up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
 | **Organize** | Reorder documents and pages, rotate, delete, add section banners, navigate from the sidebar |
-| **Read & search** | Native PDF canvas, page indicator, inspector, workspace-wide search, password unlock prompts, distraction-free Reader Mode, Night Mode with Gentle/Paper/Amber presets |
+| **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control, password unlock prompts, Reader Mode, and Document Comfort presets |
 | **Recently viewed** | An empty-state shelf of the last files you opened, with locally cached thumbnails — nothing about it leaves the machine |
-| **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text |
+| **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text with continuous spell-check and metric-compatible fallback fonts |
 | **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), or deletes it; object and inline-text edits compose safely on the same document, survive save/reopen/export, and share full undo/redo |
 | **Signatures** | Draw and place signatures, or produce standards-based PAdES digital signatures with Keychain and `.p12` identities — verifiable anywhere PAdES is understood |
 | **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
 | **Scans & OCR** | Local Vision OCR makes scans searchable; recognized text survives export |
-| **Stamps & decorations** | Watermarks, page numbers, Bates labels, movable stamps burned into exported PDFs |
+| **Stamps & decorations** | Watermarks, page numbers, Bates labels, movable stamps, procedural circle/square hanko seals, and generated barcode/QR placements burned into exported PDFs |
+| **Metadata & attachments** | Edit PDF title, author, subject, and keywords; list, add, extract, or remove embedded files from the Inspector with undo support |
+| **Structure & archival** | Inspect the current page's tagged reading-order tree and alt-text coverage; check encryption, embedded fonts, XMP, output intent, tagging, and active-content signals before long-term storage |
 | **Compression** | Downsample oversized images, then a lossless qpdf object-stream pass repacks the structure; post-compression validation confirms the result |
 | **Sanitize** | Optional export pass strips catalog auto-run actions, embedded JavaScript, embedded files, and (opt-in) document metadata |
 | **Protection** | Real AES-256 (PDF 2.0 / R6) password protection with permission checks and post-export verification |
-| **Export** | PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, or print — every PDF passes a qpdf structural check before it reaches disk |
+| **Export** | PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, or print; PDF output can be imposed as booklet, 2-up, or 4-up, and every PDF passes a qpdf structural check before it reaches disk |
 | **Languages** | Full localization in six languages, switchable from the landing screen and persisted across launches — coverage enforced by a test |
 | **Companion** | Gami (dog) or Ori (cat), an optional origami buddy that reacts to highlighting, signing, exporting, and warnings; toggle from the app menu |
 | **Install & update** | One-line installer, Desktop launch/update helpers, clean uninstaller, Homebrew cask, opt-in in-app update check |
@@ -230,8 +233,8 @@ metadata stripped before flat PDF export.
 | | |
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
-| **Codebase** | 131 Swift source files in the app, ~49,900 lines |
-| **Tests** | 901 tests gating every release |
+| **Codebase** | 135 Swift source files in the app, ~50,800 lines |
+| **Tests** | 959 tests gating every release |
 | **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds a universal (Apple Silicon + Intel) app and packages a signed-capable DMG (`scripts/make-dmg.sh`) plus the release zip and a checksummed `manifest.json`; installer, Homebrew cask, and uninstaller ship from this repo |
@@ -290,13 +293,13 @@ xcodebuild test  -quiet -project Orifold.xcodeproj -scheme Orifold -destination 
 
 # Build the same release zip GitHub Releases ships, then the universal DMG
 ORIFOLD_UNIVERSAL=1 ./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
-zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.8.14
+zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.9.0
 
 # Install from the current source checkout without opening the app
 ./scripts/install-mac.sh --no-open
 ```
 
-App metadata: `CFBundleShortVersionString` `0.8.14`, `CFBundleVersion` `20`.
+App metadata: `CFBundleShortVersionString` `0.9.0`, `CFBundleVersion` `21`.
 </details>
 
 <details>

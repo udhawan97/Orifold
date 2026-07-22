@@ -47,116 +47,54 @@ struct EmptyStateView: View {
         // is what registers the dependency — SwiftUI only re-invokes `body` on a
         // locale change for views that read `\.locale` during the previous render.
         let _ = locale
-        ZStack(alignment: .topTrailing) {
-            Color.dsCanvas.ignoresSafeArea()
-            EmptyStateAmbientBackground()
+        GeometryReader { proxy in
+            let isCompactHeight = proxy.size.height < 620
 
-            ScrollView {
-                VStack(spacing: .dsXL) {
-                    // Wordmark block
-                    VStack(spacing: .dsLG) {
-                        OrifoldFoldMark(size: 80)
+            ZStack(alignment: .topTrailing) {
+                Color.dsCanvas.ignoresSafeArea()
+                EmptyStateAmbientBackground()
 
-                        VStack(spacing: 6) {
-                            Text(verbatim: "Orifold")
-                                .font(.dsDisplay(size: 36))
-                                .foregroundStyle(Color.dsTextPrimary)
-                            Text(L10n.string("emptyState.headline"))
-                                .font(.dsHeadline())
-                                .foregroundStyle(Color.dsTextPrimary)
-                            Text(L10n.string("emptyState.subheadline"))
-                                .font(.dsBody())
-                                .foregroundStyle(Color.dsTextSecondary)
-                                .multilineTextAlignment(.center)
-                                .lineSpacing(3)
-                                .fixedSize(horizontal: false, vertical: true)
+                ScrollView {
+                    VStack(spacing: isCompactHeight ? .dsMD : .dsXL) {
+                        welcomeHeader(isCompactHeight: isCompactHeight)
+
+                        if isCompactHeight {
+                            // The core task must remain visible before decorative feature
+                            // education when macOS restores a short window.
+                            dropZoneCard(isCompactHeight: true)
+                            featureOptionsSection
+                        } else {
+                            featureOptionsSection
+                            dropZoneCard(isCompactHeight: false)
                         }
 
-                        featureOptionGrid
-
-                        if let optionGuidance {
-                            Label(optionGuidance, systemImage: "arrow.down.circle.fill")
-                                .font(.dsCaption())
-                                .foregroundStyle(Color.dsAccent)
-                                .padding(.horizontal, .dsMD)
-                                .padding(.vertical, 7)
-                                .background(Color.dsAccentSoft, in: Capsule())
-                                .transition(shouldReduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-                        }
+                        RecentFilesSection(store: recentsStore, onOpen: openRecentFile)
                     }
-
-                    // Drop zone card
-                    VStack(spacing: .dsLG) {
-                        dropZoneIcon
-
-                        VStack(spacing: 5) {
-                            Text(dropZoneHeadlineKey)
-                                .font(.dsHeadline())
-                                .foregroundStyle(Color.dsTextPrimary)
-                            if let scanStatusKey {
-                                Text(scanStatusKey)
-                                    .font(.dsCaption())
-                                    .foregroundStyle(Color.dsAccent)
-                                    .transition(.opacity)
-                            } else {
-                                Text(L10n.string("emptyState.dropZone.supportedTypes"))
-                                    .font(.dsCaption())
-                                    .foregroundStyle(Color.dsTextTertiary)
-                            }
-                        }
-                        .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: scanPhase)
-
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: .dsSM) { chooseButtons }
-                            VStack(spacing: .dsSM) { chooseButtons }
-                        }
-
-                        if SampleDocument.url != nil {
-                            sampleDocumentButton
-                        }
-
-                        if !hasSeenFolderAccessHint {
-                            folderAccessHint
-                        }
-                    }
-                    .padding(.horizontal, .dsXXL)
-                    .padding(.vertical, .dsXXL)
-                    .background(Color.dsCard, in: RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous)
-                            .strokeBorder(
-                                isDropTargeted ? Color.dsAccent : Color.dsSeparator,
-                                lineWidth: isDropTargeted ? 1.5 : 1
-                            )
-                            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isDropTargeted)
-                    }
-                    .dsElevation()
-                    .help(L10n.string("emptyState.dropZone.tooltip"))
-
-                    RecentFilesSection(store: recentsStore, onOpen: openRecentFile)
+                    .padding(.horizontal, isCompactHeight ? .dsLG : .dsXXL)
+                    .padding(.top, isCompactHeight ? .dsLG : (recentsStore.entries.isEmpty ? 96 : 56))
+                    .padding(.bottom, .dsXXL)
+                    .frame(maxWidth: recentsStore.entries.isEmpty ? 640 : 700)
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, .dsXXL)
-                .padding(.top, recentsStore.entries.isEmpty ? 96 : 56)
-                .padding(.bottom, .dsXXL)
-                .frame(maxWidth: recentsStore.entries.isEmpty ? 640 : 700)
-                .frame(maxWidth: .infinity)
+                .scrollIndicators(isCompactHeight ? .visible : .hidden)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                LanguageSwitcher()
+                    .padding(isCompactHeight ? .dsSM : .dsMD)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                GuideButton(autoShow: true)
+                    .buttonStyle(.borderless)
+                    .font(.title3)
+                    .padding(isCompactHeight ? .dsMD : .dsXL)
+
+                if !isCompactHeight {
+                    EmptyStatePetIntro()
+                        .padding(.trailing, .dsXL)
+                        .padding(.bottom, .dsXL)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                }
             }
-            .scrollIndicators(.hidden)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-
-            LanguageSwitcher()
-                .padding(.dsMD)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-            GuideButton(autoShow: true)
-                .buttonStyle(.borderless)
-                .font(.title3)
-                .padding(.dsXL)
-
-            EmptyStatePetIntro()
-                .padding(.trailing, .dsXL)
-                .padding(.bottom, .dsXL)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .overlay {
             RoundedRectangle(cornerRadius: .dsRadiusMd, style: .continuous)
@@ -203,6 +141,91 @@ struct EmptyStateView: View {
                 Text(L10n.string("folderImport.overLimit.truncatedNote"))
             }
         }
+    }
+
+    private func welcomeHeader(isCompactHeight: Bool) -> some View {
+        VStack(spacing: isCompactHeight ? .dsSM : .dsLG) {
+            OrifoldFoldMark(size: isCompactHeight ? 52 : 80)
+
+            VStack(spacing: isCompactHeight ? 3 : 6) {
+                Text(verbatim: "Orifold")
+                    .font(.dsDisplay(size: isCompactHeight ? 30 : 36))
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text(L10n.string("emptyState.headline"))
+                    .font(.dsHeadline())
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text(L10n.string("emptyState.subheadline"))
+                    .font(.dsBody())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(isCompactHeight ? 1 : 3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var featureOptionsSection: some View {
+        featureOptionGrid
+
+        if let optionGuidance {
+            Label(optionGuidance, systemImage: "arrow.down.circle.fill")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsAccent)
+                .padding(.horizontal, .dsMD)
+                .padding(.vertical, 7)
+                .background(Color.dsAccentSoft, in: Capsule())
+                .transition(shouldReduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    private func dropZoneCard(isCompactHeight: Bool) -> some View {
+        VStack(spacing: isCompactHeight ? .dsMD : .dsLG) {
+            dropZoneIcon
+
+            VStack(spacing: 5) {
+                Text(dropZoneHeadlineKey)
+                    .font(.dsHeadline())
+                    .foregroundStyle(Color.dsTextPrimary)
+                if let scanStatusKey {
+                    Text(scanStatusKey)
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsAccent)
+                        .transition(.opacity)
+                } else {
+                    Text(L10n.string("emptyState.dropZone.supportedTypes"))
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextTertiary)
+                }
+            }
+            .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: scanPhase)
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: .dsSM) { chooseButtons }
+                VStack(spacing: .dsSM) { chooseButtons }
+            }
+
+            if SampleDocument.url != nil {
+                sampleDocumentButton
+            }
+
+            if !hasSeenFolderAccessHint {
+                folderAccessHint
+            }
+        }
+        .padding(.horizontal, isCompactHeight ? .dsLG : .dsXXL)
+        .padding(.vertical, isCompactHeight ? .dsLG : .dsXXL)
+        .background(Color.dsCard, in: RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusLg, style: .continuous)
+                .strokeBorder(
+                    isDropTargeted ? Color.dsAccent : Color.dsSeparator,
+                    lineWidth: isDropTargeted ? 1.5 : 1
+                )
+                .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.15), value: isDropTargeted)
+        }
+        .dsElevation()
+        .help(L10n.string("emptyState.dropZone.tooltip"))
     }
 
     private func showGuidance(for option: EmptyStateOption) {

@@ -8,7 +8,7 @@ import Figure from '../../../components/Figure.astro';
 import Details from '../../../components/Details.astro';
 import Stat from '../../../components/Stat.astro';
 
-Orifold follows a unidirectional flow: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts. Nothing crosses a network.
+Orifold follows a unidirectional flow: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts. Document bytes stay on the Mac; only user-authorized update checks/downloads and trusted signing timestamps use the network.
 
 <Figure src="/Orifold/assets/orifold-architecture-diagram.svg" alt="Orifold architecture: SwiftUI views send intents to one observable view model, local PDF engines behind protocol seams do the work, and a staged export pipeline writes validated artifacts inside a local-only boundary, guarded by a release gate" />
 
@@ -16,9 +16,9 @@ Orifold follows a unidirectional flow: SwiftUI views send intents to one observa
 
 | Layer | Responsibility |
 | --- | --- |
-| SwiftUI app | Document window, sidebar, canvas, annotation toolbar, search, inspector, password prompts, export controls, empty-state Recently Viewed shelf, language switcher |
-| Workspace state | Imported documents, page order, text/object edit operations, canonical replay bases, undo snapshots, comments, tags, signatures, form summaries, decorations, recent-file history |
-| PDF services | PDFKit display/composition, versioned shared PDFium page inspection, deterministic text+object replay, PDFium structural object editing/image compression/validation/glyph geometry, qpdf repair/AES-256/sanitize/structural validation, Vision OCR, form flattening, decoration baking |
+| SwiftUI app | Document window, sidebar, canvas, annotation toolbar, Contents, read-aloud transport, search, eight-tab inspector, password prompts, export controls, empty-state Recently Viewed shelf, language switcher |
+| Workspace state | Imported documents, page order, outlines, text/object edit operations, canonical replay bases, undo snapshots, metadata, attachments, comments, tags, signatures, form summaries, decorations, recent-file history |
+| PDF services | PDFKit display/composition, versioned shared PDFium page/structure inspection, deterministic text+object replay, PDFium structural object editing/image compression/imposition/validation/glyph geometry, qpdf repair/metadata/attachments/AES-256/sanitize/structural validation, Vision OCR/barcode scan, Core Image barcode generation, form flattening, decoration baking |
 | Signing | CMS/PAdES signature construction, PKCS#12 · Keychain · self-signed identities, certificate trust evaluation, RFC-3161 timestamping |
 | Local storage | Saved PDF data, workspace metadata, source payloads, comments, signatures, page edit state |
 | Release tooling | One-line installer, package builder, Desktop update launcher, uninstaller, GitHub Actions release asset, validation tests |
@@ -30,7 +30,7 @@ Orifold/
   App/             App entry point, command wiring, keyboard-shortcut registry
   DesignSystem/    Shared visual tokens and styling
   Document/        macOS document package read/write support
-  Engine/          PDF loading, repair, conversion, OCR, compression, encryption, sanitize, forms, export, Recently Viewed store
+  Engine/          PDF loading, repair, conversion, OCR, metadata, attachments, structure, imposition, compression, encryption, sanitize, forms, export, Recently Viewed store
   Models/          Workspace, page, annotation, comment, export, decoration, comfort, and recent-file models
   Pet/             Gami & Ori, the in-app companions, plus hint bubble/placement logic
   Resources/       App metadata, entitlements, assets, Localizable.xcstrings (6 languages)
@@ -43,7 +43,7 @@ Tests/             Test suites run in the release gate
 
 <Details summary="The staged export pipeline runs in a fixed order, and validation gates the write">
 
-Export is a sequence, not a single call: **flatten** annotations and form answers → **bake** decorations (stamps, watermarks, Bates labels, page numbers) → **compress** (optional image downsampling + lossless qpdf repack) → **sanitize** (optional strip of auto-run actions, JavaScript, embedded files, metadata) → **encrypt** (optional AES-256) → **structural validation**. The final qpdf structural check gates the write: if the artifact isn't sound, it never reaches disk. This ordering is deliberate — flattening before decoration burn-in means nothing can be silently edited after the fact.
+Export is a sequence, not a single call: **capture attachments** → **reconcile edits** → **assemble, flatten, and bake decorations** → **compress** (optional) → **impose** booklet/N-up sheets (optional) → **write bookmarks** when page mapping remains one-to-one → **re-inject attachments** → **sanitize** (optional) → **encrypt** (optional AES-256) → **structural validation**. The final validation gates the write: if the artifact is not sound, it never reaches disk. Sanitize deliberately runs after attachment re-injection so a share-safe export still removes embedded files; imposition deliberately omits original bookmarks because destinations no longer map one-to-one.
 
 </Details>
 
