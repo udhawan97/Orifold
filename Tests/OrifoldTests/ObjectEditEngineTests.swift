@@ -28,7 +28,11 @@ final class ObjectEditEngineTests: XCTestCase {
         let ctx = CGContext(consumer: CGDataConsumer(data: data as CFMutableData)!, mediaBox: &mediaBox, nil)!
         ctx.beginPDFPage(nil)
         ctx.setFillColor(NSColor.white.cgColor); ctx.fill(mediaBox)
-        ctx.setFillColor(CGColor(red: 0.1, green: 0.2, blue: 0.9, alpha: 1)); ctx.fill(blueRect)
+        ctx.setFillColor(CGColor(red: 0.1, green: 0.2, blue: 0.9, alpha: 1))
+        ctx.setStrokeColor(CGColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1))
+        ctx.setLineWidth(2)
+        ctx.addRect(blueRect)
+        ctx.drawPath(using: .fillStroke)
         ctx.setFillColor(NSColor.black.cgColor); ctx.fill(blackRect)
         ctx.draw(makeSolidImage(24, 24), in: imagePDF)
         let font = CTFontCreateWithName("Helvetica" as CFString, 16, nil)
@@ -88,6 +92,68 @@ final class ObjectEditEngineTests: XCTestCase {
             originalBoundsPdf: o.boundsPdf, newBoundsPdf: o.boundsPdf,
             originalTransform: o.transform, newTransform: o.transform, pageRotation: Int(o.pageRotation),
             originalZIndex: o.zOrder, newZIndex: o.zOrder, replacementStrategy: .pdfiumStructural)
+    }
+
+    private func styleOp(_ object: DetectedObject, fill: CodableColor, stroke: CodableColor,
+                         lineWidth: CGFloat) -> ObjectEditOperation {
+        let original = ObjectStylePayload(
+            strokeColor: object.style.strokeColor,
+            fillColor: object.style.fillColor,
+            lineWidth: object.style.lineWidth
+        )
+        return ObjectEditOperation(
+            type: .objectStyleChange, documentID: UUID(), pageRefID: object.pageRefID ?? UUID(),
+            sourceObjectKey: object.stableKey, objectType: object.objectType, editability: object.editability,
+            originalBoundsPdf: object.boundsPdf, newBoundsPdf: object.boundsPdf,
+            originalTransform: object.transform, newTransform: object.transform,
+            pageRotation: Int(object.pageRotation),
+            originalStylePayload: original,
+            newStylePayload: ObjectStylePayload(
+                strokeColor: stroke,
+                fillColor: fill,
+                lineWidth: lineWidth
+            ),
+            originalZIndex: object.zOrder, newZIndex: object.zOrder,
+            replacementStrategy: .pdfiumStructural
+        )
+    }
+
+    func testStyleChangePersistsFillStrokeAndWidthInReopenedBytes() throws {
+        let pageRefID = UUID()
+        let original = makeFixture()
+        let before = PDFObjectDetectionEngine.detect(
+            pdfData: original,
+            pageIndex: 0,
+            pageRefID: pageRefID
+        )
+        let object = try XCTUnwrap(
+            before.objects.first { near($0.boundsPdf, blueRect, tol: 6) },
+            "no restylable vector object"
+        )
+        XCTAssertTrue(object.capabilities.canRestyle)
+
+        let fill = CodableColor(red: 0.82, green: 0.18, blue: 0.12)
+        let stroke = CodableColor(red: 0.08, green: 0.48, blue: 0.22)
+        let operation = styleOp(object, fill: fill, stroke: stroke, lineWidth: 4.5)
+        let result = try XCTUnwrap(
+            PDFObjectEditEngine.apply(operationsByPage: [0: [operation]], toMember: original)
+        )
+        XCTAssertEqual(result.appliedOpIDs, [operation.id])
+        XCTAssertTrue(result.unresolvedOpIDs.isEmpty)
+
+        let after = PDFObjectDetectionEngine.detect(
+            pdfData: result.data,
+            pageIndex: 0,
+            pageRefID: pageRefID
+        )
+        let restyled = try XCTUnwrap(
+            after.objects.first { $0.stableKey.structuralDigest == object.stableKey.structuralDigest },
+            "restyled object missing; objects=\(after.objects.map { ($0.objectType, $0.boundsPdf, $0.style) })"
+        )
+        XCTAssertEqual(try XCTUnwrap(restyled.style.fillColor).red, fill.red, accuracy: 0.02)
+        XCTAssertEqual(try XCTUnwrap(restyled.style.fillColor).green, fill.green, accuracy: 0.02)
+        XCTAssertEqual(try XCTUnwrap(restyled.style.strokeColor).green, stroke.green, accuracy: 0.02)
+        XCTAssertEqual(restyled.style.lineWidth, 4.5, accuracy: 0.05)
     }
 
     func testMoveAndDeleteRoundTripThroughRealEngine() throws {

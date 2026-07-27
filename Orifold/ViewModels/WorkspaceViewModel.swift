@@ -3932,6 +3932,79 @@ final class WorkspaceViewModel {
         return L10n.format("object.tooltip.format", type, state)
     }
 
+    /// True when the current selection is a vector object whose existing fill and/or stroke can
+    /// be changed by PDFium. v1 deliberately does not offer opacity, dash, or adding a missing
+    /// paint channel: the engine can persist color and width, but cannot yet change path draw mode.
+    var selectedObjectHasEditableFill: Bool {
+        guard let object = objectSelection?.object else { return false }
+        return object.pathData?.isFilled ?? (object.style.fillColor != nil)
+    }
+
+    var selectedObjectHasEditableStroke: Bool {
+        guard let object = objectSelection?.object else { return false }
+        return object.pathData?.isStroked ?? (object.style.strokeColor != nil)
+    }
+
+    var canRestyleSelectedObject: Bool {
+        guard let object = objectSelection?.object else { return false }
+        return object.editability.capabilities.canRestyle
+            && object.pageRotation == 0
+            && (selectedObjectHasEditableFill || selectedObjectHasEditableStroke)
+    }
+
+    /// Persist the supported subset of a selected vector object's style. A nil source paint
+    /// channel stays nil because setting a color does not make an unfilled/unstroked PDF path draw
+    /// that channel; exposing that would produce a control that appears to work but changes
+    /// nothing. Returns false for unsupported selections and no-op drafts.
+    @discardableResult
+    func restyleSelectedObject(
+        fillColor: CodableColor?,
+        strokeColor: CodableColor?,
+        lineWidth: CGFloat?
+    ) -> Bool {
+        guard let sel = objectSelection, canRestyleSelectedObject,
+              let ref = workspacePageRef(sel.pageRefID) else { return false }
+        let object = sel.object
+        let editsFill = selectedObjectHasEditableFill
+        let editsStroke = selectedObjectHasEditableStroke
+        let original = ObjectStylePayload(
+            strokeColor: editsStroke ? object.style.strokeColor : nil,
+            fillColor: editsFill ? object.style.fillColor : nil,
+            lineWidth: editsStroke ? object.style.lineWidth : nil
+        )
+        let updatedFill = editsFill ? fillColor : nil
+        let updatedStroke = editsStroke ? strokeColor : nil
+        let updatedWidth = !editsStroke
+            ? nil
+            : min(max(lineWidth ?? object.style.lineWidth, 0.25), 24)
+        let replacement = ObjectStylePayload(
+            strokeColor: updatedStroke,
+            fillColor: updatedFill,
+            lineWidth: updatedWidth
+        )
+        guard replacement != original else { return false }
+
+        let op = ObjectEditOperation(
+            type: .objectStyleChange, documentID: ref.memberDocId, pageRefID: sel.pageRefID,
+            sourceObjectKey: object.stableKey, objectType: object.objectType,
+            editability: object.editability,
+            originalBoundsPdf: object.boundsPdf, newBoundsPdf: object.boundsPdf,
+            originalTransform: object.transform, newTransform: object.transform,
+            pageRotation: Int(object.pageRotation),
+            originalStylePayload: original, newStylePayload: replacement,
+            originalZIndex: object.zOrder, newZIndex: object.zOrder,
+            replacementStrategy: .pdfiumStructural
+        )
+        guard applyObjectEdit([op], undoActionNameKey: "undo.styleObject") else { return false }
+
+        var updated = object
+        if let updatedFill { updated.style.fillColor = updatedFill }
+        if let updatedStroke { updated.style.strokeColor = updatedStroke }
+        if let updatedWidth { updated.style.lineWidth = updatedWidth }
+        objectSelection = ObjectSelectionState(pageRefID: sel.pageRefID, object: updated)
+        return true
+    }
+
     /// Commit a move/resize from the overlay's old→new page-space bounds by composing the
     /// old-rect→new-rect affine onto the object's matrix. Returns the applied bounds.
     @discardableResult

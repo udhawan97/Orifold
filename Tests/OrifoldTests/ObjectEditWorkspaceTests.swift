@@ -18,7 +18,11 @@ final class ObjectEditWorkspaceTests: XCTestCase {
         let ctx = CGContext(consumer: CGDataConsumer(data: data as CFMutableData)!, mediaBox: &mediaBox, nil)!
         ctx.beginPDFPage(nil)
         ctx.setFillColor(NSColor.white.cgColor); ctx.fill(mediaBox)
-        ctx.setFillColor(NSColor.black.cgColor); ctx.fill(deleteRect)
+        ctx.setFillColor(NSColor.black.cgColor)
+        ctx.setStrokeColor(NSColor.systemGray.cgColor)
+        ctx.setLineWidth(2)
+        ctx.addRect(deleteRect)
+        ctx.drawPath(using: .fillStroke)
         let img = CGContext(data: nil, width: 24, height: 24, bitsPerComponent: 8, bytesPerRow: 0,
                             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         img.setFillColor(NSColor.systemRed.cgColor); img.fill(CGRect(x: 0, y: 0, width: 24, height: 24))
@@ -204,6 +208,54 @@ final class ObjectEditWorkspaceTests: XCTestCase {
         // And it actually reverts.
         undo.undo()
         XCTAssertFalse(vm.hasObjectEdits, "undo should clear the object edit")
+    }
+
+    func testRestyleSelectedObjectUpdatesBytesSelectionAndUndoState() throws {
+        let vm = try makeViewModel()
+        let ref = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+        let member = ref.memberDocId
+        let shape = try XCTUnwrap(
+            vm.objectMap(for: ref).objects.first {
+                self.near($0.boundsPdf, deleteRect, tol: 6)
+                    && ($0.objectType == .rectangle || $0.objectType == .filledShape)
+            }
+        )
+        vm.selectObject(shape, on: ref)
+        XCTAssertTrue(vm.canRestyleSelectedObject)
+
+        let fill = CodableColor(red: 0.12, green: 0.46, blue: 0.78)
+        let stroke = CodableColor(red: 0.76, green: 0.24, blue: 0.18)
+        XCTAssertTrue(
+            vm.restyleSelectedObject(
+                fillColor: fill,
+                strokeColor: stroke,
+                lineWidth: 3.25
+            )
+        )
+
+        let liveData = try XCTUnwrap(vm.document.memberPDFData[member])
+        let liveObjects = PDFObjectDetectionEngine.detect(
+            pdfData: liveData,
+            pageIndex: 0,
+            pageRefID: ref.id
+        ).objects
+        let updated = try XCTUnwrap(
+            liveObjects.first { $0.stableKey.structuralDigest == shape.stableKey.structuralDigest },
+            "restyled object missing; objects=\(liveObjects.map { ($0.objectType, $0.boundsPdf, $0.style) })"
+        )
+        XCTAssertEqual(try XCTUnwrap(updated.style.fillColor).blue, fill.blue, accuracy: 0.02)
+        XCTAssertEqual(try XCTUnwrap(updated.style.strokeColor).red, stroke.red, accuracy: 0.02)
+        XCTAssertEqual(updated.style.lineWidth, 3.25, accuracy: 0.05)
+        XCTAssertEqual(vm.objectSelection?.object.style.fillColor, fill)
+        XCTAssertEqual(vm.undoManager?.undoActionName, L10n.string("undo.styleObject"))
+
+        vm.undoManager?.undo()
+        let restoredData = try XCTUnwrap(vm.document.memberPDFData[member])
+        let restored = try XCTUnwrap(
+            PDFObjectDetectionEngine.detect(pdfData: restoredData, pageIndex: 0, pageRefID: ref.id)
+                .objects.first { $0.stableKey.structuralDigest == shape.stableKey.structuralDigest }
+        )
+        XCTAssertLessThan(try XCTUnwrap(restored.style.fillColor).blue, 0.1)
     }
 
     // Phase 3: committed object edits survive the real export → fresh-reopen path, from bytes.

@@ -1543,7 +1543,8 @@ private struct InspectorMarkupView: View {
         // key off the captured element's own object identity, never a recomputed array.
         let annotations = allAnnotations
         let edits = textEdits
-        if annotations.isEmpty && viewModel.selectedAnnotation == nil && edits.isEmpty {
+        if annotations.isEmpty && viewModel.selectedAnnotation == nil && edits.isEmpty
+            && !viewModel.canRestyleSelectedObject {
             VStack(spacing: .dsSM) {
                 Image(systemName: "highlighter")
                     .font(.system(size: 24, weight: .light))
@@ -1560,6 +1561,11 @@ private struct InspectorMarkupView: View {
             .frame(maxWidth: .infinity)
         } else {
             LazyVStack(alignment: .leading, spacing: 0) {
+                if viewModel.canRestyleSelectedObject {
+                    InspectorObjectStyleSection(viewModel: viewModel)
+                        .id(viewModel.objectSelection?.object.stableKey)
+                    Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
+                }
                 if let selected = viewModel.selectedAnnotation {
                     InspectorEditingDetails(ann: selected)
                     Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
@@ -1600,6 +1606,110 @@ private struct InspectorMarkupView: View {
             }
             .padding(.vertical, .dsXS)
         }
+    }
+}
+
+private struct InspectorObjectStyleSection: View {
+    @Bindable var viewModel: WorkspaceViewModel
+    @Environment(\.locale) private var locale
+    @State private var fillColor: Color
+    @State private var strokeColor: Color
+    @State private var lineWidth: CGFloat
+
+    init(viewModel: WorkspaceViewModel) {
+        self.viewModel = viewModel
+        let style = viewModel.objectSelection?.object.style ?? PDFObjectStyle()
+        _fillColor = State(initialValue: Color(nsColor: style.fillColor?.nsColor ?? .black))
+        _strokeColor = State(initialValue: Color(nsColor: style.strokeColor?.nsColor ?? .black))
+        _lineWidth = State(initialValue: min(max(style.lineWidth, 0.25), 24))
+    }
+
+    private var fillPayload: CodableColor? {
+        viewModel.selectedObjectHasEditableFill
+            ? CodableColor(nsColor: NSColor(fillColor))
+            : nil
+    }
+
+    private var strokePayload: CodableColor? {
+        viewModel.selectedObjectHasEditableStroke
+            ? CodableColor(nsColor: NSColor(strokeColor))
+            : nil
+    }
+
+    private var isDirty: Bool {
+        guard let style = viewModel.objectSelection?.object.style else { return false }
+        if viewModel.selectedObjectHasEditableFill, fillPayload != style.fillColor { return true }
+        if viewModel.selectedObjectHasEditableStroke {
+            if strokePayload != style.strokeColor { return true }
+            if abs(lineWidth - style.lineWidth) > 0.001 { return true }
+        }
+        return false
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsMD) {
+            HStack(alignment: .top, spacing: .dsSM) {
+                Image(systemName: "paintpalette")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color.dsAccent)
+                    .frame(width: 20, height: 20)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L10n.string("object.style.title", locale: locale))
+                        .font(.dsBody().weight(.semibold))
+                        .foregroundStyle(Color.dsTextPrimary)
+                    Text(L10n.string("object.style.description", locale: locale))
+                        .font(.dsCaption())
+                        .foregroundStyle(Color.dsTextTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if viewModel.selectedObjectHasEditableFill {
+                ColorPicker(
+                    L10n.string("object.style.fill", locale: locale),
+                    selection: $fillColor,
+                    supportsOpacity: false
+                )
+                .font(.dsBody())
+            }
+
+            if viewModel.selectedObjectHasEditableStroke {
+                ColorPicker(
+                    L10n.string("object.style.stroke", locale: locale),
+                    selection: $strokeColor,
+                    supportsOpacity: false
+                )
+                .font(.dsBody())
+
+                Stepper(value: $lineWidth, in: 0.25...24, step: 0.25) {
+                    HStack {
+                        Text(L10n.string("object.style.lineWidth", locale: locale))
+                        Spacer()
+                        Text(lineWidth, format: .number.precision(.fractionLength(0...2)))
+                            .foregroundStyle(Color.dsTextSecondary)
+                            .monospacedDigit()
+                    }
+                    .font(.dsBody())
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button(L10n.string("inspector.metadata.apply", locale: locale)) {
+                    _ = viewModel.restyleSelectedObject(
+                        fillColor: fillPayload,
+                        strokeColor: strokePayload,
+                        lineWidth: viewModel.selectedObjectHasEditableStroke ? lineWidth : nil
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.dsAccent)
+                .disabled(!isDirty)
+            }
+        }
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsXL)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

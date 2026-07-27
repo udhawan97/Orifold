@@ -362,6 +362,11 @@ struct ContentView: View {
             inspectorTab = .comments
             showInspector = true
         }
+        .onChange(of: viewModel.objectSelection) { _, selection in
+            guard selection != nil, viewModel.canRestyleSelectedObject else { return }
+            inspectorTab = .markup
+            showInspector = true
+        }
         .popover(isPresented: $viewModel.isShowingSearch, arrowEdge: .top) {
             SearchView(viewModel: viewModel)
                 .environmentObject(languageManager)
