@@ -86,7 +86,7 @@ The export pipeline, encryption/sanitize, the signing byte math, text-layer pres
 
 ## What should I never break?
 
-The export validation gate, the local-only boundary (no networking beyond user-initiated TSA requests), localization coverage across all 6 languages, and the minimal sandbox entitlement set.
+The export validation gate, the local-only document-processing boundary, localization coverage across all 6 languages, and the minimal sandbox entitlement set. Network access stays limited to the documented update, TSA timestamp, and system language-model flows; document content must never be sent.
 
 ## How are releases created, and what CI runs?
 

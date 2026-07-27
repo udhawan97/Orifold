@@ -1,7 +1,7 @@
 ---
 title: Import & file problems
-description: Fixes for corrupt PDFs, the 50-file limit, unsupported formats, and password loops.
-keywords: [import problem, wont import, corrupt pdf, file limit, password loop]
+description: Fixes for corrupt PDFs, CBZ comics, the 50-file limit, unsupported formats, and password loops.
+keywords: [import problem, wont import, corrupt pdf, cbz, comic archive, file limit, password loop]
 ---
 
 ## A PDF won't import or shows as corrupted
@@ -14,7 +14,11 @@ A single workspace holds up to 50 files. Export what you have as one PDF, then s
 
 ## An imported file doesn't show any content
 
-Confirm the format is supported: PDF, Word, HTML, Markdown, plain text, CSV, JSON, XML, and common image formats. Other formats aren't recognized yet.
+Confirm the format is supported: PDF, Word and OpenDocument text, HTML, Markdown, plain text and source files, CSV, JSON, XML, spreadsheets, presentations, EPUB, SVG, common images, and CBZ comic-book archives. Other formats aren't recognized yet.
+
+## A CBZ comic will not import
+
+A CBZ must be a readable ZIP-compatible archive containing supported image files. Orifold ignores folders, text files, and macOS metadata; it reports a specific error if no image pages remain. Archives over 100 MB, individual expanded entries over 25 MB, or comics over 1,000 image pages are refused rather than partially converted.
 
 ## The password prompt keeps reappearing
 

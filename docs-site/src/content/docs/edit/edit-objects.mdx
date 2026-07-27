@@ -1,13 +1,17 @@
 ---
 title: Move & edit objects
-description: Select, move, resize, and delete the real graphics on a PDF page — images, logos, lines, and shapes. In beta.
-keywords: [edit objects, move object, resize image, delete shape, edit pdf graphics, move logo, object editing, edit pdf shapes]
+description: Select, move, resize, restyle, layer, and delete real graphics on a PDF page. In beta.
+keywords: [edit objects, move object, resize image, recolor shape, stroke width, delete shape, edit pdf graphics, move logo, object editing, edit pdf shapes]
 ---
 
 import Callout from '../../../components/Callout.astro';
 
 <Callout variant="note" label="Beta">
-	Object editing is new in v0.8.8 and still growing. It works today on unrotated pages for images, logos, lines, and simple shapes — you can move, resize, delete, and (new in v0.8.11) restack them front-to-back. Duplicate, recolor, multi-select, and rotated-page support are on the way. [Feedback](https://github.com/udhawan97/Orifold/issues) helps it mature.
+	Object editing is new and still growing. It works today on unrotated pages for images, logos, lines, and simple shapes: move, resize, delete, restack, and—on compatible vector paths—change existing fill, stroke, and line width. Duplicate, multi-select, adding a missing paint channel, gradients, and rotated-page support are still outside the safe boundary. [Feedback](https://github.com/udhawan97/Orifold/issues) helps it mature.
+</Callout>
+
+<Callout variant="note" label="Restyling is on main, not in v0.9.1">
+	Move, resize, delete, and restack ship in v0.9.1. Fill, stroke, and line-width restyling is implemented and tested in the source on `main` for the next tagged release.
 </Callout>
 
 <Callout variant="whentouse">
@@ -21,6 +25,7 @@ import Callout from '../../../components/Callout.astro';
 3. Then:
    - **Move** — drag the object to a new spot.
    - **Resize** — drag a corner or edge handle.
+   - **Restyle a vector path** — use **Object Style** in the Markup inspector to change its existing fill color, stroke color, or line width, then choose **Apply**.
    - **Layer** — right-click the object for **Bring to Front** or **Send to Back**, to move it above or behind the other graphics on the page.
    - **Delete** — press <kbd>Delete</kbd>, or click the red delete button on the selection (also in the right-click menu).
 4. The page updates immediately. Use <kbd>⌘Z</kbd> / <kbd>⌘Y</kbd> to undo and redo.
@@ -31,9 +36,13 @@ Your edits are written into the file's **actual content** — a moved image real
 
 Not every mark on a page is a separate, editable object — some are fused into a scan, some are drawn as one operation. Orifold tells you what it's selected, and what it can do with it, rather than silently doing nothing.
 
-- **Editable now:** images, logos, lines, rectangles, ellipses, and simple filled or stroked shapes.
+- **Editable now:** images, logos, lines, rectangles, ellipses, and simple filled or stroked shapes. Compatible vector paths can also restyle paint channels that already exist.
 - **Detected but limited:** reused graphics (edits affect just the one copy), form fields (reposition/remove only), and gradients (shown for reference).
 - **Not separately editable:** scanned or flattened pages, where the whole thing is one image — move or replace the whole image, but the marks inside a scan can't be picked apart.
+
+<Callout variant="note">
+	Restyling is intentionally conservative. It changes an existing solid fill or stroke; it does not invent a fill on a stroke-only line, add an outline to a fill-only shape, change image pixels, or rewrite gradients and reused Form XObjects. Stroke width is clamped to a safe **0.25–24 pt** range. The operation is fully undoable and survives save, reopen, and export.
+</Callout>
 
 <Callout variant="note">
 	You can combine **object editing and inline text editing in the same document**. Orifold replays both kinds of operation together from one clean base, so changing text does not put a moved graphic back and moving a graphic does not discard edited text. **Rotated pages** are still not object-editable yet; the object stays selectable but can't be moved.

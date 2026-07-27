@@ -7,7 +7,7 @@ keywords: [developers, contributing, module map, getting started, onboarding]
 import PetTip from '../../../components/PetTip.astro';
 import Stat from '../../../components/Stat.astro';
 
-Orifold is a native macOS PDF workspace: Swift 5.9+, 100% SwiftUI, four local PDF engines plus a signing pipeline, <Stat name="tests" /> tests, and no networking beyond the user-initiated trusted-timestamp request. This page orients you before you open the tree.
+Orifold is a native macOS PDF workspace: Swift 5.9+, 100% SwiftUI, local PDF engines plus a signing pipeline, <Stat name="tests" /> tests, and no document uploads. Its narrow network surface is limited to user-authorized updates, trusted signing timestamps, and system-managed translation language-model downloads. This page orients you before you open the tree.
 
 ## Read these first, in this order
 
@@ -44,7 +44,7 @@ Tests/             The release-gate suites
 | **Encryption & sanitize** | Real AES-256 and content-stripping. Bugs here are security bugs, not cosmetics. |
 | **Signing** (`Signing/`) | Byte-exact ByteRange/CMS construction. A one-byte offset error produces an invalid signature. |
 | **Text-layer preservation** | The import normalizer keeps text layers PDFKit would drop. Regressions bring back the "edit lands on top" bug. |
-| **The local-only boundary** | Only the two sandbox file entitlements plus app-scope bookmarks. Never add networking beyond user-initiated TSA timestamp requests. |
+| **The local-only boundary** | Document processing stays on-device. Keep network access limited to the documented update, TSA timestamp, and system language-model flows; never send document content. |
 | **Localization coverage** | A test enforces all 6 languages. New user-facing strings must land in `Localizable.xcstrings`. |
 
 <PetTip who="ori">

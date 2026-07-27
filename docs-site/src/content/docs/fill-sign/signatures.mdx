@@ -56,7 +56,7 @@ A digital signature binds a cryptographic proof to the file using a **Digital ID
    - **Import .p12 / CA-issued Digital ID** — a certificate file you already have.
    - **Choose Keychain Digital ID** — an identity already in your macOS Keychain.
    - **Generate self-signed ID** — created on the spot, no cost (see the caveat below).
-3. Optionally enable a **timestamp** so the signature records a trusted time (requires an internet connection — this is the only feature in Orifold that makes a network request).
+3. Optionally enable a **timestamp** so the signature records a trusted time (requires an internet connection and sends only a hash of the signature bytes to the selected timestamp authority).
 4. Click **Sign & Export…** and choose where to save.
 
 <Figure src="/Orifold/assets/gifs/sign-document-digital.png" alt="The Signatures palette with Digital selected, a self-signed identity chosen, a timestamp provider picker open (FreeTSA.org, DigiCert, Sectigo, GlobalSign), and a signature preview reading 'Umang D., Signed: Jul 7, 2026'." caption="The Digital signing palette — identity, timestamp provider, and a live signature preview before Sign & Export." />

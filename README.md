@@ -9,7 +9,7 @@
 <p align="center">
   A calm, local-first PDF workspace for macOS. Drop in up to 50 messy files —<br>
   merge, edit, OCR, sign, compress, and protect them — and fold the whole pile<br>
-  into one clean, searchable, password-protected document. Nothing leaves your Mac.
+  into one clean, searchable, password-protected document. Your documents never leave your Mac.
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-2b4566?style=flat-square&logo=apple&logoColor=white">
   <img alt="Universal — Apple Silicon + Intel" src="https://img.shields.io/badge/universal-Apple_Silicon_%2B_Intel-2b4566?style=flat-square">
   <img alt="version v0.9.1" src="https://img.shields.io/badge/version-v0.9.1-46536b?style=flat-square">
-  <img alt="100% local" src="https://img.shields.io/badge/privacy-100%25_local-3f6b52?style=flat-square">
+  <img alt="Local document processing" src="https://img.shields.io/badge/privacy-local_processing-3f6b52?style=flat-square">
   <img alt="6 languages" src="https://img.shields.io/badge/i18n-6_languages-46536b?style=flat-square">
   <img alt="Apache 2.0 License" src="https://img.shields.io/badge/license-Apache_2.0-46536b?style=flat-square">
   <img alt="Beta" src="https://img.shields.io/badge/status-beta-c34e33?style=flat-square">
@@ -49,6 +49,12 @@
 > landed in v0.8.8 and is still hardening; a few folds (real redaction, side-by-side compare)
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
+> [!IMPORTANT]
+> **Current source vs. current download:** `main` is ahead of the tagged v0.9.1 app. It now
+> includes safe CBZ-to-PDF import, existing-path fill/stroke/line-width restyling, and
+> read-only on-device translation on macOS 15+. These are implemented and tested, but are not
+> in the v0.9.1 download until a new release is tagged.
+
 ## The fold
 
 A "simple PDF task" is rarely one file. It's six PDFs, two screenshots, a Word document, a
@@ -58,7 +64,7 @@ them behind a subscription and an upload.
 
 Orifold is the workspace that was missing — **native, local, and free**. Drag the whole pile
 in; it repairs broken files on the way, stacks them into one calm workspace, and folds them
-into a single clean document. The cloud is never consulted.
+into a single clean document. Document processing stays on your Mac.
 
 <p align="center">
   <picture>
@@ -69,21 +75,21 @@ into a single clean document. The cloud is never consulted.
 
 ## What it does
 
-Everything below runs on your Mac. The cloud was not consulted.
+Document processing below runs on your Mac. No document content is uploaded.
 
 | | Do this | Get this |
 | :---: | --- | --- |
-| 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV — even corrupt files | One workspace instead of a folder of chaos; broken PDFs repaired on the way in |
+| 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV, and CBZ comics *(CBZ on `main`)* — even corrupt files | One workspace instead of a folder of chaos; broken PDFs repaired on the way in |
 | 🗂️ | **Organize** — reorder, rotate, delete pages across documents | A clean packet from messy source files |
 | ✏️ | **Annotate & edit** — highlight, notes, ink, text boxes, edit real PDF text in place | Reviewed documents without a print-sign-scan loop |
-| 🧩 | **Edit objects** *(beta)* — the **Select** tool clicks a real graphic on the page, then moves, resizes, or deletes it | Fix the layout itself, not just a note stuck on top of it |
+| 🧩 | **Edit objects** *(beta)* — the **Select** tool moves, resizes, layers, or deletes a real page graphic; `main` also restyles existing vector fill, stroke, and line width | Fix the layout itself, not just a note stuck on top of it |
 | 🖋️ | **Sign & fill forms** — draw signatures or place a real PAdES digital signature, complete and lock form fields | Finished, tamper-evident paperwork — no third-party e-sign service |
 | 🔍 | **OCR scans** — local Vision OCR makes scanned pages searchable | ⌘F finally works on the thing your printer emailed you |
 | 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels, hanko seals, barcodes and QR codes | Packets and exhibits that look intentional |
 | 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
 | 🧼 | **Sanitize** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't mean to send |
 | 🔒 | **Protect & export** — real AES-256 password, or export to DOCX, Markdown, HTML, PNG, JPEG | The format the next person needs, locked when it matters |
-| 📖 | **Read comfortably** — nested Contents, read aloud with follow-along highlighting, Reader Mode, and Document Comfort | Long documents that are easier to navigate and absorb |
+| 📖 | **Read comfortably** — nested Contents, read aloud, Reader Mode, Document Comfort, and read-only on-device translation on macOS 15+ *(on `main`)* | Long documents that are easier to navigate and absorb |
 | 🧭 | **Inspect & archive** — edit metadata, manage attachments, inspect tagged structure, and check archival-readiness signals | Fewer surprises hidden inside the file |
 | 🌐 | **Work in your language** — full UI in English, Spanish, French, Hindi, Simplified Chinese, Japanese | An app that speaks your language, switchable from the landing screen |
 
@@ -94,12 +100,12 @@ Everything below runs on your Mac. The cloud was not consulted.
 
 | Area | What you can do |
 | --- | --- |
-| **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, and common images — up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
+| **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, common images, and—on `main`—CBZ comic archives converted to PDF in natural page order; up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
 | **Organize** | Reorder documents and pages, rotate, delete, add section banners, navigate from the sidebar |
-| **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control, password unlock prompts, Reader Mode, and Document Comfort presets |
+| **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control, password unlock prompts, Reader Mode, Document Comfort presets, and—on `main` with macOS 15+—read-only Apple on-device translation for a selection or current page |
 | **Recently viewed** | An empty-state shelf of the last files you opened, with locally cached thumbnails — nothing about it leaves the machine |
 | **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text with continuous spell-check and metric-compatible fallback fonts |
-| **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), or deletes it; object and inline-text edits compose safely on the same document, survive save/reopen/export, and share full undo/redo |
+| **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), or deletes it; `main` also restyles existing solid fill/stroke channels and line width on compatible vector paths; object and inline-text edits compose safely, survive save/reopen/export, and share full undo/redo |
 | **Signatures** | Draw and place signatures, or produce standards-based PAdES digital signatures with Keychain and `.p12` identities — verifiable anywhere PAdES is understood |
 | **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
 | **Scans & OCR** | Local Vision OCR makes scans searchable; recognized text survives export |
@@ -200,10 +206,10 @@ character, and reacts — visibly — whenever you highlight, sign, export, or f
 
 Orifold is local-first by design — not as a setting, as an architecture.
 
-- 🖥️ **Everything runs on your Mac.** Import, OCR, compression, encryption, signing, and export never touch a network.
+- 🖥️ **Document processing runs on your Mac.** Import, OCR, compression, encryption, signing, translation, and export never upload your PDF or its text.
 - 🛡️ **Sandboxed.** The app runs under the macOS App Sandbox with user-selected file access only.
 - 📡 **Zero telemetry.** No analytics pipeline. There isn't even a server to send it to — stars are the only telemetry we get.
-- 🔔 **One consented question.** Update checks are **off by default**; when you switch them on, the *only* thing Orifold ever asks the network is "is there a newer version?" Never anything about you, never anything about your documents.
+- 🔔 **Explicit, narrow network use.** Orifold can check/download updates when you ask, request an optional trusted signing timestamp, and—on macOS 15+ after a first-use disclosure—let macOS download an Apple translation language model. No flow uploads your PDF or its text to an Orifold service.
 
 <details>
 <summary>&nbsp;🔍&nbsp; The fine print — sandbox entitlements & guardrails</summary>
@@ -217,7 +223,7 @@ The app enables exactly four entitlements:
 | `com.apple.security.app-sandbox` | Runs the whole app inside the macOS sandbox |
 | `com.apple.security.files.user-selected.read-write` | Read/write only the files *you* choose |
 | `com.apple.security.files.bookmarks.app-scope` | Remember your Recently Viewed files across launches |
-| `com.apple.security.network.client` | The opt-in, off-by-default update check — nothing else |
+| `com.apple.security.network.client` | User-authorized updates, optional trusted signing timestamps, and system-managed translation language-model downloads |
 
 Practical guardrails: password prompts for protected PDFs, import size limits, local validation
 before and after compression or encryption, a qpdf structural check gating every export, an
@@ -233,9 +239,9 @@ metadata stripped before flat PDF export.
 | | |
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
-| **Codebase** | 135 Swift source files in the app, ~51,500 lines |
-| **Tests** | 974 tests gating every release |
-| **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) |
+| **Codebase** | 138 Swift source files in the app, ~52,500 lines |
+| **Tests** | 984 tests in the current source tree |
+| **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) · Apple Translation (on-device reading aid on macOS 15+) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds a universal (Apple Silicon + Intel) app and packages a signed-capable DMG (`scripts/make-dmg.sh`) plus the release zip and a checksummed `manifest.json`; installer, Homebrew cask, and uninstaller ship from this repo |
 
@@ -263,7 +269,7 @@ Orifold/
   App/             App entry point and command wiring
   DesignSystem/    Shared visual tokens and styling
   Document/        macOS document package read/write support
-  Engine/          PDF loading, repair, conversion, OCR, compression, encryption, sanitize, forms, export
+  Engine/          PDF/CBZ loading, repair, conversion, OCR, translation, compression, encryption, sanitize, forms, export
   Models/          Workspace, page, annotation, comment, export, decoration, recent-file models
   Pet/             Gami & Ori, the in-app companions
   Resources/       App metadata, entitlements, assets, Localizable.xcstrings (6 languages)
@@ -328,7 +334,7 @@ beta; a few more folds are on the workbench. A friendly sneak peek, not a blood 
 - **Fold the whole stack** — compress, OCR, or watermark a folder in one pass
 - **Side-by-side compare** — spot the change between two drafts on one screen
 - **Faster large-document navigation** — 300-page beasts that scroll like pamphlets
-- **More languages** — the interface *and* the OCR
+- **More languages** — broader interface, OCR, and translation coverage
 - **A calmer first launch** — pending one very official Apple notarization handshake
 
 Got a fold you'd love to see? [Tell us](https://github.com/udhawan97/Orifold/issues).
@@ -404,7 +410,7 @@ Orifold is available under the [Apache License 2.0](LICENSE).
 <p align="center">
   If Orifold rescued you from <code>final_final_revised_ACTUAL_v3.pdf</code>,
   <a href="https://github.com/udhawan97/Orifold/stargazers">star the repo</a>.<br>
-  Since nothing you do in Orifold ever leaves your Mac, stars are the only telemetry we get. ⭐
+  Since Orifold has no telemetry, stars are the only signal we get. ⭐
 </p>
 
 <p align="center">

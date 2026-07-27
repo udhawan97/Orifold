@@ -19,7 +19,7 @@ Orifold is in beta on the road to 1.0. Direction over dates — the list below i
 Steadying what already ships — signing, the qpdf engine, the companions, localization, and the documentation you're reading. Chief among them: **sturdier editing** — text edits that are harder to surprise on rotated pages, in deep undo history, or when a file is quietly touched in another app between saves.
 
 <Callout variant="tip" label="Now in beta: object editing">
-	**Move the furniture** is live as of v0.8.8. Pick the **Select** tool, click a real graphic on the page — an image, a logo, a line, a shape — then move, resize, layer, or delete it. Edits go into the file's actual content (no ghosts, no leftover copies), compose with inline text edits, and survive save, reopen, and export with full undo/redo. Still growing: duplicate, recolor, multi-select, and rotated-page support. See [Move & edit objects](/Orifold/edit/edit-objects/).
+	**Move the furniture** is live as of v0.8.8. Pick the **Select** tool, click a real graphic on the page — an image, a logo, a line, a shape — then move, resize, layer, or delete it. Edits go into the file's actual content (no ghosts, no leftover copies), compose with inline text edits, and survive save, reopen, and export with full undo/redo. The source on `main` now also restyles existing solid fill, stroke, and line-width channels for compatible vector paths. Still growing: duplicate, multi-select, adding a missing paint channel, gradients, and rotated-page support. See [Move & edit objects](/Orifold/edit/edit-objects/).
 </Callout>
 
 ## 🔭 Next — in the lab
@@ -30,7 +30,7 @@ Being explored, high on the radar. Each is grounded in machinery Orifold already
 	<Card title="Real redaction" icon="✂️" href="export/sanitize/">
 		Secrets that actually *leave* the file — not a polite black rectangle you can drag right off. Building on the same qpdf pass that already strips scripts and hidden metadata.
 	</Card>
-	<Card title="Fold the whole stack" icon="🗂️" href="edit/compress/">
+	<Card title="Fold the whole stack" icon="🗂️" href="export/compress/">
 		Compress, OCR, or watermark a whole folder in one pass — not open, save, repeat, fifty times over. The single-file engines already exist; this is teaching them to work a room.
 	</Card>
 	<Card title="Side-by-side compare" icon="🆚" href="reading/reader-mode/">

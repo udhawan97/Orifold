@@ -1,0 +1,62 @@
+---
+title: Translate selected text or a page
+description: Translate PDF text on your Mac with Apple’s on-device language models. Available on macOS 15 and later.
+keywords: [translate pdf, offline translation, on-device translation, selected text, current page, macos 15]
+---
+
+import Callout from '../../../components/Callout.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
+
+<Callout variant="note" label="On main, not in v0.9.1">
+	This feature is implemented and tested in the source on `main`. The current v0.9.1 download does not include it yet.
+</Callout>
+
+<Callout variant="whentouse">
+	You want a quick reading aid for selected PDF text or the page you are on, without changing the document.
+</Callout>
+
+## Translate text
+
+1. On **macOS 15 or later**, optionally select text on the PDF page.
+2. Open **More** (⋯).
+3. Choose **Translate Selection**. If no text is selected, choose **Translate Current Page** instead.
+4. Pick the target language. Orifold shows the original and translation side by side.
+5. Use **Copy** if you need the result elsewhere, then choose **Done**.
+
+Translation is deliberately **read-only**. It never replaces text, adds an annotation, or writes the result back to your PDF.
+
+## The first time
+
+Before the first translation, Orifold explains the boundary and asks you to continue. It uses Apple’s Translation framework. macOS may need to download the selected language model from Apple once; after the required model is installed, the document text is translated on this Mac.
+
+<Callout variant="note">
+	Translation requires **macOS 15 or later**, even though the rest of Orifold supports macOS 14. The menu item is not shown on macOS 14.
+</Callout>
+
+## What text is used
+
+- A non-empty PDF text selection takes priority.
+- Without a selection, Orifold reads the current page in detected reading order.
+- Scanned pages need an OCR text layer first. If the page has no readable text, the translation action is unavailable.
+- Current-page translation reflects committed in-place text edits, not stale text from the original PDF.
+
+Long passages are split at sentence and word boundaries, translated in order, and reassembled in the result panel.
+
+## Privacy and language downloads
+
+Your document is not uploaded to an Orifold server—there is no Orifold server. The translation itself uses Apple’s on-device language models. The only network activity associated with this feature is the system-managed language-model download that macOS may request before a language is ready.
+
+## Related
+
+<CardGrid>
+	<Card title="OCR scanned pages" href="edit/ocr/">
+		Add a local text layer before translating a scan.
+	</Card>
+	<Card title="Read aloud" href="reading/read-aloud/">
+		Listen to document text with macOS voices.
+	</Card>
+	<Card title="Privacy & local-first design" href="settings/privacy/">
+		The exact local-processing and network boundaries.
+	</Card>
+</CardGrid>

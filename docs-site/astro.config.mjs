@@ -17,7 +17,7 @@ export default defineConfig({
 		starlight({
 			title: 'Orifold Docs',
 			description:
-				'Fold chaos into one clean PDF. Free, open-source, 100% local PDF workspace for macOS.',
+				'Fold chaos into one clean PDF. Free, open-source, local-processing PDF workspace for macOS.',
 			logo: {
 				src: './public/assets/orifold-app-icon-128.png',
 				replacesTitle: false,
@@ -123,6 +123,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Contents & bookmarks', slug: 'reading/contents' },
 						{ label: 'Read aloud', slug: 'reading/read-aloud' },
+						{ label: 'Translate text', slug: 'reading/translate', badge: { text: 'macOS 15+', variant: 'note' } },
 						{ label: 'Reader Mode', slug: 'reading/reader-mode' },
 						{ label: 'Document Comfort', slug: 'reading/night-mode' },
 						{ label: 'Search & replace', slug: 'reading/search' },

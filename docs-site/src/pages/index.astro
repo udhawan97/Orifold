@@ -125,7 +125,7 @@ const heroBadges = [
 		<title>Orifold — Fold chaos into one clean PDF</title>
 		<meta
 			name="description"
-			content="A free, open-source PDF workspace for macOS. Drop in up to 50 messy files — edit, sign, and export one polished document. Nothing ever leaves your Mac."
+			content="A free, open-source PDF workspace for macOS. Drop in up to 50 messy files — edit, sign, and export one polished document. Your documents never leave your Mac."
 		/>
 		<meta property="og:title" content="Orifold — Fold chaos into one clean PDF" />
 		<meta
@@ -235,8 +235,8 @@ const heroBadges = [
 							</h1>
 							<p class="sub" data-load="4">
 								A calm PDF workspace for macOS. Drop in up to fifty messy files — merge, edit,
-								sign, and protect them — and fold the pile into one polished document. Nothing
-								ever leaves your Mac.
+								sign, and protect them — and fold the pile into one polished document. Your
+								documents never leave your Mac.
 							</p>
 							<div class="btn-row" data-load="5">
 								<a class="btn btn-primary" id="cta-hero" href={downloadHref}>
@@ -412,9 +412,9 @@ const heroBadges = [
 							sticky note floating over a picture of the page. Then protect with AES-256,
 							compress, or sanitize, and export one clean file.
 						</p>
-						<a class="whatsnew-pill" href={`${base}/edit/edit-objects/`} aria-label="New: object editing, now in beta — learn more">
-							<span class="whatsnew-tag">New</span>
-							<span class="whatsnew-text">Object editing<span class="whatsnew-sub"> · in beta</span></span>
+						<a class="whatsnew-pill" href={`${base}/releases/`} aria-label="Source preview: CBZ import, vector restyling, and on-device translation are on main but not in the v0.9.1 download">
+							<span class="whatsnew-tag">Main</span>
+							<span class="whatsnew-text">Three source previews<span class="whatsnew-sub"> · not in v0.9.1</span></span>
 							<span class="whatsnew-arrow" aria-hidden="true"><Fragment set:html={icoChevron} /></span>
 						</a>
 						<p class="fine-print beta-note">
@@ -511,7 +511,7 @@ const heroBadges = [
 					<div class="act-head" data-num="四" data-gloss="shi · four" data-reveal>
 						<p class="kicker"><span class="k-num" aria-hidden="true">四</span>Fourth fold · Keep</p>
 						<h2>The studio has no windows.</h2>
-						<p class="lede">Everything happens on your Mac. The cloud was not consulted.</p>
+						<p class="lede">Your documents stay on your Mac. Their contents are never uploaded for processing.</p>
 					</div>
 					<figure class="shot act-figure" data-reveal>
 						<div class="frame mid">
@@ -520,7 +520,7 @@ const heroBadges = [
 						<figcaption class="tabnum">Real capture — Orifold v{rel.version}. Sanitize strips what you didn't mean to share.</figcaption>
 					</figure>
 					<div class="stat-row" data-reveal>
-						<div class="stat"><b>0</b><span>The app asks the network for nothing.</span></div>
+						<div class="stat"><b>0</b><span>Document uploads. There is no Orifold processing server.</span></div>
 						<div class="stat"><b>AES-256</b><span>Real encryption, not a "protected" flag a reader can ignore.</span></div>
 						<div class="stat"><b>Sanitize</b><span>A file that carries nothing you didn't intend to send.</span></div>
 						<div class="stat"><b data-count={String(stats.tests ?? '')}>{stats.tests ?? '—'}</b><span>tests gate every release.</span></div>
@@ -528,8 +528,9 @@ const heroBadges = [
 						<div class="stat"><b data-count="6">6</b><span>languages, everything on-device.</span></div>
 					</div>
 					<p class="fine-print">
-						This page asks GitHub for the latest version number so the button below is always
-						current. The app never does.
+						This page asks GitHub for the latest release. The app can make narrow, consented
+						requests for updates, trusted signing timestamps, and Apple translation language
+						models — never to upload a PDF or its text.
 					</p>
 
 					<div class="pet" data-pet="ori">
@@ -670,7 +671,7 @@ const heroBadges = [
 							Orifold watches for new versions and lets you know — then waits for your say-so.
 							When you're ready it can download the next version and check it against the
 							published checksum, right inside the app. Nothing downloads or installs on its
-							own, and the only thing it ever asks the network is "is there a newer version?"
+							own. The update check itself asks only "is there a newer version?"
 						</p>
 					</div>
 
@@ -692,7 +693,7 @@ const heroBadges = [
 								<span class="card-kanji" aria-hidden="true">家<span class="kanji-gloss">home</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icOnDevice} />
 								<h3>One quiet question</h3>
-								<p>A check is a single outbound request for the latest version number. Nothing about you, and nothing about your documents, is ever sent. The rest of the app stays fully offline.</p>
+								<p>An update check is one outbound request for release metadata. Nothing about your documents is sent. Other network-capable features remain explicit: an optional signing timestamp and, on macOS 15+, a system language-model download before on-device translation.</p>
 							</div>
 						</div>
 						<p class="lede update-when" data-reveal style="margin-inline:auto">
@@ -856,8 +857,7 @@ const heroBadges = [
 					<a class="tabnum" href={rel.releaseUrl}>v{rel.version}{releasedDate ? ` · released ${releasedDate}` : ''}</a>
 				</p>
 				<p class="sig">
-					Since nothing you do in Orifold ever leaves your Mac, stars are the only telemetry we
-					get. ⭐
+					Since Orifold has no telemetry, stars are the only signal we get. ⭐
 				</p>
 			</div>
 		</footer>
@@ -1256,8 +1256,8 @@ const heroBadges = [
 				if (!line || !refold) return;
 				var lines = [
 					'One sheet, folded with stubborn optimism.',
-					'The cloud was not consulted. It never is.',
-					'Nothing on this page phoned home — not even this joke.',
+					'Your document stayed on your Mac. That part is non-negotiable.',
+					'No PDF was uploaded in the making of this joke.',
 					"Your files never left your Mac. You're welcome.",
 					"Somewhere, a subscription is confused about why you're smiling.",
 					"Fold responsibly — cranes don't grow back.",
