@@ -558,6 +558,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             return true
         }
         view.onSelectionCommitted = { [weak coordinator = context.coordinator] in
+            coordinator?.captureCurrentTranslationSelection()
             coordinator?.commitCurrentMarkupSelection()
         }
         view.onCommentMenu = { [weak coordinator = context.coordinator] in
@@ -839,17 +840,24 @@ struct PDFViewRepresentable: NSViewRepresentable {
             case .highlight:
                 viewModel.applyHighlight(to: selection)
                 pdfView.clearSelection()
+                viewModel.updateTranslationSelection(nil)
             case .underline:
                 viewModel.applyMarkup(.underline, to: selection)
                 pdfView.clearSelection()
+                viewModel.updateTranslationSelection(nil)
             case .strikeout:
                 viewModel.applyMarkup(.strikeOut, to: selection)
                 pdfView.clearSelection()
+                viewModel.updateTranslationSelection(nil)
             case .comment:
                 createComment(from: selection)
             default:
                 break
             }
+        }
+
+        func captureCurrentTranslationSelection() {
+            viewModel.updateTranslationSelection(pdfView?.currentSelection?.string)
         }
 
         func createCommentFromCurrentSelection() {
@@ -870,6 +878,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             guard let pdfView,
                   viewModel.createAnchoredTextComment(from: selection, in: pdfView.document) != nil else { return }
             pdfView.clearSelection()
+            viewModel.updateTranslationSelection(nil)
             refreshCommentOverlays()
         }
 

@@ -441,6 +441,16 @@ final class WorkspaceViewModel {
 
     // MARK: - Canvas state (updated by PDFView via Coordinator)
     var currentPageNumber: Int = 0
+    private(set) var translationSelectionText: String?
+    var hasTranslationSelection: Bool {
+        !(translationSelectionText?.isEmpty ?? true)
+    }
+    var translationRequestText: TranslationRequestText? {
+        TranslationSourceResolver.request(
+            selection: translationSelectionText,
+            currentPage: currentPageTextForTranslation()
+        )
+    }
     /// Live zoom as a percentage, reported by the canvas. Read-only for the UI: the
     /// PDFView owns the real scale, and this mirrors it so the zoom bar can say where the
     /// reader is rather than only offering to move them.
@@ -460,6 +470,11 @@ final class WorkspaceViewModel {
     }
 
     var isSigningInProgress: Bool { activeSigningTask != nil }
+
+    func updateTranslationSelection(_ text: String?) {
+        let normalized = text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        translationSelectionText = (normalized?.isEmpty == false) ? normalized : nil
+    }
 
     /// True once there's genuinely nothing to export or save — zero documents,
     /// zero pages, and no active selection. Export/save flows should treat this
@@ -8852,6 +8867,41 @@ final class WorkspaceViewModel {
         let structure = computeCurrentPageStructure(pageNumber: pageNumber)
         structureCache = (revision, pageNumber, structure)
         return structure
+    }
+
+    /// Reading-order text for the current workspace page, extracted through the same
+    /// PDFium-backed analysis used by editing. This deliberately avoids PDFKit's
+    /// `PDFPage.string`, which is unreliable on some supported Xcode/macOS combinations.
+    private func currentPageTextForTranslation() -> String? {
+        let orderIndex = max(currentPageNumber - 1, 0)
+        guard document.workspace.pageOrder.indices.contains(orderIndex) else { return nil }
+
+        let ref = document.workspace.pageOrder[orderIndex]
+        guard let lookup = memberPDF(for: ref),
+              let localIndex = localIndex(ref: ref, memberIndex: lookup.documentIndex),
+              let page = lookup.pdf.page(at: localIndex) else {
+            return nil
+        }
+
+        let orderedBlocks = liveTextBlocks(
+            for: ref,
+            page: page,
+            memberID: ref.memberDocId,
+            localIndex: localIndex
+        ).sorted { lhs, rhs in
+            let lhsBounds = lhs.bounds.standardized
+            let rhsBounds = rhs.bounds.standardized
+            if abs(lhsBounds.midY - rhsBounds.midY) > max(lhsBounds.height, rhsBounds.height) {
+                return lhsBounds.midY > rhsBounds.midY
+            }
+            return lhsBounds.midX < rhsBounds.midX
+        }
+        let text = orderedBlocks
+            .map(\.text)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+        return text.isEmpty ? nil : text
     }
 
     private func computeCurrentPageStructure(pageNumber: Int) -> PageStructure? {

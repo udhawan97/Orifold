@@ -47438,6 +47438,237 @@
         }
       }
     },
+    "translation.disclosure.continue": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Continue"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Continuar"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Continuer"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "जारी रखें"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "続ける"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "继续"}}
+      }
+    },
+    "translation.disclosure.download": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "macOS may download a language model from Apple the first time."}},
+        "es": {"stringUnit": {"state": "translated", "value": "macOS puede descargar un modelo de idioma de Apple la primera vez."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "macOS peut télécharger un modèle linguistique d’Apple lors de la première utilisation."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "पहली बार macOS Apple से भाषा मॉडल डाउनलोड कर सकता है।"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "初回にmacOSがAppleから言語モデルをダウンロードする場合があります。"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "首次使用时，macOS 可能会从 Apple 下载语言模型。"}}
+      }
+    },
+    "translation.disclosure.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Orifold uses Apple’s Translation framework. The translation runs on this Mac after any required language model is installed."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Orifold usa el framework Translation de Apple. La traducción se realiza en este Mac una vez instalado el modelo de idioma necesario."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Orifold utilise le framework Translation d’Apple. La traduction s’effectue sur ce Mac une fois le modèle linguistique requis installé."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "Orifold Apple के Translation फ्रेमवर्क का उपयोग करता है। आवश्यक भाषा मॉडल इंस्टॉल होने के बाद अनुवाद इसी Mac पर होता है।"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "OrifoldはAppleのTranslationフレームワークを使用します。必要な言語モデルをインストールすると、このMac上で翻訳が行われます。"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "Orifold 使用 Apple 的 Translation 框架。安装所需语言模型后，翻译将在此 Mac 上进行。"}}
+      }
+    },
+    "translation.disclosure.private": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Document text is processed on this Mac."}},
+        "es": {"stringUnit": {"state": "translated", "value": "El texto del documento se procesa en este Mac."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Le texte du document est traité sur ce Mac."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "दस्तावेज़ का टेक्स्ट इसी Mac पर प्रोसेस होता है।"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "書類のテキストはこのMac上で処理されます。"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "文档文本在此 Mac 上处理。"}}
+      }
+    },
+    "translation.disclosure.readOnly": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Translation is read-only and never writes back to your PDF."}},
+        "es": {"stringUnit": {"state": "translated", "value": "La traducción es de solo lectura y nunca modifica tu PDF."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "La traduction est en lecture seule et ne modifie jamais votre PDF."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "अनुवाद केवल पढ़ने के लिए है और आपके PDF में कभी नहीं लिखा जाता।"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "翻訳は読み取り専用で、PDFには書き込まれません。"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "翻译为只读操作，绝不会写回 PDF。"}}
+      }
+    },
+    "translation.disclosure.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Before you translate"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Antes de traducir"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Avant de traduire"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "अनुवाद करने से पहले"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "翻訳を始める前に"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "翻译前须知"}}
+      }
+    },
+    "translation.error": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Translation couldn’t finish. Check that the language is available, then try again."}},
+        "es": {"stringUnit": {"state": "translated", "value": "No se pudo completar la traducción. Comprueba que el idioma esté disponible e inténtalo de nuevo."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "La traduction n’a pas pu aboutir. Vérifiez que la langue est disponible, puis réessayez."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "अनुवाद पूरा नहीं हो सका। जाँचें कि भाषा उपलब्ध है, फिर दोबारा कोशिश करें।"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "翻訳を完了できませんでした。言語が利用可能か確認して、もう一度お試しください。"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法完成翻译。请检查该语言是否可用，然后重试。"}}
+      }
+    },
+    "translation.menu.page": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Translate Current Page"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Traducir página actual"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Traduire la page actuelle"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "वर्तमान पेज का अनुवाद करें"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "現在のページを翻訳"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "翻译当前页面"}}
+      }
+    },
+    "translation.menu.selection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Translate Selection"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Traducir selección"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Traduire la sélection"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "चयन का अनुवाद करें"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "選択範囲を翻訳"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "翻译所选内容"}}
+      }
+    },
+    "translation.menu.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "On-device after language download"}},
+        "es": {"stringUnit": {"state": "translated", "value": "En el dispositivo tras descargar el idioma"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Sur l’appareil après téléchargement de la langue"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "भाषा डाउनलोड के बाद डिवाइस पर"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "言語のダウンロード後はデバイス上で処理"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "下载语言后在设备端处理"}}
+      }
+    },
+    "translation.original.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Original"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Original"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Original"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "मूल"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "原文"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "原文"}}
+      }
+    },
+    "translation.progress": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Translating on this Mac…"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Traduciendo en este Mac…"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Traduction sur ce Mac…"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "इस Mac पर अनुवाद हो रहा है…"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "このMacで翻訳中…"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "正在此 Mac 上翻译…"}}
+      }
+    },
+    "translation.readOnly": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Read-only · Your PDF is unchanged"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Solo lectura · Tu PDF no cambia"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Lecture seule · Votre PDF reste inchangé"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "केवल पढ़ने के लिए · आपका PDF नहीं बदला है"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "読み取り専用・PDFは変更されません"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "只读 · 你的 PDF 不会更改"}}
+      }
+    },
+    "translation.ready": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Choose a target language to begin."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Elige un idioma de destino para empezar."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Choisissez une langue cible pour commencer."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "शुरू करने के लिए लक्ष्य भाषा चुनें।"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "開始するには翻訳先の言語を選んでください。"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "请选择目标语言以开始。"}}
+      }
+    },
+    "translation.result.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Translation"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Traducción"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Traduction"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "अनुवाद"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "翻訳"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "译文"}}
+      }
+    },
+    "translation.source.page": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Current page"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Página actual"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Page actuelle"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "वर्तमान पेज"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "現在のページ"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "当前页面"}}
+      }
+    },
+    "translation.source.selection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Selected text"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Texto seleccionado"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Texte sélectionné"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "चुना गया टेक्स्ट"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "選択したテキスト"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "所选文本"}}
+      }
+    },
+    "translation.target.label": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Translate to"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Traducir a"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Traduire en"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "इसमें अनुवाद करें"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "翻訳先"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "翻译为"}}
+      }
+    },
+    "translation.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Translate"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Traducir"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Traduire"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "अनुवाद करें"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "翻訳"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "翻译"}}
+      }
+    },
+    "translation.unavailable.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Update macOS to translate selected text or the current page with Apple’s on-device language models."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Actualiza macOS para traducir el texto seleccionado o la página actual con los modelos de idioma en el dispositivo de Apple."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Mettez macOS à jour pour traduire le texte sélectionné ou la page actuelle avec les modèles linguistiques sur appareil d’Apple."}},
+        "hi": {"stringUnit": {"state": "translated", "value": "चुने गए टेक्स्ट या वर्तमान पेज का Apple के ऑन-डिवाइस भाषा मॉडल से अनुवाद करने के लिए macOS अपडेट करें।"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "macOSをアップデートすると、Appleのオンデバイス言語モデルで選択したテキストや現在のページを翻訳できます。"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "更新 macOS 后，便可使用 Apple 的设备端语言模型翻译所选文本或当前页面。"}}
+      }
+    },
+    "translation.unavailable.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {"stringUnit": {"state": "translated", "value": "Translation Requires macOS 15"}},
+        "es": {"stringUnit": {"state": "translated", "value": "La traducción requiere macOS 15"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "La traduction nécessite macOS 15"}},
+        "hi": {"stringUnit": {"state": "translated", "value": "अनुवाद के लिए macOS 15 आवश्यक है"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "翻訳にはmacOS 15が必要です"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "翻译需要 macOS 15"}}
+      }
+    },
     "undo.addAttachment": {
       "extractionState": "manual",
       "localizations": {

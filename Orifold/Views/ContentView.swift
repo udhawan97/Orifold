@@ -187,6 +187,7 @@ struct ContentView: View {
     @State private var isShowingDocumentComfortPopover = false
     @State private var isShowingShortcutsCheatSheet = false
     @State private var isShowingArchivalReadiness = false
+    @State private var translationRequest: TranslationRequestText?
     @State private var isShowingShortcutsFirstRun = false
     @State private var isShowingGuide = false
     @State private var isShowingMoreMenu = false
@@ -386,6 +387,10 @@ struct ContentView: View {
             ArchivalReadinessView(viewModel: viewModel)
                 .environment(\.locale, languageManager.effectiveLocale)
         }
+        .sheet(item: $translationRequest) { request in
+            TranslationPanelView(request: request)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
         .sheet(isPresented: $isShowingExportSheet) {
             ExportSheet(viewModel: viewModel, isPresented: $isShowingExportSheet)
                 .environmentObject(languageManager)
@@ -425,6 +430,7 @@ struct ContentView: View {
             isConfirmingDiscardClose: $isConfirmingDiscardClose,
             isShowingMoreMenu: $isShowingMoreMenu,
             pendingMoreRoute: $pendingMoreRoute,
+            translationRequest: $translationRequest,
             showTOC: $showTOC,
             isShowingArchivalReadiness: $isShowingArchivalReadiness,
             onToggleReaderMode: { toggleReaderMode() },
@@ -3013,6 +3019,7 @@ private struct ToolbarOverflowPresentations: ViewModifier {
     @Binding var isConfirmingDiscardClose: Bool
     @Binding var isShowingMoreMenu: Bool
     @Binding var pendingMoreRoute: MoreRoute?
+    @Binding var translationRequest: TranslationRequestText?
     @Binding var showTOC: Bool
     @Binding var isShowingArchivalReadiness: Bool
     let onToggleReaderMode: () -> Void
@@ -3086,6 +3093,7 @@ private struct ToolbarOverflowPresentations: ViewModifier {
                     case .insertBarcode: viewModel.isShowingBarcodeComposer = true
                     case .scanBarcodes: viewModel.scanBarcodesOnCurrentPage()
                     case .archivalReadiness: isShowingArchivalReadiness = true
+                    case .translate: translationRequest = viewModel.translationRequestText
                     }
                 }
             }
@@ -3125,6 +3133,7 @@ enum MoreRoute: Equatable {
     case insertBarcode
     case scanBarcodes
     case archivalReadiness
+    case translate
 }
 
 /// Resolves the AppKit window hosting this document scene and hands it back so the view
@@ -3203,6 +3212,19 @@ private struct ToolbarMoreMenu: View {
                 action: onReadAloud
             )
             .disabled(viewModel.pageCount == 0)
+
+            if TranslationFeature.isAvailable {
+                MoreMenuRow(
+                    systemImage: "character.book.closed",
+                    titleKey: viewModel.hasTranslationSelection
+                        ? "translation.menu.selection"
+                        : "translation.menu.page",
+                    subtitleKey: "translation.menu.subtitle",
+                    trailing: { MoreChevron() },
+                    action: { onRoute(.translate) }
+                )
+                .disabled(viewModel.translationRequestText == nil)
+            }
 
             divider
 
