@@ -50308,6 +50308,170 @@
         }
       }
     },
+    "error.import.cbz.noImages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This comic archive does not contain any supported images."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo de cómic no contiene ninguna imagen compatible."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette archive de bande dessinée ne contient aucune image prise en charge."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस कॉमिक आर्काइव में कोई समर्थित इमेज नहीं है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このコミックアーカイブには対応している画像がありません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此漫画归档不包含任何受支持的图像。"
+          }
+        }
+      }
+    },
+    "error.import.cbz.tooManyImages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This comic archive contains too many images. Orifold imports up to %lld pages from one CBZ file."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo de cómic contiene demasiadas imágenes. Orifold importa hasta %lld páginas de un archivo CBZ."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette archive de bande dessinée contient trop d’images. Orifold importe jusqu’à %lld pages par fichier CBZ."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस कॉमिक आर्काइव में बहुत ज़्यादा इमेज हैं। Orifold एक CBZ फ़ाइल से अधिकतम %lld पेज इंपोर्ट करता है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このコミックアーカイブには画像が多すぎます。Orifold が1つのCBZファイルから読み込めるのは最大%lldページです。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此漫画归档包含的图像过多。Orifold 最多从一个 CBZ 文件导入 %lld 页。"
+          }
+        }
+      }
+    },
+    "error.import.cbz.unreadable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This comic archive is damaged or uses a ZIP compression method Orifold does not support."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo de cómic está dañado o usa un método de compresión ZIP no compatible con Orifold."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette archive de bande dessinée est endommagée ou utilise une méthode de compression ZIP non prise en charge par Orifold."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह कॉमिक आर्काइव खराब है या ऐसी ZIP कंप्रेशन विधि इस्तेमाल करता है जिसका Orifold समर्थन नहीं करता।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このコミックアーカイブは破損しているか、Orifold が対応していない ZIP 圧縮方式を使用しています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此漫画归档已损坏，或使用了 Orifold 不支持的 ZIP 压缩方式。"
+          }
+        }
+      }
+    },
+    "error.import.cbz.unreadableImage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not read “%@” in this comic archive."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo leer «%@» en este archivo de cómic."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu lire « %@ » dans cette archive de bande dessinée."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold इस कॉमिक आर्काइव में “%@” को पढ़ नहीं सका।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このコミックアーカイブ内の「%@」を読み込めませんでした。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法读取此漫画归档中的“%@”。"
+          }
+        }
+      }
+    },
     "object.style.description": {
       "extractionState": "manual",
       "localizations": {

@@ -12,6 +12,7 @@ extension UTType {
     static let orifoldXLSX = UTType(filenameExtension: "xlsx") ?? UTType(importedAs: "org.openxmlformats.spreadsheetml.sheet")
     static let orifoldPPTX = UTType(filenameExtension: "pptx") ?? UTType(importedAs: "org.openxmlformats.presentationml.presentation")
     static let orifoldEPUB = UTType(filenameExtension: "epub") ?? UTType(importedAs: "org.idpf.epub-container")
+    static let orifoldCBZ = UTType(importedAs: "com.ud.Orifold.cbz", conformingTo: .zip)
     static let orifoldRTFD = UTType(filenameExtension: "rtfd") ?? UTType(importedAs: "com.apple.rtfd")
     static let markdown = UTType(filenameExtension: "md") ?? UTType(importedAs: "net.daringfireball.markdown")
     static let csv = UTType(filenameExtension: "csv") ?? UTType(importedAs: "public.comma-separated-values-text")
@@ -111,6 +112,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
         .orifoldXLSX,
         .orifoldPPTX,
         .orifoldEPUB,
+        .orifoldCBZ,
         .orifoldRTFD,
         .rtf,
         .plainText,

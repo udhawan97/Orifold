@@ -61,11 +61,13 @@ enum ImportFailureClassifier {
                 return .unsupportedType
             case .passwordProtected:
                 return .passwordProtected
-            case .unreadableDocument, .emptyDocument, .binaryDataMislabelledAsText:
+            case .unreadableDocument, .emptyDocument, .binaryDataMislabelledAsText,
+                 .comicArchiveUnreadable, .comicArchiveNoImages, .comicArchiveUnreadableImage:
                 return .corruptOrEncrypted
             case .renderingFailed, .renderTimedOut:
                 return .corruptOrEncrypted
-            case .fileTooLarge, .fileTypeTooLarge, .htmlRenderedTooLarge, .documentRenderedTooLarge:
+            case .fileTooLarge, .fileTypeTooLarge, .htmlRenderedTooLarge,
+                 .documentRenderedTooLarge, .comicArchiveTooManyImages:
                 return .tooLarge
             }
         }

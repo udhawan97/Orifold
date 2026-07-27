@@ -171,6 +171,10 @@ enum DocumentImportConverter {
         case fileTypeTooLarge(typeDescription: String, actualBytes: Int64, limitBytes: Int64)
         case htmlRenderedTooLarge(pageEstimate: Int, maxPages: Int)
         case documentRenderedTooLarge(maxPages: Int)
+        case comicArchiveUnreadable
+        case comicArchiveNoImages
+        case comicArchiveUnreadableImage(String)
+        case comicArchiveTooManyImages(maxPages: Int)
 
         var errorDescription: String? {
             DocumentImportConverter.userMessage(for: self)
@@ -239,6 +243,14 @@ enum DocumentImportConverter {
             return String(localized: "This HTML file would render to about \(pageEstimate) pages, which is over Orifold's \(maxPages)-page HTML conversion limit. Try printing or exporting it to PDF from a browser, then import the PDF.", locale: L10n.currentLocale)
         case ConversionError.documentRenderedTooLarge(let maxPages):
             return String(localized: "This file would render to more than \(maxPages) pages, so Orifold stopped the import before creating a partial PDF. Try exporting it to PDF first, then import the PDF.", locale: L10n.currentLocale)
+        case ConversionError.comicArchiveUnreadable:
+            return L10n.string("error.import.cbz.unreadable")
+        case ConversionError.comicArchiveNoImages:
+            return L10n.string("error.import.cbz.noImages")
+        case ConversionError.comicArchiveUnreadableImage(let name):
+            return L10n.format("error.import.cbz.unreadableImage", name)
+        case ConversionError.comicArchiveTooManyImages(let maxPages):
+            return L10n.format("error.import.cbz.tooManyImages", maxPages)
         default:
             return String(localized: "The file could not be opened: \(error.localizedDescription)", locale: L10n.currentLocale)
         }
@@ -354,6 +366,12 @@ enum DocumentImportConverter {
                 pdfDocument: document,
                 sourcePayload: nil,
                 originalPDFData: document.isLocked ? nil : sourceBytes
+            )
+        }
+        if detectedType.conforms(to: .orifoldCBZ) {
+            return ImportedDocument(
+                pdfDocument: try CBZImportService.pdfDocument(from: data, title: filename),
+                sourcePayload: nil
             )
         }
         if detectedType.conforms(to: .orifoldSVG) {
@@ -482,12 +500,22 @@ enum DocumentImportConverter {
         if looksLikeMarkdown(data) {
             return .markdown
         }
-        if SourceDocumentFormat(contentType: suggestedContentType) != nil || suggestedContentType.conforms(to: .pdf) || suggestedContentType.conforms(to: .image) || suggestedContentType.conforms(to: .orifoldSVG) {
+        if SourceDocumentFormat(contentType: suggestedContentType) != nil
+            || suggestedContentType.conforms(to: .pdf)
+            || suggestedContentType.conforms(to: .image)
+            || suggestedContentType.conforms(to: .orifoldSVG)
+            || suggestedContentType.conforms(to: .orifoldCBZ) {
             return suggestedContentType
         }
         if let extensionType = UTType(filenameExtension: URL(fileURLWithPath: filename).pathExtension),
-           SourceDocumentFormat(contentType: extensionType) != nil || extensionType.conforms(to: .pdf) || extensionType.conforms(to: .image) || extensionType.conforms(to: .orifoldSVG) {
+           SourceDocumentFormat(contentType: extensionType) != nil
+            || extensionType.conforms(to: .pdf)
+            || extensionType.conforms(to: .image)
+            || extensionType.conforms(to: .orifoldSVG) {
             return extensionType
+        }
+        if URL(fileURLWithPath: filename).pathExtension.lowercased() == "cbz" {
+            return .orifoldCBZ
         }
         if isDecodableText(data), !looksLikeBinary(data) {
             return .plainText
@@ -527,7 +555,10 @@ enum DocumentImportConverter {
             typedLimit = ("image", maxImageImportBytes)
         } else if contentType.conforms(to: .docx) || contentType.conforms(to: .wordDoc) || contentType.conforms(to: .odt) || contentType.conforms(to: .rtf) || contentType.conforms(to: .orifoldRTFD) {
             typedLimit = ("document", maxRichDocumentImportBytes)
-        } else if contentType.conforms(to: .orifoldXLSX) || contentType.conforms(to: .orifoldPPTX) || contentType.conforms(to: .orifoldEPUB) {
+        } else if contentType.conforms(to: .orifoldXLSX)
+            || contentType.conforms(to: .orifoldPPTX)
+            || contentType.conforms(to: .orifoldEPUB)
+            || contentType.conforms(to: .orifoldCBZ) {
             typedLimit = ("package", maxPackageImportBytes)
         } else if isPlainTextLike(contentType) || contentType.conforms(to: .markdown) {
             typedLimit = ("text", maxTextImportBytes)
@@ -978,6 +1009,9 @@ enum DocumentImportConverter {
         if data.starts(with: Data([0x50, 0x4B, 0x03, 0x04])) ||
             data.starts(with: Data([0x50, 0x4B, 0x05, 0x06])) ||
             data.starts(with: Data([0x50, 0x4B, 0x07, 0x08])) {
+            if URL(fileURLWithPath: filename).pathExtension.lowercased() == "cbz" {
+                return .orifoldCBZ
+            }
             if containsASCII("word/document.xml", in: data) ||
                 containsASCII("application/vnd.openxmlformats-officedocument.wordprocessingml.document", in: data) {
                 return .docx
@@ -1074,7 +1108,7 @@ enum DocumentImportConverter {
         [.plainText, .text, .csv, .orifoldTSV, .json, .xml, .orifoldYAML, .orifoldTOML, .propertyList, .orifoldLog, .orifoldSourceCode, .orifoldShellScript, .orifoldSQL].contains { contentType.conforms(to: $0) }
     }
 
-    private static func renderImage(_ data: Data, title: String) throws -> PDFDocument {
+    static func renderImage(_ data: Data, title: String) throws -> PDFDocument {
         guard let image = NSImage(data: data) else { throw ConversionError.unreadableDocument }
         let pageSize = CGSize(width: 612, height: 792)
         let margin: CGFloat = 36
@@ -1465,7 +1499,7 @@ private enum OfficePackageTextExtractor {
     }
 }
 
-private struct SimpleZIPArchive {
+struct SimpleZIPArchive {
     enum ZIPError: Error {
         case unreadable
         case unsupportedCompression
@@ -1498,6 +1532,11 @@ private struct SimpleZIPArchive {
             return nil
         }
         return text
+    }
+
+    func data(named name: String) throws -> Data {
+        guard let entry = entries[name] else { throw ZIPError.unreadable }
+        return try entryData(entry)
     }
 
     private func entryData(_ entry: Entry) throws -> Data {

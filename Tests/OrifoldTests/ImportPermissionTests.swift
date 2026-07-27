@@ -33,6 +33,8 @@ final class ImportPermissionTests: XCTestCase {
         XCTAssertEqual(ImportFailureClassifier.classify(error: DocumentImportConverter.ConversionError.passwordProtected, url: nil), .passwordProtected)
         XCTAssertEqual(ImportFailureClassifier.classify(error: DocumentImportConverter.ConversionError.unreadableDocument, url: nil), .corruptOrEncrypted)
         XCTAssertEqual(ImportFailureClassifier.classify(error: DocumentImportConverter.ConversionError.fileTooLarge(1), url: nil), .tooLarge)
+        XCTAssertEqual(ImportFailureClassifier.classify(error: DocumentImportConverter.ConversionError.comicArchiveNoImages, url: nil), .corruptOrEncrypted)
+        XCTAssertEqual(ImportFailureClassifier.classify(error: DocumentImportConverter.ConversionError.comicArchiveTooManyImages(maxPages: 1_000), url: nil), .tooLarge)
     }
 
     func testClassifyIsPassthroughForAlreadyClassifiedFailure() {
@@ -118,7 +120,7 @@ final class ImportPermissionTests: XCTestCase {
     // MARK: - Whitelist parity
 
     func testFolderScanWhitelistAgreesWithWorkspaceDocumentWhitelistForRepresentativeExtensions() {
-        let extensionsExpectedSupported = ["pdf", "html", "docx", "odt", "rtf", "txt", "md", "csv", "json", "png", "jpg"]
+        let extensionsExpectedSupported = ["pdf", "html", "docx", "odt", "rtf", "txt", "md", "csv", "json", "png", "jpg", "cbz"]
         for ext in extensionsExpectedSupported {
             let url = URL(fileURLWithPath: "/tmp/sample.\(ext)")
             XCTAssertTrue(isSupportedImportURL(url), "\(ext) should be supported by the shared whitelist used for folder scans")

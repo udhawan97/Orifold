@@ -2870,6 +2870,7 @@ private func isTemporaryDropProviderURL(_ url: URL) -> Bool {
 
 func isSupportedImportURL(_ url: URL) -> Bool {
     guard url.isFileURL else { return false }
+    if url.pathExtension.lowercased() == "cbz" { return true }
     if let resourceType = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType,
        WorkspaceDocument.importableContentTypes.contains(where: { resourceType.conforms(to: $0) }) {
         return true
@@ -2879,6 +2880,7 @@ func isSupportedImportURL(_ url: URL) -> Bool {
 }
 
 private func isSupportedImportExtension(_ pathExtension: String) -> Bool {
+    if pathExtension.lowercased() == "cbz" { return true }
     guard !pathExtension.isEmpty,
           let type = UTType(filenameExtension: pathExtension) else {
         return false

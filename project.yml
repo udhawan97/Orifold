@@ -108,6 +108,11 @@ targets:
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes: [org.openxmlformats.spreadsheetml.sheet, org.openxmlformats.presentationml.presentation, org.idpf.epub-container]
+          - CFBundleTypeExtensions: [cbz]
+            CFBundleTypeName: Comic Book Archive
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.ud.Orifold.cbz]
           - CFBundleTypeExtensions: [svg]
             CFBundleTypeName: SVG Image
             CFBundleTypeRole: Viewer
@@ -123,6 +128,13 @@ targets:
             CFBundleTypeRole: Editor
             LSHandlerRank: Alternate
             LSItemContentTypes: [public.image, public.png, public.jpeg, com.compuserve.gif, public.tiff, public.heic, com.microsoft.bmp, org.webmproject.webp]
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.ud.Orifold.cbz
+            UTTypeDescription: Comic Book Archive
+            UTTypeConformsTo: [public.zip-archive]
+            UTTypeTagSpecification:
+              public.filename-extension: [cbz]
+              public.mime-type: [application/vnd.comicbook+zip]
     entitlements:
       path: Orifold/Resources/Orifold.entitlements
       properties:
