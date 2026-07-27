@@ -311,4 +311,5 @@ extension Notification.Name {
     static let orifoldToggleReaderMode = Notification.Name("orifoldToggleReaderMode")
     static let orifoldToggleTableOfContents = Notification.Name("orifoldToggleTableOfContents")
     static let orifoldRequestDiscardClose = Notification.Name("orifoldRequestDiscardClose")
+    static let orifoldRequestTranslation = Notification.Name("orifoldRequestTranslation")
 }

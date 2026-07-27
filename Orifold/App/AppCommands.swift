@@ -43,6 +43,7 @@ struct AppCommands: Commands {
         CommandGroup(after: .toolbar) {
             ViewToggleCommandButtons(locale: locale)
             ReadAloudCommandButton(locale: locale)
+            TranslateCommandButton(locale: locale)
             Divider()
             PetBuddyCommandToggle(locale: locale)
             PetSpeciesCommandPicker(locale: locale)
@@ -283,6 +284,31 @@ private struct ReadAloudCommandButton: View {
             viewModel?.toggleReadAloud()
         }
         .disabled(viewModel == nil || viewModel?.pageCount == 0)
+    }
+}
+
+/// Menu-bar escape hatch for translation. The toolbar's secondary-actions popover can be
+/// moved into macOS's own toolbar overflow at narrow widths, where a popover has no visible
+/// anchor. A first-class View-menu command keeps the reading aid reachable at every size and
+/// routes presentation back to the focused document window.
+private struct TranslateCommandButton: View {
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+    var locale: Locale
+
+    var body: some View {
+        if TranslationFeature.isAvailable {
+            Button(
+                L10n.string(
+                    viewModel?.hasTranslationSelection == true
+                        ? "translation.menu.selection"
+                        : "translation.menu.page",
+                    locale: locale
+                )
+            ) {
+                NotificationCenter.default.post(name: .orifoldRequestTranslation, object: nil)
+            }
+            .disabled(viewModel?.translationRequestText == nil)
+        }
     }
 }
 

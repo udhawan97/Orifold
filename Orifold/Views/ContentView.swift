@@ -525,46 +525,12 @@ struct ContentView: View {
             // center capsule's `groupDivider`) is unambiguous regardless of ambient layout.
             ToolbarVerticalDivider(height: 18, horizontalPadding: 4)
 
-            ToolbarIconButton(labelKey: "toolbar.search.label", systemImage: "magnifyingglass", helpKey: "toolbar.search.help") {
-                viewModel.isShowingSearch.toggle()
-            }
-            .acceptsImportDrops { providers in
-                handleDrop(providers: providers)
-            }
-            .keyboardShortcut(.find)
-
-            // Keep the primary delivery action direct. A nested Menu becomes disabled
-            // when macOS moves it into the toolbar overflow menu at compact widths.
-            // Print remains available from File → Print and ⌘P.
-            ToolbarIconButton(
-                labelKey: "toolbar.export.label",
-                systemImage: "square.and.arrow.up",
-                helpKey: "toolbar.export.help"
-            ) {
-                isShowingExportSheet = true
-            }
-            .acceptsImportDrops { providers in
-                handleDrop(providers: providers)
-            }
-            .keyboardShortcut(.export)
-
-            ToolbarIconButton(
-                labelKey: "toolbar.inspector.label",
-                systemImage: "sidebar.right",
-                helpKey: "toolbar.inspector.help",
-                isActive: showInspector,
-                iconInset: 2
-            ) {
-                showInspector.toggle()
-            }
-            .acceptsImportDrops { providers in
-                handleDrop(providers: providers)
-            }
-            .keyboardShortcut(.toggleInspector)
-
-            // Everything secondary now folds into one calm overflow. Its own active tint is the
-            // *soft* variant, not the full accent pill Inspector uses — a persistent solid-accent
-            // ellipsis while reading would shout; a soft wash just says "a mode is on in here."
+            // Keep the app's own overflow ahead of the direct utility actions. macOS moves
+            // trailing toolbar items into its system overflow at narrower widths; a button
+            // whose action presents a popover has no visible anchor there, so the presentation
+            // is discarded. Search, Export, and Inspector remain functional from the system
+            // overflow, while this button must stay visible to keep secondary workflows
+            // reachable.
             ToolbarIconButton(
                 labelKey: "toolbar.more.label",
                 systemImage: "ellipsis",
@@ -613,6 +579,43 @@ struct ContentView: View {
                 .environmentObject(languageManager)
                 .environment(\.locale, languageManager.effectiveLocale)
             }
+
+            ToolbarIconButton(labelKey: "toolbar.search.label", systemImage: "magnifyingglass", helpKey: "toolbar.search.help") {
+                viewModel.isShowingSearch.toggle()
+            }
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
+            .keyboardShortcut(.find)
+
+            // Keep the primary delivery action direct. A nested Menu becomes disabled
+            // when macOS moves it into the toolbar overflow menu at compact widths.
+            // Print remains available from File → Print and ⌘P.
+            ToolbarIconButton(
+                labelKey: "toolbar.export.label",
+                systemImage: "square.and.arrow.up",
+                helpKey: "toolbar.export.help"
+            ) {
+                isShowingExportSheet = true
+            }
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
+            .keyboardShortcut(.export)
+
+            ToolbarIconButton(
+                labelKey: "toolbar.inspector.label",
+                systemImage: "sidebar.right",
+                helpKey: "toolbar.inspector.help",
+                isActive: showInspector,
+                iconInset: 2
+            ) {
+                showInspector.toggle()
+            }
+            .acceptsImportDrops { providers in
+                handleDrop(providers: providers)
+            }
+            .keyboardShortcut(.toggleInspector)
         }
     }
 
@@ -3115,6 +3118,9 @@ private struct ToolbarOverflowPresentations: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: .orifoldToggleTableOfContents)) { _ in
                 guard !viewModel.memberDocuments.isEmpty else { return }
                 showTOC.toggle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .orifoldRequestTranslation)) { _ in
+                translationRequest = viewModel.translationRequestText
             }
     }
 }
