@@ -23,7 +23,7 @@
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-2b4566?style=flat-square&logo=apple&logoColor=white">
   <img alt="Universal — Apple Silicon + Intel" src="https://img.shields.io/badge/universal-Apple_Silicon_%2B_Intel-2b4566?style=flat-square">
-  <img alt="version v0.9.1" src="https://img.shields.io/badge/version-v0.9.1-46536b?style=flat-square">
+  <img alt="version v0.10.0" src="https://img.shields.io/badge/version-v0.10.0-46536b?style=flat-square">
   <img alt="Local document processing" src="https://img.shields.io/badge/privacy-local_processing-3f6b52?style=flat-square">
   <img alt="6 languages" src="https://img.shields.io/badge/i18n-6_languages-46536b?style=flat-square">
   <img alt="Apache 2.0 License" src="https://img.shields.io/badge/license-Apache_2.0-46536b?style=flat-square">
@@ -49,11 +49,10 @@
 > landed in v0.8.8 and is still hardening; a few folds (real redaction, side-by-side compare)
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
-> [!IMPORTANT]
-> **Current source vs. current download:** `main` is ahead of the tagged v0.9.1 app. It now
-> includes safe CBZ-to-PDF import, existing-path fill/stroke/line-width restyling, and
-> read-only on-device translation on macOS 15+. These are implemented and tested, but are not
-> in the v0.9.1 download until a new release is tagged.
+> [!TIP]
+> **New in v0.10.0:** import CBZ comics as naturally ordered PDF pages, restyle compatible
+> vector fills, strokes, and line widths, and translate a selection or current page with
+> Apple’s on-device language models on macOS 15+.
 
 ## The fold
 
@@ -79,17 +78,17 @@ Document processing below runs on your Mac. No document content is uploaded.
 
 | | Do this | Get this |
 | :---: | --- | --- |
-| 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV, and CBZ comics *(CBZ on `main`)* — even corrupt files | One workspace instead of a folder of chaos; broken PDFs repaired on the way in |
+| 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV, and CBZ comics — even corrupt files | One workspace instead of a folder of chaos; broken PDFs repaired on the way in |
 | 🗂️ | **Organize** — reorder, rotate, delete pages across documents | A clean packet from messy source files |
 | ✏️ | **Annotate & edit** — highlight, notes, ink, text boxes, edit real PDF text in place | Reviewed documents without a print-sign-scan loop |
-| 🧩 | **Edit objects** *(beta)* — the **Select** tool moves, resizes, layers, or deletes a real page graphic; `main` also restyles existing vector fill, stroke, and line width | Fix the layout itself, not just a note stuck on top of it |
+| 🧩 | **Edit objects** *(beta)* — the **Select** tool moves, resizes, layers, deletes, or restyles a compatible real page graphic | Fix the layout itself, not just a note stuck on top of it |
 | 🖋️ | **Sign & fill forms** — draw signatures or place a real PAdES digital signature, complete and lock form fields | Finished, tamper-evident paperwork — no third-party e-sign service |
 | 🔍 | **OCR scans** — local Vision OCR makes scanned pages searchable | ⌘F finally works on the thing your printer emailed you |
 | 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels, hanko seals, barcodes and QR codes | Packets and exhibits that look intentional |
 | 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
 | 🧼 | **Sanitize** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't mean to send |
 | 🔒 | **Protect & export** — real AES-256 password, or export to DOCX, Markdown, HTML, PNG, JPEG | The format the next person needs, locked when it matters |
-| 📖 | **Read comfortably** — nested Contents, read aloud, Reader Mode, Document Comfort, and read-only on-device translation on macOS 15+ *(on `main`)* | Long documents that are easier to navigate and absorb |
+| 📖 | **Read comfortably** — nested Contents, read aloud, Reader Mode, Document Comfort, and read-only on-device translation on macOS 15+ | Long documents that are easier to navigate and absorb |
 | 🧭 | **Inspect & archive** — edit metadata, manage attachments, inspect tagged structure, and check archival-readiness signals | Fewer surprises hidden inside the file |
 | 🌐 | **Work in your language** — full UI in English, Spanish, French, Hindi, Simplified Chinese, Japanese | An app that speaks your language, switchable from the landing screen |
 
@@ -100,12 +99,12 @@ Document processing below runs on your Mac. No document content is uploaded.
 
 | Area | What you can do |
 | --- | --- |
-| **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, common images, and—on `main`—CBZ comic archives converted to PDF in natural page order; up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
+| **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, common images, and CBZ comic archives converted to PDF in natural page order; up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
 | **Organize** | Reorder documents and pages, rotate, delete, add section banners, navigate from the sidebar |
-| **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control, password unlock prompts, Reader Mode, Document Comfort presets, and—on `main` with macOS 15+—read-only Apple on-device translation for a selection or current page |
+| **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control, password unlock prompts, Reader Mode, Document Comfort presets, and—on macOS 15+—read-only Apple on-device translation for a selection or current page |
 | **Recently viewed** | An empty-state shelf of the last files you opened, with locally cached thumbnails — nothing about it leaves the machine |
 | **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text with continuous spell-check and metric-compatible fallback fonts |
-| **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), or deletes it; `main` also restyles existing solid fill/stroke channels and line width on compatible vector paths; object and inline-text edits compose safely, survive save/reopen/export, and share full undo/redo |
+| **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), deletes, or restyles existing solid fill/stroke channels and line width on compatible vector paths; object and inline-text edits compose safely, survive save/reopen/export, and share full undo/redo |
 | **Signatures** | Draw and place signatures, or produce standards-based PAdES digital signatures with Keychain and `.p12` identities — verifiable anywhere PAdES is understood |
 | **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
 | **Scans & OCR** | Local Vision OCR makes scans searchable; recognized text survives export |
@@ -299,13 +298,13 @@ xcodebuild test  -quiet -project Orifold.xcodeproj -scheme Orifold -destination 
 
 # Build the same release zip GitHub Releases ships, then the universal DMG
 ORIFOLD_UNIVERSAL=1 ./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
-zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.9.1
+zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.10.0
 
 # Install from the current source checkout without opening the app
 ./scripts/install-mac.sh --no-open
 ```
 
-App metadata: `CFBundleShortVersionString` `0.9.1`, `CFBundleVersion` `22`.
+App metadata: `CFBundleShortVersionString` `0.10.0`, `CFBundleVersion` `23`.
 </details>
 
 <details>
