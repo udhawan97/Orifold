@@ -149,7 +149,8 @@ struct SearchView: View {
                     List(rows, id: \.offset) { i, result in
                         SearchResultRow(
                             result: result,
-                            isActive: i == viewModel.searchResultIndex
+                            isActive: i == viewModel.searchResultIndex,
+                            reference: viewModel.pageReference(for: result)
                         )
                         .frame(minHeight: Layout.rowMinHeight, alignment: .leading)
                         .listRowBackground(
@@ -266,16 +267,27 @@ struct SearchView: View {
 struct SearchResultRow: View {
     var result: PDFSelection
     var isActive: Bool
+    /// Resolved by the parent, which has the view model. The row deliberately
+    /// does not read `PDFPage.label` itself: doing so reported member-local
+    /// labels that collided across a merged workspace (three members each
+    /// showing "Page 1") and rendered "Page ?" for banner separators.
+    var reference: WorkspaceViewModel.PageReference?
     // Passed into L10n.format() below so this view's `body` actually reads it —
     // SwiftUI only re-invokes `body` on a locale change for views that read
     // `\.locale` during the previous evaluation.
     @Environment(\.locale) private var locale
 
-    private var pageLabel: String {
-        result.pages.first.flatMap { $0.label } ?? "?"
-    }
     private var snippet: String {
         result.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    private var caption: String? {
+        guard let reference else { return nil }
+        let position = String(reference.position)
+        guard let label = reference.label else {
+            return L10n.format("search.pageLabel", position, locale: locale)
+        }
+        return L10n.format("search.pageLabelWithSource", position, label, locale: locale)
     }
 
     var body: some View {
@@ -285,9 +297,11 @@ struct SearchResultRow: View {
                 .foregroundStyle(isActive ? Color.dsAccent : Color.dsTextPrimary)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(L10n.format("search.pageLabel", pageLabel, locale: locale))
-                .font(.dsCaption())
-                .foregroundStyle(Color.dsTextTertiary)
+            if let caption {
+                Text(caption)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextTertiary)
+            }
         }
         .padding(.vertical, .dsXS)
         .frame(maxWidth: .infinity, alignment: .leading)
