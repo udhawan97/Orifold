@@ -75,7 +75,7 @@ on that basis, not on capability.
 
 ```
 member bytes (Data)
-  └─ PageLabelService.hasPageLabels(_:)        ← qpdf, once per member, cached by member UUID
+  └─ QPDFService.hasPageLabels(_:)             ← qpdf, once per member, cached by member UUID
         └─ WorkspaceViewModel.pageReference(for:in:)
               ├─ position ← workspacePageNumber(for:in:)      (unchanged, basis W)
               └─ label    ← gate ? page.label : nil
@@ -84,14 +84,17 @@ member bytes (Data)
                     └─ SearchView parent  → SearchResultRow(position:label:)
 ```
 
-### New unit — `Orifold/Engine/PageLabelService.swift`
+### The gate — `QPDFService.hasPageLabels(_:)`
 
 ```swift
-enum PageLabelService {
-    /// True when the document catalog carries a `/PageLabels` number tree.
-    static func hasPageLabels(_ data: Data) -> Bool
-}
+/// True when the document catalog carries a `/PageLabels` number tree.
+static func hasPageLabels(_ data: Data) -> Bool
 ```
+
+Added **next to `hasXMPMetadata` in `QPDFService.swift`**, not in a new file. It is the same
+kind of catalog-key probe, six lines long, and `QPDFService` is already the sanctioned home for
+them. A separate `PageLabelService` file would only earn its keep if we were also parsing the
+number tree, and decision 4 explicitly declines to.
 
 Pure function of bytes. Takes **no password parameter**: the sibling precedent at
 `WorkspaceViewModel.swift:2604` calls `PDFMetadataService.read(from: data)` with no password,
@@ -126,18 +129,18 @@ written by any mutation. A derived fact does not need a schema, and skipping per
 both a `Workspace` version bump and the dual-write hazard that `applyRename`
 (`WorkspaceViewModel.swift:1507-1511`) already has to manage.
 
-Invalidation: drop the member's entry in `mutateMemberBytes` — the single atomic entry point
-for document-level byte changes — and clear the whole cache on member add/remove.
+Invalidation: drop the member's entry in `mutateMemberBytes`, the single atomic entry point for
+document-level byte changes. Nothing is needed on member add or remove — a member UUID is never
+reused, so an entry left behind by a removed member is inert rather than stale, and a newly
+added member simply has no entry yet.
 
 ### View edits
 
 **Page bar** — `ReadingCanvas.swift:468`, append after the existing `/ 320`.
 
-`ZoomPageBar` (`ReadingCanvas.swift:343`) has **no `@Environment(\.locale)`** — the locale
-declarations in that file are at lines 87, 162, 190, 223, 290, none inside it. Its existing
-`L10n.string("readingCanvas.pageBar.pageLabel")` call therefore does not re-render on live
-language switch today. Adding the property is required for the new string and fixes that
-latent bug in passing.
+`ZoomPageBar` (`ReadingCanvas.swift:343`) already reads `@Environment(\.locale)` at `:348`
+and forces the dependency with `let _ = locale` at `:351`, so live language switching already
+works there and the new string needs no additional plumbing.
 
 **Search row** — `SearchView.swift:150`. `viewModel` is already in scope at the call site, so
 the parent computes the reference and passes `position` and `label` into `SearchResultRow`.
@@ -186,7 +189,7 @@ Every failure path collapses to "no label", which is exactly today's behavior:
 
 ## Tests
 
-**`PageLabelServiceTests`** — fixture carrying a real `/PageLabels` number tree returns `true`;
+**`QPDFServicePageLabelTests`** — fixture carrying a real `/PageLabels` number tree returns `true`;
 fixture without returns `false`.
 
 Fixture built with `Tests/OrifoldTests/Fixtures/make-tagged-fixtures.py`, whose `build_pdf`
