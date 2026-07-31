@@ -129,10 +129,24 @@ written by any mutation. A derived fact does not need a schema, and skipping per
 both a `Workspace` version bump and the dual-write hazard that `applyRename`
 (`WorkspaceViewModel.swift:1507-1511`) already has to manage.
 
-Invalidation: drop the member's entry in `mutateMemberBytes`, the single atomic entry point for
-document-level byte changes. Nothing is needed on member add or remove — a member UUID is never
-reused, so an entry left behind by a removed member is inert rather than stale, and a newly
-added member simply has no entry yet.
+Invalidation: **clear the whole cache in `rebuild()`.**
+
+An earlier draft of this spec said to drop the member's entry in `mutateMemberBytes`, "the
+single atomic entry point for document-level byte changes". That was wrong, and adversarial
+review caught it. `restore(_:)` on undo (`:1608`), `applyOCRResult` (`:2533`),
+`restoreInlineTextEditSnapshot` (`:1715`), the object-commit rollback (`:3753`), and
+`revertToInitialState` (`:2247`) all assign `document.memberPDFData` directly, bypassing it
+entirely.
+
+That matters because those paths write PDFKit re-serializations, and a PDFKit round trip drops
+`/PageLabels` (the same fact recorded under *Non-goals* below). A cache warmed before one of
+them keeps answering "true" while `PDFPage.label` has fallen back to synthesized member-local
+ordinals — so the page bar prints a label the document never carried. That is exactly the
+failure the gate exists to prevent, reintroduced one layer up.
+
+`rebuild()` is the correct choke point: it is where `combinedPDF` is reconstructed from
+`loadedPDFs`, so if a byte change did not reach it, no page the reader can see has changed
+either. Nothing is needed on member add or remove — both go through `rebuild()` too.
 
 ### View edits
 
