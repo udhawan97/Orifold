@@ -2815,6 +2815,8 @@ final class WorkspaceViewModel {
         }
 
         guard let newLive = transform(currentLive) else { return failed() }
+        // Byte-level rewrites can add or drop /PageLabels; re-probe on next use.
+        pageLabelPresence[memberID] = nil
         var newOriginal: Data? = nil
         if let original = originalMemberPDFData[memberID] {
             guard let transformed = transform(original) else { return failed() }
@@ -8934,6 +8936,65 @@ final class WorkspaceViewModel {
         }
         let ref = document.workspace.pageOrder[orderIndex]
         return document.memberPDFData[ref.memberDocId]
+    }
+
+    // MARK: - Page reference
+
+    /// Where a page sits in the workspace, plus the label its own source document
+    /// gives it. `label` is non-nil only when that member genuinely carries a
+    /// `/PageLabels` number tree *and* the label says something the position does
+    /// not already say.
+    struct PageReference: Equatable {
+        let position: Int
+        let label: String?
+    }
+
+    /// `/PageLabels` presence per member, derived on first use.
+    ///
+    /// Deliberately not persisted and not a field on `MemberDocument`:
+    /// `PageRef.rotation` and `PageRef.cropBox` are the local cautionary
+    /// precedent for stored properties that are declared, encoded, and never
+    /// written by any mutation. Entries left behind by removed members are inert
+    /// because member UUIDs are never reused.
+    @ObservationIgnored private var pageLabelPresence: [UUID: Bool] = [:]
+
+    private func memberHasPageLabels(_ memberID: UUID) -> Bool {
+        if let known = pageLabelPresence[memberID] { return known }
+        guard let data = document.memberPDFData[memberID] else { return false }
+        let present = QPDFService.hasPageLabels(data)
+        pageLabelPresence[memberID] = present
+        return present
+    }
+
+    /// The workspace position of `page`, and its source label when it carries one.
+    /// Returns nil for `BoundaryPage` — banners are separators, not pages.
+    func pageReference(for page: PDFPage, in pdfDocument: PDFDocument) -> PageReference? {
+        guard !(page is BoundaryPage) else { return nil }
+        let position = workspacePageNumber(for: page, in: pdfDocument)
+        guard position > 0 else { return nil }
+
+        guard let ref = pageRef(for: page, in: pdfDocument),
+              memberHasPageLabels(ref.memberDocId),
+              let label = page.label,
+              label != String(position)
+        else {
+            return PageReference(position: position, label: nil)
+        }
+        return PageReference(position: position, label: label)
+    }
+
+    /// Convenience for search rows, which hold a selection rather than a page.
+    func pageReference(for selection: PDFSelection) -> PageReference? {
+        guard let page = selection.pages.first else { return nil }
+        return pageReference(for: page, in: combinedPDF)
+    }
+
+    /// The source label for the page the reader is currently on, if any.
+    var currentPageSourceLabel: String? {
+        guard let index = combinedPageIndex(forWorkspacePageNumber: currentPageNumber),
+              let page = combinedPDF.page(at: index)
+        else { return nil }
+        return pageReference(for: page, in: combinedPDF)?.label
     }
 
     // MARK: - Print
