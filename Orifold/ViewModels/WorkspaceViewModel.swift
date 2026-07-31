@@ -1378,6 +1378,18 @@ final class WorkspaceViewModel {
             }
         }
         combinedPDF = engine.concatenate(documents: loadedPDFs, includeBanners: true)
+        // Derived from member BYTES, which several paths replace wholesale without
+        // going through `mutateMemberBytes` — undo/`restore(_:)`, `applyOCRResult`,
+        // inline-edit and object-commit rollback, `revertToInitialState`. Those
+        // replacements are PDFKit re-serializations, and a PDFKit round trip drops
+        // `/PageLabels` entirely, so a cache left warm across one of them would keep
+        // answering "true" while `PDFPage.label` had fallen back to synthesized
+        // ordinals — printing a label the document never carried, which is the exact
+        // failure `QPDFService.hasPageLabels` exists to prevent. This is the correct
+        // choke point rather than any individual writer: if a byte change did not
+        // reach `rebuild()`, it did not reach `combinedPDF` either, so no page the
+        // reader can see has changed.
+        pageLabelPresence.removeAll()
         pageCount = document.workspace.pageOrder.count
         normalizePageSelection()
         refreshFormSummary()
@@ -2815,8 +2827,6 @@ final class WorkspaceViewModel {
         }
 
         guard let newLive = transform(currentLive) else { return failed() }
-        // Byte-level rewrites can add or drop /PageLabels; re-probe on next use.
-        pageLabelPresence[memberID] = nil
         var newOriginal: Data? = nil
         if let original = originalMemberPDFData[memberID] {
             guard let transformed = transform(original) else { return failed() }
@@ -8949,13 +8959,14 @@ final class WorkspaceViewModel {
         let label: String?
     }
 
-    /// `/PageLabels` presence per member, derived on first use.
+    /// `/PageLabels` presence per member, derived on first use and cleared
+    /// wholesale by `rebuild()` — see the note there for why that is the only
+    /// safe invalidation point.
     ///
     /// Deliberately not persisted and not a field on `MemberDocument`:
     /// `PageRef.rotation` and `PageRef.cropBox` are the local cautionary
     /// precedent for stored properties that are declared, encoded, and never
-    /// written by any mutation. Entries left behind by removed members are inert
-    /// because member UUIDs are never reused.
+    /// written by any mutation.
     @ObservationIgnored private var pageLabelPresence: [UUID: Bool] = [:]
 
     private func memberHasPageLabels(_ memberID: UUID) -> Bool {

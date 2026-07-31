@@ -68,6 +68,61 @@ final class PageReferenceTests: XCTestCase {
         XCTAssertNil(secondReference.label, "member B has no /PageLabels; its synthesized \"1\" must not leak")
     }
 
+    /// Regression: undo, OCR, and every rollback path replace a member's bytes
+    /// with a PDFKit re-serialization, which drops `/PageLabels` outright. A
+    /// presence cache left warm across one of those would keep answering "true"
+    /// while `PDFPage.label` had fallen back to synthesized ordinals — showing
+    /// the reader a label the document never carried.
+    func testForgetsCachedLabelPresenceWhenMemberBytesAreReplaced() throws {
+        // The labeled member must NOT be first. In a single-member workspace the
+        // stripped bytes synthesize "1" at position 1, which the equality rule
+        // suppresses anyway — masking the stale cache and making this test pass
+        // with the invalidation removed. As the SECOND member its pages sit at
+        // positions 5-8, so a synthesized member-local "1" collides with nothing
+        // and sails straight through to the reader.
+        let viewModel = makeViewModel(members: [unlabeledFixture(), labeledFixture()])
+
+        // Combined layout: [banner, A1...A4, banner, B1...B4] -> B's first page is index 6.
+        let before = try XCTUnwrap(viewModel.combinedPDF.page(at: 6))
+        let beforeReference = try XCTUnwrap(viewModel.pageReference(for: before, in: viewModel.combinedPDF))
+        XCTAssertEqual(beforeReference.position, 5)
+        XCTAssertEqual(
+            beforeReference.label, "i",
+            "precondition: the label is visible, so the presence cache is now warm"
+        )
+
+        // Exactly what restore(_:) does on undo: member bytes are replaced with a
+        // PDFKit re-serialization and loadedPDFs/combinedPDF are rebuilt from them.
+        let source = try XCTUnwrap(PDFDocument(data: labeledFixture()))
+        let stripped = try XCTUnwrap(PDFSerializer.data(from: source))
+        XCTAssertFalse(
+            QPDFService.hasPageLabels(stripped),
+            "precondition: a PDFKit round trip really does drop /PageLabels"
+        )
+        XCTAssertEqual(
+            PDFDocument(data: stripped)?.page(at: 0)?.label, "1",
+            "precondition: PDFKit now synthesizes \"1\" where the document said \"i\""
+        )
+
+        let memberID = try XCTUnwrap(viewModel.document.workspace.documents.last?.id)
+        viewModel.document.memberPDFData[memberID] = stripped
+        viewModel.loadedPDFs = viewModel.document.workspace.documents.compactMap { member in
+            guard let data = viewModel.document.memberPDFData[member.id],
+                  let pdf = PDFDocument(data: data) else { return nil }
+            return (member, pdf)
+        }
+        viewModel.rebuild()
+
+        let after = try XCTUnwrap(viewModel.combinedPDF.page(at: 6))
+        let afterReference = try XCTUnwrap(viewModel.pageReference(for: after, in: viewModel.combinedPDF))
+        XCTAssertEqual(afterReference.position, 5)
+        XCTAssertNil(
+            afterReference.label,
+            "these bytes no longer carry /PageLabels, so \"1\" is PDFKit's invention — "
+                + "a warm cache would print it at position 5 as if the document said so"
+        )
+    }
+
     func testReturnsNilForBoundaryPages() throws {
         let viewModel = makeViewModel(members: [labeledFixture()])
         let banner = try XCTUnwrap(viewModel.combinedPDF.page(at: 0))
