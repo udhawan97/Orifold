@@ -125,6 +125,21 @@ enum QPDFService {
         } ?? false
     }
 
+    /// True when the document catalog carries a `/PageLabels` number tree --
+    /// the numbering a document prints on its own pages (roman front matter,
+    /// an offprint starting at 247, an exhibit reading "A-7").
+    ///
+    /// This exists because `PDFPage.label` cannot be asked the question: for a
+    /// document with no `/PageLabels` it *synthesizes* "1", "2", "3" rather
+    /// than returning nil. A UI that shows "the label when it differs from the
+    /// position" would therefore invent labels for every unlabeled member of a
+    /// merged workspace. The catalog key is the only honest signal.
+    static func hasPageLabels(_ data: Data) -> Bool {
+        withQPDF(data, description: "page-labels-probe") { qpdf in
+            qpdf_oh_has_key(qpdf, qpdf_get_root(qpdf), "/PageLabels") == QPDF_TRUE
+        } ?? false
+    }
+
     /// Replaces only page annotations and the document AcroForm in `destinationData` with
     /// their live counterparts from `sourceData`. Page contents/resources remain those of the
     /// destination. This is the preserving bridge used after canonical edit replay: PDFKit bytes

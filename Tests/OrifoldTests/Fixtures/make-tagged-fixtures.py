@@ -159,6 +159,32 @@ def xmp_metadata() -> bytes:
     ])
 
 
+def page_labels(nums: str | None) -> bytes:
+    """Four pages, optionally carrying a /PageLabels number tree.
+
+    With `nums`, PDFKit reports ["i", "ii", "1", "A-7"]. WITHOUT it PDFKit
+    SYNTHESIZES ["1", "2", "3", "4"] rather than returning nil -- which is
+    precisely why QPDFService.hasPageLabels gates on the catalog key instead
+    of trusting PDFPage.label to admit the absence.
+    """
+    ops = "BT /F1 24 Tf 72 700 Td (Page) Tj ET\n"
+    labels = f" /PageLabels << /Nums [{nums}] >>" if nums else ""
+    page = (
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 3 0 R "
+        "/Resources << /Font << /F1 4 0 R >> >> >>"
+    )
+    return build_pdf([
+        f"<< /Type /Catalog /Pages 2 0 R{labels} >>",
+        "<< /Type /Pages /Kids [5 0 R 6 0 R 7 0 R 8 0 R] /Count 4 >>",
+        f"<< /Length {len(ops)} >>\nstream\n{ops}endstream",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        page,
+        page,
+        page,
+        page,
+    ])
+
+
 if __name__ == "__main__":
     written = {
         "tagged-sample.pdf": tagged("A red rectangle"),
@@ -167,6 +193,11 @@ if __name__ == "__main__":
         "active-content.pdf": active_content(),
         "output-intent.pdf": output_intent(),
         "xmp-metadata.pdf": xmp_metadata(),
+        "page-labels.pdf": page_labels(
+            "0 << /S /r >> 2 << /S /D /St 1 >> 3 << /S /D /P (A-) /St 7 >>"
+        ),
+        "page-labels-decimal.pdf": page_labels("0 << /S /D >>"),
+        "no-page-labels.pdf": page_labels(None),
     }
     for name, payload in written.items():
         (HERE / name).write_bytes(payload)
