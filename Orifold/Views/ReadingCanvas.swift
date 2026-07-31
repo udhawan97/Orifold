@@ -468,6 +468,12 @@ private struct ZoomPageBar: View {
                     Text("/ \(viewModel.pageCount)")
                         .monospacedDigit()
                         .foregroundStyle(Color.dsTextSecondary)
+                    if let sourceLabel = viewModel.currentPageSourceLabel {
+                        Text(L10n.format("readingCanvas.pageBar.sourceLabel", sourceLabel, locale: locale))
+                            .foregroundStyle(Color.dsTextTertiary)
+                            .lineLimit(1)
+                            .help(L10n.string("readingCanvas.pageBar.sourceLabel.help", locale: locale))
+                    }
                 }
                 .font(.system(size: 11, weight: .medium))
                 .padding(.horizontal, 9)
