@@ -248,28 +248,54 @@ Stated so they do not creep in during implementation:
 - **No member name in the search row.** Today's row does not show one; adding it is a separate
   feature.
 
-## Filed separately, not fixed here
+## Filed separately — since resolved
 
-Found while mapping the numbering surface. All real, none in scope:
+All six were investigated independently before any fix. **Five confirmed, one refuted.**
+Verdicts and outcomes are recorded inline below. One additional defect surfaced during that
+investigation and was fixed first:
+
+- **Replace All crashed for Hindi and Japanese users.** `search.replace.all.result.other` is
+  called with `(Int, String, String)`, but the `hi` and `ja` translations open with `%@`
+  because both languages naturally put the search term before the count. `L10n.format` is a
+  positional passthrough, so the `Int` landed in an object slot. Compiling the six shipping
+  format strings against the real argument types: `en/es/fr/zh-Hans` exit 0, `hi` and `ja`
+  exit **139 (SIGSEGV)**. Fixed with positional specifiers, plus a new
+  `LocalizationFormatSpecifierTests` that checks every key binds the same argument *types* in
+  every language — it flagged exactly the two crashing entries across 1,261 keys.
+
+**Still open, deliberately not fixed here:** 30 further `String(localized:)` sites use
+interpolation, so they build compiler-derived keys and render English in all six languages —
+15 in `WorkspaceViewModel.swift`, 5 each in `SigningIdentity.swift` and `PDFKitEngine.swift`,
+3 in `InspectorView.swift`, 2 in `PDFOCRService.swift`. Most are error messages that
+interpolate `error.localizedDescription`, which is harder to localize well. The repo's
+established answer to this shape is a shrink-only ratchet like `PDFPageStringGuardTests`.
+
+Original entries:
 
 1. **Recents thumbnail reads the wrong index space.** `ContentView.swift:233` passes a 0-based,
    banner-excluded workspace index; `RecentsStore.swift:64-65` uses it directly as a
    banner-included `combinedPDF` index. For a never-scrolled workspace it renders the
    `BoundaryPage` banner as the file's thumbnail.
+   → **FIXED** (`fda5e1b`) — worse than filed: every page of a multi-member workspace was wrong, not only the unscrolled case. One parameter was serving two index spaces; RecentsStore now takes a resolved `PDFPage` and does no index math.
 2. **"Resume at page N" is written, displayed, and never honored.** `RecentFilesSection.swift:152`
    shows it, but nothing reads `lastPageOpened` back on open. Both reopen paths land on page 1.
+   → **FIXED** (`428be24`) — resume target seeded from the recents entry and consumed where the initial viewport is established.
 3. **Four unlocalized `"p. N"` formatters** at `WorkspaceViewModel.swift:2014`, `:8020`,
    `WorkspaceDocument.swift:553`, and `:7235`. `RawLocalizationKeyLeakTests` only scans
    `/Views/`, `/Pet/`, `/App/`, which is why they survived. Two of the four write into files the
    user ships to someone else.
+   → **FIXED** (`47c1a39`) — reused `sidebar.pageLabel.short` and `document.commentPageRemoved` rather than adding near-duplicates; eight genuinely new keys.
 4. **`PDFDecorationExportBaker.swift:142`** — `String(localized: "Page \(x) of \(y)")` produces a
    compiler-derived key with no catalog entry, so the only page number that persists into
    exported bytes is English in all six languages.
+   → **FIXED** (`ade2305`) — translations derived from the already-reviewed `inspector.pageOf` values.
 5. **`hi` `search.results.position` looks argument-reversed** — `"%lld में से %lld"` against `en`
    `"%lld of %lld"`. Flagged as probable, not confirmed.
+   → **CONFIRMED and FIXED** (`4d879c0`) — "X में से Y" reads "Y out of X", so a reader on match 3 of 20 was told they were on match 20 of 3. Types matched, so only a human could catch this; the new specifier test does not cover it.
 6. **`SearchView.swift:27` lacks the `max(_, 1)` floor** that `ReadingCanvas.swift:406` applies
    to the same key, so the two disagree in the pre-selection state where `searchResultIndex` is
    `-1`.
+   → **REFUTED — not a bug.** The claim quoted `i + 1` while dropping the `if i >= 0 {` that opens the same line, and read `searchResultIndex = -1` in isolation when `searchResults = []` sits two lines above. "0 of 20" is unreachable; both the guard and the floor are dead defensive code. No change made.
 
 ## Verification
 
