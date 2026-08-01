@@ -36228,7 +36228,7 @@
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@” की %lld प्रविष्टियों को सफलतापूर्वक “%@” से बदला गया।"
+            "value": "“%2$@” की %1$lld प्रविष्टियों को सफलतापूर्वक “%3$@” से बदला गया।"
           }
         },
         "zh-Hans": {
@@ -36240,7 +36240,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@”を%lld件“%@”に正常に置換しました。"
+            "value": "“%2$@”を%1$lld件“%3$@”に正常に置換しました。"
           }
         }
       }
@@ -37089,7 +37089,7 @@
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld में से %lld"
+            "value": "%2$lld में से %1$lld"
           }
         },
         "zh-Hans": {
