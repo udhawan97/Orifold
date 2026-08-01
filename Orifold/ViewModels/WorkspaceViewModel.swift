@@ -2017,15 +2017,20 @@ final class WorkspaceViewModel {
         return index + 1
     }
 
-    func anchorSubtitle(for comment: WorkspaceComment) -> String? {
+    /// Pass the view's own `\.locale` so the Comments inspector re-renders on a
+    /// live language switch — this lives in `ViewModels/`, which
+    /// `RawLocalizationKeyLeakTests` does not scan, so nothing else would catch
+    /// it going back to hardcoded English.
+    func anchorSubtitle(for comment: WorkspaceComment, locale: Locale? = nil) -> String? {
+        let removed = L10n.string("document.commentPageRemoved", locale: locale)
         guard let anchor = comment.anchor else {
-            return comment.anchorWasRemoved ? "(page removed)" : nil
+            return comment.anchorWasRemoved ? removed : nil
         }
-        guard let pageNumber = pageNumber(for: anchor) else { return "(page removed)" }
+        guard let pageNumber = pageNumber(for: anchor) else { return removed }
         if let snippet = anchor.snippet, !snippet.isEmpty {
-            return "p. \(pageNumber) - \(snippet)"
+            return L10n.format("comment.anchor.pageWithSnippet", pageNumber, snippet, locale: locale)
         }
-        return "p. \(pageNumber)"
+        return L10n.format("sidebar.pageLabel.short", pageNumber, locale: locale)
     }
 
     func commentCount(for pageRefID: UUID) -> Int {
@@ -7229,13 +7234,16 @@ final class WorkspaceViewModel {
         guard totalCommentCount > 0 else { return nil }
         if [.pdf, .png, .jpeg].contains(format),
            hasCryptographicSignaturePlacement {
-            return "Exported without embedded comments because digital signatures are present; \(commentCountPhrase(totalCommentCount)) skipped to preserve signed bytes."
+            return L10n.format(
+                "export.commentStatus.signaturesSkipped",
+                commentCountPhrase(totalCommentCount)
+            )
         }
 
         var parts: [String] = []
         let workspaceCount = document.workspace.comments.filter { $0.anchor == nil }.count
         if workspaceCount > 0 {
-            parts.append("\(workspaceCount) workspace")
+            parts.append(L10n.format("export.commentStatus.workspace", workspaceCount))
         }
 
         let anchoredPages = document.workspace.comments.compactMap { comment -> Int? in
@@ -7244,20 +7252,20 @@ final class WorkspaceViewModel {
         }
         if !anchoredPages.isEmpty {
             let pages = Array(Set(anchoredPages)).sorted().map(String.init).joined(separator: ", ")
-            parts.append("\(anchoredPages.count) anchored on pages \(pages)")
+            parts.append(L10n.format("export.commentStatus.anchored", anchoredPages.count, pages))
         }
 
         let noteCount = pdfNoteComments.count
         if noteCount > 0 {
-            parts.append("\(noteCount) PDF notes")
+            parts.append(L10n.format("export.commentStatus.pdfNotes", noteCount))
         }
 
         let detail = parts.isEmpty ? "" : " (\(parts.joined(separator: ", ")))"
-        return "Exported with \(commentCountPhrase(totalCommentCount))\(detail)."
+        return L10n.format("export.commentStatus.summary", commentCountPhrase(totalCommentCount), detail)
     }
 
     private func commentCountPhrase(_ count: Int) -> String {
-        count == 1 ? "1 comment" : "\(count) comments"
+        L10n.format(count == 1 ? "sidebar.doc.commentCount.one" : "sidebar.doc.commentCount.other", count)
     }
 
     enum ExportBuildError: Error {

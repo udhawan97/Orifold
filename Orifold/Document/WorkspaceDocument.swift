@@ -536,7 +536,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 let body = annotation.contents?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 guard !body.isEmpty else { continue }
                 items.append(PDFCommentSummaryItem(
-                    title: String(localized: "PDF note, page \(pageIndex + 1)", locale: L10n.currentLocale),
+                    title: L10n.format("document.pdfNotePage", pageIndex + 1),
                     body: body,
                     tags: [],
                     isResolved: false
@@ -550,9 +550,9 @@ final class WorkspaceDocument: ReferenceFileDocument {
         if let anchor = comment.anchor,
            let pageIndex = workspace.pageOrder.firstIndex(where: { $0.id == anchor.pageRefID }) {
             if let snippet = anchor.snippet, !snippet.isEmpty {
-                return String(localized: "p. \(pageIndex + 1) - \(snippet)", locale: L10n.currentLocale)
+                return L10n.format("comment.anchor.pageWithSnippet", pageIndex + 1, snippet)
             }
-            return String(localized: "p. \(pageIndex + 1)", locale: L10n.currentLocale)
+            return L10n.format("sidebar.pageLabel.short", pageIndex + 1)
         }
         if comment.anchorWasRemoved {
             return L10n.string("document.commentPageRemoved")
@@ -623,7 +623,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
         for item in items {
             output.append(NSAttributedString(string: "\(item.title)\n", attributes: metaAttributes))
             if !item.tags.isEmpty {
-                let tagsLine = String(localized: "Tags: \(item.tags.joined(separator: ", "))", locale: L10n.currentLocale)
+                let tagsLine = L10n.format("document.commentsSummary.tags", item.tags.joined(separator: ", "))
                 output.append(NSAttributedString(string: tagsLine + "\n", attributes: bodyAttributes))
             }
             output.append(NSAttributedString(string: "\(item.body)\n\n", attributes: bodyAttributes))

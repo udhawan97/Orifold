@@ -652,7 +652,7 @@ private struct WorkspaceCommentRow: View {
                 .help(L10n.string("inspector.comments.deleteComment.help"))
             }
 
-            if let subtitle = viewModel.anchorSubtitle(for: current) {
+            if let subtitle = viewModel.anchorSubtitle(for: current, locale: locale) {
                 Button {
                     viewModel.jumpToComment(liveComment)
                 } label: {
