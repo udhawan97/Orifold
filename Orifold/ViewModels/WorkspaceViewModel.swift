@@ -9000,6 +9000,17 @@ final class WorkspaceViewModel {
         return pageReference(for: page, in: combinedPDF)
     }
 
+    /// The `combinedPDF` page the reader is currently on.
+    ///
+    /// `currentPageNumber` is a workspace position — 1-based and banner-excluded —
+    /// while `combinedPDF` interleaves a `BoundaryPage` before each member, so the
+    /// two index spaces drift apart by one per member. Subtracting one instead of
+    /// mapping is what made the recents thumbnail save a separator as its cover.
+    var currentCombinedPage: PDFPage? {
+        combinedPageIndex(forWorkspacePageNumber: max(1, currentPageNumber))
+            .flatMap { combinedPDF.page(at: $0) }
+    }
+
     /// The source label for the page the reader is currently on, if any.
     var currentPageSourceLabel: String? {
         guard let index = combinedPageIndex(forWorkspacePageNumber: currentPageNumber),

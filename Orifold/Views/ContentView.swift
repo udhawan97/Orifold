@@ -231,7 +231,7 @@ struct ContentView: View {
             url: fileURL,
             pageCount: viewModel.pageCount,
             currentPage: max(0, viewModel.currentPageNumber - 1),
-            combinedPDF: viewModel.combinedPDF
+            thumbnailPage: viewModel.currentCombinedPage
         )
     }
 

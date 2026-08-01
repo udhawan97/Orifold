@@ -49,7 +49,13 @@ import PDFKit
 
     /// Called when a workspace window is about to go away (or the document is saved),
     /// capturing the last-viewed page and (re)generating its thumbnail if needed.
-    func recordVisit(url: URL, pageCount: Int, currentPage: Int, combinedPDF: PDFDocument?) {
+    /// `currentPage` is a 0-based **workspace** page index (banner-excluded); it is
+    /// stored as `lastPageOpened` and rendered by the "Resume · p. N" badge.
+    /// `thumbnailPage` is the already-resolved page to picture. The caller resolves
+    /// it because only the view model knows how to cross from a workspace position
+    /// to a `combinedPDF` page — this store used to do that conversion by reusing
+    /// `currentPage` directly, which silently pictured the `BoundaryPage` separator.
+    func recordVisit(url: URL, pageCount: Int, currentPage: Int, thumbnailPage: PDFPage?) {
         upsert(url: url) { entry in
             entry.lastOpened = Date()
             entry.pageCount = pageCount
@@ -61,8 +67,7 @@ import PDFKit
         guard !entries[index].thumbnailFailed else { return }
 
         let key = entries[index].thumbnailCacheKey ?? UUID().uuidString
-        let pageIndex = max(0, currentPage)
-        guard let pdf = combinedPDF, let page = pdf.page(at: pageIndex) ?? pdf.page(at: 0) else {
+        guard let page = thumbnailPage else {
             markThumbnailFailed(path: url.path)
             return
         }
