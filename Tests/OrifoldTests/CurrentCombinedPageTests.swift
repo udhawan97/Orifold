@@ -46,6 +46,42 @@ final class CurrentCombinedPageTests: XCTestCase {
         XCTAssertEqual(viewModel.workspacePageNumber(for: page, in: viewModel.combinedPDF), 1)
     }
 
+    /// The contract between RecentsStore, ContentView and ReadingCanvas: what the
+    /// store persists as `lastPageOpened` must round-trip back to the page the
+    /// reader actually left off at.
+    ///
+    /// `lastPageOpened` is 0-based workspace; `pendingResumeWorkspacePage` is
+    /// 1-based workspace; `combinedPageIndex(forWorkspacePageNumber:)` yields a
+    /// banner-included index. Three representations of one page, which is exactly
+    /// how the thumbnail bug happened.
+    func testResumeTargetRoundTripsToThePageTheReaderLeftOff() throws {
+        let viewModel = makeViewModel(members: [fourPager(), fourPager()])
+
+        for position in 1...8 {
+            viewModel.currentPageNumber = position
+
+            // What ContentView hands the store on close.
+            let stored = max(0, viewModel.currentPageNumber - 1)
+
+            // What ContentView seeds on the next open.
+            viewModel.pendingResumeWorkspacePage = stored + 1
+
+            let index = try XCTUnwrap(
+                viewModel.combinedPageIndex(
+                    forWorkspacePageNumber: try XCTUnwrap(viewModel.pendingResumeWorkspacePage)
+                ),
+                "no combined index for resume target at position \(position)"
+            )
+            let page = try XCTUnwrap(viewModel.combinedPDF.page(at: index))
+
+            XCTAssertFalse(page is BoundaryPage, "resume at position \(position) landed on a separator")
+            XCTAssertEqual(
+                viewModel.workspacePageNumber(for: page, in: viewModel.combinedPDF), position,
+                "resume at position \(position) landed somewhere else"
+            )
+        }
+    }
+
     // MARK: - Fixtures
 
     private func fourPager() -> Data {

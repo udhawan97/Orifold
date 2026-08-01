@@ -214,6 +214,8 @@ struct ContentView: View {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || viewModel.documentComfortSettings.reduceAnimations
     }
 
+    @State private var didSeedResumePage = false
+
     init(document: WorkspaceDocument, fileURL: URL? = nil) {
         self.document = document
         self.fileURL = fileURL
@@ -222,6 +224,19 @@ struct ContentView: View {
 
     private func recordRecentOpenIfNeeded() {
         guard let fileURL, !viewModel.memberDocuments.isEmpty else { return }
+        // `RecentsLifecycleModifier` calls this from three separate hooks, so seed
+        // the resume target only on the first one — after that the reader may have
+        // scrolled, and re-seeding would yank them back. Read before `recordOpen`:
+        // that bumps `lastOpened` but never touches `lastPageOpened`, so the order
+        // is not load-bearing, only the once-ness is.
+        if !didSeedResumePage {
+            didSeedResumePage = true
+            if let saved = RecentsStore.shared.entries
+                .first(where: { $0.path == fileURL.path })?.lastPageOpened {
+                // Stored 0-based workspace index -> 1-based workspace page number.
+                viewModel.pendingResumeWorkspacePage = saved + 1
+            }
+        }
         RecentsStore.shared.recordOpen(url: fileURL)
     }
 

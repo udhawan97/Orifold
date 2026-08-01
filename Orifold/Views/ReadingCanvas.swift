@@ -1303,7 +1303,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 // readers on the final page. PDFKit also completes continuous-layout work on
                 // the next run-loop turn, which can overwrite a synchronous navigation.
                 // Navigate immediately and once more after that layout settles.
-                navigateInitialDocumentToFirstPage(newDocument, in: pdfView)
+                navigateInitialDocumentToStartPage(newDocument, in: pdfView)
             } else if let origin = savedViewportOrigin {
                 restoreVisibleDocumentOrigin(origin, in: pdfView)
             } else if let idx = savedPageIdx, let newDocument, idx < newDocument.pageCount,
@@ -1326,12 +1326,28 @@ struct PDFViewRepresentable: NSViewRepresentable {
             return true
         }
 
-        private func navigateInitialDocumentToFirstPage(_ document: PDFDocument?, in pdfView: OrifoldPDFView) {
-            guard let document, let firstPage = document.page(at: 0) else { return }
+        /// The page a freshly assigned document should open on: the page the reader
+        /// left off at when reopening from Recents, else the first page.
+        ///
+        /// Deliberately recomputed rather than captured — this runs once
+        /// immediately and again after layout settles, and import can regenerate
+        /// the document in between, so a page captured up front can belong to a
+        /// document that no longer exists.
+        private func initialStartPage(in document: PDFDocument) -> PDFPage? {
+            if let resume = viewModel.pendingResumeWorkspacePage,
+               let index = viewModel.combinedPageIndex(forWorkspacePageNumber: resume),
+               let page = document.page(at: index) {
+                return page
+            }
+            return document.page(at: 0)
+        }
+
+        private func navigateInitialDocumentToStartPage(_ document: PDFDocument?, in pdfView: OrifoldPDFView) {
+            guard let document, let startPage = initialStartPage(in: document) else { return }
             initialViewportGeneration += 1
             let generation = initialViewportGeneration
-            let firstPageTop = CGPoint(x: firstPage.bounds(for: .cropBox).minX, y: firstPage.bounds(for: .cropBox).maxY)
-            pdfView.go(to: PDFDestination(page: firstPage, at: firstPageTop))
+            let startPageTop = CGPoint(x: startPage.bounds(for: .cropBox).minX, y: startPage.bounds(for: .cropBox).maxY)
+            pdfView.go(to: PDFDestination(page: startPage, at: startPageTop))
 
             // Import can regenerate the combined PDF more than once while pages are being
             // normalized. Keep the initial-load policy active across those swaps, then let
@@ -1339,15 +1355,18 @@ struct PDFViewRepresentable: NSViewRepresentable {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self, weak pdfView, weak document] in
                 guard let self, generation == self.initialViewportGeneration,
                       let pdfView, let document, pdfView.document === document,
-                      let firstPage = document.page(at: 0) else { return }
+                      let startPage = self.initialStartPage(in: document) else { return }
                 pdfView.layoutDocumentView()
-                let firstPageTop = CGPoint(
-                    x: firstPage.bounds(for: .cropBox).minX,
-                    y: firstPage.bounds(for: .cropBox).maxY
+                let startPageTop = CGPoint(
+                    x: startPage.bounds(for: .cropBox).minX,
+                    y: startPage.bounds(for: .cropBox).maxY
                 )
-                pdfView.go(to: PDFDestination(page: firstPage, at: firstPageTop))
+                pdfView.go(to: PDFDestination(page: startPage, at: startPageTop))
                 pdfView.needsDisplay = true
                 self.isEstablishingInitialViewport = false
+                // Only now — the reader has landed, so any later document swap must
+                // preserve where they actually are rather than return here.
+                self.viewModel.pendingResumeWorkspacePage = nil
             }
         }
 

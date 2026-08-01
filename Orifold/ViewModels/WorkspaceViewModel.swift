@@ -9008,6 +9008,13 @@ final class WorkspaceViewModel {
         return pageReference(for: page, in: combinedPDF)
     }
 
+    /// Workspace page number (1-based) to land on while the initial viewport is
+    /// still being established, seeded from the recents entry when a document is
+    /// reopened. Cleared once the viewport settles, so later document swaps
+    /// (undo, edit replay, import normalization) keep preserving the live
+    /// viewport instead of jumping back here.
+    var pendingResumeWorkspacePage: Int?
+
     /// The `combinedPDF` page the reader is currently on.
     ///
     /// `currentPageNumber` is a workspace position — 1-based and banner-excluded —
