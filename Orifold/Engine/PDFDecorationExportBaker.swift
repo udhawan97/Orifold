@@ -139,7 +139,12 @@ enum PDFDecorationExportBaker {
         case .watermark, .stamp, .hanko, .image:
             return decoration.text
         case .pageNumber:
-            return String(localized: "Page \(pageIndex + 1) of \(pageCount)", locale: L10n.currentLocale)
+            // Must go through L10n.format: an interpolated `String(localized:)` builds a
+            // compiler-derived key that no catalog entry can match, so this stamp — the
+            // only page number that persists into exported bytes — rendered English in
+            // all six languages while the inspector preview beside it showed the
+            // translation.
+            return L10n.format("decoration.pageNumber.format", pageIndex + 1, pageCount)
         case .bates:
             return "\(decoration.prefix)-\(String(format: "%06d", decoration.startNumber + pageIndex))"
         }
