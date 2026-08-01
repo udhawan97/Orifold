@@ -1,6 +1,20 @@
 import SwiftUI
 import AppKit
 
+/// Resolves the card's current availability for styling, but always dispatches the
+/// activation. The owner has the classified recovery flow for missing, moved, or
+/// unreadable files; stopping here turns an unavailable card into a silent dead end.
+@discardableResult
+func activateRecentFileCard(
+    entry: RecentFileEntry,
+    resolveURL: (RecentFileEntry) -> URL?,
+    onOpen: (RecentFileEntry) -> Void
+) -> Bool {
+    let isAvailable = resolveURL(entry) != nil
+    onOpen(entry)
+    return isAvailable
+}
+
 /// "Recently viewed" row on the empty-state screen. Renders nothing when there
 /// are no recents — the first-run screen is unchanged. See the design plan for
 /// placement/behavior rationale.
@@ -15,6 +29,7 @@ struct RecentFilesSection: View {
     @Environment(\.locale) private var locale
     @State private var isExpanded = false
     @State private var hasAppeared = false
+    @State private var isConfirmingClear = false
 
     private var shouldReduceMotion: Bool {
         reduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -58,6 +73,18 @@ struct RecentFilesSection: View {
                     }
                 }
             }
+            .confirmationDialog(
+                L10n.string("recentFiles.clearConfirmation.title", locale: locale),
+                isPresented: $isConfirmingClear,
+                titleVisibility: .visible
+            ) {
+                Button(L10n.string("recentFiles.clearConfirmation.confirm", locale: locale), role: .destructive) {
+                    store.clear()
+                }
+                Button(L10n.string("folderImport.overLimit.cancel", locale: locale), role: .cancel) {}
+            } message: {
+                Text(L10n.format("recentFiles.clearConfirmation.message", store.entries.count, locale: locale))
+            }
         }
     }
 
@@ -77,7 +104,11 @@ struct RecentFilesSection: View {
                         isExpanded.toggle()
                     }
                 } label: {
-                    Text(isExpanded ? L10n.string("recentFiles.showLess", locale: locale) : L10n.format("recentFiles.showAll", store.entries.count, locale: locale))
+                    Text(
+                        isExpanded
+                            ? L10n.string("recentFiles.showLess", locale: locale)
+                            : L10n.format("recentFiles.showAll", store.entries.count, locale: locale)
+                    )
                         .font(.dsCaption())
                 }
                 .buttonStyle(.plain)
@@ -85,7 +116,7 @@ struct RecentFilesSection: View {
             }
 
             Button {
-                store.clear()
+                isConfirmingClear = true
             } label: {
                 Text(L10n.string("recentFiles.clear"))
                     .font(.dsCaption())
@@ -295,10 +326,10 @@ private struct RecentFileCard: View {
     }
 
     private func open() {
-        guard store.resolvedURL(for: entry) != nil else {
-            isAvailable = false
-            return
-        }
-        onOpen(entry)
+        isAvailable = activateRecentFileCard(
+            entry: entry,
+            resolveURL: { store.resolvedURL(for: $0) },
+            onOpen: onOpen
+        )
     }
 }

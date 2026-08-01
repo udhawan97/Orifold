@@ -9,6 +9,20 @@ import Callout from '../../components/Callout.astro';
 
 <Badge variant="new" />
 
+## v0.10.1 — Keep your place, keep your context
+
+*Released August 2026*
+
+<Callout variant="note" label="Beta">
+	Orifold is in beta, on the road to 1.0.
+</Callout>
+
+Merged workspaces now keep the stable workspace page number primary while showing a source PDF’s own page label when it adds useful context. Search rows use the same rule, so navigation and results no longer disagree about which page they mean.
+
+Recents now pictures the page you actually left, resumes at the promised workspace page, routes missing files into Choose File Again / Remove recovery instead of doing nothing, and confirms before clearing the whole history. Localization hardening also fixes Hindi and Japanese Replace All crashes, localizes remaining page-number, comment, error, and status text, and adds guards against placeholder and interpolated-key regressions across all six languages.
+
+Full changelog: [`docs/release-v0.10.1.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.10.1.md).
+
 ## v0.10.0 — Open wider, shape deeper, read farther
 
 *Released July 2026*

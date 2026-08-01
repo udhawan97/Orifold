@@ -23,7 +23,7 @@
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-2b4566?style=flat-square&logo=apple&logoColor=white">
   <img alt="Universal — Apple Silicon + Intel" src="https://img.shields.io/badge/universal-Apple_Silicon_%2B_Intel-2b4566?style=flat-square">
-  <img alt="version v0.10.0" src="https://img.shields.io/badge/version-v0.10.0-46536b?style=flat-square">
+  <img alt="version v0.10.1" src="https://img.shields.io/badge/version-v0.10.1-46536b?style=flat-square">
   <img alt="Local document processing" src="https://img.shields.io/badge/privacy-local_processing-3f6b52?style=flat-square">
   <img alt="6 languages" src="https://img.shields.io/badge/i18n-6_languages-46536b?style=flat-square">
   <img alt="Apache 2.0 License" src="https://img.shields.io/badge/license-Apache_2.0-46536b?style=flat-square">
@@ -45,14 +45,14 @@
 
 > [!NOTE]
 > Orifold is a **work-in-progress beta**, built in the open. Everyday PDF work — merge,
-> annotate, OCR, sign, protect, export — is solid and gated by 900+ tests. Object editing
+> annotate, OCR, sign, protect, export — is solid and gated by 1,000+ tests. Object editing
 > landed in v0.8.8 and is still hardening; a few folds (real redaction, side-by-side compare)
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
 > [!TIP]
-> **New in v0.10.0:** import CBZ comics as naturally ordered PDF pages, restyle compatible
-> vector fills, strokes, and line widths, and translate a selection or current page with
-> Apple’s on-device language models on macOS 15+.
+> **New in v0.10.1:** merged workspaces keep stable page positions while showing meaningful
+> source page labels, Recents resumes and recovers more reliably, and localization fixes make
+> status and error flows dependable across all six languages.
 
 ## The fold
 
@@ -239,7 +239,7 @@ metadata stripped before flat PDF export.
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
 | **Codebase** | 138 Swift source files in the app, ~52,500 lines |
-| **Tests** | 999 tests in the current source tree |
+| **Tests** | 1,007 tests in the current source tree |
 | **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) · Apple Translation (on-device reading aid on macOS 15+) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds a universal (Apple Silicon + Intel) app and packages a signed-capable DMG (`scripts/make-dmg.sh`) plus the release zip and a checksummed `manifest.json`; installer, Homebrew cask, and uninstaller ship from this repo |
@@ -298,13 +298,13 @@ xcodebuild test  -quiet -project Orifold.xcodeproj -scheme Orifold -destination 
 
 # Build the same release zip GitHub Releases ships, then the universal DMG
 ORIFOLD_UNIVERSAL=1 ./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
-zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.10.0
+zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.10.1
 
 # Install from the current source checkout without opening the app
 ./scripts/install-mac.sh --no-open
 ```
 
-App metadata: `CFBundleShortVersionString` `0.10.0`, `CFBundleVersion` `23`.
+App metadata: `CFBundleShortVersionString` `0.10.1`, `CFBundleVersion` `24`.
 </details>
 
 <details>

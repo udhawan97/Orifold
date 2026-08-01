@@ -70,8 +70,8 @@ targets:
       path: Orifold/Resources/Info.plist
       properties:
         CFBundleDisplayName: Orifold
-        CFBundleShortVersionString: "0.10.0"
-        CFBundleVersion: "23"
+        CFBundleShortVersionString: "0.10.1"
+        CFBundleVersion: "24"
         NSHumanReadableCopyright: "Copyright © 2026. Apache License 2.0."
         NSPrincipalClass: NSApplication
         CFBundleIconFile: AppIcon
