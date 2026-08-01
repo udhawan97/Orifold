@@ -86,9 +86,9 @@ enum SigningIdentityError: Error, Equatable, CustomStringConvertible, LocalizedE
             if let plainEnglish = Self.plainEnglishMessage(for: status) {
                 return plainEnglish
             }
-            return String(localized: "\(operation) failed (code \(status)). Try again, and if it keeps happening, check the certificate in Keychain Access.", locale: L10n.currentLocale)
+            return L10n.format("error.signing.operationFailedCode", operation, Int(status))
         case let .securityFrameworkError(operation, message):
-            return String(localized: "\(operation) failed: \(message)", locale: L10n.currentLocale)
+            return L10n.format("error.signing.operationFailedMessage", operation, message)
         case .missingCertificate:
             return L10n.string("error.signingIdentity.missingCertificate")
         case .missingPrivateKey:
@@ -100,11 +100,11 @@ enum SigningIdentityError: Error, Equatable, CustomStringConvertible, LocalizedE
         case .noIdentityInPKCS12:
             return L10n.string("error.signingIdentity.noIdentityInPKCS12")
         case let .unsupportedPrivateKeyAlgorithm(details):
-            return String(localized: "Orifold doesn't support this certificate's private key algorithm (\(details)). Try a different certificate.", locale: L10n.currentLocale)
+            return L10n.format("error.signing.unsupportedKeyAlgorithm", details)
         case let .unsupportedSigningAlgorithm(algorithm):
-            return String(localized: "This certificate's private key can't create \(algorithm.rawValue) signatures. Try a different certificate.", locale: L10n.currentLocale)
+            return L10n.format("error.signing.cannotCreateSignature", algorithm.rawValue)
         case let .randomGenerationFailed(status):
-            return String(localized: "Orifold couldn't generate the secure random data signing requires (code \(status)). Try again.", locale: L10n.currentLocale)
+            return L10n.format("error.signing.randomDataUnavailable", Int(status))
         case .selfSignedCertificateCreationFailed:
             return L10n.string("error.signingIdentity.selfSignedCertificateCreationFailed")
         }

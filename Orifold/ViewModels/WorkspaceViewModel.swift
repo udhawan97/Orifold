@@ -1101,11 +1101,19 @@ final class WorkspaceViewModel {
         }
 
         let names = failures.prefix(3).map { $0.url.lastPathComponent }.joined(separator: ", ")
-        let suffix = failures.count > 3 ? ", and \(failures.count - 3) more" : ""
-        let importedText = importedCount > 0 ? " \(importedCount) of \(totalCount) files were added." : " No files were added."
+        // The tail fragments are separate keys rather than English glued onto a translated
+        // sentence: ", and 3 more" and "No files were added." are prose too, and leaving them
+        // hardcoded would have shipped half a translation in five languages.
+        let suffix = failures.count > 3
+            ? L10n.format("error.import.andMore", failures.count - 3)
+            : ""
+        let importedText = importedCount > 0
+            ? L10n.format("error.import.someAdded", importedCount, totalCount)
+            : L10n.string("error.import.noneAdded")
         return ImportError(
             fileName: "Selected Files",
-            message: String(localized: "Could not open \(failures.count) files: \(names)\(suffix).\(importedText)", locale: L10n.currentLocale)
+            message: L10n.format("error.import.couldNotOpenFiles", failures.count, names, suffix)
+                + " " + importedText
         )
     }
 
@@ -5386,7 +5394,7 @@ final class WorkspaceViewModel {
             exportError = ExportError(message: L10n.string("error.export.chooseSigningIdentity"))
             return
         } catch {
-            exportError = ExportError(message: String(localized: "Orifold couldn’t prepare the signing identity. \(error.localizedDescription)", locale: L10n.currentLocale))
+            exportError = ExportError(message: L10n.format("error.export.signingIdentity", error.localizedDescription))
             return
         }
         // Review found nothing in the actual signing path ever checked this — a placement
@@ -5443,7 +5451,7 @@ final class WorkspaceViewModel {
                 bounds: placement.rect
             )
         } catch {
-            exportError = ExportError(message: String(localized: "Orifold couldn’t prepare the visible signature. \(error.localizedDescription)", locale: L10n.currentLocale))
+            exportError = ExportError(message: L10n.format("error.export.visibleSignature", error.localizedDescription))
             return
         }
 
@@ -5575,7 +5583,7 @@ final class WorkspaceViewModel {
                     case SigningError.unsupportedPDFStructure:
                         self.exportError = ExportError(message: L10n.string("error.export.unsupportedPDFStructure"))
                     default:
-                        self.exportError = ExportError(message: String(localized: "Orifold couldn’t sign the PDF. \(error.localizedDescription)", locale: L10n.currentLocale))
+                        self.exportError = ExportError(message: L10n.format("error.export.signPDF", error.localizedDescription))
                     }
                 }
             }
@@ -6517,7 +6525,7 @@ final class WorkspaceViewModel {
             } else if let validationError = error as? PDFExportValidationError {
                 exportError = ExportError(message: validationError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold couldn’t save the PDF. \(error.localizedDescription) Check that the destination still exists and that you have permission to write there, then try again.", locale: L10n.currentLocale))
+                exportError = ExportError(message: L10n.format("error.export.savePDF", error.localizedDescription))
             }
             return false
         }
@@ -7124,7 +7132,7 @@ final class WorkspaceViewModel {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
         panel.nameFieldStringValue = "\(safeFilename(document.workspace.title)) \(format.fileExtension.uppercased()) Pages"
-        panel.title = String(localized: "Export \(format.menuTitle)", locale: L10n.currentLocale)
+        panel.title = L10n.format("export.panel.title", format.menuTitle)
         panel.prompt = L10n.string("savePanel.export.prompt")
         guard panel.runModal() == .OK, let folderURL = panel.url else { return false }
 
@@ -7201,7 +7209,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold couldn’t export page images. \(error.localizedDescription) Check that the destination folder exists and has free space, then try again.", locale: L10n.currentLocale))
+                exportError = ExportError(message: L10n.format("error.export.pageImages", error.localizedDescription))
             }
             return false
         }
@@ -7212,7 +7220,7 @@ final class WorkspaceViewModel {
         panel.allowedContentTypes = [format.contentType]
         panel.canCreateDirectories = true
         panel.nameFieldStringValue = "\(safeFilename(document.workspace.title)).\(format.fileExtension)"
-        panel.title = String(localized: "Export \(format.menuTitle)", locale: L10n.currentLocale)
+        panel.title = L10n.format("export.panel.title", format.menuTitle)
         guard panel.runModal() == .OK, let url = panel.url else { return false }
 
         do {
@@ -7224,7 +7232,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold couldn’t write the \(format.menuTitle) export. \(error.localizedDescription) Check that the destination folder exists and has free space, then try again.", locale: L10n.currentLocale))
+                exportError = ExportError(message: L10n.format("error.export.writeFormat", format.menuTitle, error.localizedDescription))
             }
             return false
         }
@@ -7785,13 +7793,13 @@ final class WorkspaceViewModel {
         case ExportBuildError.pdfOnlyEditsCannotMap(let memberName):
             return String(localized: "Orifold found PDF-only annotations, signatures, or page changes in \"\(memberName)\". Export as PDF to preserve those visual edits.", locale: L10n.currentLocale)
         case ExportBuildError.editedPackageFormatRequiresPDF(let formatName):
-            return String(localized: "Orifold can preserve the original \(formatName) bytes when unchanged, but edited package exports are not faithful enough yet. Export as PDF to preserve the edit.", locale: L10n.currentLocale)
+            return L10n.format("error.export.packageNotFaithful", formatName)
         case ExportBuildError.cannotEncode(let formatName):
-            return String(localized: "Orifold could not encode the \(formatName) export.", locale: L10n.currentLocale)
+            return L10n.format("error.export.encodeFailed", formatName)
         case ExportBuildError.originFormatHasNoSourcePayload(let memberName, let originFormatDescription):
             return String(localized: "\"\(memberName)\" was imported from a \(originFormatDescription) file, which Orifold flattens to plain text and cannot reconstruct into \(format.menuTitle). Export as PDF to keep the current content, or re-export from the original \(originFormatDescription) file if you need it in another format.", locale: L10n.currentLocale)
         case ExportBuildError.unsupportedRichTextFormat:
-            return String(localized: "Orifold does not have a rich-text writer for \(format.menuTitle).", locale: L10n.currentLocale)
+            return L10n.format("error.export.noRichTextWriter", format.menuTitle)
         case PDFDecorationExportBaker.BakeError.invalidPDF:
             return L10n.string("error.export.decorationInvalidPDF")
         case PDFDecorationExportBaker.BakeError.pageOrderMismatch:
@@ -7815,7 +7823,7 @@ final class WorkspaceViewModel {
         case let error as PDFKitEngine.ExportAssemblyError:
             return error.localizedDescription
         default:
-            return String(localized: "Orifold couldn’t create the \(format.menuTitle) export. \(error.localizedDescription)", locale: L10n.currentLocale)
+            return L10n.format("error.export.createFormat", format.menuTitle, error.localizedDescription)
         }
     }
 
@@ -7823,7 +7831,7 @@ final class WorkspaceViewModel {
         let original = formattedByteCount(result.originalByteCount)
         let compressed = formattedByteCount(result.compressedByteCount)
         let percent = result.percentSmaller
-        return String(localized: "\(original) → \(compressed), \(percent)% smaller", locale: L10n.currentLocale)
+        return L10n.format("compression.summary", original, compressed, percent)
     }
 
     private func formattedByteCount(_ count: Int) -> String {
@@ -8606,7 +8614,7 @@ final class WorkspaceViewModel {
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
-                exportError = ExportError(message: String(localized: "Orifold couldn’t export the selected pages. \(error.localizedDescription)", locale: L10n.currentLocale))
+                exportError = ExportError(message: L10n.format("error.export.selectedPages", error.localizedDescription))
             }
         }
     }

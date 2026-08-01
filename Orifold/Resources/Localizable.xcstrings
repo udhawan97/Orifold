@@ -1,47 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "\\(original) → \\(compressed), \\(percent)% smaller": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\\(original) → \\(compressed), \\(percent)% smaller"
-          }
-        }
-      }
-    },
     "annotationTool.comment.helpText": {
       "extractionState": "manual",
       "localizations": {
@@ -5532,6 +5491,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "两个伙伴，同一张纸"
+          }
+        }
+      }
+    },
+    "compression.summary": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ → %2$@, %3$lld%% smaller"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ → %2$@, %3$lld%% menos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ → %2$@, %3$lld %% en moins"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ → %2$@, %3$lld%% कम"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ → %2$@、%3$lld%%削減"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ → %2$@，缩减 %3$lld%%"
           }
         }
       }
@@ -12301,6 +12301,47 @@
         }
       }
     },
+    "error.export.createFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn’t create the %1$@ export. %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo crear la exportación de %1$@. %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu créer l’exportation au format %1$@. %2$@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold %1$@ एक्सपोर्ट नहीं बना सका। %2$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは%1$@の書き出しを作成できませんでした。%2$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法创建 %1$@ 导出文件。%2$@"
+          }
+        }
+      }
+    },
     "error.export.decorationInvalidPDF": {
       "extractionState": "manual",
       "localizations": {
@@ -12502,6 +12543,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "目前没有可导出的内容。请先添加一个文档。"
+          }
+        }
+      }
+    },
+    "error.export.encodeFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not encode the %@ export."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo codificar la exportación de %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu encoder l’exportation au format %@."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold %@ एक्सपोर्ट को एन्कोड नहीं कर सका।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは%@の書き出しをエンコードできませんでした。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法对 %@ 导出内容进行编码。"
           }
         }
       }
@@ -12834,6 +12916,47 @@
         }
       }
     },
+    "error.export.noRichTextWriter": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold does not have a rich-text writer for %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no puede escribir texto enriquecido en %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold ne dispose pas de module d’écriture de texte enrichi pour %@."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold के पास %@ के लिए रिच-टेक्स्ट राइटर नहीं है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldには%@用のリッチテキスト書き出し機能がありません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 暂无适用于 %@ 的富文本写入器。"
+          }
+        }
+      }
+    },
     "error.export.ocrFailed": {
       "extractionState": "manual",
       "localizations": {
@@ -12871,6 +12994,88 @@
           "stringUnit": {
             "state": "translated",
             "value": "Orifold 无法使该文档可被搜索。请尝试更清晰的扫描件，或以不可搜索文本的方式导出。"
+          }
+        }
+      }
+    },
+    "error.export.packageNotFaithful": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold can preserve the original %@ bytes when unchanged, but edited package exports are not faithful enough yet. Export as PDF to preserve the edit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold puede conservar los bytes originales de %@ si no hay cambios, pero las exportaciones de paquetes editados aún no son lo suficientemente fieles. Exporta como PDF para conservar la edición."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold peut conserver les octets %@ d’origine lorsqu’ils sont inchangés, mais les exportations de ce format après modification ne sont pas encore assez fidèles. Exportez en PDF pour conserver la modification."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बदलाव न होने पर Orifold मूल %@ बाइट्स को सुरक्षित रख सकता है, लेकिन संपादित पैकेज एक्सपोर्ट अभी पर्याप्त रूप से सटीक नहीं हैं। संपादन बनाए रखने के लिए PDF के रूप में एक्सपोर्ट करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは変更がない場合は元の%@のデータをそのまま保持できますが、編集後のパッケージ書き出しはまだ十分に忠実ではありません。編集内容を保持するにはPDFとして書き出してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未做修改时，Orifold 可以保留原始的 %@ 字节；但已编辑的打包格式导出，还原度还不够。请导出为 PDF 以保留所做的编辑。"
+          }
+        }
+      }
+    },
+    "error.export.pageImages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn’t export page images. %@ Check that the destination folder exists and has free space, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo exportar las imágenes de las páginas. %@ Comprueba que la carpeta de destino exista y tenga espacio libre, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu exporter les images des pages. %@ Vérifiez que le dossier de destination existe et dispose d’espace libre, puis réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold पृष्ठों की इमेज एक्सपोर्ट नहीं कर सका। %@ जाँचें कि गंतव्य फ़ोल्डर मौजूद है और उसमें खाली जगह है, फिर से प्रयास करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはページ画像を書き出せませんでした。%@ 書き出し先のフォルダが存在し、空き容量があることを確認して、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法导出页面图像。%@ 请确认目标文件夹存在且有可用空间，然后重试。"
           }
         }
       }
@@ -13039,6 +13244,170 @@
         }
       }
     },
+    "error.export.savePDF": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn’t save the PDF. %@ Check that the destination still exists and that you have permission to write there, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo guardar el PDF. %@ Comprueba que el destino aún exista y que tengas permiso para escribir en él, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu enregistrer le PDF. %@ Vérifiez que la destination existe toujours et que vous avez l’autorisation d’y écrire, puis réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold PDF सहेज नहीं सका। %@ जाँचें कि गंतव्य अब भी मौजूद है और आपके पास वहाँ लिखने की अनुमति है, फिर से प्रयास करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OrifoldはPDFを保存できませんでした。%@ 保存先がまだ存在し、書き込み権限があることを確認して、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法保存该 PDF。%@ 请确认目标位置仍然存在，且您拥有写入权限，然后重试。"
+          }
+        }
+      }
+    },
+    "error.export.selectedPages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn’t export the selected pages. %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo exportar las páginas seleccionadas. %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu exporter les pages sélectionnées. %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold चयनित पृष्ठ एक्सपोर्ट नहीं कर सका। %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは選択したページを書き出せませんでした。%@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法导出所选页面。%@"
+          }
+        }
+      }
+    },
+    "error.export.signPDF": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn’t sign the PDF. %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo firmar el PDF. %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu signer le PDF. %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold PDF पर हस्ताक्षर नहीं कर सका। %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OrifoldはPDFに署名できませんでした。%@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法签署该 PDF。%@"
+          }
+        }
+      }
+    },
+    "error.export.signingIdentity": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn’t prepare the signing identity. %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo preparar la identidad de firma. %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu préparer l’identité de signature. %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold हस्ताक्षर पहचान तैयार नहीं कर सका। %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは署名用IDを準備できませんでした。%@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法准备签名身份。%@"
+          }
+        }
+      }
+    },
     "error.export.signingNotAvailable": {
       "extractionState": "manual",
       "localizations": {
@@ -13203,6 +13572,47 @@
         }
       }
     },
+    "error.export.visibleSignature": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn’t prepare the visible signature. %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo preparar la firma visible. %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu préparer la signature visible. %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold दिखने वाला हस्ताक्षर तैयार नहीं कर सका। %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはページに表示する署名を準備できませんでした。%@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法准备可见签名。%@"
+          }
+        }
+      }
+    },
     "error.export.writeEmptyFile": {
       "extractionState": "manual",
       "localizations": {
@@ -13281,6 +13691,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "Orifold 无法确认导出内容已写入磁盘。目标文件夹可能拒绝了写入操作，请检查权限后重试。"
+          }
+        }
+      }
+    },
+    "error.export.writeFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn’t write the %1$@ export. %2$@ Check that the destination folder exists and has free space, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo escribir la exportación de %1$@. %2$@ Comprueba que la carpeta de destino exista y tenga espacio libre, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu écrire l’exportation au format %1$@. %2$@ Vérifiez que le dossier de destination existe et dispose d’espace libre, puis réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold %1$@ एक्सपोर्ट नहीं लिख सका। %2$@ जाँचें कि गंतव्य फ़ोल्डर मौजूद है और उसमें खाली जगह है, फिर से प्रयास करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは%1$@の書き出しを保存できませんでした。%2$@ 書き出し先のフォルダが存在し、空き容量があることを確認して、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法写入 %1$@ 导出文件。%2$@ 请确认目标文件夹存在且有可用空间，然后重试。"
           }
         }
       }
@@ -13449,6 +13900,47 @@
         }
       }
     },
+    "error.import.andMore": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", and %lld more"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", y %lld más"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", et %lld autres"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", और %lld अन्य"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "、他%lld件"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "，以及另外 %lld 个"
+          }
+        }
+      }
+    },
     "error.import.binaryDataMislabelledAsText": {
       "extractionState": "manual",
       "localizations": {
@@ -13527,6 +14019,88 @@
           "stringUnit": {
             "state": "translated",
             "value": "此 PDF 可能已损坏或受密码保护。"
+          }
+        }
+      }
+    },
+    "error.import.couldNotOpen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file could not be opened: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir el archivo: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier n’a pas pu être ouvert : %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फ़ाइल खोली नहीं जा सकी: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルを開けませんでした: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开此文件：%@"
+          }
+        }
+      }
+    },
+    "error.import.couldNotOpenFiles": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not open %1$lld files: %2$@%3$@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron abrir %1$lld archivos: %2$@%3$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d’ouvrir %1$lld fichiers : %2$@%3$@."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld फ़ाइलें नहीं खोली जा सकीं: %2$@%3$@।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld個のファイルを開けませんでした: %2$@%3$@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开 %1$lld 个文件：%2$@%3$@。"
           }
         }
       }
@@ -13695,6 +14269,129 @@
         }
       }
     },
+    "error.import.fileTooLargeWithSize": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file is %1$@, which is larger than the %2$@ import safety limit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo ocupa %1$@ y supera el límite de seguridad de importación de %2$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier fait %1$@, ce qui dépasse la limite de sécurité d’importation de %2$@."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह फ़ाइल %1$@ की है, जो %2$@ की आयात सुरक्षा सीमा से बड़ी है।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このファイルは%1$@で、読み込みの安全上限である%2$@を超えています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此文件为 %1$@，超过了 %2$@ 的导入安全上限。"
+          }
+        }
+      }
+    },
+    "error.import.fileTypeTooLarge": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This %1$@ file is %2$@, which is larger than Orifold can safely convert directly (%3$@). Try exporting it to PDF first, then import the PDF."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo %1$@ ocupa %2$@, más de lo que Orifold puede convertir directamente de forma segura (%3$@). Intenta exportarlo primero a PDF y luego importa el PDF."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier %1$@ fait %2$@, ce qui dépasse ce qu’Orifold peut convertir directement en toute sécurité (%3$@). Essayez de l’exporter d’abord en PDF, puis importez le PDF."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह %1$@ फ़ाइल %2$@ की है, जो Orifold के सीधे सुरक्षित रूपांतरण की सीमा (%3$@) से बड़ी है। पहले इसे PDF में एक्सपोर्ट करने की कोशिश करें, फिर PDF आयात करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この%1$@ファイルは%2$@で、Orifoldが直接安全に変換できるサイズ（%3$@）を超えています。まずPDFとして書き出してから、そのPDFを読み込んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 %1$@ 文件为 %2$@，超过了 Orifold 可直接安全转换的大小（%3$@）。请先将其导出为 PDF，然后再导入该 PDF。"
+          }
+        }
+      }
+    },
+    "error.import.htmlPageLimit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This HTML file would render to about %1$lld pages, which is over Orifold's %2$lld-page HTML conversion limit. Try printing or exporting it to PDF from a browser, then import the PDF."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo HTML generaría unas %1$lld páginas y superaría el límite de %2$lld páginas que Orifold admite al convertir HTML. Intenta imprimirlo o exportarlo a PDF desde un navegador y luego importa el PDF."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier HTML produirait environ %1$lld pages, ce qui dépasse la limite de conversion HTML d’Orifold (%2$lld pages). Essayez de l’imprimer ou de l’exporter en PDF depuis un navigateur, puis importez le PDF."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह HTML फ़ाइल लगभग %1$lld पेज में रेंडर होगी, जो Orifold की %2$lld-पेज HTML रूपांतरण सीमा से ज़्यादा है। इसे ब्राउज़र से PDF में प्रिंट या एक्सपोर्ट करने की कोशिश करें, फिर PDF आयात करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このHTMLファイルは約%1$lldページになり、OrifoldのHTML変換上限である%2$lldページを超えます。ブラウザから印刷するかPDFとして書き出してから、そのPDFを読み込んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 HTML 文件大约会渲染为 %1$lld 页，超过了 Orifold 的 HTML 转换上限（%2$lld 页）。请尝试在浏览器中将其打印或导出为 PDF，然后再导入该 PDF。"
+          }
+        }
+      }
+    },
     "error.import.iCloudNotDownloaded": {
       "extractionState": "manual",
       "localizations": {
@@ -13732,6 +14429,88 @@
           "stringUnit": {
             "state": "translated",
             "value": "此文件存储在 iCloud 中，可能需要先完成下载。"
+          }
+        }
+      }
+    },
+    "error.import.noneAdded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No files were added."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se agregó ningún archivo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun fichier n’a été ajouté."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोई फ़ाइल नहीं जोड़ी गई।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加されたファイルはありません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未添加任何文件。"
+          }
+        }
+      }
+    },
+    "error.import.pageLimit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file would render to more than %lld pages, so Orifold stopped the import before creating a partial PDF. Try exporting it to PDF first, then import the PDF."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo generaría más de %lld páginas, así que Orifold detuvo la importación antes de crear un PDF parcial. Intenta exportarlo primero a PDF y luego importa el PDF."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier produirait plus de %lld pages ; Orifold a donc arrêté l’importation avant de créer un PDF partiel. Essayez de l’exporter d’abord en PDF, puis importez le PDF."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह फ़ाइल %lld से ज़्यादा पेज में रेंडर होगी, इसलिए Orifold ने अधूरा PDF बनाने से पहले आयात रोक दिया। पहले इसे PDF में एक्सपोर्ट करने की कोशिश करें, फिर PDF आयात करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このファイルは%lldページを超えるため、Orifoldは不完全なPDFを作成する前に読み込みを中止しました。まずPDFとして書き出してから、そのPDFを読み込んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此文件渲染后将超过 %lld 页，因此 Orifold 在生成不完整的 PDF 之前停止了导入。请先将其导出为 PDF，然后再导入该 PDF。"
           }
         }
       }
@@ -13937,6 +14716,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "文件已打开，但 Orifold 无法将其渲染为 PDF。"
+          }
+        }
+      }
+    },
+    "error.import.someAdded": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld of %2$lld files were added."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se agregaron %1$lld de %2$lld archivos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld fichiers sur %2$lld ont été ajoutés."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$lld में से %1$lld फ़ाइलें जोड़ी गईं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$lld個中%1$lld個のファイルが追加されました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共 %2$lld 个文件，已添加 %1$lld 个。"
           }
         }
       }
@@ -14347,6 +15167,88 @@
           "stringUnit": {
             "state": "translated",
             "value": "此文档已包含可搜索的文本。"
+          }
+        }
+      }
+    },
+    "error.ocr.pageNotSearchable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not make page %lld searchable. Try a clearer scan or skip this page."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo hacer que la página %lld sea buscable. Intenta con un escaneo más claro u omite esta página."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu rendre la page %lld consultable. Essayez une numérisation plus nette ou ignorez cette page."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold पृष्ठ %lld को खोजने योग्य नहीं बना सका। स्पष्ट स्कैन आज़माएं या इस पृष्ठ को छोड़ दें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは%lldページ目を検索可能にできませんでした。より鮮明なスキャンを試すか、このページをスキップしてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法使第 %lld 页可被搜索。请尝试更清晰的扫描件，或跳过此页。"
+          }
+        }
+      }
+    },
+    "error.ocr.pageUnreadable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold could not read page %lld to make it searchable. Try exporting that page to PDF, then import it again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo leer la página %lld para hacerla buscable. Intenta exportar esa página a PDF y luego impórtala de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu lire la page %lld pour la rendre consultable. Essayez d’exporter cette page en PDF, puis importez-la à nouveau."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold खोजने योग्य बनाने के लिए पृष्ठ %lld को पढ़ नहीं सका। उस पृष्ठ को PDF में एक्सपोर्ट करने की कोशिश करें, फिर उसे दोबारा आयात करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは%lldページ目を読み取れなかったため、検索可能にできませんでした。そのページをPDFとして書き出してから、もう一度読み込んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法读取第 %lld 页，因而无法使其可被搜索。请尝试将该页导出为 PDF，然后重新导入。"
           }
         }
       }
@@ -14843,6 +15745,47 @@
         }
       }
     },
+    "error.signing.cannotCreateSignature": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This certificate’s private key can’t create %@ signatures. Try a different certificate."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La clave privada de este certificado no puede crear firmas %@. Prueba con otro certificado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La clé privée de ce certificat ne peut pas créer de signatures %@. Essayez un autre certificat."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस प्रमाणपत्र की निजी कुंजी %@ हस्ताक्षर नहीं बना सकती। कोई दूसरा प्रमाणपत्र आज़माएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この証明書の秘密鍵では%@署名を作成できません。別の証明書をお試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此证书的私钥无法创建 %@ 签名。请尝试其他证书。"
+          }
+        }
+      }
+    },
     "error.signing.identityExpired": {
       "extractionState": "manual",
       "localizations": {
@@ -14925,6 +15868,88 @@
         }
       }
     },
+    "error.signing.operationFailedCode": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ failed (code %2$lld). Try again, and if it keeps happening, check the certificate in Keychain Access."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ falló (código %2$lld). Inténtalo de nuevo y, si sigue ocurriendo, revisa el certificado en Acceso a Llaveros."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de %1$@ (code %2$lld). Réessayez et, si le problème persiste, vérifiez le certificat dans le Trousseau d’accès."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ विफल रहा (कोड %2$lld)। फिर से प्रयास करें, और अगर ऐसा होता रहे तो Keychain Access में प्रमाणपत्र जाँचें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ が失敗しました（コード%2$lld）。もう一度お試しください。繰り返し発生する場合は、キーチェーンアクセスで証明書を確認してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 失败（错误代码 %2$lld）。请重试；如果问题持续出现，请在“钥匙串访问”中检查该证书。"
+          }
+        }
+      }
+    },
+    "error.signing.operationFailedMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ failed: %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ falló: %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de %1$@ : %2$@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ विफल रहा: %2$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ が失敗しました: %2$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 失败：%2$@"
+          }
+        }
+      }
+    },
     "error.signing.placeholderReservationFailed": {
       "extractionState": "manual",
       "localizations": {
@@ -14966,6 +15991,47 @@
         }
       }
     },
+    "error.signing.randomDataUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold couldn’t generate the secure random data signing requires (code %lld). Try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no pudo generar los datos aleatorios seguros que requiere la firma (código %lld). Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold n’a pas pu générer les données aléatoires sécurisées requises pour la signature (code %lld). Réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold हस्ताक्षर के लिए ज़रूरी सुरक्षित रैंडम डेटा नहीं बना सका (कोड %lld)। फिर से प्रयास करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldは署名に必要な安全な乱数データを生成できませんでした（コード%lld）。もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 无法生成签名所需的安全随机数据（错误代码 %lld）。请重试。"
+          }
+        }
+      }
+    },
     "error.signing.timestampUnavailable": {
       "extractionState": "manual",
       "localizations": {
@@ -15003,6 +16069,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "Orifold 无法连接到时间戳服务器。请检查您的网络连接，或关闭时间戳后重新签署。"
+          }
+        }
+      }
+    },
+    "error.signing.unsupportedKeyAlgorithm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold doesn’t support this certificate’s private key algorithm (%@). Try a different certificate."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold no admite el algoritmo de clave privada de este certificado (%@). Prueba con otro certificado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold ne prend pas en charge l’algorithme de clé privée de ce certificat (%@). Essayez un autre certificat."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold इस प्रमाणपत्र की निजी कुंजी के एल्गोरिदम (%@) का समर्थन नहीं करता। कोई दूसरा प्रमाणपत्र आज़माएँ।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldはこの証明書の秘密鍵アルゴリズム（%@）に対応していません。別の証明書をお試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold 不支持此证书的私钥算法（%@）。请尝试其他证书。"
           }
         }
       }
@@ -15659,6 +16766,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld 条工作区"
+          }
+        }
+      }
+    },
+    "export.panel.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportar %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter en %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ निर्यात करें"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@を書き出す"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导出 %@"
           }
         }
       }
@@ -23289,6 +24437,88 @@
         }
       }
     },
+    "inspector.relativeTime.days": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldd ago"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hace %lldd"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "il y a %lld j"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld दिन पहले"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld日前"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 天前"
+          }
+        }
+      }
+    },
+    "inspector.relativeTime.hours": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldh ago"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hace %lldh"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "il y a %lld h"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld घंटे पहले"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld時間前"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 小时前"
+          }
+        }
+      }
+    },
     "inspector.relativeTime.justNow": {
       "extractionState": "manual",
       "localizations": {
@@ -23326,6 +24556,47 @@
           "stringUnit": {
             "state": "translated",
             "value": "刚刚"
+          }
+        }
+      }
+    },
+    "inspector.relativeTime.minutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldm ago"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hace %lldm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "il y a %lld min"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld मिनट पहले"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld分前"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 分钟前"
           }
         }
       }

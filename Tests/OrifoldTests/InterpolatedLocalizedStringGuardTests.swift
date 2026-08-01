@@ -14,11 +14,12 @@ import XCTest
 /// (the only page number that reaches exported bytes) and the comment-anchor labels. Both had
 /// survived because nothing stopped a new call site appearing.
 ///
-/// This is a RATCHET, not a clean bill of health. The sites in `knownOffenders` predate the
-/// guard; most are error messages interpolating `error.localizedDescription`, which needs a
-/// real decision about how much of a system error to show rather than a mechanical rewrite.
-/// The guard's job is to stop the list growing. Fixing one is expected to fail this test until
-/// its entry is deleted too — that is the point, the allowlist can only shrink.
+/// The allowlist this guard shipped with has been worked down to zero, so product code is
+/// now clean and this is a plain guard rather than a ratchet. The mechanism is kept because
+/// the failure is silent — a new interpolated call compiles, runs, and quietly ships English
+/// — so "nobody will do that again" is not a control. If a site ever genuinely has to be
+/// exempted, add it to `knownOffenders` with a comment saying why; the second assertion still
+/// forces the entry out again once it is fixed.
 ///
 /// Scans product code only: a `String(localized:)` in a test is not shipped to anyone.
 final class InterpolatedLocalizedStringGuardTests: XCTestCase {
@@ -28,43 +29,10 @@ final class InterpolatedLocalizedStringGuardTests: XCTestCase {
     /// `L10n` itself does) is the sanctioned path and does not match.
     private static let interpolationPattern = #"String\(localized:\s*"[^"]*\\\("#
 
-    // Entries are verbatim copies of the offending source lines — shortening one stops it
-    // matching, so line length is not negotiable here.
-    // swiftlint:disable line_length
-    /// Sites that predate this guard. Keyed by file name and the trimmed source line rather
-    /// than by line number, so unrelated edits above them do not churn this list.
-    private static let knownOffenders: Set<String> = [
-        #"InspectorView.swift: return String(localized: "\(days)d ago", locale: locale)"#,
-        #"InspectorView.swift: return String(localized: "\(hours)h ago", locale: locale)"#,
-        #"InspectorView.swift: return String(localized: "\(minutes)m ago", locale: locale)"#,
-        #"PDFKitEngine.swift: return String(localized: "The file could not be opened: \(error.localizedDescription)", locale: L10n.currentLocale)"#,
-        #"PDFKitEngine.swift: return String(localized: "The file is \(actual), which is larger than the \(limit) import safety limit.", locale: L10n.currentLocale)"#,
-        #"PDFKitEngine.swift: return String(localized: "This HTML file would render to about \(pageEstimate) pages, which is over Orifold's \(maxPages)-page HTML conversion limit. Try printing or exporting it to PDF from a browser, then import the PDF.", locale: L10n.currentLocale)"#,
-        #"PDFKitEngine.swift: return String(localized: "This \(typeDescription) file is \(actual), which is larger than Orifold can safely convert directly (\(limit)). Try exporting it to PDF first, then import the PDF.", locale: L10n.currentLocale)"#,
-        #"PDFKitEngine.swift: return String(localized: "This file would render to more than \(maxPages) pages, so Orifold stopped the import before creating a partial PDF. Try exporting it to PDF first, then import the PDF.", locale: L10n.currentLocale)"#,
-        #"PDFOCRService.swift: return String(localized: "Orifold could not make page \(pageNumber) searchable. Try a clearer scan or skip this page.", locale: L10n.currentLocale)"#,
-        #"PDFOCRService.swift: return String(localized: "Orifold could not read page \(pageNumber) to make it searchable. Try exporting that page to PDF, then import it again.", locale: L10n.currentLocale)"#,
-        #"SigningIdentity.swift: return String(localized: "Orifold couldn't generate the secure random data signing requires (code \(status)). Try again.", locale: L10n.currentLocale)"#,
-        #"SigningIdentity.swift: return String(localized: "Orifold doesn't support this certificate's private key algorithm (\(details)). Try a different certificate.", locale: L10n.currentLocale)"#,
-        #"SigningIdentity.swift: return String(localized: "This certificate's private key can't create \(algorithm.rawValue) signatures. Try a different certificate.", locale: L10n.currentLocale)"#,
-        #"SigningIdentity.swift: return String(localized: "\(operation) failed (code \(status)). Try again, and if it keeps happening, check the certificate in Keychain Access.", locale: L10n.currentLocale)"#,
-        #"SigningIdentity.swift: return String(localized: "\(operation) failed: \(message)", locale: L10n.currentLocale)"#,
-        #"WorkspaceViewModel.swift: exportError = ExportError(message: String(localized: "Orifold couldn’t export page images. \(error.localizedDescription) Check that the destination folder exists and has free space, then try again.", locale: L10n.currentLocale))"#,
-        #"WorkspaceViewModel.swift: exportError = ExportError(message: String(localized: "Orifold couldn’t export the selected pages. \(error.localizedDescription)", locale: L10n.currentLocale))"#,
-        #"WorkspaceViewModel.swift: exportError = ExportError(message: String(localized: "Orifold couldn’t prepare the signing identity. \(error.localizedDescription)", locale: L10n.currentLocale))"#,
-        #"WorkspaceViewModel.swift: exportError = ExportError(message: String(localized: "Orifold couldn’t prepare the visible signature. \(error.localizedDescription)", locale: L10n.currentLocale))"#,
-        #"WorkspaceViewModel.swift: exportError = ExportError(message: String(localized: "Orifold couldn’t save the PDF. \(error.localizedDescription) Check that the destination still exists and that you have permission to write there, then try again.", locale: L10n.currentLocale))"#,
-        #"WorkspaceViewModel.swift: exportError = ExportError(message: String(localized: "Orifold couldn’t write the \(format.menuTitle) export. \(error.localizedDescription) Check that the destination folder exists and has free space, then try again.", locale: L10n.currentLocale))"#,
-        #"WorkspaceViewModel.swift: message: String(localized: "Could not open \(failures.count) files: \(names)\(suffix).\(importedText)", locale: L10n.currentLocale)"#,
-        #"WorkspaceViewModel.swift: panel.title = String(localized: "Export \(format.menuTitle)", locale: L10n.currentLocale)"#,
-        #"WorkspaceViewModel.swift: return String(localized: "Orifold can preserve the original \(formatName) bytes when unchanged, but edited package exports are not faithful enough yet. Export as PDF to preserve the edit.", locale: L10n.currentLocale)"#,
-        #"WorkspaceViewModel.swift: return String(localized: "Orifold could not encode the \(formatName) export.", locale: L10n.currentLocale)"#,
-        #"WorkspaceViewModel.swift: return String(localized: "Orifold couldn’t create the \(format.menuTitle) export. \(error.localizedDescription)", locale: L10n.currentLocale)"#,
-        #"WorkspaceViewModel.swift: return String(localized: "Orifold does not have a rich-text writer for \(format.menuTitle).", locale: L10n.currentLocale)"#,
-        #"WorkspaceViewModel.swift: return String(localized: "\(original) → \(compressed), \(percent)% smaller", locale: L10n.currentLocale)"#,
-        #"WorkspaceViewModel.swift: self.exportError = ExportError(message: String(localized: "Orifold couldn’t sign the PDF. \(error.localizedDescription)", locale: L10n.currentLocale))"#
-    ]
-    // swiftlint:enable line_length
+    /// Empty, and meant to stay that way. The 29 sites this guard was born with were
+    /// migrated to `L10n.format` on 2026-08-01; anything appearing here again is a
+    /// regression, not debt.
+    private static let knownOffenders: Set<String> = []
 
     private func productSourceFiles() throws -> [URL] {
         let root = URL(fileURLWithPath: #filePath)

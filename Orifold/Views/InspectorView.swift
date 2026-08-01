@@ -880,14 +880,14 @@ private struct WorkspaceCommentRow: View {
         }
         if seconds < 3_600 {
             let minutes = Int(seconds / 60)
-            return String(localized: "\(minutes)m ago", locale: locale)
+            return L10n.format("inspector.relativeTime.minutes", minutes, locale: locale)
         }
         if seconds < 86_400 {
             let hours = Int(seconds / 3_600)
-            return String(localized: "\(hours)h ago", locale: locale)
+            return L10n.format("inspector.relativeTime.hours", hours, locale: locale)
         }
         let days = Int(seconds / 86_400)
-        return String(localized: "\(days)d ago", locale: locale)
+        return L10n.format("inspector.relativeTime.days", days, locale: locale)
     }
 
     private func color(fromHex value: String) -> Color {

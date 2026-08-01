@@ -28,9 +28,9 @@ enum PDFOCRError: LocalizedError, Equatable {
         case .invalidPDF(let memberName):
             return String(localized: "Orifold could not read \"\(memberName)\" to make it searchable. Reopen the document and try again.", locale: L10n.currentLocale)
         case .pageRenderFailed(let pageNumber):
-            return String(localized: "Orifold could not read page \(pageNumber) to make it searchable. Try exporting that page to PDF, then import it again.", locale: L10n.currentLocale)
+            return L10n.format("error.ocr.pageUnreadable", pageNumber)
         case .recognitionFailed(let pageNumber):
-            return String(localized: "Orifold could not make page \(pageNumber) searchable. Try a clearer scan or skip this page.", locale: L10n.currentLocale)
+            return L10n.format("error.ocr.pageNotSearchable", pageNumber)
         case .outputFailed(let memberName):
             return String(localized: "Orifold could not update \"\(memberName)\" with searchable text. The original document is unchanged.", locale: L10n.currentLocale)
         case .cancelled:

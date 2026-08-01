@@ -234,15 +234,15 @@ enum DocumentImportConverter {
         case ConversionError.fileTooLarge(let byteCount):
             let actual = byteCountFormatter.string(fromByteCount: byteCount)
             let limit = byteCountFormatter.string(fromByteCount: maxImportBytes)
-            return String(localized: "The file is \(actual), which is larger than the \(limit) import safety limit.", locale: L10n.currentLocale)
+            return L10n.format("error.import.fileTooLargeWithSize", actual, limit)
         case ConversionError.fileTypeTooLarge(let typeDescription, let actualBytes, let limitBytes):
             let actual = byteCountFormatter.string(fromByteCount: actualBytes)
             let limit = byteCountFormatter.string(fromByteCount: limitBytes)
-            return String(localized: "This \(typeDescription) file is \(actual), which is larger than Orifold can safely convert directly (\(limit)). Try exporting it to PDF first, then import the PDF.", locale: L10n.currentLocale)
+            return L10n.format("error.import.fileTypeTooLarge", typeDescription, actual, limit)
         case ConversionError.htmlRenderedTooLarge(let pageEstimate, let maxPages):
-            return String(localized: "This HTML file would render to about \(pageEstimate) pages, which is over Orifold's \(maxPages)-page HTML conversion limit. Try printing or exporting it to PDF from a browser, then import the PDF.", locale: L10n.currentLocale)
+            return L10n.format("error.import.htmlPageLimit", pageEstimate, maxPages)
         case ConversionError.documentRenderedTooLarge(let maxPages):
-            return String(localized: "This file would render to more than \(maxPages) pages, so Orifold stopped the import before creating a partial PDF. Try exporting it to PDF first, then import the PDF.", locale: L10n.currentLocale)
+            return L10n.format("error.import.pageLimit", maxPages)
         case ConversionError.comicArchiveUnreadable:
             return L10n.string("error.import.cbz.unreadable")
         case ConversionError.comicArchiveNoImages:
@@ -252,7 +252,7 @@ enum DocumentImportConverter {
         case ConversionError.comicArchiveTooManyImages(let maxPages):
             return L10n.format("error.import.cbz.tooManyImages", maxPages)
         default:
-            return String(localized: "The file could not be opened: \(error.localizedDescription)", locale: L10n.currentLocale)
+            return L10n.format("error.import.couldNotOpen", error.localizedDescription)
         }
     }
 
