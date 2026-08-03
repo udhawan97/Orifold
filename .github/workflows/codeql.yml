@@ -39,7 +39,7 @@ jobs:
             ${{ runner.os }}-swiftpm-deps-
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v4.37.4
         with:
           languages: swift
           queries: ${{ github.event_name == 'schedule' && 'security-extended,security-and-quality' || 'security-and-quality' }}
@@ -48,4 +48,4 @@ jobs:
         run: swift build
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v4.37.4
