@@ -9,6 +9,11 @@ enum PageDecorationSwatch: String, Codable, CaseIterable {
     case lavender
 }
 
+enum PageDecorationPDFPlacement: String, Codable, CaseIterable, Hashable {
+    case over
+    case under
+}
+
 struct PageDecoration: Codable, Identifiable, Equatable {
     enum Kind: String, Codable {
         case watermark
@@ -17,6 +22,7 @@ struct PageDecoration: Codable, Identifiable, Equatable {
         case stamp
         case hanko
         case image
+        case overlayPDF
     }
 
     var id: UUID
@@ -36,9 +42,16 @@ struct PageDecoration: Codable, Identifiable, Equatable {
     /// kind. Baked into the page via `PDFDecorationExportBaker.drawImage`, never via a PDFium
     /// image-object insert (that lane is unbound — see WAVE_2_PLAN Feature G).
     var imageData: Data?
+    /// A one-page vector PDF used as stationery or letterhead. Kept separate from
+    /// `imageData` so export can draw the source `CGPDFPage` directly without rasterizing it.
+    var overlayPDFData: Data?
+    /// Whether the overlay PDF is composited before or after the source page content.
+    var overlayPDFPlacement: PageDecorationPDFPlacement
 
     enum CodingKeys: String, CodingKey {
-        case id, kind, isEnabled, text, prefix, startNumber, pageRefID, rect, fontSize, opacity, swatch, hankoShape, imageData
+        case id, kind, isEnabled, text, prefix, startNumber, pageRefID, rect
+        case fontSize, opacity, swatch, hankoShape, imageData
+        case overlayPDFData, overlayPDFPlacement
     }
 
     init(id: UUID = UUID(),
@@ -53,7 +66,9 @@ struct PageDecoration: Codable, Identifiable, Equatable {
          opacity: Double = 1,
          swatch: PageDecorationSwatch = .accent,
          hankoShape: HankoShape = .circle,
-         imageData: Data? = nil) {
+         imageData: Data? = nil,
+         overlayPDFData: Data? = nil,
+         overlayPDFPlacement: PageDecorationPDFPlacement = .over) {
         self.id = id
         self.kind = kind
         self.isEnabled = isEnabled
@@ -67,27 +82,35 @@ struct PageDecoration: Codable, Identifiable, Equatable {
         self.swatch = swatch
         self.hankoShape = hankoShape
         self.imageData = imageData
+        self.overlayPDFData = overlayPDFData
+        self.overlayPDFPlacement = overlayPDFPlacement
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        kind = try c.decode(Kind.self, forKey: .kind)
-        isEnabled = try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
-        text = try c.decodeIfPresent(String.self, forKey: .text) ?? ""
-        prefix = try c.decodeIfPresent(String.self, forKey: .prefix) ?? "DEF"
-        startNumber = try c.decodeIfPresent(Int.self, forKey: .startNumber) ?? 100
-        pageRefID = try c.decodeIfPresent(UUID.self, forKey: .pageRefID)
-        rect = try c.decodeIfPresent(CGRect.self, forKey: .rect)
-        fontSize = try c.decodeIfPresent(CGFloat.self, forKey: .fontSize) ?? 12
-        opacity = try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
-        swatch = try c.decodeIfPresent(PageDecorationSwatch.self, forKey: .swatch) ?? .accent
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        kind = try container.decode(Kind.self, forKey: .kind)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
+        prefix = try container.decodeIfPresent(String.self, forKey: .prefix) ?? "DEF"
+        startNumber = try container.decodeIfPresent(Int.self, forKey: .startNumber) ?? 100
+        pageRefID = try container.decodeIfPresent(UUID.self, forKey: .pageRefID)
+        rect = try container.decodeIfPresent(CGRect.self, forKey: .rect)
+        fontSize = try container.decodeIfPresent(CGFloat.self, forKey: .fontSize) ?? 12
+        opacity = try container.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
+        swatch = try container.decodeIfPresent(PageDecorationSwatch.self, forKey: .swatch) ?? .accent
         // Migration-safe: documents saved before the hanko studio shipped have no
         // `hankoShape`, so default it rather than failing to decode the whole workspace.
-        hankoShape = try c.decodeIfPresent(HankoShape.self, forKey: .hankoShape) ?? .circle
+        hankoShape = try container.decodeIfPresent(HankoShape.self, forKey: .hankoShape) ?? .circle
         // Migration-safe likewise: workspaces saved before barcode insert have no
         // `imageData`; default to nil rather than failing the whole decode.
-        imageData = try c.decodeIfPresent(Data.self, forKey: .imageData)
+        imageData = try container.decodeIfPresent(Data.self, forKey: .imageData)
+        // Migration-safe: workspaces saved before PDF overlays have neither key.
+        overlayPDFData = try container.decodeIfPresent(Data.self, forKey: .overlayPDFData)
+        overlayPDFPlacement = try container.decodeIfPresent(
+            PageDecorationPDFPlacement.self,
+            forKey: .overlayPDFPlacement
+        ) ?? .over
     }
 }
 
@@ -99,7 +122,13 @@ extension PageDecoration {
     var isSeal: Bool { kind == .stamp || kind == .hanko || kind == .image }
 
     static func watermark() -> PageDecoration {
-        PageDecoration(kind: .watermark, text: L10n.string("decoration.defaultWatermark"), fontSize: 64, opacity: 0.16, swatch: .tertiary)
+        PageDecoration(
+            kind: .watermark,
+            text: L10n.string("decoration.defaultWatermark"),
+            fontSize: 64,
+            opacity: 0.16,
+            swatch: .tertiary
+        )
     }
 
     static func pageNumber() -> PageDecoration {
@@ -111,13 +140,30 @@ extension PageDecoration {
     }
 
     static func stamp(text: String, swatch: PageDecorationSwatch, pageRefID: UUID, rect: CGRect) -> PageDecoration {
-        PageDecoration(kind: .stamp, text: text, pageRefID: pageRefID, rect: rect, fontSize: 22, opacity: 0.88, swatch: swatch)
+        PageDecoration(
+            kind: .stamp,
+            text: text,
+            pageRefID: pageRefID,
+            rect: rect,
+            fontSize: 22,
+            opacity: 0.88,
+            swatch: swatch
+        )
     }
 
     /// A procedural hanko seal: `text` holds the 1–4 characters carved into it, `hankoShape`
     /// the border. Rendered in shu-iro vermillion by `HankoRenderer` (not `swatch`).
     static func hanko(text: String, shape: HankoShape, pageRefID: UUID, rect: CGRect) -> PageDecoration {
-        PageDecoration(kind: .hanko, text: text, pageRefID: pageRefID, rect: rect, fontSize: 22, opacity: 1, swatch: .coral, hankoShape: shape)
+        PageDecoration(
+            kind: .hanko,
+            text: text,
+            pageRefID: pageRefID,
+            rect: rect,
+            fontSize: 22,
+            opacity: 1,
+            swatch: .coral,
+            hankoShape: shape
+        )
     }
 
     /// A placed raster image — currently the barcode/QR insert (Feature G). `imageData` holds
@@ -125,5 +171,21 @@ extension PageDecoration {
     /// object, no annotation).
     static func image(imageData: Data, pageRefID: UUID, rect: CGRect) -> PageDecoration {
         PageDecoration(kind: .image, pageRefID: pageRefID, rect: rect, opacity: 1, imageData: imageData)
+    }
+
+    /// A vector PDF decoration. A nil `pageRefID` applies it to every page; a concrete
+    /// `PageRef.id` targets only that workspace page.
+    static func overlayPDF(
+        pdfData: Data,
+        placement: PageDecorationPDFPlacement = .over,
+        pageRefID: UUID? = nil
+    ) -> PageDecoration {
+        PageDecoration(
+            kind: .overlayPDF,
+            pageRefID: pageRefID,
+            opacity: 1,
+            overlayPDFData: pdfData,
+            overlayPDFPlacement: placement
+        )
     }
 }

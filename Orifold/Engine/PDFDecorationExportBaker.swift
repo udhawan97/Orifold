@@ -61,7 +61,12 @@ enum PDFDecorationExportBaker {
                 throw BakeError.invalidPDF
             }
             let mediaBox = page.bounds(for: .mediaBox)
-            context.beginPDFPage(pageInfo(mediaBox: mediaBox))
+            let cropBox = page.bounds(for: .cropBox)
+            context.beginPDFPage(pageInfo(mediaBox: mediaBox, cropBox: cropBox))
+            drawPDFOverlays(
+                active, placement: .under, pageRefID: pageOrder[pageIndex].id,
+                pageBounds: mediaBox, in: context
+            )
             context.saveGState()
             page.draw(with: .mediaBox, to: context)
             context.restoreGState()
@@ -110,6 +115,15 @@ enum PDFDecorationExportBaker {
                       !imageData.isEmpty else {
                     throw BakeError.invalidStampDecoration
                 }
+            case .overlayPDF:
+                guard let data = decoration.overlayPDFData,
+                      let provider = CGDataProvider(data: data as CFData),
+                      let document = CGPDFDocument(provider),
+                      document.numberOfPages == 1,
+                      document.page(at: 1) != nil,
+                      decoration.pageRefID.map(pageRefIDs.contains) ?? true else {
+                    throw BakeError.invalidDecoration
+                }
             case .pageNumber, .bates:
                 break
             }
@@ -136,7 +150,7 @@ enum PDFDecorationExportBaker {
 
     static func text(for decoration: PageDecoration, pageIndex: Int, pageCount: Int) -> String {
         switch decoration.kind {
-        case .watermark, .stamp, .hanko, .image:
+        case .watermark, .stamp, .hanko, .image, .overlayPDF:
             return decoration.text
         case .pageNumber:
             // Must go through L10n.format: an interpolated `String(localized:)` builds a
@@ -175,8 +189,49 @@ enum PDFDecorationExportBaker {
             case .image:
                 guard decoration.pageRefID == pageRefID else { continue }
                 drawImage(decoration, in: context)
+            case .overlayPDF:
+                guard decoration.overlayPDFPlacement == .over,
+                      decoration.pageRefID == nil || decoration.pageRefID == pageRefID else { continue }
+                drawPDFOverlay(decoration, pageBounds: pageBounds, in: context)
             }
         }
+    }
+
+    private static func drawPDFOverlays(_ decorations: [PageDecoration],
+                                        placement: PageDecorationPDFPlacement,
+                                        pageRefID: UUID,
+                                        pageBounds: CGRect,
+                                        in context: CGContext) {
+        for decoration in decorations where decoration.kind == .overlayPDF
+            && decoration.overlayPDFPlacement == placement
+            && (decoration.pageRefID == nil || decoration.pageRefID == pageRefID) {
+            drawPDFOverlay(decoration, pageBounds: pageBounds, in: context)
+        }
+    }
+
+    /// Draws the imported page through Core Graphics' PDF renderer so vector stationery
+    /// remains vector content in the baked export. A supplied rect supports future
+    /// page-targeted placement; the current inspector uses the full target media box.
+    private static func drawPDFOverlay(_ decoration: PageDecoration,
+                                       pageBounds: CGRect,
+                                       in context: CGContext) {
+        guard let data = decoration.overlayPDFData,
+              let provider = CGDataProvider(data: data as CFData),
+              let document = CGPDFDocument(provider),
+              let overlayPage = document.page(at: 1) else { return }
+        let targetRect = decoration.rect?.standardized ?? pageBounds
+        guard targetRect.width > 0, targetRect.height > 0 else { return }
+        let transform = overlayPage.getDrawingTransform(
+            .mediaBox,
+            rect: targetRect,
+            rotate: 0,
+            preserveAspectRatio: false
+        )
+        context.saveGState()
+        context.setAlpha(CGFloat(decoration.opacity))
+        context.concatenate(transform)
+        context.drawPDFPage(overlayPage)
+        context.restoreGState()
     }
 
     private static func drawWatermark(_ decoration: PageDecoration,
@@ -309,10 +364,15 @@ enum PDFDecorationExportBaker {
         NSGraphicsContext.restoreGraphicsState()
     }
 
-    private static func pageInfo(mediaBox: CGRect) -> CFDictionary {
-        var box = mediaBox
-        let boxData = Data(bytes: &box, count: MemoryLayout<CGRect>.size) as CFData
-        return [kCGPDFContextMediaBox as String: boxData] as CFDictionary
+    private static func pageInfo(mediaBox: CGRect, cropBox: CGRect) -> CFDictionary {
+        var media = mediaBox
+        var crop = cropBox
+        let mediaData = Data(bytes: &media, count: MemoryLayout<CGRect>.size) as CFData
+        let cropData = Data(bytes: &crop, count: MemoryLayout<CGRect>.size) as CFData
+        return [
+            kCGPDFContextMediaBox as String: mediaData,
+            kCGPDFContextCropBox as String: cropData
+        ] as CFDictionary
     }
 }
 

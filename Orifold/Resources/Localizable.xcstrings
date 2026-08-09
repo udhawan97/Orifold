@@ -52834,6 +52834,420 @@
           }
         }
       }
+    },
+    "inspector.crop.open": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Crop pages…" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Recortar páginas…" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Recadrer les pages…" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "पेज क्रॉप करें…" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "ページをトリミング…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "裁剪页面…" } }
+      }
+    },
+    "inspector.crop.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Crop pages" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Recortar páginas" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Recadrer les pages" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "पेज क्रॉप करें" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "ページをトリミング" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "裁剪页面" } }
+      }
+    },
+    "inspector.crop.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Set margins in points. Cropping hides content without deleting it." } },
+        "es": { "stringUnit": { "state": "translated", "value": "Define los márgenes en puntos. El recorte oculta contenido sin eliminarlo." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Définissez les marges en points. Le recadrage masque le contenu sans le supprimer." } },
+        "hi": { "stringUnit": { "state": "translated", "value": "मार्जिन पॉइंट में सेट करें। क्रॉप करने से सामग्री हटाए बिना छिप जाती है।" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "余白をポイント単位で設定します。トリミングしても内容は削除されず、非表示になります。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "以点为单位设置边距。裁剪只会隐藏内容，不会将其删除。" } }
+      }
+    },
+    "inspector.crop.top": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Top" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Superior" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Haut" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "ऊपर" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "上" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "上" } }
+      }
+    },
+    "inspector.crop.bottom": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Bottom" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Inferior" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Bas" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "नीचे" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "下" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "下" } }
+      }
+    },
+    "inspector.crop.left": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Left" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Izquierda" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Gauche" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "बायाँ" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "左" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "左" } }
+      }
+    },
+    "inspector.crop.right": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Right" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Derecha" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Droite" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "दायाँ" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "右" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "右" } }
+      }
+    },
+    "inspector.crop.marginValue": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%1$@ %2$lld pt" } },
+        "es": { "stringUnit": { "state": "translated", "value": "%1$@ %2$lld pt" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "%1$@ %2$lld pt" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "%1$@ %2$lld pt" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%1$@ %2$lld pt" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "%1$@ %2$lld pt" } }
+      }
+    },
+    "inspector.crop.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cancel" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Cancelar" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Annuler" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "रद्द करें" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "キャンセル" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "取消" } }
+      }
+    },
+    "inspector.crop.applyThisPage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Apply to this page" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Aplicar a esta página" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Appliquer à cette page" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "इस पेज पर लागू करें" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このページに適用" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "应用到此页面" } }
+      }
+    },
+    "inspector.crop.applyAllPages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Apply to all pages" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Aplicar a todas las páginas" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Appliquer à toutes les pages" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "सभी पेज पर लागू करें" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "すべてのページに適用" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "应用到所有页面" } }
+      }
+    },
+    "status.crop.applyFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "The crop could not be applied." } },
+        "es": { "stringUnit": { "state": "translated", "value": "No se pudo aplicar el recorte." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Impossible d’appliquer le recadrage." } },
+        "hi": { "stringUnit": { "state": "translated", "value": "क्रॉप लागू नहीं किया जा सका।" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "トリミングを適用できませんでした。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无法应用裁剪。" } }
+      }
+    },
+    "undo.cropPage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Crop Page" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Recortar página" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Recadrer la page" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "पेज क्रॉप करें" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "ページをトリミング" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "裁剪页面" } }
+      }
+    },
+    "undo.cropPages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Crop Pages" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Recortar páginas" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Recadrer les pages" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "पेज क्रॉप करें" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "ページをトリミング" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "裁剪页面" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "PDF overlay" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Superposición PDF" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Superposition PDF" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "PDF ओवरले" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "PDFオーバーレイ" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "PDF 叠加层" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Use a one-page PDF as vector stationery or letterhead." } },
+        "es": { "stringUnit": { "state": "translated", "value": "Usa un PDF de una página como papelería o membrete vectorial." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Utilisez un PDF d’une page comme papier à lettres vectoriel." } },
+        "hi": { "stringUnit": { "state": "translated", "value": "एक-पेज PDF को वेक्टर स्टेशनरी या लेटरहेड की तरह उपयोग करें।" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "1ページのPDFをベクターの便箋やレターヘッドとして使用します。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "将单页 PDF 用作矢量信纸或抬头纸。" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.placement": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Layer" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Capa" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Calque" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "परत" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "レイヤー" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "图层" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.over": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Above content" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Sobre el contenido" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Au-dessus du contenu" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "सामग्री के ऊपर" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "コンテンツの上" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "内容上方" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.under": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Below content" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Bajo el contenido" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Sous le contenu" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "सामग्री के नीचे" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "コンテンツの下" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "内容下方" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.enabled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Enabled" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Activado" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Activé" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "सक्षम" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "有効" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已启用" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.target": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Pages" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Páginas" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Pages" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "पेज" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "ページ" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "页面" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.allPages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "All pages" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Todas las páginas" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Toutes les pages" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "सभी पेज" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "すべてのページ" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "所有页面" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.thisPage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "This page" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Esta página" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Cette page" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "यह पेज" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "このページ" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "此页面" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.choose": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Choose PDF…" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Elegir PDF…" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Choisir un PDF…" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "PDF चुनें…" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "PDFを選択…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "选择 PDF…" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.replace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Replace PDF…" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Reemplazar PDF…" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Remplacer le PDF…" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "PDF बदलें…" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "PDFを置き換え…" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "替换 PDF…" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Remove" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Eliminar" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Supprimer" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "हटाएँ" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "削除" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "移除" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.invalid.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Invalid PDF" } },
+        "es": { "stringUnit": { "state": "translated", "value": "PDF no válido" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "PDF non valide" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "अमान्य PDF" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "無効なPDF" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "无效的 PDF" } }
+      }
+    },
+    "inspector.decorate.overlayPDF.invalid.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Choose a readable PDF containing exactly one page." } },
+        "es": { "stringUnit": { "state": "translated", "value": "Elige un PDF legible que contenga exactamente una página." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Choisissez un PDF lisible contenant exactement une page." } },
+        "hi": { "stringUnit": { "state": "translated", "value": "ऐसा पढ़ने योग्य PDF चुनें जिसमें ठीक एक पेज हो।" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "1ページだけを含む読み取り可能なPDFを選択してください。" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "请选择恰好包含一页且可读取的 PDF。" } }
+      }
+    },
+    "undo.changeOverlayPDF": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Change PDF Overlay" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Cambiar superposición PDF" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Modifier la superposition PDF" } },
+        "hi": { "stringUnit": { "state": "translated", "value": "PDF ओवरले बदलें" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "PDFオーバーレイを変更" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "更改 PDF 叠加层" } }
+      }
+    },
+    "signature.validation.unknownSigner": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unknown signer" } }, "es": { "stringUnit": { "state": "translated", "value": "Firmante desconocido" } }, "fr": { "stringUnit": { "state": "translated", "value": "Signataire inconnu" } }, "hi": { "stringUnit": { "state": "translated", "value": "अज्ञात हस्ताक्षरकर्ता" } }, "ja": { "stringUnit": { "state": "translated", "value": "不明な署名者" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "未知签名者" } }
+      }
+    },
+    "signature.validation.section": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Digital signatures" } }, "es": { "stringUnit": { "state": "translated", "value": "Firmas digitales" } }, "fr": { "stringUnit": { "state": "translated", "value": "Signatures numériques" } }, "hi": { "stringUnit": { "state": "translated", "value": "डिजिटल हस्ताक्षर" } }, "ja": { "stringUnit": { "state": "translated", "value": "デジタル署名" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "数字签名" } }
+      }
+    },
+    "signature.validation.checking": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Checking signatures…" } }, "es": { "stringUnit": { "state": "translated", "value": "Comprobando firmas…" } }, "fr": { "stringUnit": { "state": "translated", "value": "Vérification des signatures…" } }, "hi": { "stringUnit": { "state": "translated", "value": "हस्ताक्षर जाँचे जा रहे हैं…" } }, "ja": { "stringUnit": { "state": "translated", "value": "署名を確認中…" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "正在检查签名…" } }
+      }
+    },
+    "signature.validation.integrity.label": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Integrity" } }, "es": { "stringUnit": { "state": "translated", "value": "Integridad" } }, "fr": { "stringUnit": { "state": "translated", "value": "Intégrité" } }, "hi": { "stringUnit": { "state": "translated", "value": "अखंडता" } }, "ja": { "stringUnit": { "state": "translated", "value": "整合性" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "完整性" } }
+      }
+    },
+    "signature.validation.integrity.valid": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Valid" } }, "es": { "stringUnit": { "state": "translated", "value": "Válida" } }, "fr": { "stringUnit": { "state": "translated", "value": "Valide" } }, "hi": { "stringUnit": { "state": "translated", "value": "मान्य" } }, "ja": { "stringUnit": { "state": "translated", "value": "有効" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "有效" } }
+      }
+    },
+    "signature.validation.integrity.invalid": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Failed" } }, "es": { "stringUnit": { "state": "translated", "value": "Falló" } }, "fr": { "stringUnit": { "state": "translated", "value": "Échec" } }, "hi": { "stringUnit": { "state": "translated", "value": "विफल" } }, "ja": { "stringUnit": { "state": "translated", "value": "失敗" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "失败" } }
+      }
+    },
+    "signature.validation.trust.label": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Identity" } }, "es": { "stringUnit": { "state": "translated", "value": "Identidad" } }, "fr": { "stringUnit": { "state": "translated", "value": "Identité" } }, "hi": { "stringUnit": { "state": "translated", "value": "पहचान" } }, "ja": { "stringUnit": { "state": "translated", "value": "本人確認" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "身份" } }
+      }
+    },
+    "signature.validation.trust.trusted": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Trusted by this Mac" } }, "es": { "stringUnit": { "state": "translated", "value": "Confiable en este Mac" } }, "fr": { "stringUnit": { "state": "translated", "value": "Approuvée par ce Mac" } }, "hi": { "stringUnit": { "state": "translated", "value": "इस Mac द्वारा विश्वसनीय" } }, "ja": { "stringUnit": { "state": "translated", "value": "このMacで信頼済み" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "受此 Mac 信任" } }
+      }
+    },
+    "signature.validation.trust.revoked": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Revoked" } }, "es": { "stringUnit": { "state": "translated", "value": "Revocada" } }, "fr": { "stringUnit": { "state": "translated", "value": "Révoquée" } }, "hi": { "stringUnit": { "state": "translated", "value": "निरस्त" } }, "ja": { "stringUnit": { "state": "translated", "value": "失効" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "已吊销" } }
+      }
+    },
+    "signature.validation.trust.notTrusted": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Not trusted by this Mac" } }, "es": { "stringUnit": { "state": "translated", "value": "No confiable en este Mac" } }, "fr": { "stringUnit": { "state": "translated", "value": "Non approuvée par ce Mac" } }, "hi": { "stringUnit": { "state": "translated", "value": "इस Mac द्वारा विश्वसनीय नहीं" } }, "ja": { "stringUnit": { "state": "translated", "value": "このMacでは未信頼" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "不受此 Mac 信任" } }
+      }
+    },
+    "signature.validation.trust.unavailable": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Unavailable" } }, "es": { "stringUnit": { "state": "translated", "value": "No disponible" } }, "fr": { "stringUnit": { "state": "translated", "value": "Indisponible" } }, "hi": { "stringUnit": { "state": "translated", "value": "अनुपलब्ध" } }, "ja": { "stringUnit": { "state": "translated", "value": "利用不可" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "不可用" } }
+      }
+    },
+    "signature.validation.coverage.label": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Coverage" } }, "es": { "stringUnit": { "state": "translated", "value": "Cobertura" } }, "fr": { "stringUnit": { "state": "translated", "value": "Couverture" } }, "hi": { "stringUnit": { "state": "translated", "value": "कवरेज" } }, "ja": { "stringUnit": { "state": "translated", "value": "対象範囲" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "覆盖范围" } }
+      }
+    },
+    "signature.validation.coverage.entireDocument": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Entire document" } }, "es": { "stringUnit": { "state": "translated", "value": "Documento completo" } }, "fr": { "stringUnit": { "state": "translated", "value": "Document entier" } }, "hi": { "stringUnit": { "state": "translated", "value": "पूरा दस्तावेज़" } }, "ja": { "stringUnit": { "state": "translated", "value": "文書全体" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "整个文档" } }
+      }
+    },
+    "signature.validation.coverage.changedAfterSigning": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Changed after signing" } }, "es": { "stringUnit": { "state": "translated", "value": "Cambió después de firmar" } }, "fr": { "stringUnit": { "state": "translated", "value": "Modifié après signature" } }, "hi": { "stringUnit": { "state": "translated", "value": "हस्ताक्षर के बाद बदला गया" } }, "ja": { "stringUnit": { "state": "translated", "value": "署名後に変更" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "签名后已更改" } }
+      }
+    },
+    "signature.validation.coverage.invalid": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Invalid byte range" } }, "es": { "stringUnit": { "state": "translated", "value": "Rango de bytes no válido" } }, "fr": { "stringUnit": { "state": "translated", "value": "Plage d’octets non valide" } }, "hi": { "stringUnit": { "state": "translated", "value": "अमान्य बाइट रेंज" } }, "ja": { "stringUnit": { "state": "translated", "value": "無効なバイト範囲" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "无效的字节范围" } }
+      }
+    },
+    "signature.validation.time.timestampPresent": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@ · Timestamp embedded; LTV not checked" } }, "es": { "stringUnit": { "state": "translated", "value": "%@ · Marca de tiempo incluida; LTV no comprobada" } }, "fr": { "stringUnit": { "state": "translated", "value": "%@ · Horodatage intégré ; LTV non vérifiée" } }, "hi": { "stringUnit": { "state": "translated", "value": "%@ · टाइमस्टैम्प एम्बेड है; LTV जाँचा नहीं गया" } }, "ja": { "stringUnit": { "state": "translated", "value": "%@ · タイムスタンプあり（LTV未確認）" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@ · 已嵌入时间戳；未检查 LTV" } }
+      }
+    },
+    "signature.validation.time.unverified": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "%@ · Unverified time (no trusted timestamp)" } }, "es": { "stringUnit": { "state": "translated", "value": "%@ · Hora no verificada (sin marca de tiempo confiable)" } }, "fr": { "stringUnit": { "state": "translated", "value": "%@ · Heure non vérifiée (aucun horodatage fiable)" } }, "hi": { "stringUnit": { "state": "translated", "value": "%@ · असत्यापित समय (विश्वसनीय टाइमस्टैम्प नहीं)" } }, "ja": { "stringUnit": { "state": "translated", "value": "%@ · 未確認の時刻（信頼済みタイムスタンプなし）" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "%@ · 未验证时间（无可信时间戳）" } }
+      }
+    },
+    "signature.validation.noLTV": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Long-term validation (LTV) evidence is not checked." } }, "es": { "stringUnit": { "state": "translated", "value": "No se comprueba la evidencia de validación a largo plazo (LTV)." } }, "fr": { "stringUnit": { "state": "translated", "value": "Les preuves de validation à long terme (LTV) ne sont pas vérifiées." } }, "hi": { "stringUnit": { "state": "translated", "value": "दीर्घकालिक सत्यापन (LTV) प्रमाण की जाँच नहीं की जाती।" } }, "ja": { "stringUnit": { "state": "translated", "value": "長期検証（LTV）の証拠は確認されません。" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "未检查长期验证（LTV）证据。" } }
+      }
+    },
+    "signature.validation.time.unavailable": {
+      "extractionState": "manual", "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Signing time unavailable" } }, "es": { "stringUnit": { "state": "translated", "value": "Hora de firma no disponible" } }, "fr": { "stringUnit": { "state": "translated", "value": "Heure de signature indisponible" } }, "hi": { "stringUnit": { "state": "translated", "value": "हस्ताक्षर का समय उपलब्ध नहीं" } }, "ja": { "stringUnit": { "state": "translated", "value": "署名時刻を取得できません" } }, "zh-Hans": { "stringUnit": { "state": "translated", "value": "签名时间不可用" } }
+      }
     }
   },
   "version": "1.0"

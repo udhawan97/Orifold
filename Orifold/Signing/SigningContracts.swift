@@ -114,14 +114,16 @@ enum PDFByteRangeCalculator {
               range.afterLength >= 0,
               range.beforeLength <= pdf.count,
               range.afterOffset <= pdf.count,
-              range.afterOffset + range.afterLength <= pdf.count else {
+              range.afterLength <= pdf.count - range.afterOffset,
+              range.beforeLength <= pdf.count - range.afterLength else {
             throw SigningError.invalidPDF
         }
 
+        let afterEnd = range.afterOffset + range.afterLength
         var digest = Data()
         digest.reserveCapacity(range.beforeLength + range.afterLength)
         digest.append(pdf[0..<range.beforeLength])
-        digest.append(pdf[range.afterOffset..<(range.afterOffset + range.afterLength)])
+        digest.append(pdf[range.afterOffset..<afterEnd])
         return digest
     }
 

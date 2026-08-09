@@ -226,6 +226,8 @@ private struct InspectorInfoView: View {
             InspectorRow(label: L10n.string("inspector.info.created", locale: locale),     value: viewModel.document.workspace.createdAt.formatted(
                 date: .abbreviated, time: .omitted))
 
+            InspectorSignatureValidationSection(viewModel: viewModel)
+
             if !viewModel.document.workspace.documents.isEmpty {
                 Rectangle()
                     .fill(Color.dsSeparator)
@@ -335,6 +337,198 @@ private struct InspectorInfoView: View {
     private func trimmedOrNil(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+private struct InspectorSignatureReport: Identifiable {
+    var memberID: UUID
+    var memberName: String
+    var report: PDFSignatureValidation
+
+    var id: String { "\(memberID.uuidString)-\(report.id)" }
+}
+
+private struct InspectorSignatureValidationSection: View {
+    var viewModel: WorkspaceViewModel
+
+    @Environment(\.locale) private var locale
+    @State private var signatureReports: [InspectorSignatureReport] = []
+    @State private var isValidatingSignatures = false
+
+    var body: some View {
+        Group {
+            if isValidatingSignatures || !signatureReports.isEmpty {
+                Rectangle()
+                    .fill(Color.dsSeparator)
+                    .frame(height: 0.5)
+                sectionContent
+            }
+        }
+        .task(id: viewModel.structureRevision) {
+            await loadSignatureReports()
+        }
+    }
+
+    private var sectionContent: some View {
+        VStack(alignment: .leading, spacing: .dsMD) {
+            Text(L10n.string("signature.validation.section", locale: locale).uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color.dsTextTertiary)
+                .tracking(0.5)
+
+            if isValidatingSignatures {
+                ProgressView(L10n.string("signature.validation.checking", locale: locale))
+                    .font(.dsCaption())
+            }
+
+            ForEach(signatureReports) { item in
+                signatureCard(item)
+            }
+
+            Text(L10n.string("signature.validation.noLTV", locale: locale))
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func signatureCard(_ item: InspectorSignatureReport) -> some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            if viewModel.document.workspace.documents.count > 1 {
+                Text(item.memberName)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextTertiary)
+            }
+            Text(item.report.signerCommonName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.dsTextPrimary)
+
+            signingTimeView(for: item.report)
+            signatureVerdictRow(
+                label: L10n.string("signature.validation.integrity.label", locale: locale),
+                value: integrityText(item.report.integrity),
+                color: item.report.integrity == .valid
+                    ? Color.dsAnnotationSage
+                    : Color.dsAnnotationCoral
+            )
+            signatureVerdictRow(
+                label: L10n.string("signature.validation.trust.label", locale: locale),
+                value: trustText(item.report.trust),
+                color: trustColor(item.report.trust)
+            )
+            signatureVerdictRow(
+                label: L10n.string("signature.validation.coverage.label", locale: locale),
+                value: coverageText(item.report.coverage),
+                color: item.report.coverage == .entireDocument
+                    ? Color.dsAnnotationSage
+                    : Color.dsAnnotationCoral
+            )
+        }
+        .padding(.dsMD)
+        .background(
+            Color.dsCard,
+            in: RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
+                .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder
+    private func signingTimeView(for report: PDFSignatureValidation) -> some View {
+        if let signingTime = report.signingTime {
+            Text(signingTimeText(signingTime, timestamped: report.isTimestamped))
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text(L10n.string("signature.validation.time.unavailable", locale: locale))
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+        }
+    }
+
+    private func signatureVerdictRow(label: String, value: String, color: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: .dsSM) {
+            Text(label)
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextTertiary)
+            Spacer(minLength: .dsSM)
+            Text(value)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(color)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
+    private func signingTimeText(_ date: Date, timestamped: Bool) -> String {
+        let formatted = date.formatted(date: .abbreviated, time: .shortened)
+        return timestamped
+            ? L10n.format("signature.validation.time.timestampPresent", formatted, locale: locale)
+            : L10n.format("signature.validation.time.unverified", formatted, locale: locale)
+    }
+
+    private func integrityText(_ verdict: PDFSignatureIntegrityVerdict) -> String {
+        L10n.string(
+            verdict == .valid
+                ? "signature.validation.integrity.valid"
+                : "signature.validation.integrity.invalid",
+            locale: locale
+        )
+    }
+
+    private func trustText(_ verdict: PDFSignatureTrustVerdict) -> String {
+        switch verdict {
+        case .trusted:
+            return L10n.string("signature.validation.trust.trusted", locale: locale)
+        case .revoked:
+            return L10n.string("signature.validation.trust.revoked", locale: locale)
+        case .notTrusted:
+            return L10n.string("signature.validation.trust.notTrusted", locale: locale)
+        case .unavailable:
+            return L10n.string("signature.validation.trust.unavailable", locale: locale)
+        }
+    }
+
+    private func trustColor(_ verdict: PDFSignatureTrustVerdict) -> Color {
+        switch verdict {
+        case .trusted:
+            return Color.dsAnnotationSage
+        case .revoked:
+            return Color.dsAnnotationCoral
+        case .notTrusted, .unavailable:
+            return Color.dsTextSecondary
+        }
+    }
+
+    private func coverageText(_ verdict: PDFSignatureCoverageVerdict) -> String {
+        switch verdict {
+        case .entireDocument:
+            return L10n.string("signature.validation.coverage.entireDocument", locale: locale)
+        case .changedAfterSigning:
+            return L10n.string("signature.validation.coverage.changedAfterSigning", locale: locale)
+        case .invalid:
+            return L10n.string("signature.validation.coverage.invalid", locale: locale)
+        }
+    }
+
+    @MainActor
+    private func loadSignatureReports() async {
+        isValidatingSignatures = true
+        var loaded: [InspectorSignatureReport] = []
+        for member in viewModel.document.workspace.documents {
+            guard !Task.isCancelled else { return }
+            guard let data = viewModel.document.memberPDFData[member.id] else { continue }
+            let reports = await PDFSignatureValidationService.validate(pdf: data)
+            loaded.append(contentsOf: reports.map {
+                InspectorSignatureReport(memberID: member.id, memberName: member.displayName, report: $0)
+            })
+        }
+        guard !Task.isCancelled else { return }
+        signatureReports = loaded
+        isValidatingSignatures = false
     }
 }
 
@@ -976,6 +1170,7 @@ private struct PDFNoteCommentRow: View {
 private struct InspectorDecorateView: View {
     @Bindable var viewModel: WorkspaceViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isShowingCropSheet = false
     // Passed into L10n.format()/PageDecorationSwatch.label() below so this view's
     // `body` actually reads it — SwiftUI only re-invokes `body` on a locale change
     // for views that read `\.locale` during the previous evaluation.
@@ -1072,8 +1267,38 @@ private struct InspectorDecorateView: View {
                     decorationSwatchControl(.bates)
                 }
             }
+
+            Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
+
+            OverlayPDFDecorationSection(viewModel: viewModel)
+
+            Rectangle().fill(Color.dsSeparator).frame(height: 0.5)
+
+            Button {
+                isShowingCropSheet = true
+            } label: {
+                HStack(spacing: .dsSM) {
+                    Image(systemName: "crop")
+                        .frame(width: 22, height: 22)
+                    Text(L10n.string("inspector.crop.open", locale: locale))
+                        .font(.dsBody())
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.dsTextTertiary)
+                }
+                .foregroundStyle(Color.dsTextPrimary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, .dsLG)
+            .padding(.vertical, .dsMD)
+            .disabled(viewModel.document.workspace.pageOrder.isEmpty)
         }
         .padding(.vertical, .dsXS)
+        .sheet(isPresented: $isShowingCropSheet) {
+            PageCropSheet(viewModel: viewModel)
+        }
     }
 
     private func decorationRow<Controls: View>(title: String,
@@ -1183,6 +1408,307 @@ private struct InspectorDecorateView: View {
             get: { viewModel.decorationOpacity(for: kind) },
             set: { viewModel.setDecorationOpacity(kind, opacity: $0) }
         )
+    }
+}
+
+private struct OverlayPDFDecorationSection: View {
+    private enum Target: String {
+        case allPages
+        case thisPage
+        case targetedPage
+    }
+
+    var viewModel: WorkspaceViewModel
+
+    @Environment(\.locale) private var locale
+    @State private var isShowingImporter = false
+    @State private var isShowingImportError = false
+    @State private var selectedTarget = Target.allPages
+
+    private var overlay: PageDecoration? {
+        viewModel.overlayPDFDecoration()
+    }
+
+    private var overlayPDFPlacement: Binding<PageDecorationPDFPlacement> {
+        Binding(
+            get: { overlay?.overlayPDFPlacement ?? .over },
+            set: { viewModel.setOverlayPDFPlacement($0, pageRefID: overlay?.pageRefID) }
+        )
+    }
+
+    private var overlayPDFEnabled: Binding<Bool> {
+        Binding(
+            get: { overlay?.isEnabled == true },
+            set: { viewModel.setOverlayPDFEnabled($0) }
+        )
+    }
+
+    private var currentPageRef: PageRef? {
+        let order = viewModel.document.workspace.pageOrder
+        if let selectedPageRefID = viewModel.selectedPageRefID,
+           let selected = order.first(where: { $0.id == selectedPageRefID }) {
+            return selected
+        }
+        let index = viewModel.currentPageNumber - 1
+        return order.indices.contains(index) ? order[index] : order.first
+    }
+
+    private var persistedTarget: Target {
+        guard let targetID = overlay?.pageRefID else { return .allPages }
+        return targetID == currentPageRef?.id ? .thisPage : .targetedPage
+    }
+
+    private var targetedPageNumber: Int? {
+        guard let targetID = overlay?.pageRefID,
+              let index = viewModel.document.workspace.pageOrder.firstIndex(where: {
+                $0.id == targetID
+              }) else { return nil }
+        return index + 1
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsSM) {
+            titleRow
+            if overlay != nil {
+                Toggle(
+                    L10n.string("inspector.decorate.overlayPDF.enabled", locale: locale),
+                    isOn: overlayPDFEnabled
+                )
+                if currentPageRef != nil {
+                    targetPicker
+                }
+                placementPicker
+            }
+            actionButtons
+        }
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsMD)
+        .task {
+            selectedTarget = persistedTarget
+        }
+        .onChange(of: viewModel.decorationStateVersion) {
+            selectedTarget = persistedTarget
+        }
+        .onChange(of: currentPageRef?.id) {
+            selectedTarget = persistedTarget
+        }
+        .fileImporter(
+            isPresented: $isShowingImporter,
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false,
+            onCompletion: importOverlayPDF
+        )
+        .alert(
+            L10n.string("inspector.decorate.overlayPDF.invalid.title", locale: locale),
+            isPresented: $isShowingImportError
+        ) {
+            Button(L10n.string("common.ok", locale: locale), role: .cancel) {}
+        } message: {
+            Text(L10n.string("inspector.decorate.overlayPDF.invalid.message", locale: locale))
+        }
+    }
+
+    private var titleRow: some View {
+        HStack(spacing: .dsSM) {
+            Image(systemName: "doc.richtext")
+                .frame(width: 22, height: 22)
+                .foregroundStyle(Color.dsAccent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.string("inspector.decorate.overlayPDF.title", locale: locale))
+                    .font(.dsBody())
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text(L10n.string("inspector.decorate.overlayPDF.description", locale: locale))
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var placementPicker: some View {
+        Picker(
+            L10n.string("inspector.decorate.overlayPDF.placement", locale: locale),
+            selection: overlayPDFPlacement
+        ) {
+            Text(L10n.string("inspector.decorate.overlayPDF.over", locale: locale))
+                .tag(PageDecorationPDFPlacement.over)
+            Text(L10n.string("inspector.decorate.overlayPDF.under", locale: locale))
+                .tag(PageDecorationPDFPlacement.under)
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var targetPicker: some View {
+        Picker(
+            L10n.string("inspector.decorate.overlayPDF.target", locale: locale),
+            selection: $selectedTarget
+        ) {
+            Text(L10n.string("inspector.decorate.overlayPDF.allPages", locale: locale))
+                .tag(Target.allPages)
+            Text(L10n.string("inspector.decorate.overlayPDF.thisPage", locale: locale))
+                .tag(Target.thisPage)
+            if let targetedPageNumber, persistedTarget == .targetedPage {
+                Text(L10n.format("toc.pageLabel", targetedPageNumber, locale: locale))
+                    .tag(Target.targetedPage)
+            }
+        }
+        .pickerStyle(.segmented)
+        .onChange(of: selectedTarget) {
+            switch selectedTarget {
+            case .allPages:
+                _ = viewModel.setOverlayPDFTarget(nil)
+            case .thisPage:
+                _ = viewModel.setOverlayPDFTarget(currentPageRef?.id)
+            case .targetedPage:
+                break
+            }
+        }
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: .dsSM) {
+            Button(chooseButtonTitle) {
+                isShowingImporter = true
+            }
+
+            if let overlay {
+                Button(
+                    L10n.string("inspector.decorate.overlayPDF.remove", locale: locale),
+                    role: .destructive
+                ) {
+                    _ = viewModel.setOverlayPDF(
+                        data: nil,
+                        placement: overlayPDFPlacement.wrappedValue,
+                        pageRefID: overlay.pageRefID
+                    )
+                }
+            }
+        }
+    }
+
+    private var chooseButtonTitle: String {
+        L10n.string(
+            overlay == nil
+                ? "inspector.decorate.overlayPDF.choose"
+                : "inspector.decorate.overlayPDF.replace",
+            locale: locale
+        )
+    }
+
+    private func importOverlayPDF(_ result: Result<[URL], any Error>) {
+        guard case let .success(urls) = result, let url = urls.first else { return }
+        do {
+            let data = try SecurityScopedAccess.withAccess(to: url) { scopedURL in
+                try Data(contentsOf: scopedURL)
+            }
+            let didSetOverlay = if overlay != nil {
+                viewModel.replaceOverlayPDF(
+                    data: data,
+                    placement: overlayPDFPlacement.wrappedValue
+                )
+            } else {
+                viewModel.setOverlayPDF(
+                    data: data,
+                    placement: overlayPDFPlacement.wrappedValue,
+                    pageRefID: selectedTarget == .thisPage ? currentPageRef?.id : nil
+                )
+            }
+            if !didSetOverlay {
+                isShowingImportError = true
+            }
+        } catch {
+            isShowingImportError = true
+        }
+    }
+}
+
+private struct PageCropSheet: View {
+    @Bindable var viewModel: WorkspaceViewModel
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.locale) private var locale
+    @State private var top = 0.0
+    @State private var bottom = 0.0
+    @State private var left = 0.0
+    @State private var right = 0.0
+
+    private var margins: PageCropMargins {
+        PageCropMargins(
+            top: CGFloat(top),
+            bottom: CGFloat(bottom),
+            left: CGFloat(left),
+            right: CGFloat(right)
+        )
+    }
+
+    private var currentPageRef: PageRef? {
+        let pageOrder = viewModel.document.workspace.pageOrder
+        let currentIndex = viewModel.currentPageNumber - 1
+        if pageOrder.indices.contains(currentIndex) {
+            return pageOrder[currentIndex]
+        }
+        if let selectedPageRefID = viewModel.selectedPageRefID {
+            return pageOrder.first { $0.id == selectedPageRefID }
+        }
+        return pageOrder.first
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsLG) {
+            VStack(alignment: .leading, spacing: .dsXS) {
+                Text(L10n.string("inspector.crop.title", locale: locale))
+                    .font(.system(size: 18, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text(L10n.string("inspector.crop.description", locale: locale))
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: .dsSM) {
+                marginStepper(L10n.string("inspector.crop.top", locale: locale), value: $top)
+                marginStepper(L10n.string("inspector.crop.bottom", locale: locale), value: $bottom)
+                marginStepper(L10n.string("inspector.crop.left", locale: locale), value: $left)
+                marginStepper(L10n.string("inspector.crop.right", locale: locale), value: $right)
+            }
+
+            HStack(spacing: .dsSM) {
+                Button(L10n.string("inspector.crop.cancel", locale: locale)) {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button(L10n.string("inspector.crop.applyThisPage", locale: locale)) {
+                    guard let currentPageRef,
+                          viewModel.applyPageCrop(margins: margins, to: [currentPageRef]) else { return }
+                    dismiss()
+                }
+                .disabled(currentPageRef == nil)
+
+                Button(L10n.string("inspector.crop.applyAllPages", locale: locale)) {
+                    guard viewModel.applyPageCrop(
+                        margins: margins,
+                        to: viewModel.document.workspace.pageOrder
+                    ) else { return }
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.dsAccent)
+                .disabled(viewModel.document.workspace.pageOrder.isEmpty)
+            }
+        }
+        .padding(.dsXL)
+        .frame(width: 460)
+        .background(Color.dsSurface)
+    }
+
+    private func marginStepper(_ label: String, value: Binding<Double>) -> some View {
+        Stepper(value: value, in: 0...2_000, step: 1) {
+            Text(L10n.format("inspector.crop.marginValue", label, Int(value.wrappedValue), locale: locale))
+                .font(.dsBody())
+                .foregroundStyle(Color.dsTextPrimary)
+        }
     }
 }
 
