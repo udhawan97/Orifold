@@ -7,6 +7,17 @@ enum ImpositionLayout: Equatable {
     case booklet
     /// Sequential grid, `rows` x `cols` source pages per output sheet (2x1, 2x2, 3x3, …).
     case nUp(rows: Int, cols: Int)
+    /// 1×1 "imposition": every page fitted onto one `width` x `height` (points) sheet —
+    /// normalize-to-A4/Letter. Aspect mismatches letterbox (PDFium centers the page).
+    case scale(width: Double, height: Double)
+
+    /// True when output page N is source page N — the condition for the export tail's
+    /// bookmark write to stay faithful. Booklet reorder and N-up merging break it;
+    /// a 1×1 scale does not.
+    var preservesPageMapping: Bool {
+        if case .scale = self { return true }
+        return false
+    }
 }
 
 enum ImpositionService {

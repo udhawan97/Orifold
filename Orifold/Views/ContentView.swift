@@ -423,6 +423,26 @@ struct ContentView: View {
                 .environmentObject(languageManager)
                 .environment(\.locale, languageManager.effectiveLocale)
         }
+        .sheet(isPresented: $viewModel.isShowingSplitExport) {
+            SplitExportSheet(viewModel: viewModel)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
+        .sheet(item: $viewModel.blankPageReview) { review in
+            BlankPageReviewSheet(viewModel: viewModel, review: review)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
+        .alert(
+            L10n.string("blank.none.title", locale: languageManager.effectiveLocale),
+            isPresented: $viewModel.blankPageDetectionFoundNothing
+        ) {
+            Button(L10n.string("common.ok", locale: languageManager.effectiveLocale)) {
+                viewModel.blankPageDetectionFoundNothing = false
+            }
+        } message: {
+            Text(L10n.string("blank.none.message", locale: languageManager.effectiveLocale))
+        }
         .sheet(item: $viewModel.barcodeScanResults) { results in
             BarcodeScanResultSheet(barcodes: results.barcodes)
                 .environmentObject(languageManager)
@@ -1382,7 +1402,7 @@ private struct ComfortCardButtonStyle: ButtonStyle {
 /// Export-sheet imposition choices, mapped to the engine's `ImpositionLayout`. `.none` is the
 /// "leave pages as-is" default so the picker can present a first option that clears imposition.
 private enum ImpositionChoice: String, CaseIterable, Identifiable {
-    case none, twoUp, booklet, fourUp
+    case none, twoUp, booklet, fourUp, scaleA4, scaleLetter
 
     var id: String { rawValue }
 
@@ -1392,6 +1412,8 @@ private enum ImpositionChoice: String, CaseIterable, Identifiable {
         case .twoUp: return L10n.string("imposition.twoUp")
         case .booklet: return L10n.string("imposition.booklet")
         case .fourUp: return L10n.string("imposition.fourUp")
+        case .scaleA4: return L10n.string("imposition.scaleA4")
+        case .scaleLetter: return L10n.string("imposition.scaleLetter")
         }
     }
 
@@ -1401,8 +1423,13 @@ private enum ImpositionChoice: String, CaseIterable, Identifiable {
         case .twoUp: return .nUp(rows: 1, cols: 2)
         case .booklet: return .booklet
         case .fourUp: return .nUp(rows: 2, cols: 2)
+        // Point sizes: ISO A4 and US Letter.
+        case .scaleA4: return .scale(width: 595.28, height: 841.89)
+        case .scaleLetter: return .scale(width: 612, height: 792)
         }
     }
+
+    var isScale: Bool { self == .scaleA4 || self == .scaleLetter }
 }
 
 private struct ExportSheet: View {
@@ -1599,7 +1626,11 @@ private struct ExportSheet: View {
                             }
                             .pickerStyle(.menu)
 
-                            if imposition != .none {
+                            if imposition.isScale {
+                                Text(L10n.string("imposition.scaleNote.message"))
+                                    .font(.dsCaption())
+                                    .foregroundStyle(Color.dsTextTertiary)
+                            } else if imposition != .none {
                                 Text(L10n.string("imposition.flattenNote.message"))
                                     .font(.dsCaption())
                                     .foregroundStyle(Color.dsTextTertiary)
@@ -3117,6 +3148,9 @@ private struct ToolbarOverflowPresentations: ViewModifier {
                     case .discardAndClose: isConfirmingDiscardClose = true
                     case .insertBarcode: viewModel.isShowingBarcodeComposer = true
                     case .scanBarcodes: viewModel.scanBarcodesOnCurrentPage()
+                    case .splitExport: viewModel.isShowingSplitExport = true
+                    case .removeBlankPages: Task { await viewModel.detectBlankPages() }
+                    case .exportComments: viewModel.exportCommentSummary()
                     case .archivalReadiness: isShowingArchivalReadiness = true
                     case .translate: translationRequest = viewModel.translationRequestText
                     }
@@ -3160,6 +3194,9 @@ enum MoreRoute: Equatable {
     case discardAndClose
     case insertBarcode
     case scanBarcodes
+    case splitExport
+    case removeBlankPages
+    case exportComments
     case archivalReadiness
     case translate
 }
@@ -3269,6 +3306,33 @@ private struct ToolbarMoreMenu: View {
                 .disabled(viewModel.pageCount == 0)
             MoreMenuRow(systemImage: "qrcode.viewfinder", titleKey: "barcode.scan.title") { onRoute(.scanBarcodes) }
                 .disabled(viewModel.pageCount == 0)
+
+            MoreMenuRow(
+                systemImage: "square.split.1x2",
+                titleKey: "more.split.label",
+                subtitleKey: "more.split.subtitle",
+                trailing: { MoreChevron() },
+                action: { onRoute(.splitExport) }
+            )
+            .disabled(viewModel.pageCount == 0)
+
+            MoreMenuRow(
+                systemImage: "rectangle.dashed",
+                titleKey: "more.blank.label",
+                subtitleKey: "more.blank.subtitle",
+                trailing: { MoreChevron() },
+                action: { onRoute(.removeBlankPages) }
+            )
+            .disabled(viewModel.pageCount == 0 || viewModel.isDetectingBlankPages)
+
+            MoreMenuRow(
+                systemImage: "text.badge.checkmark",
+                titleKey: "more.commentExport.label",
+                subtitleKey: "more.commentExport.subtitle",
+                trailing: { MoreChevron() },
+                action: { onRoute(.exportComments) }
+            )
+            .disabled(viewModel.pageCount == 0)
 
             MoreMenuRow(systemImage: "trash", titleKey: "more.pages.delete", isDestructive: true) {
                 onRoute(.deletePages)
