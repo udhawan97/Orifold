@@ -12,6 +12,11 @@ struct OrifoldApp: App {
                 .environmentObject(languageManager)
                 .environment(\.locale, languageManager.effectiveLocale)
         }
+        .defaultSize(
+            width: PrimaryWindowSizing.defaultContentSize.width,
+            height: PrimaryWindowSizing.defaultContentSize.height
+        )
+        .windowResizability(.contentMinSize)
         .commands {
             // `.commands {}` is a separate branch of the scene graph from the
             // DocumentGroup's window content — it doesn't inherit the

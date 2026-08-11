@@ -138,7 +138,11 @@ jobs:
           # Stable-name alias so releases/latest/download/Orifold.dmg never breaks.
           cp "$dmg" "$dist/Orifold.dmg"
           cp "$RUNNER_TEMP/Orifold.zip" "$dist/Orifold.zip"
-          ( cd "$dist" && shasum -a 256 Orifold.dmg > Orifold.dmg.sha256 )
+          (
+            cd "$dist"
+            shasum -a 256 "Orifold-${version}-macOS-universal.dmg" > "Orifold-${version}-macOS-universal.dmg.sha256"
+            shasum -a 256 Orifold.dmg > Orifold.dmg.sha256
+          )
 
           if [[ "${{ github.ref }}" == refs/tags/* || -n "${{ inputs.release_tag }}" ]]; then
             release_tag="${{ inputs.release_tag || github.ref_name }}"

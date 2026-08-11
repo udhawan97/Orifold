@@ -83,7 +83,11 @@ enum L10n {
 
     static func string(_ key: String.LocalizationValue, locale: Locale? = nil) -> String {
         let resolvedLocale = locale ?? currentLocale
-        let resolved = String(localized: key, bundle: bundle, locale: resolvedLocale)
+        let resolved = String(
+            localized: key,
+            bundle: localizedBundle(for: resolvedLocale, in: bundle),
+            locale: resolvedLocale
+        )
         #if SWIFT_PACKAGE
         // `swift build`/`swift test` copy Localizable.xcstrings byte-for-byte instead
         // of compiling it the way Xcode's build system does, so the lookup above always
@@ -107,7 +111,13 @@ enum L10n {
     #endif
 
     static func string(_ key: StaticString, defaultValue: String.LocalizationValue) -> String {
-        String(localized: key, defaultValue: defaultValue, bundle: bundle, locale: currentLocale)
+        let resolvedLocale = currentLocale
+        return String(
+            localized: key,
+            defaultValue: defaultValue,
+            bundle: localizedBundle(for: resolvedLocale, in: bundle),
+            locale: resolvedLocale
+        )
     }
 
     /// Builds a display string from a catalog entry that contains `%@`/`%lld`-style
@@ -116,7 +126,54 @@ enum L10n {
     /// format string, not the literal source syntax, so a catalog entry authored with
     /// the literal `\(arg)` text never actually matches at lookup time.
     static func format(_ key: String, _ args: CVarArg..., locale: Locale? = nil) -> String {
-        String(format: string(String.LocalizationValue(key), locale: locale), arguments: args)
+        let resolvedLocale = locale ?? currentLocale
+        return String(
+            format: string(String.LocalizationValue(key), locale: resolvedLocale),
+            locale: resolvedLocale,
+            arguments: args
+        )
+    }
+
+    /// Returns the locale-specific resource sub-bundle when one exists.
+    ///
+    /// `String(localized:bundle:locale:)` does not reliably override the preferred
+    /// localization of a nested SwiftPM resource bundle in a packaged app. Selecting
+    /// the matching `.lproj` first preserves the caller's in-app language choice while
+    /// retaining Foundation's normal lookup behavior inside that localization. SwiftPM
+    /// CLI builds carry the raw catalog instead of compiled `.lproj` folders, so they
+    /// intentionally fall back to `baseBundle` and the raw-catalog path below.
+    static func localizedBundle(for locale: Locale, in baseBundle: Bundle) -> Bundle {
+        for identifier in localizationCandidates(for: locale) {
+            guard let path = baseBundle.path(forResource: identifier, ofType: "lproj"),
+                  let localized = Bundle(path: path) else { continue }
+            return localized
+        }
+        return baseBundle
+    }
+
+    private static func localizationCandidates(for locale: Locale) -> [String] {
+        let normalized = locale.identifier.replacingOccurrences(of: "_", with: "-")
+        let languageCode = locale.language.languageCode?.identifier
+        var candidates: [String] = [normalized]
+
+        if languageCode == "zh" {
+            let script = locale.language.script?.identifier
+            let lowercased = normalized.lowercased()
+            if script == "Hans"
+                || lowercased.contains("-hans")
+                || lowercased.hasSuffix("-cn")
+                || lowercased.hasSuffix("-sg") {
+                candidates.append("zh-Hans")
+            }
+        }
+
+        if let languageCode {
+            candidates.append(languageCode)
+        }
+        candidates.append("en")
+
+        var seen = Set<String>()
+        return candidates.filter { seen.insert($0).inserted }
     }
 
     #if SWIFT_PACKAGE
@@ -143,8 +200,12 @@ enum L10n {
     }()
 
     private static func rawCatalogFallback(for key: String, locale: Locale) -> String? {
-        rawCatalogFallbackTable["\(locale.language.languageCode?.identifier ?? "en")|\(key)"]
-            ?? rawCatalogFallbackTable["en|\(key)"]
+        for language in localizationCandidates(for: locale) {
+            if let value = rawCatalogFallbackTable["\(language)|\(key)"] {
+                return value
+            }
+        }
+        return rawCatalogFallbackTable["en|\(key)"]
     }
     #endif
 }

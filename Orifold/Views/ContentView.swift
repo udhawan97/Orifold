@@ -328,6 +328,10 @@ struct ContentView: View {
                 .toolbar { mainToolbar }
             }
         }
+        .frame(
+            minWidth: PrimaryWindowSizing.minimumContentSize.width,
+            minHeight: PrimaryWindowSizing.minimumContentSize.height
+        )
         .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.memberDocuments.isEmpty)
         .preferredColorScheme(viewModel.appAppearanceMode.colorScheme)
         .tint(Color.dsAccent)
@@ -337,7 +341,10 @@ struct ContentView: View {
             onOpen: recordRecentOpenIfNeeded,
             onClose: recordRecentVisitOnClose
         ))
-        .background(WorkspaceWindowAccessor { viewModel.hostingWindow = $0 })
+        .background(WorkspaceWindowAccessor { window in
+            viewModel.hostingWindow = window
+            PrimaryWindowSizing.configure(window)
+        })
         .overlay(alignment: .bottomTrailing) {
             if !viewModel.memberDocuments.isEmpty {
                 PetOverlay(isChromeBusy: viewModel.operationProgress.isActive)

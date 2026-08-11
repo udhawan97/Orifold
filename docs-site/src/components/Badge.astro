@@ -1,11 +1,13 @@
 ---
+import stats from '../data/stats.json';
+
 interface Props {
 	variant?: 'pro' | 'new' | 'platform';
 }
 const { variant = 'platform' } = Astro.props;
 const text: Record<string, string> = {
 	pro: 'Advanced workflow',
-	new: 'New in v0.10.1',
+	new: `Coming in ${stats.version}`,
 	platform: 'macOS 14+',
 };
 ---
