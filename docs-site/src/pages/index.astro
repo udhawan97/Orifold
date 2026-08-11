@@ -56,6 +56,20 @@ const releasedDate = rel.publishedAt
 const cap = (name: string, dir: 'screenshots' | 'gifs' | 'landing' = 'screenshots') =>
 	`${base}/assets/${dir}/${name}`;
 
+// The companion SVGs are inlined several times so their SMIL animation can be
+// paused for reduced motion. Scope every internal definition per instance;
+// otherwise repeated gradient/filter/clip IDs create invalid duplicate IDs and
+// browsers are free to resolve a later companion against the first SVG's defs.
+const scopeSvgIds = (svg: string, prefix: string) => {
+	const ids = Array.from(svg.matchAll(/\bid="([^"]+)"/g), (match) => match[1]);
+	return ids.reduce(
+		(scoped, id) => scoped
+			.replaceAll(`id="${id}"`, `id="${prefix}-${id}"`)
+			.replaceAll(`#${id}`, `#${prefix}-${id}`),
+		svg
+	);
+};
+
 // The six everyday folds — each card carries a faint origami kanji watermark.
 const cards = [
 	{ t: 'On-device OCR', k: '読', km: 'read', p: 'Vision makes a scan searchable — ⌘F finds the thing your printer emailed you.', href: 'edit/ocr/', icon: icOcr },
@@ -194,7 +208,7 @@ const heroBadges = [
 		data-repo-url={site.repoUrl}
 		data-dmg-asset={site.dmgAsset}
 	>
-		<a class="skip-link" href="#gather">Skip to content</a>
+		<a class="skip-link" href="#main-content">Skip to content</a>
 		<div class="route-progress" aria-hidden="true"></div>
 		<div class="grain" aria-hidden="true"></div>
 
@@ -222,7 +236,7 @@ const heroBadges = [
 			</div>
 		</nav>
 
-		<main>
+		<main id="main-content" tabindex="-1">
 			<!-- Hero -->
 			<section id="sheet" class="fold">
 				<div class="wrap">
@@ -326,7 +340,7 @@ const heroBadges = [
 						<div class="frame">
 							<img src={cap('the-orifold-window-annotated.png')} width="1600" height="1000" loading="lazy" decoding="async" alt="The Orifold workspace: a document sidebar on the left, a PDF open on the canvas, a floating markup toolbar across the top, and the paper companion resting in the corner." />
 						</div>
-						<figcaption class="tabnum">Real capture — Orifold v{rel.version}. Sidebar, canvas, markup toolbar — and a paper companion keeping an eye on things.</figcaption>
+						<figcaption class="tabnum">Real app capture. Sidebar, canvas, markup toolbar — and a paper companion keeping an eye on things.</figcaption>
 					</figure>
 				</div>
 			</section>
@@ -379,12 +393,12 @@ const heroBadges = [
 						<div class="frame">
 							<img src={cap('import-files-overview.png')} width="1600" height="1013" loading="lazy" decoding="async" alt="Orifold's import screen, mid drag-and-drop, with a file about to drop into the 'Release to import files' zone and Gami greeting in the corner." />
 						</div>
-						<figcaption class="tabnum">Real capture — Orifold v{rel.version}. Drag anything in; broken PDFs are repaired on the way.</figcaption>
+						<figcaption class="tabnum">Real app capture. Drag anything in; broken PDFs are repaired on the way.</figcaption>
 					</figure>
 
 					<div class="pet" data-pet="gami">
 						<span class="fig pet-arrive-target">
-							<span class="pet-anim" set:html={gamiWag} aria-hidden="true"></span>
+							<span class="pet-anim" set:html={scopeSvgIds(gamiWag, 'gami-gather')} aria-hidden="true"></span>
 							<img class="pet-poster" src={`${base}/assets/gami-figure.svg`} width="128" height="128" alt="" aria-hidden="true" />
 						</span>
 						<p class="bubble">Bring the whole messy pile. I'll keep it straight.</p>
@@ -412,9 +426,9 @@ const heroBadges = [
 							sticky note floating over a picture of the page. Then protect with AES-256,
 							compress, or sanitize, and export one clean file.
 						</p>
-						<a class="whatsnew-pill" href={`${base}/releases/`} aria-label="New in v0.10.0: CBZ import, vector restyling, and on-device translation">
-							<span class="whatsnew-tag">v0.10.0</span>
-							<span class="whatsnew-text">Three new workflows<span class="whatsnew-sub"> · open, shape, translate</span></span>
+						<a class="whatsnew-pill" href={`${base}/releases/`} aria-label="Coming in v0.10.2: reliable in-app language switching and supported restored-window sizing">
+							<span class="whatsnew-tag">v0.10.2</span>
+							<span class="whatsnew-text">A steadier welcome back<span class="whatsnew-sub"> · language and window fixes</span></span>
 							<span class="whatsnew-arrow" aria-hidden="true"><Fragment set:html={icoChevron} /></span>
 						</a>
 						<p class="fine-print beta-note">
@@ -427,7 +441,7 @@ const heroBadges = [
 						<div class="frame">
 							<img src={cap('shape-edit-tight.png', 'landing')} width="1470" height="180" loading="lazy" decoding="async" alt="A floating text-formatting toolbar — font, size, style, alignment, color, Match/Copy/Paste/Reset — hovering directly over a real PDF page mid-edit." />
 						</div>
-						<figcaption class="tabnum">Real capture — Orifold v{rel.version}. The format toolbar appears right where you click.</figcaption>
+						<figcaption class="tabnum">Real app capture. The format toolbar appears right where you click.</figcaption>
 					</figure>
 
 					<div id="features" class="feature-band">
@@ -448,7 +462,7 @@ const heroBadges = [
 
 					<div class="pet" data-pet="gami" data-handoff="true">
 						<span class="fig pet-arrive-target">
-							<span class="pet-anim" set:html={gamiWag} aria-hidden="true"></span>
+							<span class="pet-anim" set:html={scopeSvgIds(gamiWag, 'gami-shape')} aria-hidden="true"></span>
 							<img class="pet-poster" src={`${base}/assets/gami-figure.svg`} width="128" height="128" alt="" aria-hidden="true" />
 						</span>
 						<p class="bubble">Signatures are Ori's craft. Over to her.</p>
@@ -482,7 +496,7 @@ const heroBadges = [
 							</div>
 							<div class="pet" data-pet="ori">
 								<span class="fig pet-arrive-target">
-									<span class="pet-anim" set:html={oriTwitch} aria-hidden="true"></span>
+									<span class="pet-anim" set:html={scopeSvgIds(oriTwitch, 'ori-seal')} aria-hidden="true"></span>
 									<img class="pet-poster" src={`${base}/assets/ori-figure.svg`} width="128" height="128" alt="" aria-hidden="true" />
 								</span>
 								<p class="bubble">Real cryptography. Not a picture of ink.</p>
@@ -492,7 +506,7 @@ const heroBadges = [
 							<div class="frame narrow">
 								<img src={cap('seal-signatures-tight.png', 'landing')} width="415" height="745" loading="lazy" decoding="async" alt="The Signatures panel with Digital selected, a self-signed identity chosen, and a live cursive signature preview reading 'Umang D.' with a 'Signed: Jul 7, 2026 at 9:12 PM' timestamp below, before Sign & Export." />
 							</div>
-							<figcaption class="tabnum">Real capture — Orifold v{rel.version}. PAdES signing, right where you're already working.</figcaption>
+							<figcaption class="tabnum">Real app capture. PAdES signing, right where you're already working.</figcaption>
 						</figure>
 					</div>
 				</div>
@@ -517,15 +531,15 @@ const heroBadges = [
 						<div class="frame mid">
 							<img src={cap('keep-export-tight.png', 'landing')} width="640" height="475" loading="lazy" decoding="async" alt="The Export dialog with Protect with password, Reduce file size, and Sanitize for sharing options, ready before export." />
 						</div>
-						<figcaption class="tabnum">Real capture — Orifold v{rel.version}. Sanitize strips what you didn't mean to share.</figcaption>
+						<figcaption class="tabnum">Real app capture. Sanitize strips what you didn't mean to share.</figcaption>
 					</figure>
 					<div class="stat-row" data-reveal>
 						<div class="stat"><b>0</b><span>Document uploads. There is no Orifold processing server.</span></div>
 						<div class="stat"><b>AES-256</b><span>Real encryption, not a "protected" flag a reader can ignore.</span></div>
 						<div class="stat"><b>Sanitize</b><span>A file that carries nothing you didn't intend to send.</span></div>
-						<div class="stat"><b data-count={String(stats.tests ?? '')}>{stats.tests ?? '—'}</b><span>tests gate every release.</span></div>
+						<div class="stat"><b>{stats.tests ?? '—'}</b><span>tests gate every release.</span></div>
 						<div class="stat"><b>Apache 2.0</b><span>Free forever, open source.</span></div>
-						<div class="stat"><b data-count="6">6</b><span>languages, everything on-device.</span></div>
+						<div class="stat"><b>6</b><span>languages, everything on-device.</span></div>
 					</div>
 					<p class="fine-print">
 						This page asks GitHub for the latest release. The app can make narrow, consented
@@ -535,7 +549,7 @@ const heroBadges = [
 
 					<div class="pet" data-pet="ori">
 						<span class="fig pet-arrive-target">
-							<span class="pet-anim" set:html={oriTwitch} aria-hidden="true"></span>
+							<span class="pet-anim" set:html={scopeSvgIds(oriTwitch, 'ori-keep')} aria-hidden="true"></span>
 							<img class="pet-poster" src={`${base}/assets/ori-figure.svg`} width="128" height="128" alt="" aria-hidden="true" />
 						</span>
 						<p class="bubble">Don't trust me. <a href={site.repoUrl}>Read the source.</a> I did.</p>
@@ -567,7 +581,7 @@ const heroBadges = [
 
 					<div class="guides" data-reveal>
 						<div class="guide" data-pet="gami">
-							<span class="guide-fig" set:html={gamiWag} aria-hidden="true"></span>
+							<span class="guide-fig" set:html={scopeSvgIds(gamiWag, 'gami-guide')} aria-hidden="true"></span>
 							<img class="guide-poster" src={`${base}/assets/gami-figure.svg`} width="96" height="96" alt="" aria-hidden="true" />
 							<div class="guide-copy">
 								<h3>Gami</h3>
@@ -575,7 +589,7 @@ const heroBadges = [
 							</div>
 						</div>
 						<div class="guide" data-pet="ori">
-							<span class="guide-fig" set:html={oriTwitch} aria-hidden="true"></span>
+							<span class="guide-fig" set:html={scopeSvgIds(oriTwitch, 'ori-guide')} aria-hidden="true"></span>
 							<img class="guide-poster" src={`${base}/assets/ori-figure.svg`} width="96" height="96" alt="" aria-hidden="true" />
 							<div class="guide-copy">
 								<h3>Ori</h3>
@@ -748,7 +762,7 @@ const heroBadges = [
 
 							<div class="pet" data-pet="gami">
 								<span class="fig pet-arrive-target">
-									<span class="pet-anim" set:html={gamiWag} aria-hidden="true"></span>
+									<span class="pet-anim" set:html={scopeSvgIds(gamiWag, 'gami-install')} aria-hidden="true"></span>
 									<img class="pet-poster" src={`${base}/assets/gami-figure.svg`} width="104" height="104" alt="" aria-hidden="true" />
 								</span>
 								<p class="bubble">One-time thing. Two seconds. Here's how —</p>
@@ -783,7 +797,7 @@ const heroBadges = [
 							</div>
 							<div class="pet" data-pet="ori">
 								<span class="fig pet-arrive-target">
-									<span class="pet-anim" set:html={oriTwitch} aria-hidden="true"></span>
+									<span class="pet-anim" set:html={scopeSvgIds(oriTwitch, 'ori-install')} aria-hidden="true"></span>
 									<img class="pet-poster" src={`${base}/assets/ori-figure.svg`} width="104" height="104" alt="" aria-hidden="true" />
 								</span>
 								<p class="bubble">Doubt me? Build it yourself.</p>
@@ -813,11 +827,11 @@ const heroBadges = [
 						<span class="ff-pets" aria-hidden="true">
 							<span class="ff-pets-glow"></span>
 							<span class="ff-pet ff-pet-gami" data-pet="gami">
-								<span class="guide-fig" set:html={gamiWag}></span>
+								<span class="guide-fig" set:html={scopeSvgIds(gamiWag, 'gami-fortune')}></span>
 								<img class="guide-poster" src={`${base}/assets/gami-figure.svg`} width="96" height="96" alt="" />
 							</span>
 							<span class="ff-pet ff-pet-ori" data-pet="ori">
-								<span class="guide-fig" set:html={oriTwitch}></span>
+								<span class="guide-fig" set:html={scopeSvgIds(oriTwitch, 'ori-fortune')}></span>
 								<img class="guide-poster" src={`${base}/assets/ori-figure.svg`} width="96" height="96" alt="" />
 							</span>
 						</span>
@@ -1142,7 +1156,7 @@ const heroBadges = [
 
 		<script is:inline>
 			// ── flair layer: nav shadow, hero parallax, cursor-lit panel, magnetic
-			// CTAs, and stat count-ups — the buttery, scroll-driven feel of a premium
+			// CTAs — the buttery, scroll-driven feel of a premium
 			// product page. All of it is transform/opacity only and every branch is
 			// gated on reduced motion (below the nav-shadow, which is harmless) so a
 			// reduced-motion visitor gets a completely still page.
@@ -1156,36 +1170,6 @@ const heroBadges = [
 				onScroll();
 
 				var fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-
-				// count-up stats when they enter view (runs even under reduced motion,
-				// but instantly — no animation, just the final number).
-				if ('IntersectionObserver' in window) {
-					var counters = document.querySelectorAll('[data-count]');
-					var cIO = new IntersectionObserver(function (entries) {
-						entries.forEach(function (en) {
-							if (!en.isIntersecting) return;
-							cIO.unobserve(en.target);
-							var el = en.target;
-							var target = parseInt(el.getAttribute('data-count'), 10);
-							if (isNaN(target)) return;
-							if (reduce) { el.textContent = String(target); return; }
-							var dur = 1100, t0 = null;
-							var step = function (ts) {
-								if (t0 === null) t0 = ts;
-								var p = Math.min((ts - t0) / dur, 1);
-								var eased = 1 - Math.pow(1 - p, 3);
-								el.textContent = String(Math.round(eased * target));
-								if (p < 1) requestAnimationFrame(step);
-								else el.textContent = String(target);
-							};
-							requestAnimationFrame(step);
-						});
-					}, { threshold: 0.6 });
-					counters.forEach(function (el) {
-						if (!reduce) el.textContent = '0';
-						cIO.observe(el);
-					});
-				}
 
 				if (reduce) return;
 

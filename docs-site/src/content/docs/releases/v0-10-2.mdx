@@ -1,0 +1,38 @@
+---
+title: "v0.10.2 — Your language, a usable window"
+description: Orifold v0.10.2 fixes packaged language selection and unusably small restored windows.
+keywords: [release notes, v0.10.2, localization, window restoration]
+---
+
+import Badge from '../../../components/Badge.astro';
+import Callout from '../../../components/Callout.astro';
+
+<Badge variant="new" />
+
+*Upcoming patch release*
+
+<Callout variant="note" label="Beta">
+	Orifold is in beta, on the road to 1.0.
+</Callout>
+
+This upcoming patch addresses two first-impression risks identified in an isolated packaged-build audit.
+
+## Language choices reach the packaged translations
+
+- Choosing **日本語** or **简体中文** now selects the matching localization inside Orifold's shipped resource bundle, even when macOS prefers another language.
+- Regional locale identifiers such as Japanese (Japan) and Simplified Chinese (China) resolve to the intended language.
+- Unsupported choices still fall back to English instead of showing localization keys.
+- Format strings now use the selected locale as well as its translated text.
+
+## Restored windows stay usable
+
+- A new workspace opens at a practical **980 × 720 pt** content size.
+- The main document window cannot shrink below the audited **641 × 500 pt** floor.
+- A restored frame below that floor is repaired when its window reconnects.
+- Restored sizes meeting the supported minimum remain untouched.
+
+## Compatibility and privacy
+
+The changes affect interface resource selection and window geometry only. They do not read, upload, rewrite, or export document content. Orifold still requires macOS 14 Sonoma or newer and ships as one universal Apple Silicon + Intel build.
+
+Full release record: [`docs/release-v0.10.2.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.10.2.md).

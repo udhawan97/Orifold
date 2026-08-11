@@ -48,7 +48,7 @@ export interface ReleaseInfo {
 const LAST_KNOWN_GOOD = {
 	tag: 'v0.10.1',
 	version: '0.10.1',
-	publishedAt: '2026-08-01T00:00:00Z',
+	publishedAt: '2026-08-01T11:04:46Z',
 } as const;
 
 const REPO = site.repo;
