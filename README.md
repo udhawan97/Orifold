@@ -106,7 +106,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | **Recently viewed** | An empty-state shelf of the last files you opened, with locally cached thumbnails — nothing about it leaves the machine |
 | **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text with continuous spell-check and metric-compatible fallback fonts |
 | **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), deletes, or restyles existing solid fill/stroke channels and line width on compatible vector paths; object and inline-text edits compose safely, survive save/reopen/export, and share full undo/redo |
-| **Signatures** | Draw and place signatures, produce standards-based PAdES digital signatures with Keychain and `.p12` identities, and inspect incoming signatures for integrity, document coverage, system trust, and timestamp evidence |
+| **Signatures** | Draw and place signatures, produce standards-based PAdES digital signatures with Keychain and `.p12` identities, and inspect incoming signatures for integrity, document coverage, system trust, and explicitly unverified signing-time metadata |
 | **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
 | **Scans & OCR** | Local Vision OCR makes scans searchable; recognized text survives export |
 | **Stamps & decorations** | Watermarks, page numbers, Bates labels, movable stamps, procedural circle/square hanko seals, generated barcode/QR placements, and under/over PDF overlays preserved as vector content on export |

@@ -55,8 +55,8 @@ This release makes large PDF cleanups easier to finish without leaving the local
 
 ### Inspect signatures already in a PDF
 
-- Incoming PDF signatures now report cryptographic integrity, whether the signature covers the whole document or predates later changes, system certificate trust, and timestamp evidence.
-- Trust, revocation, and time claims stay conservative: unavailable evidence is labeled unavailable or unverified rather than being treated as proof.
+- Incoming PDF signatures now report cryptographic integrity, whether the signature covers the whole document or predates later changes, system certificate trust, and signing-time metadata labeled unverified.
+- Trust, revocation, and time claims stay conservative: unavailable evidence is labeled unavailable or unverified rather than being treated as proof. Incoming RFC 3161 timestamp and LTV evidence are not verified in this release.
 - Signature inspection is local and read-only; it does not modify or upload the document.
 
 ### The in-app language choice now wins

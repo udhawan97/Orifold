@@ -33,7 +33,7 @@ This release helps large PDF cleanups reach a deliberate finish while document p
 
 ## Inspect incoming signatures conservatively
 
-Orifold now reports cryptographic integrity, document coverage, system certificate trust, and timestamp evidence for signatures already present in a PDF. Missing or unavailable evidence remains explicitly unavailable or unverified; the inspector does not turn absence into a trust claim.
+Orifold now reports cryptographic integrity, document coverage, system certificate trust, and signing-time metadata labeled unverified for signatures already present in a PDF. Incoming RFC 3161 timestamp and LTV evidence are not verified in this release; the inspector does not turn their absence into a trust claim.
 
 ## Language choices reach the packaged translations
 
