@@ -359,6 +359,10 @@ final class WorkspaceViewModel {
     /// Drives the barcode/QR composer sheet (Feature G). Set from the More-menu "Insert
     /// barcode/QR" row; the sheet arms `pendingBarcodeOptions` on Insert, then dismisses.
     var isShowingBarcodeComposer = false
+    var isShowingSplitExport = false
+    var blankPageReview: BlankPageReview?
+    var isDetectingBlankPages = false
+    var blankPageDetectionFoundNothing = false
     /// Non-nil while the barcode scan-result sheet is presented; carries the barcodes found on
     /// the scanned page (empty array → the sheet shows its "no barcodes" empty state).
     var barcodeScanResults: BarcodeScanResults? = nil
@@ -6665,6 +6669,11 @@ final class WorkspaceViewModel {
     /// back would bake in exactly the corruption this indirection exists to avoid, so
     /// this must keep reading the live documents even though the snapshot is right there.
     private func concatenatedOutlineNodes() -> [PDFOutlineReader.OutlineNode] {
+        // A user-edited outline replaces the source walk wholesale — including the
+        // empty override, which means "the user deleted every bookmark on purpose".
+        if document.workspace.outlineOverride != nil {
+            return overrideOutlineNodesForExport()
+        }
         var nodes: [PDFOutlineReader.OutlineNode] = []
         var pagesSoFar = 0
         for member in document.workspace.documents {
@@ -6687,7 +6696,9 @@ final class WorkspaceViewModel {
         to data: Data,
         options: WorkspaceExportOptions
     ) -> Data {
-        guard options.imposition == nil, !nodes.isEmpty else { return data }
+        // `.scale` is the one layout whose output page N is still source page N, so its
+        // bookmarks stay faithful and the write must keep running.
+        guard options.imposition?.preservesPageMapping != false, !nodes.isEmpty else { return data }
         guard let pdf = PDFDocument(data: data) else { return data }
         PDFOutlineBuilder.apply(nodes, to: pdf)
         return PDFSerializer.data(from: pdf) ?? data
@@ -8619,6 +8630,235 @@ final class WorkspaceViewModel {
         }
     }
 
+    /// One file of a split export: filename stem plus serialized pages.
+    struct SplitExportPart: Equatable {
+        let name: String
+        let data: Data
+    }
+
+    /// Pure data half of split-by-rule: partitions the workspace page order with
+    /// `PDFSplitPlanner` and serializes each part exactly the way `exportPages` does.
+    /// Panel-free so tests can cover it; `splitExport(rule:)` owns the interactive write.
+    func splitExportParts(rule: PDFSplitPlanner.Rule) -> [SplitExportPart] {
+        let order = document.workspace.pageOrder
+        return PDFSplitPlanner.parts(totalPages: order.count, rule: rule).compactMap { part in
+            let output = PDFDocument()
+            for index in part.pageIndices where order.indices.contains(index) {
+                let ref = order[index]
+                guard let lookup = memberPDF(for: ref),
+                      let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex),
+                      let page = lookup.pdf.page(at: localIdx),
+                      let copiedPage = page.copy() as? PDFPage else { continue }
+                output.insert(copiedPage, at: output.pageCount)
+            }
+            guard output.pageCount > 0, let data = PDFSerializer.data(from: output) else { return nil }
+            return SplitExportPart(name: part.name, data: data)
+        }
+    }
+
+    // MARK: - Blank-page removal
+
+    /// Candidates proposed by `detectBlankPages()`, awaiting user review. Identifiable so
+    /// the review sheet can present via `.sheet(item:)`.
+    struct BlankPageReview: Identifiable {
+        let id = UUID()
+        let refs: [PageRef]
+    }
+
+    /// `PDFDocument` isn't Sendable; written on the main actor, read only inside the
+    /// detached detection task, discarded after it joins.
+    private final class MemberDocumentsBox: @unchecked Sendable {
+        let members: [(id: UUID, pdf: PDFDocument)]
+        init(_ members: [(id: UUID, pdf: PDFDocument)]) { self.members = members }
+    }
+
+    /// Scans every loaded member for visually blank pages and proposes them for review.
+    /// Never deletes on its own — `removeBlankPages` does that, after user confirmation.
+    func detectBlankPages() async {
+        guard !isDetectingBlankPages else { return }
+        isDetectingBlankPages = true
+        blankPageDetectionFoundNothing = false
+        defer { isDetectingBlankPages = false }
+        let members = document.workspace.documents.compactMap { member -> (id: UUID, pdf: PDFDocument)? in
+            guard let pdf = loadedPDFs.first(where: { $0.0.id == member.id })?.1 else { return nil }
+            return (id: member.id, pdf: pdf)
+        }
+        let box = MemberDocumentsBox(members)
+        let blankByMember = await Task.detached(priority: .userInitiated) {
+            var result: [UUID: Set<Int>] = [:]
+            for member in box.members {
+                let indices = BlankPageDetector.candidateIndices(in: member.pdf)
+                if !indices.isEmpty { result[member.id] = Set(indices) }
+            }
+            return result
+        }.value
+        let refs = document.workspace.pageOrder.filter { ref in
+            guard let blanks = blankByMember[ref.memberDocId],
+                  let lookup = memberPDF(for: ref),
+                  let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex) else { return false }
+            return blanks.contains(localIdx)
+        }
+        if refs.isEmpty {
+            blankPageDetectionFoundNothing = true
+        } else {
+            blankPageReview = BlankPageReview(refs: refs)
+        }
+    }
+
+    /// Resolves a workspace ref to its live `PDFPage` — display-only lookups
+    /// (thumbnails in the review sheet), same resolution as `exportPages`.
+    func pdfPage(for ref: PageRef) -> PDFPage? {
+        guard let lookup = memberPDF(for: ref),
+              let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex) else { return nil }
+        return lookup.pdf.page(at: localIdx)
+    }
+
+    /// Confirmation handler for the review sheet: routes through `deletePages`, which
+    /// owns all bookkeeping (comment anchors, decorations, caches, undo).
+    func removeBlankPages(_ refs: [PageRef]) {
+        blankPageReview = nil
+        guard !refs.isEmpty else { return }
+        deletePages(refs)
+    }
+
+    // MARK: - Comment summary export
+
+    /// Collects everything the Markdown comment digest lists: workspace comments with
+    /// anchor pages resolved, plus user highlight/underline/strikeout annotations with
+    /// quoted text recovered from the page's text geometry (FPDFText-backed analysis,
+    /// never `PDFPage.string`). Reads `BakeStamp.userAnnotations` only — engine
+    /// bookkeeping must not surface as user markup.
+    func commentSummaryContent() -> (
+        comments: [CommentSummaryExporter.Comment],
+        highlights: [CommentSummaryExporter.Highlight]
+    ) {
+        let order = document.workspace.pageOrder
+        let comments = document.workspace.comments.map { comment -> CommentSummaryExporter.Comment in
+            let pageNumber = comment.anchor
+                .flatMap { anchor in order.firstIndex { $0.id == anchor.pageRefID } }
+                .map { $0 + 1 }
+            return CommentSummaryExporter.Comment(
+                pageNumber: pageNumber,
+                snippet: comment.anchor?.snippet,
+                body: comment.body,
+                tags: comment.tags,
+                isResolved: comment.isResolved
+            )
+        }
+
+        var highlights: [CommentSummaryExporter.Highlight] = []
+        for (index, ref) in order.enumerated() {
+            guard let lookup = memberPDF(for: ref),
+                  let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex),
+                  let page = lookup.pdf.page(at: localIdx) else { continue }
+            let marks = BakeStamp.userAnnotations(on: page).compactMap { annotation -> (CommentSummaryExporter.HighlightKind, CGRect)? in
+                switch annotation.type {
+                case "Highlight": return (.highlight, annotation.bounds)
+                case "Underline": return (.underline, annotation.bounds)
+                case "StrikeOut": return (.strikeout, annotation.bounds)
+                default: return nil
+                }
+            }
+            guard !marks.isEmpty else { continue }
+            let analysis = textAnalysis(for: ref, page: page, memberID: ref.memberDocId, localIndex: localIdx)
+            let lines = analysis.blocks.flatMap(\.lines)
+            for (kind, bounds) in marks {
+                let quote = lines
+                    .filter { $0.bounds.intersects(bounds) }
+                    .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+                highlights.append(CommentSummaryExporter.Highlight(
+                    pageNumber: index + 1,
+                    kind: kind,
+                    quote: quote.isEmpty ? nil : quote
+                ))
+            }
+        }
+        return (comments, highlights)
+    }
+
+    /// "Export Comments…": renders the digest and writes it via the shared crash-safe
+    /// export helpers.
+    func exportCommentSummary() {
+        let content = commentSummaryContent()
+        guard !content.comments.isEmpty || !content.highlights.isEmpty else {
+            exportError = ExportError(message: L10n.string("error.export.commentSummaryEmpty"))
+            return
+        }
+        let markdown = CommentSummaryExporter.markdown(
+            workspaceTitle: document.workspace.title,
+            comments: content.comments,
+            highlights: content.highlights
+        )
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "md") ?? .plainText]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "\(safeFilename(document.workspace.title))-comments.md"
+        panel.title = L10n.string("savePanel.commentExport.title")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try writeExportData(Data(markdown.utf8), to: url)
+            try verifyExportedFile(at: url)
+            finalizeSuccessfulExport(url: url, format: .markdown, includeCommentStatus: false)
+        } catch {
+            let message = (error as? ExportWriteError)?.userMessage ?? error.localizedDescription
+            exportError = ExportError(message: L10n.format("error.export.splitWrite", message))
+        }
+    }
+
+    /// Interactive half of split-by-rule: directory choice, one file per part, per-file
+    /// verification. Uses the same crash-safe write + verify helpers as every export.
+    func splitExport(rule: PDFSplitPlanner.Rule) {
+        let parts = splitExportParts(rule: rule)
+        guard !parts.isEmpty else {
+            exportError = ExportError(message: L10n.string("error.export.splitNoParts"))
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.title = L10n.string("split.panel.title")
+        panel.prompt = L10n.string("split.panel.choose")
+        guard panel.runModal() == .OK, let directory = panel.url else { return }
+        do {
+            for part in parts {
+                let url = directory
+                    .appendingPathComponent("\(safeFilename(document.workspace.title))-\(part.name).pdf")
+                try writeExportData(part.data, to: url)
+                try verifyExportedFile(at: url)
+            }
+            exportSuccess = ExportSuccess(
+                url: directory,
+                detail: L10n.format("split.success.files", parts.count)
+            )
+            PetBuddyHook.trigger(.export)
+        } catch {
+            let message = (error as? ExportWriteError)?.userMessage ?? error.localizedDescription
+            exportError = ExportError(message: L10n.format("error.export.splitWrite", message))
+        }
+    }
+
+    /// Top-level bookmarks positioned in the concatenated workspace page list — the same
+    /// member-offset walk as `concatenatedOutlineNodes()`, filtered to depth 0. Feeds the
+    /// `.bookmarks` split rule.
+    func topLevelBookmarkBoundaries() -> [PDFSplitPlanner.Boundary] {
+        var boundaries: [PDFSplitPlanner.Boundary] = []
+        var pagesSoFar = 0
+        for member in document.workspace.documents {
+            guard let pdf = loadedPDFs.first(where: { $0.0.id == member.id })?.1 else { continue }
+            for node in PDFOutlineReader.nodes(in: pdf) where node.depth == 0 {
+                boundaries.append(PDFSplitPlanner.Boundary(
+                    title: node.title,
+                    pageIndex: node.localPageIndex + pagesSoFar
+                ))
+            }
+            pagesSoFar += pdf.pageCount
+        }
+        return boundaries
+    }
+
     @discardableResult
     func movePage(_ ref: PageRef, toIndex destination: Int) -> Bool {
         guard canPerformMutatingAction() else { return false }
@@ -8769,6 +9009,150 @@ final class WorkspaceViewModel {
         }
     }
 
+    // MARK: - Outline editing
+
+    /// The user-edited outline, or nil while the workspace still follows its sources'
+    /// embedded `/Outlines`. Anchors are `PageRef` IDs — "operations, not bytes": member
+    /// bytes are never rewritten, the override is resolved at display and export time.
+    var editedOutline: [WorkspaceOutlineNode]? {
+        document.workspace.outlineOverride
+    }
+
+    /// Takes over the outline: seeds the override from the members' current bookmarks
+    /// (empty when they have none). Idempotent — a second call never re-seeds over edits.
+    func beginOutlineEditing() {
+        guard document.workspace.outlineOverride == nil else { return }
+        var nodes: [WorkspaceOutlineNode] = []
+        for member in document.workspace.documents {
+            guard let pdf = loadedPDFs.first(where: { $0.0.id == member.id })?.1 else { continue }
+            for node in PDFOutlineReader.nodes(in: pdf) where member.pageRefs.indices.contains(node.localPageIndex) {
+                nodes.append(WorkspaceOutlineNode(
+                    title: node.title,
+                    depth: node.depth,
+                    pageRefID: member.pageRefs[node.localPageIndex]
+                ))
+            }
+        }
+        setOutlineOverride(nodes)
+    }
+
+    /// Drops the override entirely — display and export follow the sources again.
+    func clearOutlineOverride() {
+        setOutlineOverride(nil)
+    }
+
+    func addBookmark(title: String, at ref: PageRef) {
+        var nodes = document.workspace.outlineOverride ?? []
+        nodes.append(WorkspaceOutlineNode(title: title, depth: 0, pageRefID: ref.id))
+        setOutlineOverride(nodes)
+    }
+
+    func renameBookmark(_ id: UUID, to title: String) {
+        guard var nodes = document.workspace.outlineOverride,
+              let index = nodes.firstIndex(where: { $0.id == id }) else { return }
+        nodes[index].title = title
+        setOutlineOverride(nodes)
+    }
+
+    /// Removes one node; its subtree is promoted a level, never dropped — deleting a
+    /// chapter heading should not silently delete the sections under it.
+    func deleteBookmark(_ id: UUID) {
+        guard var nodes = document.workspace.outlineOverride,
+              let index = nodes.firstIndex(where: { $0.id == id }) else { return }
+        let depth = nodes[index].depth
+        var child = index + 1
+        while child < nodes.count, nodes[child].depth > depth {
+            nodes[child].depth -= 1
+            child += 1
+        }
+        nodes.remove(at: index)
+        setOutlineOverride(nodes)
+    }
+
+    /// Swaps the node with its neighbor. Depth normalization keeps the flat list a
+    /// well-formed tree afterwards.
+    func moveBookmark(_ id: UUID, up: Bool) {
+        guard var nodes = document.workspace.outlineOverride,
+              let index = nodes.firstIndex(where: { $0.id == id }) else { return }
+        let target = up ? index - 1 : index + 1
+        guard nodes.indices.contains(target) else { return }
+        nodes.swapAt(index, target)
+        setOutlineOverride(nodes)
+    }
+
+    func setBookmarkDepth(_ id: UUID, depth: Int) {
+        guard var nodes = document.workspace.outlineOverride,
+              let index = nodes.firstIndex(where: { $0.id == id }) else { return }
+        nodes[index].depth = depth
+        setOutlineOverride(nodes)
+    }
+
+    /// The page a freshly added bookmark should anchor to: the selected page when there
+    /// is one, else the page the reader is on (`currentPageNumber` lives in the combined,
+    /// banner-interleaved index space), else the first page.
+    var bookmarkTargetRef: PageRef? {
+        if let id = selectedPageRefID,
+           let ref = document.workspace.pageOrder.first(where: { $0.id == id }) {
+            return ref
+        }
+        var combined = 0
+        for member in document.workspace.documents {
+            combined += 1  // source-file banner page
+            let range = combined..<(combined + member.pageRefs.count)
+            if range.contains(currentPageNumber) {
+                let refID = member.pageRefs[currentPageNumber - combined]
+                return document.workspace.pageOrder.first { $0.id == refID }
+            }
+            combined += member.pageRefs.count
+        }
+        return document.workspace.pageOrder.first
+    }
+
+    private func setOutlineOverride(_ newValue: [WorkspaceOutlineNode]?) {
+        let oldValue = document.workspace.outlineOverride
+        document.workspace.outlineOverride = newValue.map(Self.normalizedOutline)
+        markWorkspaceModified()
+        undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
+            vm.setOutlineOverride(oldValue)
+        }
+        undoManager?.setActionName(L10n.string("undo.outline.edit"))
+    }
+
+    /// A flat depth list is a valid pre-order tree iff the first node is at 0 and no
+    /// node is more than one level deeper than its predecessor. Every mutation funnels
+    /// through here so no operation can leave an unbuildable shape.
+    private static func normalizedOutline(_ nodes: [WorkspaceOutlineNode]) -> [WorkspaceOutlineNode] {
+        var result = nodes
+        var previousDepth = -1
+        for index in result.indices {
+            result[index].depth = max(0, min(result[index].depth, previousDepth + 1))
+            previousDepth = result[index].depth
+        }
+        return result
+    }
+
+    /// Export-time resolution of the override: each anchor becomes its position in the
+    /// concatenated export page list (`pageOrder` mirrors the member-by-member assembly).
+    /// Anchors whose page was deleted drop out — a dangling bookmark is worse than a
+    /// missing one, same rule as `PDFOutlineBuilder`.
+    private func overrideOutlineNodesForExport() -> [PDFOutlineReader.OutlineNode] {
+        guard let override = document.workspace.outlineOverride else { return [] }
+        let indexByRefID = Dictionary(
+            document.workspace.pageOrder.enumerated().map { ($0.element.id, $0.offset) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return override.compactMap { node in
+            guard let pageIndex = indexByRefID[node.pageRefID] else { return nil }
+            return PDFOutlineReader.OutlineNode(
+                title: node.title,
+                depth: node.depth,
+                localPageIndex: pageIndex,
+                hasChildren: false
+            )
+        }
+    }
+
     // MARK: - TOC synthesis
 
     struct TOCEntry: Identifiable {
@@ -8785,6 +9169,9 @@ final class WorkspaceViewModel {
         /// Set on a file row whose bookmarks hit `PDFOutlineReader`'s emit caps, so the
         /// view can say the list is incomplete rather than let it read as data loss.
         var outlineWasTruncated: Bool = false
+        /// Set on rows backed by a `WorkspaceOutlineNode`, so the TOC's edit mode can
+        /// address the node behind the row. nil for file rows and source bookmarks.
+        var outlineNodeID: UUID?
 
         /// Flattens the pre-order tree to the rows that should actually be drawn.
         /// A collapsed row hides every following row deeper than it, up to the next row
@@ -8830,12 +9217,37 @@ final class WorkspaceViewModel {
             uniquingKeysWith: { first, _ in first }
         )
 
+        // With an override, each member row lists the override nodes anchored to its
+        // pages (authored order) instead of the member's embedded bookmarks.
+        let override = document.workspace.outlineOverride
+
         for (memberIndex, member) in document.workspace.documents.enumerated() {
             // `loadedPDFs` is held parallel to `workspace.documents`; guard anyway so a
             // transient mismatch degrades to "no bookmarks" instead of trapping.
-            let outline = loadedPDFs.indices.contains(memberIndex)
-                ? PDFOutlineReader.read(loadedPDFs[memberIndex].1)
-                : PDFOutlineReader.OutlineResult()
+            let outline: PDFOutlineReader.OutlineResult
+            var nodeIDs: [UUID?] = []
+            if let override {
+                let memberRefIDs = Set(member.pageRefs)
+                let owned = override.filter { memberRefIDs.contains($0.pageRefID) }
+                var nodes: [PDFOutlineReader.OutlineNode] = []
+                for (index, node) in owned.enumerated() {
+                    guard let localIdx = member.pageRefs.firstIndex(of: node.pageRefID) else { continue }
+                    let nextDepth = index + 1 < owned.count ? owned[index + 1].depth : node.depth
+                    nodes.append(PDFOutlineReader.OutlineNode(
+                        title: node.title,
+                        depth: node.depth,
+                        localPageIndex: localIdx,
+                        hasChildren: nextDepth > node.depth
+                    ))
+                    nodeIDs.append(node.id)
+                }
+                outline = PDFOutlineReader.OutlineResult(nodes: nodes, wasTruncated: false)
+            } else {
+                outline = loadedPDFs.indices.contains(memberIndex)
+                    ? PDFOutlineReader.read(loadedPDFs[memberIndex].1)
+                    : PDFOutlineReader.OutlineResult()
+                nodeIDs = Array(repeating: nil, count: outline.nodes.count)
+            }
             let bookmarks = outline.nodes
 
             entries.append(TOCEntry(
@@ -8854,13 +9266,15 @@ final class WorkspaceViewModel {
                       let combined = combinedPageIndex(for: ref)
                 else { continue }
 
+                let nodeID = nodeIDs.indices.contains(bookmarkIndex) ? nodeIDs[bookmarkIndex] : nil
                 entries.append(TOCEntry(
-                    id: "\(member.id.uuidString)#\(bookmarkIndex)",
+                    id: nodeID?.uuidString ?? "\(member.id.uuidString)#\(bookmarkIndex)",
                     title: bookmark.title,
                     jumpPageIndex: combined,
                     displayPageNumber: realPageNumber + bookmark.localPageIndex,
                     depth: bookmark.depth + 1,
-                    hasChildren: bookmark.hasChildren
+                    hasChildren: bookmark.hasChildren,
+                    outlineNodeID: nodeID
                 ))
             }
 

@@ -116,6 +116,36 @@ struct WorkspaceComment: Codable, Identifiable {
     }
 }
 
+/// One bookmark in the user-edited workspace outline. Anchored to a `PageRef` ID —
+/// never a page index — so the bookmark follows its page through reorders and survives
+/// deletions as a droppable dangling anchor rather than a silently retargeted one.
+struct WorkspaceOutlineNode: Codable, Equatable, Identifiable {
+    var id: UUID = UUID()
+    var title: String
+    /// 0-based nesting, same convention as `PDFOutlineReader.OutlineNode.depth`.
+    var depth: Int
+    var pageRefID: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, depth, pageRefID
+    }
+
+    init(id: UUID = UUID(), title: String, depth: Int, pageRefID: UUID) {
+        self.id = id
+        self.title = title
+        self.depth = depth
+        self.pageRefID = pageRefID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        title = try c.decode(String.self, forKey: .title)
+        depth = try c.decodeIfPresent(Int.self, forKey: .depth) ?? 0
+        pageRefID = try c.decode(UUID.self, forKey: .pageRefID)
+    }
+}
+
 struct Workspace: Codable {
     var id: UUID = UUID()
     // NOTE: Intentionally left as a literal English string, not L10n.string(...).
@@ -139,10 +169,14 @@ struct Workspace: Codable {
     var comments: [WorkspaceComment] = []
     var pageEditStates: [PageEditState] = []
     var objectEditStates: [PageObjectEditState] = []
+    /// When non-nil, the user has taken over the outline: display and export read this
+    /// instead of the members' embedded `/Outlines`. nil means "follow the sources".
+    var outlineOverride: [WorkspaceOutlineNode]?
     var schemaVersion: Int = 6
 
     enum CodingKeys: String, CodingKey {
-        case id, title, createdAt, modifiedAt, documents, pageOrder, signatures, decorations, tags, comments, pageEditStates, objectEditStates, schemaVersion
+        case id, title, createdAt, modifiedAt, documents, pageOrder, signatures, decorations
+        case tags, comments, pageEditStates, objectEditStates, outlineOverride, schemaVersion
     }
 
     init() {}
@@ -164,6 +198,7 @@ struct Workspace: Codable {
         comments = try c.decodeIfPresent([WorkspaceComment].self, forKey: .comments) ?? []
         pageEditStates = try c.decodeIfPresent([PageEditState].self, forKey: .pageEditStates) ?? []
         objectEditStates = try c.decodeIfPresent([PageObjectEditState].self, forKey: .objectEditStates) ?? []
+        outlineOverride = try c.decodeIfPresent([WorkspaceOutlineNode].self, forKey: .outlineOverride)
         schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
     }
 }

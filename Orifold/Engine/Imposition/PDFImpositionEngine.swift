@@ -1,4 +1,5 @@
 import Foundation
+import PDFKit
 
 enum PDFImpositionError: LocalizedError {
     case invalidPDF
@@ -41,6 +42,15 @@ enum PDFImpositionEngine {
         let data = baked.bytes
         guard !data.isEmpty, data.count <= Int(Int32.max) else { throw PDFImpositionError.invalidPDF }
 
+        // Scale is not PDFium work: `FPDF_ImportNPagesToOne` short-circuits a 1×1 grid to
+        // a plain page copy (no resize), so the target size is applied by re-rendering
+        // each page into a CG PDF context instead — the same vector-preserving path the
+        // OCR renderer and decoration baker use. Safe here for the same reason N-up is:
+        // the input is `BakedPDFData`, annotations are already flattened into content.
+        if case let .scale(width, height) = layout {
+            return try scaledViaCoreGraphics(data, width: width, height: height)
+        }
+
         pdfiumLock.lock()
         defer { pdfiumLock.unlock() }
         FPDF_InitLibrary()
@@ -69,6 +79,10 @@ enum PDFImpositionEngine {
                 }
                 defer { FPDF_CloseDocument(imposed) }
                 return try save(imposed)
+
+            case .scale:
+                // Handled above, before the PDFium document was even opened.
+                throw PDFImpositionError.impositionFailed
 
             case .booklet:
                 let reordered = try makeBookletReorderedDocument(from: source, pageCount: pageCount,
@@ -118,6 +132,45 @@ enum PDFImpositionEngine {
             insertIndex += 1
         }
         return reordered
+    }
+
+    /// Fits every page onto one `width` × `height` sheet, centered and aspect-preserved
+    /// (letterboxed on mismatch). Vector content survives — `PDFPage.draw` into a CG PDF
+    /// consumer re-emits operators, it does not rasterize.
+    private static func scaledViaCoreGraphics(_ data: Data, width: Double, height: Double) throws -> Data {
+        guard width > 0, height > 0 else { throw PDFImpositionError.impositionFailed }
+        guard let source = PDFDocument(data: data), source.pageCount > 0 else {
+            throw PDFImpositionError.invalidPDF
+        }
+        let output = NSMutableData()
+        var sheetBox = CGRect(x: 0, y: 0, width: width, height: height)
+        guard let consumer = CGDataConsumer(data: output as CFMutableData),
+              let context = CGContext(consumer: consumer, mediaBox: &sheetBox, nil) else {
+            throw PDFImpositionError.impositionFailed
+        }
+        for index in 0..<source.pageCount {
+            guard let page = source.page(at: index) else { continue }
+            let bounds = page.bounds(for: .mediaBox)
+            guard bounds.width > 0, bounds.height > 0 else { continue }
+            context.beginPDFPage([kCGPDFContextMediaBox as String: sheetBox] as CFDictionary)
+            context.saveGState()
+            let scale = min(width / bounds.width, height / bounds.height)
+            context.translateBy(
+                x: (width - bounds.width * scale) / 2,
+                y: (height - bounds.height * scale) / 2
+            )
+            context.scaleBy(x: scale, y: scale)
+            context.translateBy(x: -bounds.minX, y: -bounds.minY)
+            page.draw(with: .mediaBox, to: context)
+            context.restoreGState()
+            context.endPDFPage()
+        }
+        context.closePDF()
+        let result = output as Data
+        guard !result.isEmpty, QPDFService.isStructurallySound(result) else {
+            throw PDFImpositionError.saveFailed
+        }
+        return result
     }
 
     /// Page-0 size in points, reusing the already-bound `poe_*` page getters (no extra binding).
