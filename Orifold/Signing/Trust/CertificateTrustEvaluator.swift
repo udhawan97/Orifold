@@ -55,10 +55,18 @@ enum CertificateTrustEvaluator {
     /// deliberately ON-DEMAND ONLY — nothing in Orifold calls this automatically, so it
     /// never fires a network request the user didn't explicitly ask for.
     static func evaluate(profile: DigitalCertificateProfile) async throws -> CertificateTrustEvaluation {
-        guard !profile.chainCertificatesDER.isEmpty else {
+        try await evaluate(certificateChainDER: profile.chainCertificatesDER, checksRevocation: true)
+    }
+
+    /// Evaluates a certificate chain embedded in a PDF signature. Inspector validation uses
+    /// the platform trust store without revocation networking; profile validation keeps its
+    /// existing explicit, on-demand OCSP/CRL behavior by passing `true` above.
+    static func evaluate(certificateChainDER: [Data],
+                         checksRevocation: Bool) async throws -> CertificateTrustEvaluation {
+        guard !certificateChainDER.isEmpty else {
             throw EvaluationError.noCertificatesInProfile
         }
-        let certificates = try profile.chainCertificatesDER.map { der -> SecCertificate in
+        let certificates = try certificateChainDER.map { der -> SecCertificate in
             guard let certificate = SecCertificateCreateWithData(nil, der as CFData) else {
                 throw EvaluationError.invalidCertificateData
             }
@@ -68,7 +76,10 @@ enum CertificateTrustEvaluator {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {
                 do {
-                    continuation.resume(returning: try evaluateSynchronously(certificates: certificates))
+                    continuation.resume(returning: try evaluateSynchronously(
+                        certificates: certificates,
+                        checksRevocation: checksRevocation
+                    ))
                 } catch {
                     continuation.resume(throwing: error)
                 }
@@ -76,20 +87,31 @@ enum CertificateTrustEvaluator {
         }
     }
 
-    private static func evaluateSynchronously(certificates: [SecCertificate]) throws -> CertificateTrustEvaluation {
+    private static func evaluateSynchronously(certificates: [SecCertificate],
+                                              checksRevocation: Bool) throws -> CertificateTrustEvaluation {
         let basicPolicy = SecPolicyCreateBasicX509()
-        let revocationPolicy = SecPolicyCreateRevocation(
-            CFOptionFlags(kSecRevocationOCSPMethod | kSecRevocationCRLMethod)
-        )
+        var policies = [basicPolicy]
+        if checksRevocation,
+           let revocationPolicy = SecPolicyCreateRevocation(
+                CFOptionFlags(kSecRevocationOCSPMethod | kSecRevocationCRLMethod)
+           ) {
+            policies.append(revocationPolicy)
+        }
 
         var trust: SecTrust?
         let creationStatus = SecTrustCreateWithCertificates(
             certificates as CFArray,
-            [basicPolicy, revocationPolicy] as CFArray,
+            policies as CFArray,
             &trust
         )
         guard creationStatus == errSecSuccess, let trust else {
             throw EvaluationError.couldNotCreateTrustObject(creationStatus)
+        }
+        if !checksRevocation {
+            let networkStatus = SecTrustSetNetworkFetchAllowed(trust, false)
+            guard networkStatus == errSecSuccess else {
+                throw EvaluationError.couldNotCreateTrustObject(networkStatus)
+            }
         }
 
         var error: CFError?

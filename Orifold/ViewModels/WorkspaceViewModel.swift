@@ -6,6 +6,17 @@ import CoreServices
 import Observation
 import UniformTypeIdentifiers
 
+struct PageCropMargins: Equatable {
+    var top: CGFloat
+    var bottom: CGFloat
+    var left: CGFloat
+    var right: CGFloat
+
+    var isValid: Bool {
+        [top, bottom, left, right].allSatisfy { $0.isFinite && $0 >= 0 }
+    }
+}
+
 enum WorkspaceExportFormat: String, CaseIterable, Identifiable {
     case pdf
     case word
@@ -2795,6 +2806,10 @@ final class WorkspaceViewModel {
     /// no attributes", which undo must restore faithfully.
     private struct MemberByteSnapshot {
         var live: Data
+        /// The PDFKit lane can contain unsaved page-level state while `live` remains the
+        /// exact qpdf-backed member bytes. Keeping the two snapshots separate lets undo
+        /// restore byte-exact signatures/attachments without discarding the visible state.
+        var loadedPDFData: Data?
         var original: Data?
         var objectBase: Data?
         var attributes: [AnyHashable: Any]?
@@ -2816,6 +2831,33 @@ final class WorkspaceViewModel {
     private struct MemberMutationOptions {
         var nextDocumentAttributes: (([AnyHashable: Any]?) -> [AnyHashable: Any])?
         var invalidatesAnalysisCaches: Bool = false
+        var invalidatedPageRefIDs: Set<UUID> = []
+        var reloadsLivePDF: Bool = false
+    }
+
+    private struct MemberByteMutationRequest {
+        var memberID: UUID
+        var previousLive: Data?
+        var previousLoadedPDFData: Data?
+        var currentLive: Data
+        var options: MemberMutationOptions
+        var transform: (Data) -> Data?
+    }
+
+    private struct PreparedMemberByteMutation {
+        var memberID: UUID
+        var previous: MemberByteSnapshot
+        var next: MemberByteSnapshot
+        var options: MemberMutationOptions
+
+        var reversed: PreparedMemberByteMutation {
+            PreparedMemberByteMutation(
+                memberID: memberID,
+                previous: next,
+                next: previous,
+                options: options
+            )
+        }
     }
 
     /// Applies `transform` to the member's live bytes and, when present, its
@@ -2836,47 +2878,105 @@ final class WorkspaceViewModel {
         actionNameKey: String,
         failureKey: String,
         options: MemberMutationOptions = MemberMutationOptions(),
-        _ transform: (Data) -> Data?
+        _ transform: @escaping (Data) -> Data?
+    ) -> Bool {
+        mutateMemberBytes(
+            requests: [MemberByteMutationRequest(
+                memberID: memberID,
+                previousLive: nil,
+                previousLoadedPDFData: nil,
+                currentLive: currentLive,
+                options: options,
+                transform: transform
+            )],
+            actionNameKey: actionNameKey,
+            failureKey: failureKey
+        )
+    }
+
+    /// Transactional multi-member form. Every lane for every requested member is transformed
+    /// and validated before any state changes; the resulting swap registers one undo group.
+    @discardableResult
+    private func mutateMemberBytes(
+        requests: [MemberByteMutationRequest],
+        actionNameKey: String,
+        failureKey: String
     ) -> Bool {
         func failed() -> Bool {
             showEditMessage(L10n.string(forKey: failureKey), isError: true)
             return false
         }
 
-        guard let newLive = transform(currentLive) else { return failed() }
-        var newOriginal: Data? = nil
-        if let original = originalMemberPDFData[memberID] {
-            guard let transformed = transform(original) else { return failed() }
-            newOriginal = transformed
-        }
-        var newObjectBase: Data? = nil
-        if let objectBase = objectBaseData[memberID] {
-            guard let transformed = transform(objectBase) else { return failed() }
-            newObjectBase = transformed
+        guard !requests.isEmpty else { return false }
+        var prepared: [PreparedMemberByteMutation] = []
+        prepared.reserveCapacity(requests.count)
+        for request in requests {
+            guard let newLive = request.transform(request.currentLive),
+                  !request.options.reloadsLivePDF || PDFDocument(data: newLive) != nil else {
+                return failed()
+            }
+            var newOriginal: Data?
+            if let original = originalMemberPDFData[request.memberID] {
+                guard let transformed = request.transform(original) else { return failed() }
+                newOriginal = transformed
+            }
+            var newObjectBase: Data?
+            if let objectBase = objectBaseData[request.memberID] {
+                guard let transformed = request.transform(objectBase) else { return failed() }
+                newObjectBase = transformed
+            }
+
+            let currentAttributes = loadedPDFs.first {
+                $0.0.id == request.memberID
+            }?.1.documentAttributes
+            prepared.append(PreparedMemberByteMutation(
+                memberID: request.memberID,
+                previous: MemberByteSnapshot(
+                    live: request.previousLive ?? request.currentLive,
+                    loadedPDFData: request.previousLoadedPDFData,
+                    original: originalMemberPDFData[request.memberID],
+                    objectBase: objectBaseData[request.memberID],
+                    attributes: currentAttributes
+                ),
+                next: MemberByteSnapshot(
+                    live: newLive,
+                    loadedPDFData: request.options.reloadsLivePDF ? newLive : nil,
+                    original: newOriginal,
+                    objectBase: newObjectBase,
+                    attributes: request.options.nextDocumentAttributes?(currentAttributes)
+                ),
+                options: request.options
+            ))
         }
 
-        let currentAttributes = loadedPDFs.first { $0.0.id == memberID }?.1.documentAttributes
-        let previous = MemberByteSnapshot(
-            live: currentLive,
-            original: originalMemberPDFData[memberID],
-            objectBase: objectBaseData[memberID],
-            attributes: currentAttributes
-        )
-        let next = MemberByteSnapshot(
-            live: newLive,
-            original: newOriginal,
-            objectBase: newObjectBase,
-            attributes: options.nextDocumentAttributes?(currentAttributes)
-        )
-        applyMemberByteSnapshot(next, to: memberID, previous: previous, actionNameKey: actionNameKey, options: options)
+        applyMemberByteMutations(prepared, actionNameKey: actionNameKey)
         return true
+    }
+
+    private func applyMemberByteMutations(_ mutations: [PreparedMemberByteMutation],
+                                          actionNameKey: String) {
+        for mutation in mutations {
+            applyMemberByteSnapshot(
+                mutation.next,
+                to: mutation.memberID,
+                options: mutation.options
+            )
+        }
+        registerIsolatedUndo {
+            undoManager?.registerUndo(withTarget: self) { viewModel in
+                guard viewModel.canPerformUndoMutation() else { return }
+                viewModel.applyMemberByteMutations(
+                    mutations.map(\.reversed),
+                    actionNameKey: actionNameKey
+                )
+            }
+            undoManager?.setActionName(L10n.string(forKey: actionNameKey))
+        }
     }
 
     private func applyMemberByteSnapshot(
         _ snapshot: MemberByteSnapshot,
         to memberID: UUID,
-        previous: MemberByteSnapshot,
-        actionNameKey: String,
         options: MemberMutationOptions
     ) {
         document.memberPDFData[memberID] = snapshot.live
@@ -2890,24 +2990,23 @@ final class WorkspaceViewModel {
            let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == memberID }) {
             loadedPDFs[loadedIndex].1.documentAttributes = snapshot.attributes
         }
+        if options.reloadsLivePDF,
+           let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == memberID }),
+           let reloaded = PDFDocument(data: snapshot.loadedPDFData ?? snapshot.live) {
+            loadedPDFs[loadedIndex].1 = reloaded
+        }
         invalidatePageInspection(for: memberID)
         if options.invalidatesAnalysisCaches {
             textAnalysisCache.removeAll()
             objectAnalysisCache.removeAll()
+        } else if !options.invalidatedPageRefIDs.isEmpty {
+            for pageRefID in options.invalidatedPageRefIDs {
+                textAnalysisCache.removeValue(forKey: pageRefID)
+                objectAnalysisCache.removeValue(forKey: pageRefID)
+            }
         }
         rebuild()
         markWorkspaceModified()
-        // Recursive inverse: each application registers the undo that restores the
-        // other state, so undo AND redo both work and each is its own atomic step.
-        registerIsolatedUndo {
-            undoManager?.registerUndo(withTarget: self) { vm in
-                guard vm.canPerformUndoMutation() else { return }
-                vm.applyMemberByteSnapshot(
-                    previous, to: memberID, previous: snapshot,
-                    actionNameKey: actionNameKey, options: options)
-            }
-            undoManager?.setActionName(L10n.string(forKey: actionNameKey))
-        }
     }
 
     struct CollectedAttachment: Sendable {
@@ -2951,6 +3050,10 @@ final class WorkspaceViewModel {
 
     func decoration(of kind: PageDecoration.Kind) -> PageDecoration? {
         document.workspace.decorations.first { $0.kind == kind && $0.pageRefID == nil }
+    }
+
+    func overlayPDFDecoration() -> PageDecoration? {
+        document.workspace.decorations.first { $0.kind == .overlayPDF }
     }
 
     func isDecorationEnabled(_ kind: PageDecoration.Kind) -> Bool {
@@ -3036,6 +3139,86 @@ final class WorkspaceViewModel {
         }
     }
 
+    @discardableResult
+    func setOverlayPDF(data: Data?,
+                       placement: PageDecorationPDFPlacement,
+                       pageRefID: UUID? = nil) -> Bool {
+        if let pageRefID,
+           !document.workspace.pageOrder.contains(where: { $0.id == pageRefID }) {
+            return false
+        }
+        if let data {
+            guard let provider = CGDataProvider(data: data as CFData),
+                  let overlayDocument = CGPDFDocument(provider),
+                  overlayDocument.numberOfPages == 1,
+                  overlayDocument.page(at: 1) != nil else {
+                return false
+            }
+        }
+
+        var decorations = document.workspace.decorations
+        decorations.removeAll { $0.kind == .overlayPDF }
+        if let data {
+            decorations.append(.overlayPDF(pdfData: data, placement: placement, pageRefID: pageRefID))
+        }
+        replaceDecorations(decorations, actionName: decorationActionName(for: .overlayPDF))
+        return true
+    }
+
+    /// Replaces only the one-page PDF payload and layer, retaining the existing enabled and
+    /// page-target state. The Inspector uses this path for Replace so navigating away from a
+    /// targeted page cannot silently widen the decoration to every page.
+    @discardableResult
+    func replaceOverlayPDF(data: Data,
+                           placement: PageDecorationPDFPlacement) -> Bool {
+        guard let provider = CGDataProvider(data: data as CFData),
+              let overlayDocument = CGPDFDocument(provider),
+              overlayDocument.numberOfPages == 1,
+              overlayDocument.page(at: 1) != nil else {
+            return false
+        }
+        var decorations = document.workspace.decorations
+        guard let index = decorations.firstIndex(where: { $0.kind == .overlayPDF }) else {
+            return setOverlayPDF(data: data, placement: placement)
+        }
+        decorations[index].overlayPDFData = data
+        decorations[index].overlayPDFPlacement = placement
+        replaceDecorations(decorations, actionName: decorationActionName(for: .overlayPDF))
+        return true
+    }
+
+    func setOverlayPDFPlacement(_ placement: PageDecorationPDFPlacement,
+                                pageRefID: UUID? = nil) {
+        var decorations = document.workspace.decorations
+        guard let index = decorations.firstIndex(where: {
+            $0.kind == .overlayPDF && $0.pageRefID == pageRefID
+        }) else { return }
+        decorations[index].overlayPDFPlacement = placement
+        replaceDecorations(decorations, actionName: decorationActionName(for: .overlayPDF))
+    }
+
+    func setOverlayPDFEnabled(_ enabled: Bool) {
+        var decorations = document.workspace.decorations
+        guard let index = decorations.firstIndex(where: { $0.kind == .overlayPDF }) else { return }
+        decorations[index].isEnabled = enabled
+        replaceDecorations(decorations, actionName: decorationActionName(for: .overlayPDF))
+    }
+
+    @discardableResult
+    func setOverlayPDFTarget(_ pageRefID: UUID?) -> Bool {
+        if let pageRefID,
+           !document.workspace.pageOrder.contains(where: { $0.id == pageRefID }) {
+            return false
+        }
+        var decorations = document.workspace.decorations
+        guard let index = decorations.firstIndex(where: { $0.kind == .overlayPDF }) else {
+            return false
+        }
+        decorations[index].pageRefID = pageRefID
+        replaceDecorations(decorations, actionName: decorationActionName(for: .overlayPDF))
+        return true
+    }
+
     private func updateDecoration(_ kind: PageDecoration.Kind,
                                   actionName: String,
                                   mutate: (inout PageDecoration) -> Void) {
@@ -3083,6 +3266,8 @@ final class WorkspaceViewModel {
             return PageDecoration(kind: .hanko)
         case .image:
             return PageDecoration(kind: .image)
+        case .overlayPDF:
+            return PageDecoration(kind: .overlayPDF)
         }
     }
 
@@ -3096,14 +3281,16 @@ final class WorkspaceViewModel {
             return L10n.string("undo.changeBatesStamp")
         case .stamp, .hanko, .image:
             return L10n.string("undo.changeStamp")
+        case .overlayPDF:
+            return L10n.string("undo.changeOverlayPDF")
         }
     }
 
     private func warnIfEditingWouldInvalidateSignatures() {
         if hasCryptographicSignaturePlacement {
-            editingStatus = .warning("Editing after a digital signature invalidates existing signatures.")
+            editingStatus = .warning(L10n.string("status.signature.editInvalidates"))
         } else if hasThirdPartyCryptographicSignature {
-            editingStatus = .warning("This document already contains a digital signature from another source. Editing it will invalidate that signature.")
+            editingStatus = .warning(L10n.string("status.signature.thirdPartyEditInvalidates"))
         }
     }
 
@@ -7477,6 +7664,14 @@ final class WorkspaceViewModel {
         for pageIndex in 0..<loaded.1.pageCount {
             guard let page = loaded.1.page(at: pageIndex) else { return false }
             if page.rotation != 0 { return false }
+            let mediaBox = page.bounds(for: .mediaBox).standardized
+            let cropBox = page.bounds(for: .cropBox).standardized
+            if abs(mediaBox.minX - cropBox.minX) > 0.01 ||
+                abs(mediaBox.minY - cropBox.minY) > 0.01 ||
+                abs(mediaBox.width - cropBox.width) > 0.01 ||
+                abs(mediaBox.height - cropBox.height) > 0.01 {
+                return false
+            }
         }
         return true
     }
@@ -8361,6 +8556,123 @@ final class WorkspaceViewModel {
     }
 
     // MARK: - Page operations (all keyed by PageRef.id, all undoable)
+
+    /// Applies non-destructive `/CropBox` margins to the requested workspace pages. Each
+    /// `PageRef` is resolved through its member's current page-ref order, then every present
+    /// byte lane for that member receives the same member-local mutations through
+    /// `mutateMemberBytes` so later replay cannot resurrect an older box.
+    @discardableResult
+    func applyPageCrop(margins: PageCropMargins, to refs: [PageRef]) -> Bool {
+        guard canPerformMutatingAction(), margins.isValid else { return false }
+        let requestedIDs = Set(refs.map(\.id))
+        let orderedRefs = document.workspace.pageOrder.filter { requestedIDs.contains($0.id) }
+        guard !orderedRefs.isEmpty else { return false }
+
+        struct MemberCrop {
+            var boxesByLocalIndex: [Int: CGRect] = [:]
+            var pageRefIDs: Set<UUID> = []
+        }
+        var cropsByMemberID: [UUID: MemberCrop] = [:]
+        var liveDataByMemberID: [UUID: Data] = [:]
+        var previousLiveByMemberID: [UUID: Data] = [:]
+        var previousLoadedByMemberID: [UUID: Data] = [:]
+
+        for ref in orderedRefs {
+            guard let lookup = memberPDF(for: ref),
+                  let localIndex = localIndex(ref: ref, memberIndex: lookup.documentIndex),
+                  let page = lookup.pdf.page(at: localIndex) else { return false }
+            if liveDataByMemberID[ref.memberDocId] == nil {
+                guard let previousLive = document.memberPDFData[ref.memberDocId],
+                      let serializedLive = PDFSerializer.data(from: lookup.pdf),
+                      let liveData = Self.preservingAttachments(
+                        from: previousLive,
+                        in: serializedLive
+                      ) else { return false }
+                previousLiveByMemberID[ref.memberDocId] = previousLive
+                previousLoadedByMemberID[ref.memberDocId] = serializedLive
+                liveDataByMemberID[ref.memberDocId] = liveData
+            }
+            guard let cropBox = cropBox(for: page, margins: margins) else { return false }
+            cropsByMemberID[ref.memberDocId, default: MemberCrop()]
+                .boxesByLocalIndex[localIndex] = cropBox
+            cropsByMemberID[ref.memberDocId, default: MemberCrop()]
+                .pageRefIDs.insert(ref.id)
+        }
+
+        let actionNameKey = orderedRefs.count == 1 ? "undo.cropPage" : "undo.cropPages"
+        var requests: [MemberByteMutationRequest] = []
+        requests.reserveCapacity(cropsByMemberID.count)
+        for (memberID, crop) in cropsByMemberID {
+            guard let currentLive = liveDataByMemberID[memberID],
+                  let previousLive = previousLiveByMemberID[memberID],
+                  let previousLoaded = previousLoadedByMemberID[memberID] else { return false }
+            requests.append(MemberByteMutationRequest(
+                memberID: memberID,
+                previousLive: previousLive,
+                previousLoadedPDFData: previousLoaded,
+                currentLive: currentLive,
+                options: MemberMutationOptions(
+                    invalidatedPageRefIDs: crop.pageRefIDs,
+                    reloadsLivePDF: true
+                ),
+                transform: { QPDFService.settingCropBoxes(
+                    $0,
+                    pageCropBoxes: crop.boxesByLocalIndex
+                ) }
+            ))
+        }
+        guard mutateMemberBytes(
+            requests: requests,
+            actionNameKey: actionNameKey,
+            failureKey: "status.crop.applyFailed"
+        ) else { return false }
+        warnIfEditingWouldInvalidateSignatures()
+        return true
+    }
+
+    /// PDFKit serialization intentionally carries the current reader state, but it drops
+    /// embedded-file name trees. Re-graft the member lane's exact attachment payloads before
+    /// qpdf writes `/CropBox`; any extraction or insertion failure aborts the transaction.
+    private static func preservingAttachments(from source: Data, in serializedLive: Data) -> Data? {
+        do {
+            let sourceAttachments = try AttachmentsService.list(in: source)
+            guard !sourceAttachments.isEmpty else { return serializedLive }
+
+            var result = serializedLive
+            for attachment in sourceAttachments {
+                let payload = try AttachmentsService.extract(attachment.name, from: source)
+                let targetNames = Set(try AttachmentsService.list(in: result).map(\.name))
+                if targetNames.contains(attachment.name) {
+                    if try AttachmentsService.extract(attachment.name, from: result) == payload {
+                        continue
+                    }
+                    result = try AttachmentsService.remove(attachment.name, from: result)
+                }
+                result = try AttachmentsService.add(
+                    payload,
+                    name: attachment.name,
+                    mimeType: attachment.mimeType,
+                    to: result
+                )
+            }
+            return result
+        } catch {
+            return nil
+        }
+    }
+
+    private func cropBox(for page: PDFPage, margins: PageCropMargins) -> CGRect? {
+        let mediaBox = page.bounds(for: .mediaBox)
+        let width = mediaBox.width - margins.left - margins.right
+        let height = mediaBox.height - margins.top - margins.bottom
+        guard width > 0, height > 0 else { return nil }
+        return CGRect(
+            x: mediaBox.minX + margins.left,
+            y: mediaBox.minY + margins.bottom,
+            width: width,
+            height: height
+        )
+    }
 
     func rotatePage(_ ref: PageRef, by degrees: Int) {
         guard canPerformMutatingAction() else { return }

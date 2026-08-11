@@ -261,7 +261,7 @@ enum QPDFService {
         key.withCString { qpdf_oh_remove_key(qpdf, oh, $0) }
     }
 
-    private static func replaceKey(_ qpdf: qpdf_data, in oh: qpdf_oh, key: String, value: qpdf_oh) {
+    static func replaceKey(_ qpdf: qpdf_data, in oh: qpdf_oh, key: String, value: qpdf_oh) {
         key.withCString { qpdf_oh_replace_key(qpdf, oh, $0, value) }
     }
 
@@ -308,7 +308,7 @@ enum QPDFService {
         return "\(objectID):\(qpdf_oh_get_generation(qpdf, object))"
     }
 
-    private static func hasErrors(_ code: QPDF_ERROR_CODE) -> Bool {
+    static func hasErrors(_ code: QPDF_ERROR_CODE) -> Bool {
         (code & QPDF_ERRORS) != 0
     }
 

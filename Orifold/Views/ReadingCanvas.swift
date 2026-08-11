@@ -2057,6 +2057,8 @@ final class PageDecorationOverlayView: NSView {
             case .image:
                 guard decoration.pageRefID == pageRef.id else { continue }
                 drawImage(decoration)
+            case .overlayPDF:
+                break
             }
         }
     }
