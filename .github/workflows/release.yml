@@ -239,16 +239,32 @@ jobs:
             ${{ runner.temp }}/dist/Orifold.zip
           if-no-files-found: error
 
-      - name: Compute tagged release title
+      - name: Prepare tagged release notes
         if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.release_tag != '' }}
         id: release-title
         run: |
-          tag="${{ inputs.release_tag || github.ref_name }}"
-          display_version="$tag"
-          if [[ "$tag" == release-* ]]; then
-            display_version="${tag#release-}"
+          version="${ORIFOLD_MARKETING_VERSION:?release version was not derived}"
+          release_doc="docs/release-v${version}.md"
+          if [[ ! -f "$release_doc" ]]; then
+            echo "::error::Missing release record: $release_doc"
+            exit 1
           fi
-          echo "title=${display_version} Orifold" >> "$GITHUB_OUTPUT"
+
+          title="$(sed -n 's/^Release title: `\(.*\)`$/\1/p' "$release_doc" | head -n 1)"
+          if [[ -z "$title" ]]; then
+            echo "::error::Release title is missing from $release_doc"
+            exit 1
+          fi
+
+          notes="$RUNNER_TEMP/release-notes.md"
+          awk 'emit { print } /^## Release Notes$/ { emit=1 }' "$release_doc" > "$notes"
+          if [[ ! -s "$notes" ]]; then
+            echo "::error::Release notes are missing from $release_doc"
+            exit 1
+          fi
+
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          echo "notes_path=$notes" >> "$GITHUB_OUTPUT"
 
       - name: Publish tagged GitHub release
         if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.release_tag != '' }}
@@ -256,6 +272,7 @@ jobs:
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           name: ${{ steps.release-title.outputs.title }}
+          body_path: ${{ steps.release-title.outputs.notes_path }}
           files: |
             ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg
             ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg.sha256
@@ -263,7 +280,6 @@ jobs:
             ${{ runner.temp }}/dist/Orifold.dmg.sha256
             ${{ runner.temp }}/dist/manifest.json
             ${{ runner.temp }}/dist/Orifold.zip
-          generate_release_notes: true
           make_latest: true
           overwrite_files: true
 

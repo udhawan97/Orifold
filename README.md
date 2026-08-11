@@ -50,9 +50,10 @@
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
 > [!TIP]
-> **Coming in v0.10.2:** switching to Japanese or Simplified Chinese now selects the right
-> packaged translations even when macOS prefers another language, and the main window can no
-> longer reopen below its supported minimum. Restored sizes that meet that minimum are preserved.
+> **New in v0.10.2:** split PDFs by ranges or bookmarks, review and remove likely blank pages,
+> edit outlines, scale exports to A4 or Letter, crop page boxes, place vector PDF overlays, and
+> inspect incoming signatures. The release also fixes packaged Japanese and Simplified Chinese
+> selection and prevents the main window from restoring below its supported minimum.
 
 ## The fold
 
@@ -79,15 +80,15 @@ Document processing below runs on your Mac. No document content is uploaded.
 | | Do this | Get this |
 | :---: | --- | --- |
 | 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV, and CBZ comics — even corrupt files | One workspace instead of a folder of chaos; broken PDFs repaired on the way in |
-| 🗂️ | **Organize** — reorder, rotate, delete pages across documents | A clean packet from messy source files |
+| 🗂️ | **Organize** — reorder, rotate, crop, detect likely blanks, delete pages across documents, and edit the outline | A clean packet from messy source files |
 | ✏️ | **Annotate & edit** — highlight, notes, ink, text boxes, edit real PDF text in place | Reviewed documents without a print-sign-scan loop |
 | 🧩 | **Edit objects** *(beta)* — the **Select** tool moves, resizes, layers, deletes, or restyles a compatible real page graphic | Fix the layout itself, not just a note stuck on top of it |
 | 🖋️ | **Sign & fill forms** — draw signatures or place a real PAdES digital signature, complete and lock form fields | Finished, tamper-evident paperwork — no third-party e-sign service |
 | 🔍 | **OCR scans** — local Vision OCR makes scanned pages searchable | ⌘F finally works on the thing your printer emailed you |
-| 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels, hanko seals, barcodes and QR codes | Packets and exhibits that look intentional |
+| 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels, hanko seals, barcodes, QR codes, and vector PDF overlays | Packets and exhibits that look intentional |
 | 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
 | 🧼 | **Sanitize** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't mean to send |
-| 🔒 | **Protect & export** — real AES-256 password, or export to DOCX, Markdown, HTML, PNG, JPEG | The format the next person needs, locked when it matters |
+| 🔒 | **Protect & export** — real AES-256 password; split, scale, or export to DOCX, Markdown, HTML, PNG, JPEG | The format the next person needs, locked when it matters |
 | 📖 | **Read comfortably** — nested Contents, read aloud, Reader Mode, Document Comfort, and read-only on-device translation on macOS 15+ | Long documents that are easier to navigate and absorb |
 | 🧭 | **Inspect & archive** — edit metadata, manage attachments, inspect tagged structure, and check archival-readiness signals | Fewer surprises hidden inside the file |
 | 🌐 | **Work in your language** — full UI in English, Spanish, French, Hindi, Simplified Chinese, Japanese | An app that speaks your language, switchable from the landing screen |
@@ -100,21 +101,21 @@ Document processing below runs on your Mac. No document content is uploaded.
 | Area | What you can do |
 | --- | --- |
 | **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, common images, and CBZ comic archives converted to PDF in natural page order; up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
-| **Organize** | Reorder documents and pages, rotate, delete, add section banners, navigate from the sidebar |
+| **Organize** | Reorder documents and pages, rotate, crop page boxes, review detected blank pages before removal, edit outlines, add section banners, and navigate from the sidebar |
 | **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control, password unlock prompts, Reader Mode, Document Comfort presets, and—on macOS 15+—read-only Apple on-device translation for a selection or current page |
 | **Recently viewed** | An empty-state shelf of the last files you opened, with locally cached thumbnails — nothing about it leaves the machine |
 | **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text with continuous spell-check and metric-compatible fallback fonts |
 | **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), deletes, or restyles existing solid fill/stroke channels and line width on compatible vector paths; object and inline-text edits compose safely, survive save/reopen/export, and share full undo/redo |
-| **Signatures** | Draw and place signatures, or produce standards-based PAdES digital signatures with Keychain and `.p12` identities — verifiable anywhere PAdES is understood |
+| **Signatures** | Draw and place signatures, produce standards-based PAdES digital signatures with Keychain and `.p12` identities, and inspect incoming signatures for integrity, document coverage, system trust, and timestamp evidence |
 | **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
 | **Scans & OCR** | Local Vision OCR makes scans searchable; recognized text survives export |
-| **Stamps & decorations** | Watermarks, page numbers, Bates labels, movable stamps, procedural circle/square hanko seals, and generated barcode/QR placements burned into exported PDFs |
+| **Stamps & decorations** | Watermarks, page numbers, Bates labels, movable stamps, procedural circle/square hanko seals, generated barcode/QR placements, and under/over PDF overlays preserved as vector content on export |
 | **Metadata & attachments** | Edit PDF title, author, subject, and keywords; list, add, extract, or remove embedded files from the Inspector with undo support |
 | **Structure & archival** | Inspect the current page's tagged reading-order tree and alt-text coverage; check encryption, embedded fonts, XMP, output intent, tagging, and active-content signals before long-term storage |
 | **Compression** | Downsample oversized images, then a lossless qpdf object-stream pass repacks the structure; post-compression validation confirms the result |
 | **Sanitize** | Optional export pass strips catalog auto-run actions, embedded JavaScript, embedded files, and (opt-in) document metadata |
 | **Protection** | Real AES-256 (PDF 2.0 / R6) password protection with permission checks and post-export verification |
-| **Export** | PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, or print; PDF output can be imposed as booklet, 2-up, or 4-up, and every PDF passes a qpdf structural check before it reaches disk |
+| **Export** | PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, comment-summary Markdown, or print; split PDFs every N pages, by ranges, or at top-level bookmarks; scale to A4 or US Letter; impose as booklet, 2-up, or 4-up; and structurally validate every PDF before it reaches disk |
 | **Languages** | Full localization in six languages, switchable from the landing screen and persisted across launches — coverage enforced by a test |
 | **Companion** | Gami (dog) or Ori (cat), an optional origami buddy that reacts to highlighting, signing, exporting, and warnings; toggle from the app menu |
 | **Install & update** | One-line installer, Desktop launch/update helpers, clean uninstaller, Homebrew cask, opt-in in-app update check |
@@ -238,8 +239,8 @@ metadata stripped before flat PDF export.
 | | |
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
-| **Codebase** | 139 Swift source files in the app, ~52,800 lines |
-| **Tests** | 1,015 tests in the current release suite |
+| **Codebase** | 147 Swift source files in the app, ~55,500 lines |
+| **Tests** | 1,086 tests in the current release suite |
 | **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) · Apple Translation (on-device reading aid on macOS 15+) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds a universal (Apple Silicon + Intel) app and packages a signed-capable DMG (`scripts/make-dmg.sh`) plus the release zip and a checksummed `manifest.json`; installer, Homebrew cask, and uninstaller ship from this repo |

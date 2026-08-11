@@ -9,17 +9,17 @@ import Callout from '../../components/Callout.astro';
 
 <Badge variant="new" />
 
-## v0.10.2 — Your language, a usable window
+## v0.10.2 — Split, shape, and verify
 
-*Upcoming patch release*
+*Released August 11, 2026*
 
 <Callout variant="note" label="Beta">
 	Orifold is in beta, on the road to 1.0.
 </Callout>
 
-This upcoming patch addresses two first-impression risks identified in an isolated packaged-build audit. Choosing Japanese or Simplified Chinese now selects that translation inside the shipped resource bundle even when macOS prefers a different language. Regional choices such as Japanese (Japan) and Simplified Chinese (China) follow the same rule, while unsupported languages still fall back safely to English.
+Split a workspace every N pages, by ranges, or at top-level bookmarks; review likely blank pages before removing them; edit the outline; export comment summaries; and scale output to A4 or US Letter. Page tools now add reversible CropBox editing and under/over PDF overlays that remain vector content on export. Incoming signatures report integrity, document coverage, system trust, and timestamp evidence without overstating unavailable proof.
 
-The main document window also has a practical default size and a supported minimum. A restored frame below that minimum is repaired on open; sizes meeting the supported minimum remain unchanged.
+The packaged app also honors Japanese and Simplified Chinese choices independently of the macOS language order, and restores the main window no smaller than its supported minimum.
 
 Full changelog: [`docs/release-v0.10.2.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.10.2.md).
 
