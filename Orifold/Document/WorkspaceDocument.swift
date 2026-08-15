@@ -40,6 +40,16 @@ struct WorkspacePackage {
     var originalMemberPDFData: [UUID: Data] = [:]
 }
 
+/// Untouched bytes for an incoming signed PDF, paired with the hardened bytes Orifold
+/// actually renders and edits. qpdf hardening deliberately rewrites the object graph, which
+/// invalidates byte-range signatures even when it changes no visible page content. Keeping
+/// this transient pair lets the Inspector validate the file the user opened without ever
+/// feeding its unsanitized active content into the workspace or export pipeline.
+struct IncomingSignatureSource: Sendable {
+    var signedPDFData: Data
+    var normalizedBaselineData: Data
+}
+
 final class WorkspaceDocument: ReferenceFileDocument {
     typealias Snapshot = WorkspacePackage
     private static let legacyBrandToken = ["PDF", "old"].joined()
@@ -150,6 +160,11 @@ final class WorkspaceDocument: ReferenceFileDocument {
     /// `WorkspaceViewModel.init` to seed its own pristine-base cache; empty for fresh
     /// imports and for files saved before this payload existed.
     private(set) var restoredOriginalMemberPDFData: [UUID: Data] = [:]
+
+    /// Session-only source bytes for incoming signature inspection. Never embedded in an
+    /// exported PDF or editable-workspace payload; the normalized baseline remains the sole
+    /// rendering/editing source of truth.
+    private(set) var incomingSignatureSources: [UUID: IncomingSignatureSource] = [:]
 
     /// ViewModel sets this so snapshot() can capture live annotation state.
     var currentPDFDataProvider: (() throws -> [UUID: Data])?
@@ -284,6 +299,14 @@ final class WorkspaceDocument: ReferenceFileDocument {
         workspace.pageOrder = refs
         workspace.comments = metadata.comments
         memberPDFData[member.id] = pdfData
+        if let preferredOriginal,
+           preferredOriginal != pdfData,
+           !QPDFService.signatureDictionaries(in: preferredOriginal).isEmpty {
+            incomingSignatureSources[member.id] = IncomingSignatureSource(
+                signedPDFData: preferredOriginal,
+                normalizedBaselineData: pdfData
+            )
+        }
         if let sourcePayload {
             sourcePayloads[member.id] = sourcePayload
         } else if metadata.sourcePayloads.count == 1,

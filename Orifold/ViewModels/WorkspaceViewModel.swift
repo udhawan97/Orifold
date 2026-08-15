@@ -560,6 +560,11 @@ final class WorkspaceViewModel {
     /// so multiple edits on the same page always start from the original content.
     private var originalMemberPDFData: [UUID: Data] = [:]
 
+    /// Raw incoming signed files are retained only for validation. The workspace continues
+    /// to render, edit, save, and export the qpdf-hardened baseline, so inspecting a signature
+    /// never reintroduces active PDF content into a trusted path.
+    private var incomingSignatureSources: [UUID: IncomingSignatureSource] = [:]
+
     /// Immutable snapshot of the document exactly as it finished loading — the baseline
     /// behind "Discard Changes & Close". Captured once at the end of `init`; `Data` and
     /// `Workspace` are value types (copy-on-write), so this only retains the original
@@ -576,6 +581,7 @@ final class WorkspaceViewModel {
         var memberPDFData: [UUID: Data]
         var sourcePayloads: [UUID: SourceDocumentPayload]
         var originalMemberPDFData: [UUID: Data]
+        var incomingSignatureSources: [UUID: IncomingSignatureSource]
     }
     private static let legacyBrandToken = ["PDF", "old"].joined()
     static let textReplacementAnnotationKey = PDFAnnotationKey(rawValue: "/OrifoldTextReplacement")
@@ -756,10 +762,27 @@ final class WorkspaceViewModel {
     var hasThirdPartyCryptographicSignature: Bool {
         let byteRangeMarker = Data("/ByteRange".utf8)
         return document.workspace.documents.contains { member in
-            let data = originalMemberPDFData[member.id] ?? document.memberPDFData[member.id]
+            // Signature validation deliberately switches to the current bytes after the
+            // hardened baseline is mutated, but the edit warning still needs to remember
+            // that the member arrived signed. Otherwise the mutation that invalidates the
+            // signature also erases the evidence used to show that warning.
+            let data = incomingSignatureSources[member.id]?.signedPDFData
+                ?? originalMemberPDFData[member.id]
+                ?? document.memberPDFData[member.id]
             guard let data else { return false }
             return data.range(of: byteRangeMarker) != nil
         }
+    }
+
+    /// Bytes the Inspector should validate for an incoming signature. As long as the live
+    /// member still matches its hardened import baseline, validate the untouched signed
+    /// source; after a member-level mutation, fall back to the current bytes so stale source
+    /// evidence cannot be presented as a verdict on edited content.
+    func signatureValidationData(for memberID: UUID) -> Data? {
+        guard let current = document.memberPDFData[memberID] else { return nil }
+        guard let source = incomingSignatureSources[memberID],
+              current == source.normalizedBaselineData else { return current }
+        return source.signedPDFData
     }
 
     var pdfNoteComments: [PDFNoteComment] {
@@ -855,6 +878,7 @@ final class WorkspaceViewModel {
         self.document = document
         self.engine = engine
         self.processingEngine = processingEngine
+        incomingSignatureSources = document.incomingSignatureSources
 
         // Reconstruct loadedPDFs from saved package data (document open path)
         var unreadableMemberIDs: Set<UUID> = []
@@ -947,7 +971,8 @@ final class WorkspaceViewModel {
             workspace: document.workspace,
             memberPDFData: document.memberPDFData,
             sourcePayloads: document.sourcePayloads,
-            originalMemberPDFData: originalMemberPDFData
+            originalMemberPDFData: originalMemberPDFData,
+            incomingSignatureSources: incomingSignatureSources
         )
     }
 
@@ -1362,6 +1387,14 @@ final class WorkspaceViewModel {
             document.workspace.pageOrder.append(contentsOf: refs)
         }
         document.memberPDFData[member.id] = data
+        if let originalPDFData,
+           originalPDFData != data,
+           !QPDFService.signatureDictionaries(in: originalPDFData).isEmpty {
+            incomingSignatureSources[member.id] = IncomingSignatureSource(
+                signedPDFData: originalPDFData,
+                normalizedBaselineData: data
+            )
+        }
         if let sourcePayload {
             document.sourcePayloads[member.id] = sourcePayload
         }
@@ -1515,6 +1548,7 @@ final class WorkspaceViewModel {
         removeDecorations(forRemovedPageRefIDs: removedPageRefIDs)
         removedIds.forEach { document.memberPDFData.removeValue(forKey: $0) }
         removedIds.forEach { document.sourcePayloads.removeValue(forKey: $0) }
+        removedIds.forEach { incomingSignatureSources.removeValue(forKey: $0) }
         removedIds.forEach { invalidatePageInspection(for: $0) }
         loadedPDFs.removeAll { removedIds.contains($0.0.id) }
         selectedPageRefIDs.subtract(removedPageRefIDs)
@@ -1574,6 +1608,7 @@ final class WorkspaceViewModel {
         /// Canonical member bases must travel with page structure. Member-atomic replay indexes
         /// operations into these bytes, so restoring one without the other can target a neighbor.
         var originalMemberPDFData: [UUID: Data]
+        var incomingSignatureSources: [UUID: IncomingSignatureSource]
         var sourcePayloads: [UUID: SourceDocumentPayload]
         /// Captured together with `pdfData` because the two must move as a unit: the PDF
         /// bytes contain the BAKED result of these operations. Restoring bytes from one
@@ -1601,10 +1636,12 @@ final class WorkspaceViewModel {
         var objectSelection: ObjectSelectionState?    // so undo doesn't leave a stale overlay
         var pageRotations: [UUID: Int]
         var pdfData: [UUID: Data]
+        var incomingSignatureSources: [UUID: IncomingSignatureSource]
     }
 
     private func captureOrderSnapshot() -> OrderSnapshot {
-        OrderSnapshot(
+        let pdfData = currentPDFData()
+        return OrderSnapshot(
             documents: document.workspace.documents,
             pageOrder: document.workspace.pageOrder,
             comments: document.workspace.comments,
@@ -1612,8 +1649,9 @@ final class WorkspaceViewModel {
             decorations: document.workspace.decorations,
             signatureIdentities: signingIdentitiesByPlacementID,
             pageRotations: currentPageRotations(),
-            pdfData: currentPDFData(),
+            pdfData: pdfData,
             originalMemberPDFData: originalMemberPDFData,
+            incomingSignatureSources: incomingSignatureSourcesRebased(to: pdfData),
             sourcePayloads: document.sourcePayloads,
             pageEditStates: document.workspace.pageEditStates,
             objectEditStates: document.workspace.objectEditStates,
@@ -1642,6 +1680,7 @@ final class WorkspaceViewModel {
         signingIdentitiesByPlacementID = snapshot.signatureIdentities
         document.memberPDFData = snapshot.pdfData
         originalMemberPDFData = snapshot.originalMemberPDFData
+        incomingSignatureSources = snapshot.incomingSignatureSources
         invalidatePageInspection()
         document.sourcePayloads = snapshot.sourcePayloads
         document.workspace.pageEditStates = snapshot.pageEditStates
@@ -1783,14 +1822,35 @@ final class WorkspaceViewModel {
     }
 
     private func captureInlineTextEditSnapshot() -> InlineTextEditSnapshot {
-        InlineTextEditSnapshot(
+        let pdfData = currentPDFData()
+        return InlineTextEditSnapshot(
             editStates: document.workspace.pageEditStates,
             objectEditStates: document.workspace.objectEditStates,
             objectBaseData: objectBaseData,
             objectSelection: objectSelection,
             pageRotations: currentPageRotations(),
-            pdfData: currentPDFData()
+            pdfData: pdfData,
+            incomingSignatureSources: incomingSignatureSourcesRebased(to: pdfData)
         )
+    }
+
+    /// Snapshotting serializes the live PDFKit documents, so the restored bytes may differ
+    /// from the import baseline even when the user made no member-level edit. Rebase only
+    /// still-valid sources onto those snapshot bytes; sources already invalidated by a real
+    /// mutation stay dropped.
+    private func incomingSignatureSourcesRebased(
+        to snapshotPDFData: [UUID: Data]
+    ) -> [UUID: IncomingSignatureSource] {
+        var rebased: [UUID: IncomingSignatureSource] = [:]
+        for (memberID, source) in incomingSignatureSources {
+            guard document.memberPDFData[memberID] == source.normalizedBaselineData,
+                  let baseline = snapshotPDFData[memberID] else { continue }
+            rebased[memberID] = IncomingSignatureSource(
+                signedPDFData: source.signedPDFData,
+                normalizedBaselineData: baseline
+            )
+        }
+        return rebased
     }
 
     private func restoreInlineTextEditSnapshot(_ snapshot: InlineTextEditSnapshot, actionName: String) {
@@ -1798,6 +1858,7 @@ final class WorkspaceViewModel {
         document.workspace.pageEditStates = snapshot.editStates
         document.workspace.objectEditStates = snapshot.objectEditStates
         objectBaseData = snapshot.objectBaseData
+        incomingSignatureSources = snapshot.incomingSignatureSources
         objectSelection = snapshot.objectSelection
         objectAnalysisCache.removeAll()
         // Merge rather than replace: members imported AFTER this snapshot was captured
@@ -2348,6 +2409,7 @@ final class WorkspaceViewModel {
         document.memberPDFData = initial.memberPDFData
         document.sourcePayloads = initial.sourcePayloads
         originalMemberPDFData = initial.originalMemberPDFData
+        incomingSignatureSources = initial.incomingSignatureSources
         invalidatePageInspection()
         // Session-only editing caches/selection that must not outlive the reverted content.
         signingIdentitiesByPlacementID = [:]

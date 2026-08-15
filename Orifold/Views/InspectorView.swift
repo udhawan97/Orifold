@@ -356,7 +356,10 @@ private struct InspectorSignatureValidationSection: View {
     @State private var isValidatingSignatures = false
 
     var body: some View {
-        Group {
+        // Keep an actual view mounted even before validation starts. A `Group` whose
+        // conditional content was initially empty did not appear in the hierarchy, so its
+        // `.task` never ran and the Inspector could never discover incoming signatures.
+        VStack(alignment: .leading, spacing: 0) {
             if isValidatingSignatures || !signatureReports.isEmpty {
                 Rectangle()
                     .fill(Color.dsSeparator)
@@ -520,7 +523,7 @@ private struct InspectorSignatureValidationSection: View {
         var loaded: [InspectorSignatureReport] = []
         for member in viewModel.document.workspace.documents {
             guard !Task.isCancelled else { return }
-            guard let data = viewModel.document.memberPDFData[member.id] else { continue }
+            guard let data = viewModel.signatureValidationData(for: member.id) else { continue }
             let reports = await PDFSignatureValidationService.validate(pdf: data)
             loaded.append(contentsOf: reports.map {
                 InspectorSignatureReport(memberID: member.id, memberName: member.displayName, report: $0)

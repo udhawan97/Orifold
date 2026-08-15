@@ -3,6 +3,82 @@ import XCTest
 @testable import Orifold
 
 final class SignatureValidationTests: XCTestCase {
+    @MainActor
+    func testOpeningSignedPDFAsDocumentKeepsUntouchedValidationEvidence() async throws {
+        let signerName = "Wave 6 Opened \(UUID().uuidString)"
+        let identity = try SelfSignedSigningIdentityProvider.generate(
+            request: SelfSignedIdentityRequest(commonName: signerName)
+        )
+        let signed = try sign(pdf: try unsignedPDFData(), identity: identity, signerName: signerName)
+        let document = try WorkspaceDocument(
+            testingFile: FileWrapper(regularFileWithContents: signed),
+            contentType: .pdf,
+            filename: "signed.pdf"
+        )
+        let viewModel = WorkspaceViewModel(
+            document: document,
+            engine: PDFKitEngine(),
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+
+        let member = try XCTUnwrap(viewModel.document.workspace.documents.first)
+        let hardened = try XCTUnwrap(viewModel.document.memberPDFData[member.id])
+        XCTAssertNotEqual(hardened, signed, "document-open rendering must use hardened bytes")
+        let validationData = try XCTUnwrap(viewModel.signatureValidationData(for: member.id))
+        XCTAssertEqual(validationData, signed, "document-open Inspector must validate the untouched signed source")
+
+        let reports = await PDFSignatureValidationService.validate(pdf: validationData)
+        let report = try XCTUnwrap(reports.first)
+        XCTAssertEqual(report.signerCommonName, signerName)
+        XCTAssertEqual(report.integrity, .valid)
+        XCTAssertEqual(report.coverage, .entireDocument)
+    }
+
+    @MainActor
+    func testImportedSignedPDFKeepsUntouchedValidationEvidenceOutsideHardenedWorkspaceBytes() async throws {
+        let signerName = "Wave 6 Imported \(UUID().uuidString)"
+        let identity = try SelfSignedSigningIdentityProvider.generate(
+            request: SelfSignedIdentityRequest(commonName: signerName)
+        )
+        let signed = try sign(pdf: try unsignedPDFData(), identity: identity, signerName: signerName)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Orifold-signed-import-\(UUID().uuidString).pdf")
+        try signed.write(to: url, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let viewModel = WorkspaceViewModel(
+            document: WorkspaceDocument(),
+            engine: PDFKitEngine(),
+            processingEngine: PDFKitProcessingEngineFallback()
+        )
+        viewModel.importFiles(urls: [url])
+        for _ in 0..<200 {
+            if viewModel.document.workspace.documents.count == 1, !viewModel.isImporting { break }
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+
+        let member = try XCTUnwrap(viewModel.document.workspace.documents.first)
+        let hardened = try XCTUnwrap(viewModel.document.memberPDFData[member.id])
+        XCTAssertNotEqual(hardened, signed, "rendering and editing must continue to use hardened bytes")
+
+        let validationData = try XCTUnwrap(viewModel.signatureValidationData(for: member.id))
+        XCTAssertEqual(validationData, signed, "Inspector must validate the untouched signed source")
+        let reports = await PDFSignatureValidationService.validate(pdf: validationData)
+        let report = try XCTUnwrap(reports.first)
+        XCTAssertEqual(report.signerCommonName, signerName)
+        XCTAssertEqual(report.integrity, .valid)
+        XCTAssertEqual(report.coverage, .entireDocument)
+        XCTAssertTrue(viewModel.hasThirdPartyCryptographicSignature)
+
+        let undoManager = UndoManager()
+        viewModel.undoManager = undoManager
+        viewModel.removeDocument(member)
+        XCTAssertTrue(viewModel.document.workspace.documents.isEmpty)
+        viewModel.performUndoCommand()
+        let restoredMember = try XCTUnwrap(viewModel.document.workspace.documents.first)
+        XCTAssertEqual(viewModel.signatureValidationData(for: restoredMember.id), signed)
+    }
+
     func testAppSelfSignedPDFReportsValidIntegrityWholeDocumentAndUntrustedIdentity() async throws {
         let signerName = "Wave 6 Signer \(UUID().uuidString)"
         let identity = try SelfSignedSigningIdentityProvider.generate(
