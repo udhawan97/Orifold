@@ -82,7 +82,7 @@ This release makes large PDF cleanups easier to finish without leaving the local
 
 ## Verification Contract
 
-- The integrated Swift suite contains 1,088 tests: 33 are skipped by their documented environment gates and 0 fail locally.
+- The integrated Swift suite contains 1,089 tests: 33 are skipped by their documented environment gates and 0 fail locally.
 - Focused regressions cover split planning and PDF output, blank-page proposal/removal, outline persistence, comment summaries, form-value flattening, scale mapping, CropBox mutation/undo, vector overlay placement, signature extraction/validation, locale selection, and window sizing.
 - SwiftPM, XcodeGen, universal packaging, strict code-sign verification, installed-app workflows, hosted CI, published assets, installer behavior, and production documentation are release gates.
 

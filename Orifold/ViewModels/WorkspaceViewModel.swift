@@ -1664,7 +1664,13 @@ final class WorkspaceViewModel {
         var result: [UUID: Data] = [:]
         for (member, pdf) in loadedPDFs {
             if let data = PDFSerializer.data(from: pdf) {
-                result[member.id] = data
+                // PDFKit can serialize a long-held document's outline destinations one
+                // page late. Order snapshots feed Undo/Redo back into `loadedPDFs`, so a
+                // shifted snapshot would make a later bookmark split target the wrong
+                // pages even though the page operation itself was undone. Re-anchor the
+                // snapshot bytes against the still-live document just as the export lane
+                // does below.
+                result[member.id] = PDFOutlineBuilder.reanchoring(data, toOutlineOf: pdf) ?? data
             } else if let existingData = document.memberPDFData[member.id] {
                 result[member.id] = existingData
             }

@@ -52,6 +52,41 @@ final class PDFSplitExportTests: XCTestCase {
         XCTAssertEqual(parts.map { PDFDocument(data: $0.data)?.pageCount }, [3, 1])
     }
 
+    func testPageDeleteUndoKeepsBookmarkSplitBoundariesAnchored() throws {
+        let fixture = try OutlineFixtures.outlinedMember(
+            name: "UndoSplit",
+            pageCount: 6,
+            outline: [
+                OutlineFixtureSpec(title: "Chapter One", page: 0),
+                OutlineFixtureSpec(title: "Chapter Two", page: 3)
+            ]
+        )
+        let viewModel = OutlineFixtures.viewModel(members: [fixture])
+        let undoManager = UndoManager()
+        undoManager.groupsByEvent = false
+        viewModel.undoManager = undoManager
+
+        XCTAssertEqual(viewModel.topLevelBookmarkBoundaries().map(\.pageIndex), [0, 3])
+        undoManager.beginUndoGrouping()
+        viewModel.deletePages([fixture.refs[1]])
+        undoManager.endUndoGrouping()
+        XCTAssertEqual(viewModel.pageCount, 5)
+
+        undoManager.undo()
+
+        XCTAssertEqual(viewModel.pageCount, 6)
+        XCTAssertEqual(
+            viewModel.topLevelBookmarkBoundaries().map(\.pageIndex),
+            [0, 3],
+            "an order snapshot must not shift parsed outline destinations during Undo"
+        )
+        let parts = viewModel.splitExportParts(
+            rule: .bookmarks(viewModel.topLevelBookmarkBoundaries())
+        )
+        XCTAssertEqual(parts.map(\.name), ["Chapter One", "Chapter Two"])
+        XCTAssertEqual(parts.map { PDFDocument(data: $0.data)?.pageCount }, [3, 3])
+    }
+
     // MARK: - Helpers
 
     private func makeViewModel(from data: Data, name: String = "SplitFixture") throws -> WorkspaceViewModel {
