@@ -59,9 +59,8 @@ jobs:
             v="${ref#release-}"
             v="${v#v}"
             echo "ORIFOLD_MARKETING_VERSION=$v" >> "$GITHUB_ENV"
-            echo "ORIFOLD_BUILD_VERSION=${{ github.run_number }}" >> "$GITHUB_ENV"
             echo "marketing=$v" >> "$GITHUB_OUTPUT"
-            echo "Release marketing version: $v (build ${{ github.run_number }})"
+            echo "Release marketing version: $v (committed build version is preserved)"
           else
             echo "Untagged build — the committed Info.plist version is used."
           fi
@@ -119,12 +118,14 @@ jobs:
         run: |
           set -euo pipefail
           version="${ORIFOLD_MARKETING_VERSION:-}"
+          bundle_tmp="$(mktemp -d)"
+          /usr/bin/ditto -x -k "$RUNNER_TEMP/Orifold.zip" "$bundle_tmp"
+          app="$(/usr/bin/find "$bundle_tmp" -maxdepth 3 -name Orifold.app -type d -print -quit)"
+          [[ -n "$app" ]] || { echo "::error::Orifold.app not found in packaged zip"; exit 1; }
           if [[ -z "$version" ]]; then
-            tmp="$(mktemp -d)"
-            /usr/bin/ditto -x -k "$RUNNER_TEMP/Orifold.zip" "$tmp"
-            app="$(/usr/bin/find "$tmp" -maxdepth 3 -name Orifold.app -type d -print -quit)"
             version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")"
           fi
+          build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")"
 
           dist="$RUNNER_TEMP/dist"
           mkdir -p "$dist"
@@ -155,7 +156,7 @@ jobs:
           cat > "$dist/manifest.json" <<MANIFEST
           {
             "version": "${version}",
-            "build": "${{ github.run_number }}",
+            "build": "${build}",
             "releaseDate": "$(date -u +%Y-%m-%d)",
             "minMacOS": "14",
             "arch": "universal2",
