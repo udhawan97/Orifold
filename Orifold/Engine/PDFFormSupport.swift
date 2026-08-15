@@ -25,6 +25,15 @@ struct PDFFormFieldNavigationTarget {
     var fieldType: String
 }
 
+struct PDFFormValueOverride: Equatable {
+    var pageIndex: Int
+    var fieldName: String?
+    var fieldType: String
+    var bounds: CGRect
+    var stringValue: String?
+    var buttonIsOn: Bool
+}
+
 enum PDFFormSupport {
     enum FormError: LocalizedError, Equatable {
         case invalidPDF
@@ -72,7 +81,30 @@ enum PDFFormSupport {
         }
     }
 
-    static func flattenedData(from pdfData: Data, pageOrder: [PageRef]) throws -> Data {
+    static func valueOverrides(in document: PDFDocument) -> [PDFFormValueOverride] {
+        var overrides: [PDFFormValueOverride] = []
+        var exportPageIndex = 0
+        for displayPageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: displayPageIndex),
+                  !(page is BoundaryPage) else { continue }
+            overrides += page.annotations.filter(\.isPDFWidget).map { annotation in
+                PDFFormValueOverride(
+                    pageIndex: exportPageIndex,
+                    fieldName: annotation.fieldName,
+                    fieldType: annotation.widgetFieldType.rawValue,
+                    bounds: annotation.bounds,
+                    stringValue: annotation.widgetStringValue,
+                    buttonIsOn: annotation.buttonWidgetState == .onState
+                )
+            }
+            exportPageIndex += 1
+        }
+        return overrides
+    }
+
+    static func flattenedData(from pdfData: Data,
+                              pageOrder: [PageRef],
+                              valueOverrides: [PDFFormValueOverride] = []) throws -> Data {
         guard let document = PDFDocument(data: pdfData), document.pageCount > 0 else {
             throw FormError.invalidPDF
         }
@@ -98,7 +130,18 @@ enum PDFFormSupport {
             context.restoreGState()
 
             var drawnRadioGroups = Set<String>()
-            for annotation in page.annotations where annotation.isPDFWidget {
+            let widgets = page.annotations.filter(\.isPDFWidget)
+            var unmatchedOverrideIndices = IndexSet(
+                valueOverrides.indices.filter { valueOverrides[$0].pageIndex == pageIndex }
+            )
+            for (widgetIndex, annotation) in widgets.enumerated() {
+                let matchingOverrideIndex = unmatchedOverrideIndices.first { overrideIndex in
+                    overrideMatches(valueOverrides[overrideIndex], annotation: annotation)
+                } ?? (unmatchedOverrideIndices.contains(widgetIndex) ? widgetIndex : unmatchedOverrideIndices.first)
+                if let matchingOverrideIndex {
+                    apply(valueOverrides[matchingOverrideIndex], to: annotation)
+                    unmatchedOverrideIndices.remove(matchingOverrideIndex)
+                }
                 guard shouldDraw(annotation, drawnRadioGroups: &drawnRadioGroups) else { continue }
                 drawFlattenedValue(for: annotation, in: context)
             }
@@ -116,6 +159,27 @@ enum PDFFormSupport {
             throw FormError.invalidPDF
         }
         return flattenedData
+    }
+
+    private static func apply(_ override: PDFFormValueOverride, to annotation: PDFAnnotation) {
+        if annotation.widgetFieldType == .button {
+            annotation.buttonWidgetState = override.buttonIsOn ? .onState : .offState
+        } else {
+            annotation.widgetStringValue = override.stringValue
+        }
+    }
+
+    private static func overrideMatches(_ override: PDFFormValueOverride,
+                                        annotation: PDFAnnotation) -> Bool {
+        guard override.fieldName == annotation.fieldName,
+              override.fieldType == annotation.widgetFieldType.rawValue else { return false }
+        let lhs = override.bounds.standardized
+        let rhs = annotation.bounds.standardized
+        let tolerance: CGFloat = 0.5
+        return abs(lhs.minX - rhs.minX) <= tolerance
+            && abs(lhs.minY - rhs.minY) <= tolerance
+            && abs(lhs.width - rhs.width) <= tolerance
+            && abs(lhs.height - rhs.height) <= tolerance
     }
 
     static func displayValue(for annotation: PDFAnnotation) -> String {

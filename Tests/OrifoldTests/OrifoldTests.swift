@@ -540,7 +540,7 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         document.workspace.documents = [fixture.member]
         document.workspace.pageOrder = fixture.refs
         document.memberPDFData[fixture.member.id] = fixture.pdfData
-        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let viewModel = WorkspaceViewModel(document: document)
         let originalPage = try XCTUnwrap(PDFDocument(data: fixture.pdfData)?.page(at: 0))
         let analysis = PDFTextAnalysisEngine().analyze(
             data: fixture.pdfData,
@@ -702,7 +702,7 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         document.workspace.documents = [fixture.member]
         document.workspace.pageOrder = fixture.refs
         document.memberPDFData[fixture.member.id] = fixture.pdfData
-        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let viewModel = WorkspaceViewModel(document: document)
         let originalPage = try XCTUnwrap(PDFDocument(data: fixture.pdfData)?.page(at: 0))
         let analysis = PDFTextAnalysisEngine().analyze(
             data: fixture.pdfData,
@@ -7676,6 +7676,48 @@ final class PageDecorationExportTests: XCTestCase {
 }
 
 final class PDFFormExportTests: XCTestCase {
+    func testLiveTextFieldEditFromCombinedDocumentReachesFlattenedExport() throws {
+        let fixture = try makeFormMemberWithPDF(name: "Form", fieldValue: "")
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let livePage = try XCTUnwrap((0..<viewModel.combinedPDF.pageCount)
+            .compactMap { viewModel.combinedPDF.page(at: $0) }
+            .first { !($0 is BoundaryPage) })
+        let liveWidget = try XCTUnwrap(livePage.annotations.first { $0.isPDFWidget })
+
+        liveWidget.widgetStringValue = "Release QA"
+        let exported = try viewModel.dataForPDFExport(options: WorkspaceExportOptions(lockFormAnswers: true))
+        let pdf = try XCTUnwrap(PDFDocument(data: exported))
+
+        XCTAssertEqual(PDFFormSupport.valueOverrides(in: viewModel.combinedPDF).first?.pageIndex, 0)
+        XCTAssertTrue(pdf.stringValue.contains("Release QA"))
+        XCTAssertFalse(try XCTUnwrap(pdf.page(at: 0)).annotations.contains { $0.isPDFWidget })
+    }
+
+    func testLiveCheckboxEditFromCombinedDocumentReachesFlattenedExport() throws {
+        let fixture = try makeCheckboxMemberWithPDF(name: "Checkbox", isOn: false)
+        let document = WorkspaceDocument()
+        document.workspace.documents = [fixture.member]
+        document.workspace.pageOrder = fixture.refs
+        document.memberPDFData[fixture.member.id] = fixture.pdfData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+        let livePage = try XCTUnwrap((0..<viewModel.combinedPDF.pageCount)
+            .compactMap { viewModel.combinedPDF.page(at: $0) }
+            .first { !($0 is BoundaryPage) })
+        let liveWidget = try XCTUnwrap(livePage.annotations.first { $0.isPDFWidget })
+
+        liveWidget.buttonWidgetState = .onState
+        let exported = try viewModel.dataForPDFExport(options: WorkspaceExportOptions(lockFormAnswers: true))
+        let pdf = try XCTUnwrap(PDFDocument(data: exported))
+
+        XCTAssertEqual(PDFFormSupport.valueOverrides(in: viewModel.combinedPDF).first?.pageIndex, 0)
+        XCTAssertTrue(pdf.stringValue.contains("✓"))
+        XCTAssertFalse(try XCTUnwrap(pdf.page(at: 0)).annotations.contains { $0.isPDFWidget })
+    }
+
     func testFlattenedFormExportContainsValuesAndStripsWidgets() throws {
         let fixture = try makeFormMemberWithPDF(name: "Form", fieldValue: "Alice Example")
         let document = WorkspaceDocument()

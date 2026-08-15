@@ -320,7 +320,8 @@ final class WorkspaceDocument: ReferenceFileDocument {
     /// `fileWrapper` so it's independently testable — this is the exact path an inline
     /// text edit's saved bytes go through, and it's worth being able to assert on directly.
     func exportedPDFDataThrowing(from snapshot: WorkspacePackage,
-                                 options: WorkspaceExportOptions = WorkspaceExportOptions()) throws -> Data {
+                                 options: WorkspaceExportOptions = WorkspaceExportOptions(),
+                                 formValueOverrides: [PDFFormValueOverride] = []) throws -> Data {
         let docs: [(MemberDocument, PDFDocument)] = try snapshot.workspace.documents.map { member in
             guard let data = snapshot.memberPDFData[member.id],
                   let pdf = PDFDocument(data: data) else {
@@ -363,7 +364,12 @@ final class WorkspaceDocument: ReferenceFileDocument {
         // branches — whether visual signatures were baked in first — so the stage order lives
         // here once rather than being retyped per branch.
         func flattenAndEmbed(_ data: Data) throws -> Data {
-            let formData = try Self.applyFormExportAdditions(to: data, workspace: snapshot.workspace, options: options)
+            let formData = try Self.applyFormExportAdditions(
+                to: data,
+                workspace: snapshot.workspace,
+                options: options,
+                valueOverrides: formValueOverrides
+            )
             let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
             let commentData = try Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace)
             return try Self.embedMetadata(
@@ -404,9 +410,14 @@ final class WorkspaceDocument: ReferenceFileDocument {
 
     private static func applyFormExportAdditions(to pdfData: Data,
                                                  workspace: Workspace,
-                                                 options: WorkspaceExportOptions) throws -> Data {
+                                                 options: WorkspaceExportOptions,
+                                                 valueOverrides: [PDFFormValueOverride]) throws -> Data {
         guard options.lockFormAnswers else { return pdfData }
-        return try PDFFormSupport.flattenedData(from: pdfData, pageOrder: workspace.pageOrder)
+        return try PDFFormSupport.flattenedData(
+            from: pdfData,
+            pageOrder: workspace.pageOrder,
+            valueOverrides: valueOverrides
+        )
     }
 
     private static func sourcePayloadsForPDFMetadata(from snapshot: WorkspacePackage) -> [UUID: SourceDocumentPayload] {

@@ -1660,6 +1660,7 @@ final class WorkspaceViewModel {
     }
 
     private func currentPDFData() -> [UUID: Data] {
+        reconcileLiveFormValuesWithLoadedPages()
         var result: [UUID: Data] = [:]
         for (member, pdf) in loadedPDFs {
             if let data = PDFSerializer.data(from: pdf) {
@@ -1672,6 +1673,7 @@ final class WorkspaceViewModel {
     }
 
     private func currentPDFDataForExport() throws -> [UUID: Data] {
+        reconcileLiveFormValuesWithLoadedPages()
         var result: [UUID: Data] = [:]
         for (member, pdf) in loadedPDFs {
             guard let data = PDFSerializer.data(from: pdf),
@@ -1686,6 +1688,59 @@ final class WorkspaceViewModel {
             result[member.id] = PDFOutlineBuilder.reanchoring(data, toOutlineOf: pdf) ?? data
         }
         return result
+    }
+
+    /// PDFKit edits form widgets on the assembled document shown by `PDFView`, not on
+    /// the member documents that are serialized for save/export. Reconcile the live
+    /// widget values back into their source pages immediately before either byte lane is
+    /// read, otherwise a value can remain visible in the app while a flattened export
+    /// silently writes the field's older value.
+    private func reconcileLiveFormValuesWithLoadedPages() {
+        let livePages = (0..<combinedPDF.pageCount).compactMap { index -> PDFPage? in
+            guard let page = combinedPDF.page(at: index), !(page is BoundaryPage) else { return nil }
+            return page
+        }
+        guard livePages.count == document.workspace.pageOrder.count else { return }
+
+        for (workspacePageIndex, pageRef) in document.workspace.pageOrder.enumerated() {
+            guard let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == pageRef.memberDocId }),
+                  let sourcePageIndex = loadedPDFs[loadedIndex].0.pageRefs.firstIndex(of: pageRef.id),
+                  let sourcePage = loadedPDFs[loadedIndex].1.page(at: sourcePageIndex) else {
+                continue
+            }
+
+            let liveWidgets = livePages[workspacePageIndex].annotations.filter(\.isPDFWidget)
+            let sourceWidgets = sourcePage.annotations.filter(\.isPDFWidget)
+            guard !liveWidgets.isEmpty, !sourceWidgets.isEmpty else { continue }
+
+            var unmatchedLiveIndices = IndexSet(integersIn: liveWidgets.indices)
+            for (sourceIndex, sourceWidget) in sourceWidgets.enumerated() {
+                let matchingIndex = unmatchedLiveIndices.first { liveIndex in
+                    widgetsMatch(sourceWidget, liveWidgets[liveIndex])
+                } ?? (unmatchedLiveIndices.contains(sourceIndex) ? sourceIndex : unmatchedLiveIndices.first)
+                guard let matchingIndex else { continue }
+
+                let liveWidget = liveWidgets[matchingIndex]
+                unmatchedLiveIndices.remove(matchingIndex)
+                if sourceWidget.widgetFieldType == .button {
+                    sourceWidget.buttonWidgetState = liveWidget.buttonWidgetState
+                } else {
+                    sourceWidget.widgetStringValue = liveWidget.widgetStringValue
+                }
+            }
+        }
+    }
+
+    private func widgetsMatch(_ lhs: PDFAnnotation, _ rhs: PDFAnnotation) -> Bool {
+        guard lhs.fieldName == rhs.fieldName,
+              lhs.widgetFieldType == rhs.widgetFieldType else { return false }
+        let lhsBounds = lhs.bounds.standardized
+        let rhsBounds = rhs.bounds.standardized
+        let tolerance: CGFloat = 0.5
+        return abs(lhsBounds.minX - rhsBounds.minX) <= tolerance
+            && abs(lhsBounds.minY - rhsBounds.minY) <= tolerance
+            && abs(lhsBounds.width - rhsBounds.width) <= tolerance
+            && abs(lhsBounds.height - rhsBounds.height) <= tolerance
     }
 
     private func registerUndo(snapshot: OrderSnapshot, actionName: String) {
@@ -6748,6 +6803,9 @@ final class WorkspaceViewModel {
         // reflect every committed edit operation, so verify (and self-heal) right before
         // they leave the app rather than trusting accumulated state.
         reconcileCommittedEditsWithLoadedPages()
+        let liveFormValueOverrides = options.lockFormAnswers
+            ? PDFFormSupport.valueOverrides(in: combinedPDF)
+            : []
         let snapshot = WorkspacePackage(
             workspace: document.workspace,
             memberPDFData: try currentPDFDataForExport(),
@@ -6764,7 +6822,11 @@ final class WorkspaceViewModel {
         // content. That is what makes the bytes safe to impose, so this is the one place that
         // mints `BakedPDFData` -- downstream stages carry the proof rather than restate it.
         var baked = BakedPDFData(alreadyFlattened:
-            try document.exportedPDFDataThrowing(from: snapshot, options: options))
+            try document.exportedPDFDataThrowing(
+                from: snapshot,
+                options: options,
+                formValueOverrides: liveFormValueOverrides
+            ))
         if let preset = options.compressionPreset {
             baked = try baked.mapping { data in
                 try PDFCompressionService.reduceFileSize(

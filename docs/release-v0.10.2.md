@@ -28,7 +28,7 @@ zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --output /tmp/Orifold-0.10.2
 
 # v0.10.2 Orifold — Split, shape, and verify
 
-**Release:** August 11, 2026
+**Release:** August 15, 2026
 
 **Tag:** `v0.10.2`
 
@@ -45,6 +45,7 @@ This release makes large PDF cleanups easier to finish without leaving the local
 - Edit the exported outline: add, rename, reorder, indent, outdent, delete, or restore bookmarks while keeping destinations tied to stable workspace pages.
 - Export comments, highlights, underlines, and strikeouts as a localized Markdown summary.
 - Scale PDF output onto A4 or US Letter while preserving one-to-one page mapping and bookmarks.
+- Lock filled form answers into exported pages without dropping values entered in the live workspace.
 
 ### Shape pages without flattening them
 
@@ -81,8 +82,8 @@ This release makes large PDF cleanups easier to finish without leaving the local
 
 ## Verification Contract
 
-- The integrated Swift suite contains 1,086 tests: 33 are skipped by their documented environment gates and 0 fail locally.
-- Focused regressions cover split planning and PDF output, blank-page proposal/removal, outline persistence, comment summaries, scale mapping, CropBox mutation/undo, vector overlay placement, signature extraction/validation, locale selection, and window sizing.
+- The integrated Swift suite contains 1,088 tests: 33 are skipped by their documented environment gates and 0 fail locally.
+- Focused regressions cover split planning and PDF output, blank-page proposal/removal, outline persistence, comment summaries, form-value flattening, scale mapping, CropBox mutation/undo, vector overlay placement, signature extraction/validation, locale selection, and window sizing.
 - SwiftPM, XcodeGen, universal packaging, strict code-sign verification, installed-app workflows, hosted CI, published assets, installer behavior, and production documentation are release gates.
 
 **Full Changelog**: https://github.com/udhawan97/Orifold/compare/v0.10.1...v0.10.2
