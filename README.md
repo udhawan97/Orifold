@@ -23,7 +23,7 @@
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-2b4566?style=flat-square&logo=apple&logoColor=white">
   <img alt="Universal — Apple Silicon + Intel" src="https://img.shields.io/badge/universal-Apple_Silicon_%2B_Intel-2b4566?style=flat-square">
-  <img alt="version v0.10.2" src="https://img.shields.io/badge/version-v0.10.2-46536b?style=flat-square">
+  <img alt="version v0.11.0" src="https://img.shields.io/badge/version-v0.11.0-46536b?style=flat-square">
   <img alt="Local document processing" src="https://img.shields.io/badge/privacy-local_processing-3f6b52?style=flat-square">
   <img alt="6 languages" src="https://img.shields.io/badge/i18n-6_languages-46536b?style=flat-square">
   <img alt="Apache 2.0 License" src="https://img.shields.io/badge/license-Apache_2.0-46536b?style=flat-square">
@@ -46,14 +46,14 @@
 > [!NOTE]
 > Orifold is a **work-in-progress beta**, built in the open. Everyday PDF work — merge,
 > annotate, OCR, sign, protect, export — is solid and gated by 1,000+ tests. Object editing
-> landed in v0.8.8 and is still hardening; a few folds (real redaction, side-by-side compare)
+> landed in v0.8.8 and is still hardening; a few folds (real redaction among them)
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
 > [!TIP]
-> **New in v0.10.2:** split PDFs by ranges or bookmarks, review and remove likely blank pages,
-> edit outlines, scale exports to A4 or Letter, crop page boxes, place vector PDF overlays, and
-> inspect incoming signatures. The release also fixes packaged Japanese and Simplified Chinese
-> selection and prevents the main window from restoring below its supported minimum.
+> **New in v0.11.0:** fold a whole folder in one pass — batch compress, OCR, or watermark
+> every PDF inside it; compare the workspace side by side against another draft with
+> changed-region highlights and word-level counts; and start read-aloud from the current
+> selection instead of the top of the page.
 
 ## The fold
 
@@ -87,6 +87,8 @@ Document processing below runs on your Mac. No document content is uploaded.
 | 🔍 | **OCR scans** — local Vision OCR makes scanned pages searchable | ⌘F finally works on the thing your printer emailed you |
 | 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels, hanko seals, barcodes, QR codes, and vector PDF overlays | Packets and exhibits that look intentional |
 | 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
+| 📚 | **Fold the whole stack** — batch compress, OCR, or watermark every PDF in a folder | A stack of documents processed in one pass, originals untouched |
+| 🔁 | **Compare drafts** — the workspace side by side against another PDF, with changed-region highlights and word-level counts | Spot exactly what changed between two versions |
 | 🧼 | **Sanitize** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't mean to send |
 | 🔒 | **Protect & export** — real AES-256 password; split, scale, or export to DOCX, Markdown, HTML, PNG, JPEG | The format the next person needs, locked when it matters |
 | 📖 | **Read comfortably** — nested Contents, read aloud, Reader Mode, Document Comfort, and read-only on-device translation on macOS 15+ | Long documents that are easier to navigate and absorb |
@@ -102,7 +104,9 @@ Document processing below runs on your Mac. No document content is uploaded.
 | --- | --- |
 | **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, common images, and CBZ comic archives converted to PDF in natural page order; up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
 | **Organize** | Reorder documents and pages, rotate, crop page boxes, review detected blank pages before removal, edit outlines, add section banners, and navigate from the sidebar |
-| **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control, password unlock prompts, Reader Mode, Document Comfort presets, and—on macOS 15+—read-only Apple on-device translation for a selection or current page |
+| **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control (from the top of the page or from the current selection), password unlock prompts, Reader Mode, Document Comfort presets, and—on macOS 15+—read-only Apple on-device translation for a selection or current page |
+| **Compare** | Side-by-side compare of the workspace against another PDF: index page pairing with a manual offset, changed-region highlights, word-level insert/delete counts, and a changed-pages overview |
+| **Batch folding** | Compress, OCR, or watermark every PDF in a folder in one pass — results land in a `Folded` subfolder with per-file progress, cancellation, and per-file failure isolation |
 | **Recently viewed** | An empty-state shelf of the last files you opened, with locally cached thumbnails — nothing about it leaves the machine |
 | **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text with continuous spell-check and metric-compatible fallback fonts |
 | **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), deletes, or restyles existing solid fill/stroke channels and line width on compatible vector paths; object and inline-text edits compose safely, survive save/reopen/export, and share full undo/redo |
@@ -239,8 +243,8 @@ metadata stripped before flat PDF export.
 | | |
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
-| **Codebase** | 147 Swift source files in the app, ~55,500 lines |
-| **Tests** | 1,091 tests in the current release suite |
+| **Codebase** | 154 Swift source files in the app, ~57,000 lines |
+| **Tests** | 1,129 tests in the current release suite |
 | **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) · Apple Translation (on-device reading aid on macOS 15+) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds a universal (Apple Silicon + Intel) app and packages a signed-capable DMG (`scripts/make-dmg.sh`) plus the release zip and a checksummed `manifest.json`; installer, Homebrew cask, and uninstaller ship from this repo |
@@ -299,13 +303,13 @@ xcodebuild test  -quiet -project Orifold.xcodeproj -scheme Orifold -destination 
 
 # Build the same release zip GitHub Releases ships, then the universal DMG
 ORIFOLD_UNIVERSAL=1 ./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
-zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.10.2
+zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.11.0
 
 # Install from the current source checkout without opening the app
 ./scripts/install-mac.sh --no-open
 ```
 
-App metadata: `CFBundleShortVersionString` `0.10.2`, `CFBundleVersion` `25`.
+App metadata: `CFBundleShortVersionString` `0.11.0`, `CFBundleVersion` `26`.
 </details>
 
 <details>
@@ -331,8 +335,6 @@ Orifold is genuinely useful today — and nowhere near finished. Object editing 
 beta; a few more folds are on the workbench. A friendly sneak peek, not a blood oath.
 
 - **Real redaction** — remove text and images, not just cover them
-- **Fold the whole stack** — compress, OCR, or watermark a folder in one pass
-- **Side-by-side compare** — spot the change between two drafts on one screen
 - **Faster large-document navigation** — 300-page beasts that scroll like pamphlets
 - **More languages** — broader interface, OCR, and translation coverage
 - **A calmer first launch** — pending one very official Apple notarization handshake
