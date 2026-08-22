@@ -428,6 +428,11 @@ struct ContentView: View {
                 .environmentObject(languageManager)
                 .environment(\.locale, languageManager.effectiveLocale)
         }
+        .sheet(isPresented: $viewModel.isShowingBatchFold) {
+            BatchFoldSheet(viewModel: viewModel)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
         .sheet(item: $viewModel.blankPageReview) { review in
             BlankPageReviewSheet(viewModel: viewModel, review: review)
                 .environmentObject(languageManager)

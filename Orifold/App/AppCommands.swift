@@ -23,6 +23,7 @@ struct AppCommands: Commands {
             Divider()
             ReduceFileSizeCommandButton(locale: locale)
             MakeSearchableCommandButton(locale: locale)
+            BatchFoldCommandButton(locale: locale)
             Divider()
         }
 
@@ -171,6 +172,22 @@ private func presentOverLimitAlert(for batch: PendingFolderImportBatch, into vie
     alert.addButton(withTitle: L10n.string("folderImport.overLimit.cancel"))
     guard alert.runModal() == .alertFirstButtonReturn else { return }
     importFirstFromPendingBatch(batch, into: viewModel)
+}
+
+/// "Fold a Folder…" — batch compress/OCR/watermark over every PDF in a folder. Opens the
+/// options sheet on the focused workspace; the run itself never touches that workspace, but
+/// hanging it off the focused window reuses its progress overlay and Cancel wiring.
+private struct BatchFoldCommandButton: View {
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+    @FocusedValue(\.orifoldIsImporting) private var isImporting
+    var locale: Locale
+
+    var body: some View {
+        Button(L10n.string("appCommands.batchFold.button", locale: locale)) {
+            viewModel?.isShowingBatchFold = true
+        }
+        .disabled(viewModel == nil || isImporting == true)
+    }
 }
 
 private struct MakeSearchableCommandButton: View {

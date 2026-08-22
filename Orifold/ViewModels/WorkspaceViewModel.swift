@@ -371,6 +371,8 @@ final class WorkspaceViewModel {
     /// barcode/QR" row; the sheet arms `pendingBarcodeOptions` on Insert, then dismisses.
     var isShowingBarcodeComposer = false
     var isShowingSplitExport = false
+    /// Drives the "Fold a Folder…" options sheet; set from the File menu.
+    var isShowingBatchFold = false
     var blankPageReview: BlankPageReview?
     var isDetectingBlankPages = false
     var blankPageDetectionFoundNothing = false
@@ -530,6 +532,9 @@ final class WorkspaceViewModel {
     @ObservationIgnored private var activeOCRTask: Task<Void, Never>?
     @ObservationIgnored private var activeOCRCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeOCRID: UUID?
+    @ObservationIgnored private var activeBatchFoldTask: Task<Void, Never>?
+    @ObservationIgnored private var activeBatchFoldCancellation: OperationCancellationToken?
+    @ObservationIgnored private var activeBatchFoldID: UUID?
     @ObservationIgnored private var searchNotificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var activeSearchID = UUID()
     @ObservationIgnored private var pendingSearchResults: [PDFSelection] = []
@@ -1110,6 +1115,8 @@ final class WorkspaceViewModel {
         activeOCRTask?.cancel()
         activeSigningCancellation?.cancel()
         activeSigningTask?.cancel()
+        activeBatchFoldCancellation?.cancel()
+        activeBatchFoldTask?.cancel()
     }
 
     private func importProgressDetail(currentIndex: Int, totalCount: Int, fileName: String? = nil) -> String {
@@ -2334,6 +2341,10 @@ final class WorkspaceViewModel {
         }
         guard activeSigningTask == nil else {
             editingStatus = .warning(L10n.string("status.sign.finishBeforeMoreChanges"))
+            return false
+        }
+        guard activeBatchFoldTask == nil else {
+            editingStatus = .warning(L10n.string("batchFold.busyWarning"))
             return false
         }
         return true
@@ -7271,37 +7282,11 @@ final class WorkspaceViewModel {
         }
     }
 
-    enum ExportWriteError: Error, LocalizedError {
-        case fileNotFound
-        case emptyFile
-
-        var errorDescription: String? { userMessage }
-
-        var userMessage: String {
-            switch self {
-            case .fileNotFound:
-                return L10n.string("error.export.writeFileNotFound")
-            case .emptyFile:
-                return L10n.string("error.export.writeEmptyFile")
-            }
-        }
-    }
-
-    /// The only source of truth for "did the export actually land on disk" --
-    /// callers must not report success from a Task/panel return value alone.
+    /// Delegates to `ExportFileWriter.verify` — the only source of truth for "did the
+    /// export actually land on disk"; callers must not report success from a Task/panel
+    /// return value alone.
     private func verifyExportedFile(at url: URL) throws {
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
-            throw ExportWriteError.fileNotFound
-        }
-        if isDirectory.boolValue {
-            let contents = try FileManager.default.contentsOfDirectory(atPath: url.path)
-            guard !contents.isEmpty else { throw ExportWriteError.emptyFile }
-        } else {
-            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-            let size = (attributes[.size] as? NSNumber)?.intValue ?? 0
-            guard size > 0 else { throw ExportWriteError.emptyFile }
-        }
+        try ExportFileWriter.verify(at: url)
     }
 
     /// `commentExportStatusMessage` reports counts across the whole workspace,
@@ -7332,52 +7317,10 @@ final class WorkspaceViewModel {
         }
     }
 
-    /// Writes export bytes to `targetURL`, preferring a crash-safe temp-file +
-    /// atomic swap so a crash or force-quit mid-write can't leave a truncated
-    /// file at the user's real destination. Falls back to a direct,
-    /// non-atomic write only if the temp-sibling-file write itself can't even
-    /// start -- some sandboxed destinations only grant write access to the
-    /// exact NSSavePanel-chosen path, not sibling paths in the same folder
-    /// (which is also why neither write uses `.atomic`: that option creates
-    /// its own hidden sibling temp file, which would hit the same problem).
-    /// `validate` runs against the written bytes before they're committed to
-    /// `targetURL`, so a validation failure never lands at the real destination.
+    /// Delegates to `ExportFileWriter.write` — the crash-safe temp-sibling + atomic-swap
+    /// write shared with batch folding; see that type for the sandbox rationale.
     private func writeExportData(_ data: Data, to targetURL: URL, validate: ((Data) throws -> Void)? = nil) throws {
-        let fileManager = FileManager.default
-        let directory = targetURL.deletingLastPathComponent()
-        let tempURL = directory.appendingPathComponent(".Orifold-export-\(UUID().uuidString)")
-
-        let wroteTemp: Bool
-        do {
-            try data.write(to: tempURL)
-            wroteTemp = true
-        } catch {
-            wroteTemp = false
-        }
-
-        if wroteTemp {
-            defer { try? fileManager.removeItem(at: tempURL) }
-            if let validate {
-                try validate(try Data(contentsOf: tempURL))
-            }
-            if fileManager.fileExists(atPath: targetURL.path) {
-                guard try fileManager.replaceItemAt(
-                    targetURL,
-                    withItemAt: tempURL,
-                    backupItemName: nil,
-                    options: [.usingNewMetadataOnly]
-                ) != nil else {
-                    throw ExportWriteError.fileNotFound
-                }
-            } else {
-                try fileManager.moveItem(at: tempURL, to: targetURL)
-            }
-        } else {
-            if let validate {
-                try validate(data)
-            }
-            try data.write(to: targetURL)
-        }
+        try ExportFileWriter.write(data, to: targetURL, validate: validate)
     }
 
     private func writePDFExportData(_ data: Data, to targetURL: URL, validationOptions: PDFEncryptionOptions?) throws {
@@ -9280,6 +9223,94 @@ final class WorkspaceViewModel {
             let message = (error as? ExportWriteError)?.userMessage ?? error.localizedDescription
             exportError = ExportError(message: L10n.format("error.export.splitWrite", message))
         }
+    }
+
+    // MARK: - Batch folding ("Fold the whole stack")
+
+    /// Interactive batch run: folder choice, recursive PDF scan, then the whole pipeline in
+    /// `BatchFoldService.run` off the main actor with per-file progress and Cancel. The open
+    /// workspace is never touched — inputs are read-only and results land in a `Folded`
+    /// subfolder of the chosen folder.
+    func batchFold(options: BatchFoldService.Options) {
+        guard canPerformMutatingAction(), !options.isEmpty else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.title = L10n.string("batchFold.panel.title")
+        panel.prompt = L10n.string("batchFold.panel.choose")
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+
+        operationProgress.start(
+            title: L10n.string("batchFold.progress.title"),
+            detail: L10n.string("batchFold.progress.scanning")
+        )
+        let cancellation = OperationCancellationToken()
+        let operationID = UUID()
+        activeBatchFoldCancellation = cancellation
+        activeBatchFoldID = operationID
+        activeBatchFoldTask = Task { [weak self, folder, options, cancellation, operationID] in
+            guard let self else { return }
+            let scan = await FolderImportScanner.scan(folders: [folder])
+            let pdfs = BatchFoldService.pdfURLs(from: scan)
+            guard !pdfs.isEmpty else {
+                await MainActor.run {
+                    guard self.activeBatchFoldID == operationID else { return }
+                    self.finishBatchFold()
+                    self.exportError = ExportError(message: L10n.string("batchFold.error.noPDFs"))
+                }
+                return
+            }
+            let progressThrottle = ProgressUpdateThrottle()
+            let result = await BatchFoldService.run(
+                inputFolder: folder,
+                files: pdfs,
+                options: options,
+                progress: { fraction, fileName in
+                    guard progressThrottle.shouldEmit(fraction) else { return }
+                    Task { @MainActor [weak self] in
+                        guard self?.activeBatchFoldID == operationID,
+                              self?.operationProgress.isActive == true else { return }
+                        self?.operationProgress.update(fraction: fraction, detail: fileName)
+                    }
+                },
+                isCancelled: { cancellation.isCancelled }
+            )
+            await MainActor.run {
+                guard self.activeBatchFoldID == operationID else { return }
+                self.finishBatchFold()
+                self.presentBatchFoldResult(result)
+            }
+        }
+    }
+
+    private func finishBatchFold() {
+        operationProgress.finish()
+        activeBatchFoldTask = nil
+        activeBatchFoldCancellation = nil
+        activeBatchFoldID = nil
+    }
+
+    private func presentBatchFoldResult(_ result: BatchFoldService.RunResult) {
+        guard let outputDirectory = result.outputDirectory else {
+            exportError = ExportError(message: L10n.string("batchFold.error.outputFolder"))
+            return
+        }
+        if result.wasCancelled {
+            editingStatus = .warning(L10n.format("batchFold.cancelled", result.foldedCount))
+            return
+        }
+        guard result.foldedCount > 0 else {
+            let firstMessage = result.firstFailureMessage ?? ""
+            exportError = ExportError(message: L10n.format("batchFold.error.allFailed", firstMessage))
+            return
+        }
+        let detail = result.failedCount > 0
+            ? L10n.format("batchFold.success.withFailures", result.foldedCount, result.failedCount)
+            : L10n.format("batchFold.success.allFolded", result.foldedCount)
+        exportSuccess = ExportSuccess(url: outputDirectory, detail: detail)
+        PetBuddyHook.trigger(.export)
     }
 
     /// Top-level bookmarks positioned in the concatenated workspace page list — the same
