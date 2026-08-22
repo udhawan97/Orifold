@@ -248,8 +248,11 @@ final class BatchFoldServiceTests: XCTestCase {
         return try XCTUnwrap(PDFSerializer.data(from: pdf))
     }
 
-    /// Fraction of sampled pixels that are visibly non-white — the sanctioned ink check
-    /// (never `PDFPage.string`; see PDFPageStringGuardTests).
+    /// Fraction of sampled pixels that are non-white — the sanctioned ink check (never
+    /// `PDFPage.string`; see PDFPageStringGuardTests). The cutoff sits at 0.97, not the
+    /// 0.85 other ink checks use, because the baked watermark is *deliberately* pale
+    /// (0.16 opacity): its pixels land around 0.9 brightness, while the untouched fixture
+    /// pages are pure white, so anything below the cutoff is real watermark ink.
     private func inkCoverage(of data: Data, pageIndex: Int) throws -> Double {
         let pdf = try XCTUnwrap(PDFDocument(data: data))
         let page = try XCTUnwrap(pdf.page(at: pageIndex))
@@ -264,7 +267,7 @@ final class BatchFoldServiceTests: XCTestCase {
             for py in stride(from: 0, to: bitmap.pixelsHigh, by: 7) {
                 guard let color = bitmap.colorAt(x: px, y: py)?.usingColorSpace(.deviceRGB) else { continue }
                 sampled += 1
-                if color.brightnessComponent < 0.85 { inked += 1 }
+                if color.brightnessComponent < 0.97 { inked += 1 }
             }
         }
         guard sampled > 0 else { return 0 }
