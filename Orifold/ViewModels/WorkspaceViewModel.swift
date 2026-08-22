@@ -6249,6 +6249,32 @@ final class WorkspaceViewModel {
         }
     }
 
+    /// "Read Aloud from Here": starts at the sentence containing the current text selection,
+    /// falling back to the top of the current page when there is no selection or it can't be
+    /// located in the page's speakable text.
+    @MainActor
+    func startReadAloudFromHere() {
+        let startIndex = combinedPageIndex(forWorkspacePageNumber: max(1, currentPageNumber)) ?? 0
+        let offset = Self.readAloudStartOffset(
+            selection: translationSelectionText,
+            pageText: readAloudPageText(at: startIndex)
+        )
+        if !readAloud.start(fromPage: startIndex, characterOffset: offset) {
+            editingStatus = .info(L10n.string("readAloud.noSpeakableText"))
+        }
+    }
+
+    /// UTF-16 offset of the selection's start within the page's read-aloud text, or 0 when
+    /// there is no selection or it can't be located (different normalization, selection on
+    /// another page). Matches on a prefix so a long selection still anchors its sentence.
+    static func readAloudStartOffset(selection: String?, pageText: String?) -> Int {
+        guard let pageText, !pageText.isEmpty else { return 0 }
+        let prefix = String((selection ?? "").prefix(40)).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prefix.isEmpty else { return 0 }
+        let range = (pageText as NSString).range(of: prefix)
+        return range.location == NSNotFound ? 0 : range.location
+    }
+
     /// Page text for read-aloud. Uses `attributedString?.string` (NOT `.string`, which
     /// interleaves characters on the CI SDK — see the read-aloud plan). Boundary banners have
     /// no document text and are skipped outright.

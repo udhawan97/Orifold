@@ -74,11 +74,17 @@ final class ReadAloudController: ObservableObject {
     /// speakable text — boundary banners, image-only pages — are skipped. If no page from
     /// `fromPage` onward has text, the controller returns to `.idle`.
     ///
+    /// `characterOffset` (a UTF-16 offset into `fromPage`'s text, matching `SpeechChunk`
+    /// ranges) starts reading at the sentence containing that position — "Read Aloud from
+    /// Here". It only applies when reading actually starts on `fromPage`; a later speakable
+    /// page starts from its own beginning, and an offset past the page's last sentence
+    /// advances to the next speakable page.
+    ///
     /// Returns whether speech actually began. A scanned PDF has pages but no text layer, and
     /// a silent return to `.idle` looked identical to a broken feature — the caller needs to
     /// know so it can say why nothing happened.
     @discardableResult
-    func start(fromPage: Int) -> Bool {
+    func start(fromPage: Int, characterOffset: Int = 0) -> Bool {
         if state != .idle { synthesizer.stopSpeaking() }
         chunks = []
         chunkIndex = 0
@@ -91,6 +97,21 @@ final class ReadAloudController: ObservableObject {
         currentPageIndex = pageIndex
         chunks = pageChunks
         chunkIndex = 0
+        if pageIndex == fromPage, characterOffset > 0 {
+            if let containing = pageChunks.firstIndex(where: {
+                $0.rangeInPage.location + $0.rangeInPage.length > characterOffset
+            }) {
+                chunkIndex = containing
+            } else if let (nextIndex, nextChunks) = firstSpeakablePage(from: pageIndex + 1) {
+                currentPageIndex = nextIndex
+                chunks = nextChunks
+                chunkIndex = 0
+            } else {
+                state = .idle
+                chunks = []
+                return false
+            }
+        }
         state = .speaking
         speakCurrentChunk()
         return true

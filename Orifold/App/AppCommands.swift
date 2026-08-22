@@ -45,6 +45,7 @@ struct AppCommands: Commands {
         CommandGroup(after: .toolbar) {
             ViewToggleCommandButtons(locale: locale)
             ReadAloudCommandButton(locale: locale)
+            ReadAloudFromHereCommandButton(locale: locale)
             TranslateCommandButton(locale: locale)
             Divider()
             PetBuddyCommandToggle(locale: locale)
@@ -313,6 +314,20 @@ private struct ReadAloudCommandButton: View {
         let active = viewModel?.isReadingAloud == true
         Button(L10n.string(active ? "readaloud.stop" : "readaloud.start", locale: locale)) {
             viewModel?.toggleReadAloud()
+        }
+        .disabled(viewModel == nil || viewModel?.pageCount == 0)
+    }
+}
+
+/// "Read Aloud from Here" — starts at the sentence containing the current selection instead
+/// of the top of the page; with no selection it reads from the current page.
+private struct ReadAloudFromHereCommandButton: View {
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+    var locale: Locale
+
+    var body: some View {
+        Button(L10n.string("readaloud.fromHere", locale: locale)) {
+            viewModel?.startReadAloudFromHere()
         }
         .disabled(viewModel == nil || viewModel?.pageCount == 0)
     }
