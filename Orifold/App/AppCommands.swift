@@ -24,6 +24,7 @@ struct AppCommands: Commands {
             ReduceFileSizeCommandButton(locale: locale)
             MakeSearchableCommandButton(locale: locale)
             BatchFoldCommandButton(locale: locale)
+            CompareCommandButton(locale: locale)
             Divider()
         }
 
@@ -172,6 +173,19 @@ private func presentOverLimitAlert(for batch: PendingFolderImportBatch, into vie
     alert.addButton(withTitle: L10n.string("folderImport.overLimit.cancel"))
     guard alert.runModal() == .alertFirstButtonReturn else { return }
     importFirstFromPendingBatch(batch, into: viewModel)
+}
+
+/// "Compare With…" — side-by-side compare of the focused workspace against a picked PDF.
+private struct CompareCommandButton: View {
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+    var locale: Locale
+
+    var body: some View {
+        Button(L10n.string("appCommands.compare.button", locale: locale)) {
+            viewModel?.beginCompareFlow()
+        }
+        .disabled(viewModel == nil || viewModel?.pageCount == 0)
+    }
 }
 
 /// "Fold a Folder…" — batch compress/OCR/watermark over every PDF in a folder. Opens the

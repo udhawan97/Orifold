@@ -9225,6 +9225,90 @@ final class WorkspaceViewModel {
         }
     }
 
+    // MARK: - Side-by-side compare
+
+    /// Non-nil while the compare panel is presented (`.sheet(item:)`).
+    var compareRequest: PDFComparisonRequest?
+
+    /// Interactive entry: pick the other PDF, then build the comparison request.
+    func beginCompareFlow() {
+        guard pageCount > 0, !isImporting else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.pdf]
+        panel.title = L10n.string("compare.panel.title")
+        panel.prompt = L10n.string("compare.panel.choose")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        prepareCompare(withOtherFileAt: url)
+    }
+
+    /// Builds the request the compare engine consumes. The left side deliberately uses two
+    /// byte sources: the serialized combined document for visuals (what the user sees —
+    /// page rotations and crop boxes applied) and the members' live preserved bytes for
+    /// text (PDFKit re-serialization can perturb text layers, which would manufacture
+    /// phantom text diffs).
+    func prepareCompare(withOtherFileAt url: URL) {
+        let rightData: Data
+        do {
+            rightData = try SecurityScopedAccess.withAccess(to: url) { try Data(contentsOf: $0) }
+        } catch {
+            exportError = ExportError(message: L10n.string("compare.error.unreadable"))
+            return
+        }
+        guard let rightDocument = PDFDocument(data: rightData) else {
+            exportError = ExportError(message: L10n.string("compare.error.unreadable"))
+            return
+        }
+        guard !rightDocument.isLocked else {
+            exportError = ExportError(message: L10n.string("compare.error.locked"))
+            return
+        }
+        guard rightDocument.pageCount > 0 else {
+            exportError = ExportError(message: L10n.string("compare.error.unreadable"))
+            return
+        }
+
+        guard let combinedData = PDFSerializer.data(from: combinedPDF),
+              let memberData = try? currentPDFDataForExport() else {
+            exportError = ExportError(message: L10n.string("compare.error.unavailable"))
+            return
+        }
+        var leftDocuments: [Data] = [combinedData]
+        var documentIndexByMember: [UUID: Int] = [:]
+        var visualPages: [PDFComparisonService.PageLocator] = []
+        var textPages: [PDFComparisonService.PageLocator] = []
+        for (index, ref) in document.workspace.pageOrder.enumerated() {
+            guard let combinedIndex = combinedPageIndex(forWorkspacePageNumber: index + 1),
+                  let memberBytes = memberData[ref.memberDocId] else { continue }
+            let documentIndex: Int
+            if let existing = documentIndexByMember[ref.memberDocId] {
+                documentIndex = existing
+            } else {
+                leftDocuments.append(memberBytes)
+                documentIndex = leftDocuments.count - 1
+                documentIndexByMember[ref.memberDocId] = documentIndex
+            }
+            visualPages.append(PDFComparisonService.PageLocator(documentIndex: 0, pageIndex: combinedIndex))
+            textPages.append(PDFComparisonService.PageLocator(documentIndex: documentIndex, pageIndex: ref.sourcePageIndex))
+        }
+        guard !visualPages.isEmpty else {
+            exportError = ExportError(message: L10n.string("compare.error.unavailable"))
+            return
+        }
+        compareRequest = PDFComparisonRequest(
+            engineRequest: PDFComparisonService.Request(
+                leftDocuments: leftDocuments,
+                leftVisualPages: visualPages,
+                leftTextPages: textPages,
+                rightData: rightData
+            ),
+            leftTitle: document.workspace.title,
+            rightTitle: url.lastPathComponent
+        )
+    }
+
     // MARK: - Batch folding ("Fold the whole stack")
 
     /// Interactive batch run: folder choice, recursive PDF scan, then the whole pipeline in

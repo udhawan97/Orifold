@@ -282,13 +282,19 @@ enum PDFOCRService {
         renderedImage(for: page)
     }
 
-    private static func renderedImage(for page: PDFPage) -> CGImage? {
+    /// Same single rendering path at a caller-chosen density — the compare feature renders
+    /// page pairs at a lighter DPI than OCR/barcode detection need.
+    static func rasterizedImage(for page: PDFPage, dpi: CGFloat) -> CGImage? {
+        renderedImage(for: page, dpi: dpi)
+    }
+
+    private static func renderedImage(for page: PDFPage, dpi: CGFloat = targetDPI) -> CGImage? {
         let bounds = page.bounds(for: .mediaBox)
         guard bounds.width.isFinite, bounds.height.isFinite, bounds.width > 0, bounds.height > 0 else {
             return nil
         }
 
-        let dpiScale = targetDPI / 72
+        let dpiScale = dpi / 72
         let cappedScale = min(dpiScale, maxLongEdgePixels / max(bounds.width, bounds.height))
         let scale = max(1, cappedScale)
         let width = max(1, Int((bounds.width * scale).rounded(.up)))
