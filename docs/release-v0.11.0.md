@@ -82,7 +82,7 @@ side-by-side compare — plus a smaller reading-aid refinement, all local-first.
 
 ## Verification Contract
 
-- The integrated Swift suite contains 1,129 tests: 33 are skipped by their documented
+- The integrated Swift suite contains 1,129 tests: 35 are skipped by their documented
   environment gates and 0 fail in CI.
 - Focused regressions cover batch output naming and collision avoidance, the per-file
   OCR → watermark → compress pipeline (watermarks asserted via ink coverage, OCR via an
