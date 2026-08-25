@@ -3,6 +3,34 @@ import CoreGraphics
 import Foundation
 
 extension QPDFService {
+    /// Applies live PDFKit page rotations to an authoritative structural byte lane without
+    /// reserializing that lane through PDFKit. This preserves catalog-level structures such as
+    /// attachments and `/PageLabels` while still carrying unsaved reader rotations into OCR.
+    static func settingPageRotations(_ data: Data, rotationsByPageIndex: [Int: Int]) -> Data? {
+        guard !rotationsByPageIndex.isEmpty else { return data }
+        let normalized = rotationsByPageIndex.mapValues { (($0 % 360) + 360) % 360 }
+        guard normalized.allSatisfy({ pageIndex, rotation in
+            pageIndex >= 0 && [0, 90, 180, 270].contains(rotation)
+        }) else { return nil }
+
+        return withQPDF(data, description: "set-page-rotations") { qpdf in
+            let pageCount = qpdf_get_num_pages(qpdf)
+            guard hasErrors(qpdf_check_pdf(qpdf)) == false,
+                  normalized.keys.allSatisfy({ $0 < pageCount }) else { return nil }
+
+            for (pageIndex, rotation) in normalized {
+                let page = qpdf_get_page_n(qpdf, numericCast(pageIndex))
+                replaceKey(
+                    qpdf,
+                    in: page,
+                    key: "/Rotate",
+                    value: qpdf_oh_new_integer(qpdf, numericCast(rotation))
+                )
+            }
+            return write(qpdf) { _ in }
+        }
+    }
+
     /// Sets one page's non-destructive PDF `/CropBox` while preserving the rest of the
     /// object graph. PDF page boxes are `[lowerLeftX lowerLeftY upperRightX upperRightY]`,
     /// not CGRect's origin/size representation, so write the standardized extrema.

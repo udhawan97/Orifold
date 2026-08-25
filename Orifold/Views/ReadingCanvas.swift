@@ -199,7 +199,9 @@ private struct ScanBar: View {
                 .foregroundStyle(Color.dsTextPrimary)
             Spacer()
             Button(L10n.string("readingCanvas.scanBar.makeSearchable.button")) {
-                viewModel.makeSearchable()
+                // This banner specifically identifies scanned pages. Keep its one-click action
+                // on that safe scope even if the Inspector was previously set to All visible.
+                viewModel.makeScannedPagesSearchable()
             }
             .font(.dsCaption())
             .disabled(viewModel.operationProgress.isActive)

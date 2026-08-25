@@ -211,10 +211,9 @@ private struct MakeSearchableCommandButton: View {
 
     var body: some View {
         Button(L10n.string("appCommands.makeSearchable.button", locale: locale)) {
-            let shouldRepairExistingText = viewModel?.hasScannedPages != true
-            viewModel?.makeSearchable(includePagesWithText: shouldRepairExistingText)
+            viewModel?.makeSearchable()
         }
-        .disabled(viewModel?.canStartSearchable != true && viewModel?.canRepairSearchableText != true)
+        .disabled(viewModel?.canStartConfiguredOCR != true)
     }
 }
 

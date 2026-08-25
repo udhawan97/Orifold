@@ -34,6 +34,19 @@ final class PrimaryWindowSizingTests: XCTestCase {
         )
     }
 
+    func testGamiClearsInspectorChromeWhenInspectorIsVisible() {
+        let edgeInset: CGFloat = 16
+
+        XCTAssertEqual(
+            WorkspaceChromeLayout.petTrailingInset(inspectorVisible: false, edgeInset: edgeInset),
+            edgeInset
+        )
+        XCTAssertEqual(
+            WorkspaceChromeLayout.petTrailingInset(inspectorVisible: true, edgeInset: edgeInset),
+            edgeInset + WorkspaceChromeLayout.inspectorWidth + WorkspaceChromeLayout.inspectorSeparatorWidth
+        )
+    }
+
     @MainActor
     func testConfigureRepairsTinyWindowAndInstallsResizeFloor() {
         let window = NSWindow(
