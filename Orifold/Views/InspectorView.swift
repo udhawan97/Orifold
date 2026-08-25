@@ -1760,9 +1760,25 @@ private struct InspectorOCRView: View {
     // `\.locale` during the previous evaluation.
     @Environment(\.locale) private var locale
 
+    private var selectedPageDescription: String {
+        switch viewModel.ocrPageSelection {
+        case .scannedPagesOnly:
+            return viewModel.scannedPageCount == 1
+                ? L10n.format("inspector.ocr.scannedPages.one", viewModel.scannedPageCount, locale: locale)
+                : L10n.format("inspector.ocr.scannedPages.other", viewModel.scannedPageCount, locale: locale)
+        case .allVisiblePages:
+            return viewModel.ocrCandidatePageCount == 1
+                ? L10n.format("inspector.ocr.visiblePages.one", viewModel.ocrCandidatePageCount, locale: locale)
+                : L10n.format("inspector.ocr.visiblePages.other", viewModel.ocrCandidatePageCount, locale: locale)
+        }
+    }
+
     private var statusTitle: String {
         if viewModel.isMakingSearchable {
             return L10n.string("inspector.ocr.status.makingSearchable", locale: locale)
+        }
+        if viewModel.lastOCRQualityReport != nil {
+            return L10n.string("inspector.ocr.status.qualityReceipt", locale: locale)
         }
         if viewModel.hasScannedPages && !viewModel.canStartSearchable {
             return L10n.string("inspector.ocr.status.waiting", locale: locale)
@@ -1780,6 +1796,12 @@ private struct InspectorOCRView: View {
         if viewModel.isMakingSearchable {
             return viewModel.operationProgress.detail
         }
+        if viewModel.hasCommittedEditsBlockingOCR {
+            return L10n.string("status.ocr.finishEditsBeforeOCR", locale: locale)
+        }
+        if viewModel.lastOCRQualityReport != nil {
+            return L10n.string("inspector.ocr.detail.qualityReceipt", locale: locale)
+        }
         if viewModel.hasScannedPages && !viewModel.canStartSearchable {
             return L10n.string("inspector.ocr.detail.finishBeforeRunningOCR", locale: locale)
         }
@@ -1796,30 +1818,146 @@ private struct InspectorOCRView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsLG) {
-            HStack(alignment: .top, spacing: .dsMD) {
-                Image(systemName: viewModel.hasScannedPages ? "doc.text.viewfinder" : statusIconName)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(viewModel.hasScannedPages ? Color.dsAccent : statusIconColor)
-                    .frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: .dsMD) {
+                HStack(alignment: .top, spacing: .dsMD) {
+                    Image(systemName: statusIconName)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(statusIconColor)
+                        .frame(width: 24, height: 24)
 
-                VStack(alignment: .leading, spacing: .dsXS) {
-                    Text(statusTitle)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.dsTextPrimary)
-                    Text(statusDetail)
-                        .font(.dsCaption())
-                        .foregroundStyle(Color.dsTextSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: .dsXS) {
+                        Text(statusTitle)
+                            .font(.dsBody().weight(.semibold))
+                            .foregroundStyle(Color.dsTextPrimary)
+                        Text(statusDetail)
+                            .font(.dsCaption())
+                            .foregroundStyle(Color.dsTextSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                if viewModel.isMakingSearchable {
+                    ProgressView(value: viewModel.operationProgress.fraction)
+                        .progressViewStyle(.linear)
+                        .tint(Color.dsAccent)
+                }
+
+                OCRPipelineRail(
+                    hasEligiblePages: viewModel.ocrSelectedPageCount > 0,
+                    isRunning: viewModel.isMakingSearchable,
+                    report: viewModel.lastOCRQualityReport,
+                    locale: locale
+                )
+            }
+            .padding(.dsLG)
+            .foldedCard(
+                fill: Color.dsCard,
+                stroke: viewModel.lastOCRQualityReport?.needsReview == true
+                    ? Color.dsWarningAccent.opacity(0.35)
+                    : Color.dsSeparator,
+                foldSize: 12
+            )
+
+            VStack(alignment: .leading, spacing: .dsMD) {
+                Label(L10n.string("inspector.ocr.workbench.title", locale: locale), systemImage: "slider.horizontal.3")
+                    .font(.dsCaption().weight(.semibold))
+                    .foregroundStyle(Color.dsTextPrimary)
+
+                OCRSettingRow(title: L10n.string("inspector.ocr.pages.label", locale: locale)) {
+                    Picker("", selection: $viewModel.ocrPageSelection) {
+                        Text(L10n.string("inspector.ocr.pages.scansOnly", locale: locale))
+                            .tag(PDFOCROptions.PageSelection.scannedPagesOnly)
+                        Text(L10n.string("inspector.ocr.pages.allVisible", locale: locale))
+                            .tag(PDFOCROptions.PageSelection.allVisiblePages)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .disabled(viewModel.isMakingSearchable)
+                }
+
+                Text(selectedPageDescription)
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Divider()
+
+                OCRSettingRow(title: L10n.string("inspector.ocr.language.label", locale: locale)) {
+                    Picker("", selection: $viewModel.ocrRecognitionLanguage) {
+                        Text(L10n.string("inspector.ocr.language.automatic", locale: locale)).tag("")
+                        ForEach(viewModel.supportedOCRLanguages, id: \.self) { language in
+                            Text(languageName(for: language)).tag(language)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .disabled(viewModel.isMakingSearchable)
+                }
+
+                OCRSettingRow(title: L10n.string("inspector.ocr.engine.label", locale: locale)) {
+                    Label(
+                        L10n.string("inspector.ocr.engine.vision", locale: locale),
+                        systemImage: "cpu"
+                    )
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .multilineTextAlignment(.trailing)
+                }
+
+                Toggle(
+                    L10n.string("inspector.ocr.continueAfterFailure.label", locale: locale),
+                    isOn: $viewModel.ocrContinuesAfterPageFailure
+                )
+                .font(.dsCaption())
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .disabled(viewModel.isMakingSearchable)
+
+                Text(L10n.string("inspector.ocr.continueAfterFailure.detail", locale: locale))
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if viewModel.ocrPageSelection == .allVisiblePages {
+                    Label(
+                        L10n.string("inspector.ocr.pages.allVisibleWarning", locale: locale),
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsWarningAccent)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if viewModel.hasCryptographicSignaturePlacement || viewModel.hasThirdPartyCryptographicSignature {
+                    Label(
+                        L10n.string(
+                            viewModel.hasCryptographicSignaturePlacement
+                                ? "status.signature.editInvalidates"
+                                : "status.signature.thirdPartyEditInvalidates",
+                            locale: locale
+                        ),
+                        systemImage: "signature"
+                    )
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsWarningAccent)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
+
+            if let report = viewModel.lastOCRQualityReport {
+                OCRQualityReceipt(report: report, locale: locale)
+            }
+
+            Label(L10n.string("inspector.ocr.privacy.localOnly", locale: locale), systemImage: "lock.shield")
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Button {
                 if viewModel.isMakingSearchable {
                     viewModel.cancelActiveOperation()
-                } else if viewModel.hasScannedPages {
-                    viewModel.makeSearchable()
                 } else {
-                    viewModel.makeSearchable(includePagesWithText: true)
+                    viewModel.makeSearchable()
                 }
             } label: {
                 Label(buttonTitle,
@@ -1828,7 +1966,7 @@ private struct InspectorOCRView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.regular)
-            .disabled(!viewModel.isMakingSearchable && !canRunButtonAction)
+            .disabled(!viewModel.isMakingSearchable && !viewModel.canStartConfiguredOCR)
             .help(buttonHelp)
         }
         .padding(.horizontal, .dsLG)
@@ -1840,10 +1978,13 @@ private struct InspectorOCRView: View {
         if viewModel.isMakingSearchable {
             return L10n.string("inspector.ocr.help.cancelMakingSearchable", locale: locale)
         }
-        if viewModel.canStartSearchable {
+        if viewModel.hasCommittedEditsBlockingOCR {
+            return L10n.string("status.ocr.finishEditsBeforeOCR", locale: locale)
+        }
+        if viewModel.canStartConfiguredOCR {
             return L10n.string("inspector.ocr.help.runLocalOCR", locale: locale)
         }
-        if viewModel.canRepairSearchableText {
+        if viewModel.canAddOCRLayerToSearchablePages {
             return L10n.string("inspector.ocr.help.runOCRAnyway", locale: locale)
         }
         if viewModel.hasScannedPages {
@@ -1859,25 +2000,222 @@ private struct InspectorOCRView: View {
         if viewModel.isMakingSearchable {
             return L10n.string("inspector.ocr.button.cancelOCR", locale: locale)
         }
-        if viewModel.hasScannedPages {
-            return L10n.string("inspector.ocr.button.makeSearchable", locale: locale)
-        }
-        if viewModel.ocrCandidatePageCount > 0 {
+        if viewModel.ocrPageSelection == .allVisiblePages {
             return L10n.string("inspector.ocr.button.runOCRAnyway", locale: locale)
         }
         return L10n.string("inspector.ocr.button.makeSearchable", locale: locale)
     }
 
-    private var canRunButtonAction: Bool {
-        viewModel.canStartSearchable || viewModel.canRepairSearchableText
-    }
-
     private var statusIconName: String {
-        viewModel.ocrCandidatePageCount > 0 ? "text.viewfinder" : "checkmark.circle"
+        if viewModel.isMakingSearchable { return "waveform.badge.magnifyingglass" }
+        if viewModel.lastOCRQualityReport?.needsReview == true { return "checkmark.circle.badge.questionmark" }
+        if viewModel.lastOCRQualityReport != nil { return "checkmark.seal" }
+        if viewModel.hasScannedPages { return "doc.text.viewfinder" }
+        return viewModel.ocrCandidatePageCount > 0 ? "text.viewfinder" : "checkmark.circle"
     }
 
     private var statusIconColor: Color {
-        viewModel.ocrCandidatePageCount > 0 ? Color.dsAccent : Color.dsAnnotationSage
+        if viewModel.lastOCRQualityReport?.needsReview == true { return Color.dsWarningAccent }
+        if viewModel.lastOCRQualityReport != nil { return Color.dsSuccessAccent }
+        return viewModel.ocrCandidatePageCount > 0 ? Color.dsAccent : Color.dsSuccessAccent
+    }
+
+    private func languageName(for identifier: String) -> String {
+        locale.localizedString(forIdentifier: identifier)
+            ?? Locale.current.localizedString(forIdentifier: identifier)
+            ?? identifier
+    }
+}
+
+private struct OCRSettingRow<Control: View>: View {
+    let title: String
+    let control: Control
+
+    init(title: String, @ViewBuilder control: () -> Control) {
+        self.title = title
+        self.control = control()
+    }
+
+    var body: some View {
+        HStack(spacing: .dsMD) {
+            Text(title)
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsTextSecondary)
+            Spacer(minLength: .dsSM)
+            control
+                .frame(maxWidth: 158, alignment: .trailing)
+        }
+    }
+}
+
+private struct OCRQualityReceipt: View {
+    let report: PDFOCRQualityReport
+    let locale: Locale
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: .dsMD) {
+            HStack(spacing: .dsSM) {
+                Image(systemName: report.needsReview ? "checkmark.circle.badge.questionmark" : "checkmark.seal")
+                    .foregroundStyle(report.needsReview ? Color.dsWarningAccent : Color.dsSuccessAccent)
+                Text(L10n.string("inspector.ocr.receipt.title", locale: locale))
+                    .font(.dsCaption().weight(.semibold))
+                    .foregroundStyle(Color.dsTextPrimary)
+            }
+
+            HStack(alignment: .top, spacing: .dsSM) {
+                qualityMetric(
+                    value: "\(report.recognizedPageCount)/\(report.requestedPageCount)",
+                    label: L10n.string("inspector.ocr.receipt.pages", locale: locale)
+                )
+                qualityMetric(
+                    value: "\(report.recognizedLineCount)",
+                    label: L10n.string("inspector.ocr.receipt.lines", locale: locale)
+                )
+                qualityMetric(
+                    value: "\(report.reviewItemCount)",
+                    label: L10n.string("inspector.ocr.receipt.confidence", locale: locale)
+                )
+            }
+
+            Label(
+                L10n.string("inspector.ocr.receipt.integrityPassed", locale: locale),
+                systemImage: report.integrityChecksPassed ? "checkmark.shield" : "exclamationmark.shield"
+            )
+            .font(.dsCaption())
+            .foregroundStyle(report.integrityChecksPassed ? Color.dsSuccessAccent : Color.dsWarningAccent)
+            .fixedSize(horizontal: false, vertical: true)
+
+            if !report.skippedPageNumbers.isEmpty {
+                Label(
+                    L10n.format(
+                        "inspector.ocr.receipt.skippedPages",
+                        report.skippedPageNumbers.map(String.init).joined(separator: ", "),
+                        locale: locale
+                    ),
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.dsCaption())
+                .foregroundStyle(Color.dsWarningAccent)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if report.lowConfidenceLineCount > 0 {
+                Text(L10n.format("inspector.ocr.receipt.lowConfidence", report.lowConfidenceLineCount, locale: locale))
+                    .font(.dsCaption())
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(L10n.string("inspector.ocr.receipt.caveat", locale: locale))
+                .font(.system(size: 11))
+                .foregroundStyle(Color.dsTextTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.dsLG)
+        .foldedCard(
+            fill: Color.dsCard,
+            stroke: report.needsReview ? Color.dsWarningAccent.opacity(0.35) : Color.dsSeparator
+        )
+        .accessibilityElement(children: .contain)
+    }
+
+    private func qualityMetric(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.dsTextPrimary)
+                .monospacedDigit()
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(Color.dsTextTertiary)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct OCRPipelineRail: View {
+    private enum StageState: Equatable {
+        case idle
+        case active
+        case complete
+        case review
+
+        var color: Color {
+            switch self {
+            case .idle: Color.dsTextTertiary
+            case .active: Color.dsAccent
+            case .complete: Color.dsSuccessAccent
+            case .review: Color.dsWarningAccent
+            }
+        }
+    }
+
+    let hasEligiblePages: Bool
+    let isRunning: Bool
+    let report: PDFOCRQualityReport?
+    let locale: Locale
+
+    private var pageState: StageState {
+        hasEligiblePages || report != nil ? .complete : .idle
+    }
+
+    private var recognitionState: StageState {
+        if isRunning { return .active }
+        if report != nil { return .complete }
+        return hasEligiblePages ? .active : .idle
+    }
+
+    private var verificationState: StageState {
+        guard let report else { return .idle }
+        return report.needsReview ? .review : .complete
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            stage(
+                title: L10n.string("inspector.ocr.pages.label", locale: locale),
+                icon: "doc.on.doc",
+                state: pageState
+            )
+            connector(from: pageState, to: recognitionState)
+            stage(
+                title: L10n.string("inspector.ocr.pipeline.recognize", locale: locale),
+                icon: "text.viewfinder",
+                state: recognitionState
+            )
+            connector(from: recognitionState, to: verificationState)
+            stage(
+                title: L10n.string("inspector.ocr.pipeline.verify", locale: locale),
+                icon: "checkmark.shield",
+                state: verificationState
+            )
+        }
+        .padding(.top, .dsXS)
+    }
+
+    private func stage(title: String, icon: String, state: StageState) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(state.color)
+                .frame(width: 24, height: 24)
+                .background(state.color.opacity(state == .idle ? 0.08 : 0.14), in: Circle())
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(state.color)
+                .lineLimit(1)
+        }
+        .frame(width: 60)
+    }
+
+    private func connector(from: StageState, to: StageState) -> some View {
+        let color = from == .complete && to != .idle ? to.color : Color.dsSeparator
+        return Capsule()
+            .fill(color.opacity(to == .idle ? 1 : 0.55))
+            .frame(maxWidth: .infinity)
+            .frame(height: 2)
+            .offset(y: -8)
     }
 }
 

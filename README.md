@@ -84,7 +84,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | ✏️ | **Annotate & edit** — highlight, notes, ink, text boxes, edit real PDF text in place | Reviewed documents without a print-sign-scan loop |
 | 🧩 | **Edit objects** *(beta)* — the **Select** tool moves, resizes, layers, deletes, or restyles a compatible real page graphic | Fix the layout itself, not just a note stuck on top of it |
 | 🖋️ | **Sign & fill forms** — draw signatures or place a real PAdES digital signature, complete and lock form fields | Finished, tamper-evident paperwork — no third-party e-sign service |
-| 🔍 | **OCR scans** — local Vision OCR makes scanned pages searchable | ⌘F finally works on the thing your printer emailed you |
+| 🔍 | **OCR scans** — local Vision OCR adds a searchable layer without rebuilding the original page, then validates the result | ⌘F works, while page geometry, annotations, and untouched documents stay intact |
 | 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels, hanko seals, barcodes, QR codes, and vector PDF overlays | Packets and exhibits that look intentional |
 | 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
 | 🧼 | **Sanitize** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't mean to send |
@@ -108,7 +108,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), deletes, or restyles existing solid fill/stroke channels and line width on compatible vector paths; object and inline-text edits compose safely, survive save/reopen/export, and share full undo/redo |
 | **Signatures** | Draw and place signatures, produce standards-based PAdES digital signatures with Keychain and `.p12` identities, and inspect incoming signatures for integrity, document coverage, system trust, and explicitly unverified signing-time metadata |
 | **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
-| **Scans & OCR** | Local Vision OCR makes scans searchable; recognized text survives export |
+| **Scans & OCR** | Local Vision OCR with automatic or explicit language selection, partial-success page handling, low-confidence flags, and a structural postflight receipt; the searchable layer is merged into the original page instead of redrawing it |
 | **Stamps & decorations** | Watermarks, page numbers, Bates labels, movable stamps, procedural circle/square hanko seals, generated barcode/QR placements, and under/over PDF overlays preserved as vector content on export |
 | **Metadata & attachments** | Edit PDF title, author, subject, and keywords; list, add, extract, or remove embedded files from the Inspector with undo support |
 | **Structure & archival** | Inspect the current page's tagged reading-order tree and alt-text coverage; check encryption, embedded fonts, XMP, output intent, tagging, and active-content signals before long-term storage |
@@ -239,11 +239,18 @@ metadata stripped before flat PDF export.
 | | |
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
-| **Codebase** | 147 Swift source files in the app, ~55,500 lines |
-| **Tests** | 1,091 tests in the current release suite |
+| **Codebase** | 147 Swift source files in the app, ~56,400 lines |
+| **Tests** | 1,109 tests in the current release suite |
 | **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) · Apple Translation (on-device reading aid on macOS 15+) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds a universal (Apple Silicon + Intel) app and packages a signed-capable DMG (`scripts/make-dmg.sh`) plus the release zip and a checksummed `manifest.json`; installer, Homebrew cask, and uninstaller ship from this repo |
+
+Orifold's OCR workflow was informed by the preservation policies of
+[OCRmyPDF](https://github.com/ocrmypdf/OCRmyPDF), the inspectable OCR evidence of
+[Tesseract](https://github.com/tesseract-ocr/tesseract), and the staged pipeline designs of
+[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) and
+[Docling](https://github.com/docling-project/docling). Orifold does not bundle their code or
+models today; see the [source review, licensing notes, and benchmark gate](docs/research/open-source-ocr-landscape.md).
 
 <p align="center">
   <img alt="Swift 5.9" src="https://img.shields.io/badge/Swift_5.9-F05138?style=flat-square&logo=swift&logoColor=white">

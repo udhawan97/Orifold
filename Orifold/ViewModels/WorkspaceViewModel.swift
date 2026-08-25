@@ -435,14 +435,33 @@ final class WorkspaceViewModel {
     }
     var scannedPageCount = 0
     var ocrCandidatePageCount = 0
+    var ocrPageSelection: PDFOCROptions.PageSelection = .scannedPagesOnly
+    /// Empty means Vision chooses the language automatically on each page.
+    var ocrRecognitionLanguage = ""
+    var ocrContinuesAfterPageFailure = true
+    private(set) var lastOCRQualityReport: PDFOCRQualityReport?
+    let supportedOCRLanguages = PDFOCRService.supportedRecognitionLanguages()
     var isMakingSearchable: Bool {
         activeOCRTask != nil
     }
     var canStartSearchable: Bool {
         hasScannedPages && canRunOCROperation
     }
-    var canRepairSearchableText: Bool {
+    var canAddOCRLayerToSearchablePages: Bool {
         !hasScannedPages && ocrCandidatePageCount > 0 && canRunOCROperation
+    }
+    var ocrSelectedPageCount: Int {
+        switch ocrPageSelection {
+        case .scannedPagesOnly: scannedPageCount
+        case .allVisiblePages: ocrCandidatePageCount
+        }
+    }
+    var canStartConfiguredOCR: Bool {
+        ocrSelectedPageCount > 0 && canRunOCROperation
+    }
+    var hasCommittedEditsBlockingOCR: Bool {
+        document.workspace.pageEditStates.contains { !$0.operations.isEmpty }
+            || document.workspace.objectEditStates.contains { !$0.operations.isEmpty }
     }
 
     // MARK: - Annotation colors (curated palette)
@@ -530,6 +549,10 @@ final class WorkspaceViewModel {
     @ObservationIgnored private var activeOCRTask: Task<Void, Never>?
     @ObservationIgnored private var activeOCRCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeOCRID: UUID?
+    #if DEBUG
+    /// Deterministic seam for exercising cancellation at the result/apply boundary.
+    @ObservationIgnored var ocrResultReadyHandlerForTesting: (() -> Void)?
+    #endif
     @ObservationIgnored private var searchNotificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var activeSearchID = UUID()
     @ObservationIgnored private var pendingSearchResults: [PDFSelection] = []
@@ -1622,10 +1645,29 @@ final class WorkspaceViewModel {
         /// longer matches the restored ops.
         var objectEditStates: [PageObjectEditState]
         var objectBaseData: [UUID: Data]
+        /// The receipt is part of the same timeline as the bytes it verified. Undoing OCR
+        /// must remove the receipt; redoing OCR must restore it.
+        var ocrQualityReport: PDFOCRQualityReport?
         /// Restoring this is what makes `restore()` a true timeline jump for the selection too:
         /// whatever was selected at snapshot time comes back — nil if nothing was, or an
         /// unrelated valid selection elsewhere in the document that had nothing to do with
         /// whatever's being undone/redone. A blanket clear would drop that unrelated selection.
+        var objectSelection: ObjectSelectionState?
+    }
+
+    /// OCR changes only members for which it produced overlays. Keep both the exact canonical
+    /// bytes (so Undo can recover signatures byte-for-byte) and the prepared live bytes (so
+    /// unsaved form, annotation, and rotation state still renders after Undo).
+    private struct OCRMemberTimelineState {
+        var canonicalPDFData: Data
+        var livePDFData: Data
+        var originalPDFData: Data?
+        var objectBasePDFData: Data?
+    }
+
+    private struct OCRTimelineSnapshot {
+        var membersByID: [UUID: OCRMemberTimelineState]
+        var qualityReport: PDFOCRQualityReport?
         var objectSelection: ObjectSelectionState?
     }
 
@@ -1656,6 +1698,7 @@ final class WorkspaceViewModel {
             pageEditStates: document.workspace.pageEditStates,
             objectEditStates: document.workspace.objectEditStates,
             objectBaseData: objectBaseData,
+            ocrQualityReport: lastOCRQualityReport,
             objectSelection: objectSelection
         )
     }
@@ -1686,6 +1729,7 @@ final class WorkspaceViewModel {
         document.workspace.pageEditStates = snapshot.pageEditStates
         document.workspace.objectEditStates = snapshot.objectEditStates
         objectBaseData = snapshot.objectBaseData
+        lastOCRQualityReport = snapshot.ocrQualityReport
         loadedPDFs = snapshot.documents.compactMap { member in
             guard let data = snapshot.pdfData[member.id],
                   let pdf = PDFDocument(data: data) else { return nil }
@@ -1695,6 +1739,63 @@ final class WorkspaceViewModel {
         objectAnalysisCache.removeAll()
         objectSelection = snapshot.objectSelection
         applyPageRotations(snapshot.pageRotations)
+        rebuild()
+    }
+
+    private func captureOCRTimelineSnapshot(
+        memberIDs: Set<UUID>,
+        livePDFDataByMemberID: [UUID: Data]
+    ) -> OCRTimelineSnapshot {
+        var membersByID: [UUID: OCRMemberTimelineState] = [:]
+        for memberID in memberIDs {
+            guard let canonicalData = document.memberPDFData[memberID],
+                  let liveData = livePDFDataByMemberID[memberID] else { continue }
+            membersByID[memberID] = OCRMemberTimelineState(
+                canonicalPDFData: canonicalData,
+                livePDFData: liveData,
+                originalPDFData: originalMemberPDFData[memberID],
+                objectBasePDFData: objectBaseData[memberID]
+            )
+        }
+        return OCRTimelineSnapshot(
+            membersByID: membersByID,
+            qualityReport: lastOCRQualityReport,
+            objectSelection: objectSelection
+        )
+    }
+
+    private func restoreOCRTimeline(
+        _ snapshot: OCRTimelineSnapshot,
+        exactInverse: OCRTimelineSnapshot
+    ) {
+        registerIsolatedUndo {
+            undoManager?.registerUndo(withTarget: self) { vm in
+                guard vm.canPerformUndoMutation() else { return }
+                vm.restoreOCRTimeline(exactInverse, exactInverse: snapshot)
+            }
+        }
+        for (memberID, state) in snapshot.membersByID {
+            document.memberPDFData[memberID] = state.canonicalPDFData
+            if let originalData = state.originalPDFData {
+                originalMemberPDFData[memberID] = originalData
+            } else {
+                originalMemberPDFData.removeValue(forKey: memberID)
+            }
+            if let baseData = state.objectBasePDFData {
+                objectBaseData[memberID] = baseData
+            } else {
+                objectBaseData.removeValue(forKey: memberID)
+            }
+            if let loadedIndex = loadedPDFs.firstIndex(where: { $0.0.id == memberID }),
+               let restoredPDF = PDFDocument(data: state.livePDFData) {
+                loadedPDFs[loadedIndex].1 = restoredPDF
+            }
+            invalidatePageInspection(for: memberID)
+        }
+        lastOCRQualityReport = snapshot.qualityReport
+        objectSelection = snapshot.objectSelection
+        textAnalysisCache.removeAll()
+        objectAnalysisCache.removeAll()
         rebuild()
     }
 
@@ -2310,8 +2411,13 @@ final class WorkspaceViewModel {
             .replacingOccurrences(of: "#", with: "")
     }
 
-    private func markWorkspaceModified() {
+    private func markWorkspaceModified(preservingOCRReceipt: Bool = false) {
         document.workspace.modifiedAt = Date()
+        // A quality receipt describes the exact bytes produced by one OCR run. Keeping it
+        // after a later mutation would turn a historical check into a false current claim.
+        if !preservingOCRReceipt {
+            lastOCRQualityReport = nil
+        }
     }
 
     private func markCommentsModified() {
@@ -2513,7 +2619,11 @@ final class WorkspaceViewModel {
     }
 
     private var canRunOCROperation: Bool {
-        !isImporting && activeCompressionTask == nil && activeOCRTask == nil
+        !isImporting
+            && activeCompressionTask == nil
+            && activeOCRTask == nil
+            && activeSigningTask == nil
+            && !hasCommittedEditsBlockingOCR
     }
 
     private func refreshScannedPageSummary() {
@@ -2589,13 +2699,32 @@ final class WorkspaceViewModel {
 
     // MARK: - Searchable scans
 
-    func makeSearchable(includePagesWithText: Bool = false) {
-        let hasEligiblePages = includePagesWithText ? ocrCandidatePageCount > 0 : hasScannedPages
+    /// Safe one-click route used by the scan banner regardless of the Inspector's repair scope.
+    func makeScannedPagesSearchable() {
+        makeSearchable(includePagesWithText: false)
+    }
+
+    func makeSearchable(includePagesWithText: Bool? = nil) {
+        let pageSelection = includePagesWithText.map {
+            $0 ? PDFOCROptions.PageSelection.allVisiblePages : .scannedPagesOnly
+        } ?? ocrPageSelection
+        let eligiblePageCount = pageSelection == .allVisiblePages ? ocrCandidatePageCount : scannedPageCount
+        let hasEligiblePages = eligiblePageCount > 0
         guard canPerformMutatingAction(), hasEligiblePages else { return }
-        let snapshot = captureOrderSnapshot()
+        guard !hasCommittedEditsBlockingOCR else {
+            editingStatus = .warning(L10n.string("status.ocr.finishEditsBeforeOCR"))
+            return
+        }
+        let options = PDFOCROptions(
+            pageSelection: pageSelection,
+            recognitionLanguage: ocrRecognitionLanguage.isEmpty ? nil : ocrRecognitionLanguage,
+            continuesAfterPageFailure: ocrContinuesAfterPageFailure
+        )
         let sourceDocuments: [(MemberDocument, Data)]
+        let authoritativeSourceData: [UUID: Data]
         do {
-            let currentData = try currentPDFDataForExport()
+            let currentData = try currentPDFDataForOCR()
+            authoritativeSourceData = currentData
             sourceDocuments = document.workspace.documents.compactMap { member in
                 guard let data = currentData[member.id] else { return nil }
                 return (member, data)
@@ -2607,39 +2736,81 @@ final class WorkspaceViewModel {
             exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
             return
         }
+        let workspacePageNumberByRef = Dictionary(uniqueKeysWithValues:
+            document.workspace.pageOrder.enumerated().map { ($0.element.id, $0.offset + 1) }
+        )
+        let displayPageNumberPairs: [(UUID, [Int])] = sourceDocuments.compactMap { member, _ in
+            let pageNumbers = member.pageRefs.compactMap { workspacePageNumberByRef[$0] }
+            guard pageNumbers.count == member.pageRefs.count else { return nil }
+            return (member.id, pageNumbers)
+        }
+        let displayPageNumbersByMemberID = Dictionary(uniqueKeysWithValues: displayPageNumberPairs)
 
-        operationProgress.start(title: "Making searchable", detail: "Preparing pages")
+        operationProgress.start(
+            title: L10n.string("inspector.ocr.status.makingSearchable"),
+            detail: L10n.string("inspector.ocr.progress.preparing")
+        )
         let cancellation = OperationCancellationToken()
         let operationID = UUID()
         activeOCRCancellation = cancellation
         activeOCRID = operationID
-        activeOCRTask = Task { [weak self, sourceDocuments, snapshot, cancellation, operationID] in
+        activeOCRTask = Task {
+            [weak self, sourceDocuments, authoritativeSourceData, displayPageNumbersByMemberID,
+             cancellation, operationID, options] in
             guard let self else { return }
             do {
                 let result = try await self.searchableData(
                     from: sourceDocuments,
-                    includePagesWithText: includePagesWithText,
+                    options: options,
+                    eligiblePageCount: eligiblePageCount,
+                    displayPageNumbersByMemberID: displayPageNumbersByMemberID,
                     cancellation: cancellation,
                     operationID: operationID
                 )
                 if cancellation.isCancelled || Task.isCancelled {
                     throw PDFOCRError.cancelled
                 }
-                await MainActor.run {
+                try await MainActor.run {
                     guard self.activeOCRID == operationID else { return }
+                    #if DEBUG
+                    self.ocrResultReadyHandlerForTesting?()
+                    #endif
+                    guard !cancellation.isCancelled, !Task.isCancelled else {
+                        throw PDFOCRError.cancelled
+                    }
+                    let changedMemberIDs = Set(result.dataByMemberID.keys)
+                    let snapshot = self.captureOCRTimelineSnapshot(
+                        memberIDs: changedMemberIDs,
+                        livePDFDataByMemberID: authoritativeSourceData
+                    )
                     self.applyOCRResult(result)
+                    self.lastOCRQualityReport = result.qualityReport
                     self.operationProgress.finish()
                     self.activeOCRTask = nil
                     self.activeOCRCancellation = nil
                     self.activeOCRID = nil
-                    self.markWorkspaceModified()
+                    self.markWorkspaceModified(preservingOCRReceipt: true)
                     self.warnIfEditingWouldInvalidateSignatures()
+                    let completedSnapshot = self.captureOCRTimelineSnapshot(
+                        memberIDs: changedMemberIDs,
+                        livePDFDataByMemberID: result.dataByMemberID
+                    )
                     self.undoManager?.registerUndo(withTarget: self) { vm in
                         guard vm.canPerformUndoMutation() else { return }
-                        vm.restore(snapshot)
+                        vm.restoreOCRTimeline(snapshot, exactInverse: completedSnapshot)
                     }
                     self.undoManager?.setActionName(L10n.string("undo.makeSearchable"))
-                    self.editingStatus = .success(L10n.string("status.ocr.searchableNow"))
+                    if result.qualityReport.needsReview {
+                        self.editingStatus = .warning(
+                            L10n.format(
+                                "status.ocr.searchableNeedsReview",
+                                result.qualityReport.recognizedPageCount,
+                                result.qualityReport.skippedPageNumbers.count
+                            )
+                        )
+                    } else {
+                        self.editingStatus = .success(L10n.string("status.ocr.searchableNow"))
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -2660,24 +2831,59 @@ final class WorkspaceViewModel {
         }
     }
 
+    /// Builds OCR inputs from the authoritative qpdf-backed member bytes, then grafts only
+    /// live annotations/forms and page rotations from PDFKit. Making the PDFKit serialization
+    /// the destination would drop catalog-level structures such as attachments and `/PageLabels`
+    /// before the preservation-first OCR writer ever saw them.
+    func currentPDFDataForOCR() throws -> [UUID: Data] {
+        reconcileLiveFormValuesWithLoadedPages()
+        var result: [UUID: Data] = [:]
+        for (member, pdf) in loadedPDFs {
+            guard let structuralData = document.memberPDFData[member.id],
+                  let serializedLive = PDFSerializer.data(from: pdf),
+                  PDFDocument(data: serializedLive)?.pageCount == pdf.pageCount,
+                  let interactiveData = QPDFService.replacingInteractiveState(
+                      in: structuralData,
+                      from: serializedLive
+                  ) else {
+                throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
+            }
+            let rotations = Dictionary(uniqueKeysWithValues: (0..<pdf.pageCount).compactMap { pageIndex in
+                pdf.page(at: pageIndex).map { (pageIndex, $0.rotation) }
+            })
+            guard let prepared = QPDFService.settingPageRotations(
+                interactiveData,
+                rotationsByPageIndex: rotations
+            ) else {
+                throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
+            }
+            result[member.id] = prepared
+        }
+        return result
+    }
+
     private func searchableData(
         from sourceDocuments: [(MemberDocument, Data)],
-        includePagesWithText: Bool,
+        options: PDFOCROptions,
+        eligiblePageCount: Int,
+        displayPageNumbersByMemberID: [UUID: [Int]],
         cancellation: OperationCancellationToken,
         operationID: UUID
     ) async throws -> PDFOCRResult {
         let progressThrottle = ProgressUpdateThrottle()
         return try await PDFOCRService.makeSearchable(
             documents: sourceDocuments,
-            includePagesWithText: includePagesWithText,
+            displayPageNumbersByMemberID: displayPageNumbersByMemberID,
+            options: options,
             progress: { progress in
                 guard progressThrottle.shouldEmit(progress) else { return }
                 Task { @MainActor [weak self] in
                     guard self?.activeOCRID == operationID,
                           self?.operationProgress.isActive == true else { return }
+                    let completed = min(eligiblePageCount, Int((progress * Double(eligiblePageCount)).rounded()))
                     self?.operationProgress.update(
                         fraction: progress,
-                        detail: "\(Int((progress * 100).rounded()))%"
+                        detail: L10n.format("inspector.ocr.progress.pages", completed, eligiblePageCount)
                     )
                 }
             },
@@ -2700,27 +2906,17 @@ final class WorkspaceViewModel {
             // added text layer page by page as the user edited.
             invalidatePageInspection(for: memberID)
             originalMemberPDFData[memberID] = data
-            // Same rule for the object-editing lane: a member with a frozen object-edit
-            // base must re-freeze to the new OCR'd bytes, or the next object edit
-            // regenerates from the pre-OCR base and silently strips the text layer OCR
-            // just added for that whole member. The OCR'd bytes already reflect every
-            // committed op's effect (OCR runs on the live, already-edited document), so the
-            // ops themselves must be dropped too — replaying them again onto this new base
-            // would apply their effect a second time.
+            // OCR is fail-closed while committed edit operations exist. A dormant object base
+            // can remain after its operations were reverted, so advance that empty lane too.
             if objectBaseData[memberID] != nil {
                 objectBaseData[memberID] = data
-                if let member = document.workspace.documents.first(where: { $0.id == memberID }) {
-                    let pageRefIDs = Set(member.pageRefs)
-                    document.workspace.objectEditStates.removeAll { pageRefIDs.contains($0.pageRefID) }
-                }
             }
         }
-        loadedPDFs = document.workspace.documents.compactMap { member in
-            guard let data = result.dataByMemberID[member.id] ?? document.memberPDFData[member.id],
-                  let pdf = PDFDocument(data: data) else {
-                return nil
-            }
-            return (member, pdf)
+        for loadedIndex in loadedPDFs.indices {
+            let memberID = loadedPDFs[loadedIndex].0.id
+            guard let data = result.dataByMemberID[memberID],
+                  let pdf = PDFDocument(data: data) else { continue }
+            loadedPDFs[loadedIndex].1 = pdf
         }
         textAnalysisCache.removeAll()
         objectAnalysisCache.removeAll()
@@ -8825,6 +9021,7 @@ final class WorkspaceViewModel {
         let before = page.rotation
         let normalizedRotation = (rotation + 360) % 360
         guard before != normalizedRotation else { return }
+        let receiptBeforeRotation = lastOCRQualityReport
         page.rotation = normalizedRotation
         // The object selection overlay draws in unrotated content space and object editing is
         // punted on rotated pages — a rotation invalidates an active selection ON THIS PAGE only;
@@ -8842,6 +9039,7 @@ final class WorkspaceViewModel {
         undoManager?.registerUndo(withTarget: self) { vm in
             guard vm.canPerformUndoMutation() else { return }
             vm.setRotation(for: ref, to: before, actionName: actionName)
+            vm.lastOCRQualityReport = receiptBeforeRotation
             if let clearedSelection {
                 vm.objectSelection = clearedSelection
             }

@@ -27,3 +27,15 @@ enum PrimaryWindowSizing {
         window.setContentSize(clampedSize)
     }
 }
+
+/// Shared geometry for chrome that floats above the document workspace. Keeping the
+/// Inspector width and Gami's avoidance inset together prevents the companion from
+/// covering the Inspector's bottom-most action.
+enum WorkspaceChromeLayout {
+    static let inspectorWidth: CGFloat = 280
+    static let inspectorSeparatorWidth: CGFloat = 0.5
+
+    static func petTrailingInset(inspectorVisible: Bool, edgeInset: CGFloat) -> CGFloat {
+        edgeInset + (inspectorVisible ? inspectorWidth + inspectorSeparatorWidth : 0)
+    }
+}

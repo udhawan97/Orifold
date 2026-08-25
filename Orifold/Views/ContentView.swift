@@ -306,7 +306,7 @@ struct ContentView: View {
                         if showInspector {
                             Rectangle().fill(Color.dsSeparator).frame(width: 0.5)
                             InspectorView(viewModel: viewModel, selectedTab: $inspectorTab)
-                                .frame(width: 280)
+                                .frame(width: WorkspaceChromeLayout.inspectorWidth)
                                 .overlay {
                                     if viewModel.documentComfortSettings.focusMode {
                                         Color.black.opacity(0.35).allowsHitTesting(false)
@@ -348,7 +348,14 @@ struct ContentView: View {
         .overlay(alignment: .bottomTrailing) {
             if !viewModel.memberDocuments.isEmpty {
                 PetOverlay(isChromeBusy: viewModel.operationProgress.isActive)
-                    .padding(.gamiEdgeInset)
+                    .padding(.bottom, .gamiEdgeInset)
+                    .padding(
+                        .trailing,
+                        WorkspaceChromeLayout.petTrailingInset(
+                            inspectorVisible: showInspector,
+                            edgeInset: .gamiEdgeInset
+                        )
+                    )
             }
         }
         .overlay(alignment: .bottom) {
