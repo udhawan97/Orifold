@@ -19,9 +19,9 @@ jobs:
   build:
     name: Build and Validate
     runs-on: macos-15
-    # The full SwiftPM + Xcode matrix now exceeds 20 minutes on a cold hosted
-    # runner. Keep one bounded job, but leave enough headroom for both suites.
-    timeout-minutes: 45
+    # Cold hosted runners need headroom for SwiftPM validation plus the full
+    # Xcode build and test gate.
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
 
@@ -78,9 +78,6 @@ jobs:
       - name: PDF smoke test
         run: swift test --filter PDFSmokeTests
 
-      - name: Swift Package tests
-        run: swift test
-
       - name: Generate and verify Xcode project
         run: |
           command -v xcodegen || brew install xcodegen
@@ -101,6 +98,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      # Run the complete suite once under the macOS test host. Re-running all
+      # PDFKit/Vision tests through raw `swift test` has deadlocked on hosted
+      # Xcode 16.4 at nondeterministic test boundaries; the focused smoke test
+      # above still verifies the SwiftPM test path.
       - name: Xcode tests
         run: |
           xcodebuild \
