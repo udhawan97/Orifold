@@ -23,6 +23,8 @@ struct AppCommands: Commands {
             Divider()
             ReduceFileSizeCommandButton(locale: locale)
             MakeSearchableCommandButton(locale: locale)
+            BatchFoldCommandButton(locale: locale)
+            CompareCommandButton(locale: locale)
             Divider()
         }
 
@@ -43,6 +45,7 @@ struct AppCommands: Commands {
         CommandGroup(after: .toolbar) {
             ViewToggleCommandButtons(locale: locale)
             ReadAloudCommandButton(locale: locale)
+            ReadAloudFromHereCommandButton(locale: locale)
             TranslateCommandButton(locale: locale)
             Divider()
             PetBuddyCommandToggle(locale: locale)
@@ -173,6 +176,35 @@ private func presentOverLimitAlert(for batch: PendingFolderImportBatch, into vie
     importFirstFromPendingBatch(batch, into: viewModel)
 }
 
+/// "Compare With…" — side-by-side compare of the focused workspace against a picked PDF.
+private struct CompareCommandButton: View {
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+    var locale: Locale
+
+    var body: some View {
+        Button(L10n.string("appCommands.compare.button", locale: locale)) {
+            viewModel?.beginCompareFlow()
+        }
+        .disabled(viewModel == nil || viewModel?.pageCount == 0)
+    }
+}
+
+/// "Fold a Folder…" — batch compress/OCR/watermark over every PDF in a folder. Opens the
+/// options sheet on the focused workspace; the run itself never touches that workspace, but
+/// hanging it off the focused window reuses its progress overlay and Cancel wiring.
+private struct BatchFoldCommandButton: View {
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+    @FocusedValue(\.orifoldIsImporting) private var isImporting
+    var locale: Locale
+
+    var body: some View {
+        Button(L10n.string("appCommands.batchFold.button", locale: locale)) {
+            viewModel?.isShowingBatchFold = true
+        }
+        .disabled(viewModel == nil || isImporting == true)
+    }
+}
+
 private struct MakeSearchableCommandButton: View {
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
     var locale: Locale
@@ -281,6 +313,20 @@ private struct ReadAloudCommandButton: View {
         let active = viewModel?.isReadingAloud == true
         Button(L10n.string(active ? "readaloud.stop" : "readaloud.start", locale: locale)) {
             viewModel?.toggleReadAloud()
+        }
+        .disabled(viewModel == nil || viewModel?.pageCount == 0)
+    }
+}
+
+/// "Read Aloud from Here" — starts at the sentence containing the current selection instead
+/// of the top of the page; with no selection it reads from the current page.
+private struct ReadAloudFromHereCommandButton: View {
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
+    var locale: Locale
+
+    var body: some View {
+        Button(L10n.string("readaloud.fromHere", locale: locale)) {
+            viewModel?.startReadAloudFromHere()
         }
         .disabled(viewModel == nil || viewModel?.pageCount == 0)
     }

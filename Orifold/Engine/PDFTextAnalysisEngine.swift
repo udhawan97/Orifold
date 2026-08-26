@@ -1494,3 +1494,23 @@ private extension String {
         range(of: #"^\s*([•\-–—*]|\(?[0-9A-Za-z]+\)|[0-9A-Za-z]+[.)])\s*$"#, options: .regularExpression) != nil
     }
 }
+
+extension PDFTextAnalysisEngine {
+    /// Reading-order text of `pageIndex` in `data`, PDFium-backed — never PDFKit's
+    /// page-string extraction, which varies across SDK versions. This is the engine home of
+    /// the reading-order sort that `FindReplaceBodyTextTests.pageText(fromData:)`
+    /// established; that helper now delegates here, and the compare feature's text diff
+    /// reads both documents through it.
+    static func readingOrderText(data: Data, pageIndex: Int) -> String {
+        guard let page = PDFDocument(data: data)?.page(at: pageIndex) else { return "" }
+        let ordered = PDFTextAnalysisEngine()
+            .analyze(data: data, pageIndex: pageIndex, pageRefID: UUID(), fallbackPage: page)
+            .blocks
+            .sorted { lhs, rhs in
+                let ly = lhs.bounds.standardized.midY, ry = rhs.bounds.standardized.midY
+                if abs(ly - ry) > max(lhs.bounds.height, rhs.bounds.height) { return ly > ry }
+                return lhs.bounds.standardized.midX < rhs.bounds.standardized.midX
+            }
+        return ordered.map(\.text).joined(separator: " ")
+    }
+}

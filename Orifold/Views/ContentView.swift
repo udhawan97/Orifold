@@ -435,6 +435,16 @@ struct ContentView: View {
                 .environmentObject(languageManager)
                 .environment(\.locale, languageManager.effectiveLocale)
         }
+        .sheet(isPresented: $viewModel.isShowingBatchFold) {
+            BatchFoldSheet(viewModel: viewModel)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
+        .sheet(item: $viewModel.compareRequest) { request in
+            ComparePanelView(request: request)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
         .sheet(item: $viewModel.blankPageReview) { review in
             BlankPageReviewSheet(viewModel: viewModel, review: review)
                 .environmentObject(languageManager)
@@ -3160,6 +3170,7 @@ private struct ToolbarOverflowPresentations: ViewModifier {
                     case .exportComments: viewModel.exportCommentSummary()
                     case .archivalReadiness: isShowingArchivalReadiness = true
                     case .translate: translationRequest = viewModel.translationRequestText
+                    case .compare: viewModel.beginCompareFlow()
                     }
                 }
             }
@@ -3206,6 +3217,7 @@ enum MoreRoute: Equatable {
     case exportComments
     case archivalReadiness
     case translate
+    case compare
 }
 
 /// Resolves the AppKit window hosting this document scene and hands it back so the view
@@ -3277,6 +3289,15 @@ private struct ToolbarMoreMenu: View {
                 trailing: { MoreChevron() },
                 action: { onRoute(.archivalReadiness) }
             )
+
+            MoreMenuRow(
+                systemImage: "rectangle.on.rectangle",
+                titleKey: "compare.menu.label",
+                subtitleKey: "compare.menu.subtitle",
+                trailing: { MoreChevron() },
+                action: { onRoute(.compare) }
+            )
+            .disabled(viewModel.pageCount == 0)
 
             MoreMenuRow(
                 systemImage: viewModel.isReadingAloud ? "stop.fill" : "speaker.wave.2",

@@ -51,17 +51,9 @@ final class FindReplaceBodyTextTests: XCTestCase {
 
     /// Reading-order text of `pageIndex` in `data`, PDFium-backed (not PDFKit's
     /// `.string`/`.attributedString`) — see [[ci-xcode164-pdfkit-string-extraction-quirk]].
+    /// The sort itself now lives in `PDFTextAnalysisEngine.readingOrderText(data:pageIndex:)`.
     private static func pageText(fromData data: Data, pageIndex: Int) -> String {
-        guard let page = PDFDocument(data: data)?.page(at: pageIndex) else { return "" }
-        let ordered = PDFTextAnalysisEngine()
-            .analyze(data: data, pageIndex: pageIndex, pageRefID: UUID(), fallbackPage: page)
-            .blocks
-            .sorted { lhs, rhs in
-                let ly = lhs.bounds.standardized.midY, ry = rhs.bounds.standardized.midY
-                if abs(ly - ry) > max(lhs.bounds.height, rhs.bounds.height) { return ly > ry }
-                return lhs.bounds.standardized.midX < rhs.bounds.standardized.midX
-            }
-        return ordered.map(\.text).joined(separator: " ")
+        PDFTextAnalysisEngine.readingOrderText(data: data, pageIndex: pageIndex)
     }
 
     private func pageText(_ viewModel: WorkspaceViewModel, pageIndex: Int) -> String {
