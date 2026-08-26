@@ -321,11 +321,16 @@ enum PDFEditedPageRenderer {
         // blank (ordinary paper background); if it isn't, fall back to the original
         // committed width so the text wraps normally instead of overlapping that content.
         if !operation.didManuallyResizeWidth, width > operation.editedBounds.width, let sourcePage {
+            let uncappedStripHeight = max(operation.editedBounds.height, ceil(measured.height) + 4)
+            let stripHeight = min(
+                uncappedStripHeight,
+                heightPageLimit ?? .greatestFiniteMagnitude
+            )
             let growthStrip = CGRect(
                 x: operation.editedBounds.maxX,
-                y: operation.editedBounds.minY,
-                width: width - operation.editedBounds.maxX,
-                height: max(operation.editedBounds.height, ceil(measured.height) + 4)
+                y: operation.editedBounds.maxY - stripHeight,
+                width: width - operation.editedBounds.width,
+                height: stripHeight
             )
             if !regionIsBlankBackground(growthStrip, on: sourcePage) {
                 width = max(1, operation.editedBounds.width)

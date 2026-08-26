@@ -2436,6 +2436,99 @@ final class PDFTextEditingRedesignTests: XCTestCase {
         )
     }
 
+    /// The candidate width is relative to the text box, while the growth strip begins at an
+    /// absolute page coordinate. The entire `oldMaxX ... newMaxX` strip must be sampled when the
+    /// paragraph starts away from x=0; otherwise content in the strip's far-right tail is missed.
+    func testMeasuredBoundsChecksEntireGrowthStripAtNonzeroTextOrigin() throws {
+        let pageBounds = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let imageBounds = CGRect(x: 200, y: 650, width: 90, height: 70)
+        let data = NSMutableData()
+        var mediaBox = pageBounds
+        let context = try XCTUnwrap(CGDataConsumer(data: data).flatMap { CGContext(consumer: $0, mediaBox: &mediaBox, nil) })
+        context.beginPDFPage(nil)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+        NSColor.white.setFill()
+        pageBounds.fill()
+        NSColor.systemBlue.setFill()
+        imageBounds.fill()
+        NSGraphicsContext.restoreGraphicsState()
+        context.endPDFPage()
+        context.closePDF()
+        let page = try XCTUnwrap(PDFDocument(data: data as Data)?.page(at: 0))
+
+        let originalBounds = CGRect(x: 72, y: 670, width: 60, height: 16)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: originalBounds,
+            editedBounds: originalBounds,
+            replacementText: "Supercalifragilisticexpialidocious",
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .documentText,
+            alignment: .left
+        )
+
+        let measured = PDFEditedPageRenderer.measuredBounds(
+            for: operation,
+            pageBounds: pageBounds,
+            sourcePage: page
+        )
+
+        XCTAssertLessThanOrEqual(
+            measured.maxX,
+            imageBounds.minX + 0.01,
+            "the far-right tail of a nonzero-origin growth strip must be collision checked"
+        )
+    }
+
+    func testMeasuredBoundsChecksDownwardGrowthAreaForEmbeddedContent() throws {
+        let pageBounds = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let obstacleBounds = CGRect(x: 150, y: 580, width: 220, height: 75)
+        let data = NSMutableData()
+        var mediaBox = pageBounds
+        let context = try XCTUnwrap(CGDataConsumer(data: data).flatMap { CGContext(consumer: $0, mediaBox: &mediaBox, nil) })
+        context.beginPDFPage(nil)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+        NSColor.white.setFill()
+        pageBounds.fill()
+        NSColor.systemOrange.setFill()
+        obstacleBounds.fill()
+        NSGraphicsContext.restoreGraphicsState()
+        context.endPDFPage()
+        context.closePDF()
+        let page = try XCTUnwrap(PDFDocument(data: data as Data)?.page(at: 0))
+
+        let originalBounds = CGRect(x: 72, y: 650, width: 60, height: 16)
+        let operation = PDFTextEditOperation(
+            pageRefID: UUID(),
+            sourceBlockID: UUID(),
+            sourceBounds: originalBounds,
+            editedBounds: originalBounds,
+            columnBounds: CGRect(x: 72, y: 0, width: 300, height: 792),
+            replacementText: Array(repeating: "paragraph words", count: 24).joined(separator: " "),
+            fontName: "Helvetica",
+            fontSize: 12,
+            textColor: .documentText,
+            alignment: .left
+        )
+
+        let measured = PDFEditedPageRenderer.measuredBounds(
+            for: operation,
+            pageBounds: pageBounds,
+            sourcePage: page
+        )
+
+        XCTAssertLessThanOrEqual(
+            measured.maxX,
+            originalBounds.maxX + 0.01,
+            "auto-growth must sample the lower/right area the top-anchored paragraph will occupy"
+        )
+        XCTAssertGreaterThan(measured.height, originalBounds.height)
+    }
+
     func testMeasuredBoundsCapsAutomaticHeightToWhatFitsOnThePage() throws {
         // A pathologically long paste (tens of thousands of characters) has no other cap on
         // height the way width is capped to the page's right margin — unchecked, the box

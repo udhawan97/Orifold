@@ -1062,11 +1062,12 @@ struct PDFViewRepresentable: NSViewRepresentable {
                 guard let oldBounds else { return proposedBounds }
                 var applied = proposedBounds
                 self.perform(self.interactionSession.plan(for: .objectMutation)) {
-                    applied = self.viewModel.commitObjectBoundsChange(
+                    let result = self.viewModel.commitObjectBoundsChange(
                         from: oldBounds,
                         to: proposedBounds.standardized
                     )
-                    return true
+                    applied = result.appliedBounds
+                    return result.didApply
                 }
                 return applied
             }

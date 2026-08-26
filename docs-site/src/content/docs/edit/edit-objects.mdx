@@ -32,6 +32,10 @@ import Callout from '../../../components/Callout.astro';
 
 Your edits are written into the file's **actual content** — a moved image really moves, a deleted shape is really gone, with no ghost left behind and no duplicate. They survive **save, reopen, and export**, and open correctly in other PDF viewers.
 
+<Callout variant="note">
+	You can move, resize, and then restyle the same selected object without losing the earlier adjustments. Each committed step remains separately undoable and redoable. If a style is unsupported for that object, Orifold leaves the object unchanged and shows a warning instead of recording a partial edit.
+</Callout>
+
 ## What Orifold can and can't edit
 
 Not every mark on a page is a separate, editable object — some are fused into a scan, some are drawn as one operation. Orifold tells you what it's selected, and what it can do with it, rather than silently doing nothing.

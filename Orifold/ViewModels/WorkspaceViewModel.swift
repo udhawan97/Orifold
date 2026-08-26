@@ -4387,10 +4387,12 @@ final class WorkspaceViewModel {
         if op.type == .objectDelete {
             // Delete wins: drop all non-delete ops for this object, then record the delete.
             document.workspace.objectEditStates[stateIndex].operations.removeAll {
-                $0.sourceObjectKey == op.sourceObjectKey && $0.type != .objectDelete
+                $0.sourceObjectKey.identifiesSameReplayTarget(as: op.sourceObjectKey)
+                    && $0.type != .objectDelete
             }
         } else if document.workspace.objectEditStates[stateIndex].operations.contains(where: {
-            $0.sourceObjectKey == op.sourceObjectKey && $0.type == .objectDelete
+            $0.sourceObjectKey.identifiesSameReplayTarget(as: op.sourceObjectKey)
+                && $0.type == .objectDelete
         }) {
             // A delete for this object is already recorded — the object is gone; ignore further
             // transforms/styles for it (prevents a stranded non-delete op reaching the engine).
@@ -4398,7 +4400,8 @@ final class WorkspaceViewModel {
         }
 
         if let opIndex = document.workspace.objectEditStates[stateIndex].operations.firstIndex(where: {
-            $0.sourceObjectKey == op.sourceObjectKey && $0.type == op.type
+            $0.sourceObjectKey.identifiesSameReplayTarget(as: op.sourceObjectKey)
+                && $0.type == op.type
         }) {
             var merged = document.workspace.objectEditStates[stateIndex].operations[opIndex]
             merged.newTransform = op.newTransform
@@ -4419,6 +4422,21 @@ final class WorkspaceViewModel {
         var pageRefID: UUID
         var object: DetectedObject
         var bounds: CGRect { object.boundsPdf }
+    }
+
+    /// The canvas needs the final (possibly clamped) bounds and whether a structural mutation
+    /// committed. A rectangle alone made rejection indistinguishable from a successful clamp.
+    struct ObjectBoundsCommitResult: Equatable {
+        var appliedBounds: CGRect
+        var didApply: Bool
+
+        static func rejected(_ bounds: CGRect) -> Self {
+            Self(appliedBounds: bounds, didApply: false)
+        }
+
+        static func applied(_ bounds: CGRect) -> Self {
+            Self(appliedBounds: bounds, didApply: true)
+        }
     }
 
     /// The currently-selected content object (mutually exclusive with annotation/stamp lanes).
@@ -4556,13 +4574,19 @@ final class WorkspaceViewModel {
     }
 
     /// Commit a move/resize from the overlay's old→new page-space bounds by composing the
-    /// old-rect→new-rect affine onto the object's matrix. Returns the applied bounds.
+    /// old-rect→new-rect affine onto the object's matrix. Returns the applied bounds and whether
+    /// a mutation actually committed, so the canvas can stop follow-up work on rejection.
     @discardableResult
-    func commitObjectBoundsChange(from oldBoundsPdf: CGRect, to proposedBoundsPdf: CGRect) -> CGRect {
+    func commitObjectBoundsChange(
+        from oldBoundsPdf: CGRect,
+        to proposedBoundsPdf: CGRect
+    ) -> ObjectBoundsCommitResult {
         guard let sel = objectSelection, sel.object.editability.capabilities.canMove,
               sel.object.pageRotation == 0,   // rotated-page editing is punted in v1
               oldBoundsPdf.width > 0.5, oldBoundsPdf.height > 0.5,
-              proposedBoundsPdf.width > 1, proposedBoundsPdf.height > 1 else { return oldBoundsPdf }
+              proposedBoundsPdf.width > 1, proposedBoundsPdf.height > 1 else {
+            return .rejected(oldBoundsPdf)
+        }
         let object = sel.object
         // `oldBoundsPdf`/`newBoundsPdf` are AABBs (see boundsPdf's doc comment) — scaling from them
         // is only correct when the object's own transform has no rotation/skew, i.e. its AABB equals
@@ -4576,6 +4600,7 @@ final class WorkspaceViewModel {
         // If resize isn't permitted, keep the original size and only translate.
         let newBounds = canResize ? proposedBoundsPdf
             : CGRect(origin: proposedBoundsPdf.origin, size: oldBoundsPdf.size)
+        guard newBounds != oldBoundsPdf else { return .rejected(oldBoundsPdf) }
 
         let sx = newBounds.width / oldBoundsPdf.width
         let sy = newBounds.height / oldBoundsPdf.height
@@ -4592,13 +4617,15 @@ final class WorkspaceViewModel {
             originalZIndex: object.zOrder, newZIndex: object.zOrder, replacementStrategy: .pdfiumStructural)
 
         let actionKey = (canResize && sx != 1) ? "undo.resizeObject" : "undo.moveObject"
-        guard applyObjectEdit([op], undoActionNameKey: actionKey) else { return oldBoundsPdf }
+        guard applyObjectEdit([op], undoActionNameKey: actionKey) else {
+            return .rejected(oldBoundsPdf)
+        }
         // Keep the selection in sync so a subsequent drag composes from the new state.
         var updated = object
         updated.boundsPdf = newBounds
         updated.transform = newMatrix
         objectSelection = ObjectSelectionState(pageRefID: sel.pageRefID, object: updated)
-        return newBounds
+        return .applied(newBounds)
     }
 
     /// Structurally delete the selected object. Returns true on success.

@@ -168,6 +168,57 @@ struct PDFObjectStableKey: Codable, Equatable, Hashable {
         h.combine(pageRefID)
         h.combine(structuralDigest)
     }
+
+    /// Full identity used while replaying and coalescing operations. The public stable-key
+    /// equality remains mutation-invariant for selection continuity, while this identity keeps
+    /// visually identical twins distinct through their original disambiguators.
+    var replayIdentity: PDFObjectReplayIdentity {
+        PDFObjectReplayIdentity(
+            pageRefID: pageRefID,
+            structuralDigest: structuralDigest,
+            quantizedBoundsHint: quantizedBoundsHint,
+            zOrderHint: zOrderHint,
+            typeHint: typeHint,
+            sourceXObjectName: sourceXObjectName
+        )
+    }
+
+    func identifiesSameReplayTarget(as other: Self) -> Bool {
+        replayIdentity == other.replayIdentity
+    }
+}
+
+struct PDFObjectReplayIdentity: Hashable {
+    var pageRefID: UUID
+    var structuralDigest: UInt64
+    var quantizedBoundsHint: [Int]
+    var zOrderHint: Int
+    var typeHint: String
+    var sourceXObjectName: String?
+}
+
+/// Overflow-safe distance for untrusted persisted replay hints. These values rank candidates;
+/// they never need signed arithmetic, and malformed extremes must not trap document replay.
+enum PDFObjectReplayHintDistance {
+    static func scalar(_ lhs: Int, _ rhs: Int) -> UInt {
+        let lhsMagnitude = lhs.magnitude
+        let rhsMagnitude = rhs.magnitude
+        if (lhs < 0) == (rhs < 0) {
+            return lhsMagnitude >= rhsMagnitude
+                ? lhsMagnitude - rhsMagnitude
+                : rhsMagnitude - lhsMagnitude
+        }
+        let (sum, overflow) = lhsMagnitude.addingReportingOverflow(rhsMagnitude)
+        return overflow ? .max : sum
+    }
+
+    static func bounds(_ lhs: [Int], _ rhs: [Int]) -> UInt {
+        guard lhs.count == 4, rhs.count == 4 else { return .max }
+        return zip(lhs, rhs).reduce(into: UInt(0)) { total, pair in
+            let (sum, overflow) = total.addingReportingOverflow(scalar(pair.0, pair.1))
+            total = overflow ? .max : sum
+        }
+    }
 }
 
 // MARK: - §3.3 DetectedObject
@@ -409,6 +460,16 @@ struct ObjectStylePayload: Codable, Equatable {   // absent key = unchanged; Cod
         self.lineWidth = lineWidth
         self.dashArray = dashArray
         self.dashPhase = dashPhase
+    }
+
+    /// The PDFium structural lane currently supports only direct fill, stroke, and width
+    /// setters. Keep projection and byte replay on one fail-closed contract so a persisted
+    /// unsupported payload can never look applied in the canvas while bytes stay unchanged.
+    var isSupportedForStructuralReplay: Bool {
+        opacity == nil
+            && dashArray == nil
+            && dashPhase == nil
+            && (strokeColor != nil || fillColor != nil || lineWidth != nil)
     }
 }
 

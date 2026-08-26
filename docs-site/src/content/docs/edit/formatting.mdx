@@ -1,25 +1,26 @@
 ---
 title: Match, copy, paste & reset formatting
-description: Keep new text boxes visually consistent with the rest of the page.
+description: Retain existing text formatting or make added text match the rest of the page.
 keywords: [match formatting, copy formatting, paste formatting, reset formatting, font]
 ---
 
 import Callout from '../../../components/Callout.astro';
 
 <Callout variant="whentouse">
-	A new text box you added looks visually out of place next to the PDF's original text.
+	You want an edit to retain its source typography and margins, or a new text box to match nearby PDF text.
 </Callout>
 
 ## Steps
 
-- **Match formatting** — select a text box, then choose Match Formatting and click nearby PDF text to copy its font, size, and color.
-- **Copy formatting** — copy the style from one text box to reuse on another.
-- **Paste formatting** — apply a copied style to the selected text box.
-- **Reset formatting** — return a text box to Orifold's default style.
+- **Keep existing formatting** — edit detected text and choose **Done** without changing the toolbar. Its detected font family, size, traits, underline, color, alignment, line spacing, and paragraph or column geometry remain the starting format.
+- **Match formatting** — select an edit or text box and choose **Match** to apply the nearby format Orifold already detected. Existing text adopts that style and paragraph geometry; an inserted text box keeps the placement you chose.
+- **Copy formatting** — copy the style from one edit or text box to reuse on another.
+- **Paste formatting** — apply a copied style to the selected edit or text box without moving it.
+- **Reset formatting** — restore an edit or text box to its initial inferred format, or to Orifold's default when no nearby format was detected.
 
 ## What you should see
 
-The text box's font, size, and color update immediately to match your chosen source.
+The selected text updates immediately. Existing text keeps its original source format unless you explicitly apply a different one. When a source font is unavailable, Orifold uses a metric-compatible substitute to keep the replacement close to the original spacing and margins.
 
 ## Related
 

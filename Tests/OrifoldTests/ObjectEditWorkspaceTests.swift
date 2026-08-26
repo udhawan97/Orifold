@@ -31,8 +31,75 @@ final class ObjectEditWorkspaceTests: XCTestCase {
         return data as Data
     }
 
+    private func makeTwinShapeFixture() -> (data: Data, left: CGRect, right: CGRect) {
+        let left = CGRect(x: 100, y: 220, width: 90, height: 48)
+        let right = CGRect(x: 330, y: 220, width: 90, height: 48)
+        let data = NSMutableData()
+        var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let ctx = CGContext(consumer: CGDataConsumer(data: data as CFMutableData)!, mediaBox: &mediaBox, nil)!
+        ctx.beginPDFPage(nil)
+        ctx.setFillColor(NSColor.white.cgColor)
+        ctx.fill(mediaBox)
+        ctx.setFillColor(NSColor.systemBlue.cgColor)
+        ctx.setStrokeColor(NSColor.black.cgColor)
+        ctx.setLineWidth(2)
+        for bounds in [left, right] {
+            ctx.saveGState()
+            ctx.translateBy(x: bounds.minX, y: bounds.minY)
+            ctx.addRect(CGRect(origin: .zero, size: bounds.size))
+            ctx.drawPath(using: .fillStroke)
+            ctx.restoreGState()
+        }
+        ctx.endPDFPage()
+        ctx.closePDF()
+        return (data as Data, left, right)
+    }
+
+    private func makeOverlappingShapeFixture() -> (data: Data, rectangle: CGRect) {
+        let rectangle = CGRect(x: 90, y: 520, width: 190, height: 100)
+        let data = NSMutableData()
+        var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+        let ctx = CGContext(consumer: CGDataConsumer(data: data as CFMutableData)!, mediaBox: &mediaBox, nil)!
+        ctx.beginPDFPage(nil)
+        ctx.setFillColor(NSColor.white.cgColor)
+        ctx.fill(mediaBox)
+        ctx.setFillColor(NSColor.systemBlue.cgColor)
+        ctx.setStrokeColor(NSColor.black.cgColor)
+        ctx.setLineWidth(3)
+        ctx.addRect(rectangle)
+        ctx.drawPath(using: .fillStroke)
+        ctx.setFillColor(NSColor.systemOrange.cgColor)
+        ctx.setStrokeColor(NSColor.systemRed.cgColor)
+        ctx.setLineWidth(5)
+        ctx.addEllipse(in: CGRect(x: 330, y: 510, width: 120, height: 120))
+        ctx.drawPath(using: .fillStroke)
+        let imageContext = CGContext(
+            data: nil,
+            width: 48,
+            height: 48,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        imageContext.setFillColor(NSColor.systemRed.cgColor)
+        imageContext.fill(CGRect(x: 0, y: 0, width: 48, height: 48))
+        imageContext.setFillColor(NSColor.white.cgColor)
+        imageContext.fill(CGRect(x: 12, y: 12, width: 24, height: 24))
+        ctx.draw(imageContext.makeImage()!, in: CGRect(x: 200, y: 300, width: 120, height: 120))
+        ctx.endPDFPage()
+        ctx.closePDF()
+        return (data as Data, rectangle)
+    }
+
     private func near(_ a: CGRect, _ b: CGRect, tol: CGFloat = 4) -> Bool {
         abs(a.minX - b.minX) <= tol && abs(a.minY - b.minY) <= tol && abs(a.width - b.width) <= tol && abs(a.height - b.height) <= tol
+    }
+
+    private func near(_ a: PDFTextTransform, _ b: PDFTextTransform, tol: CGFloat = 0.002) -> Bool {
+        abs(a.a - b.a) <= tol && abs(a.b - b.b) <= tol
+            && abs(a.c - b.c) <= tol && abs(a.d - b.d) <= tol
+            && abs(a.e - b.e) <= tol && abs(a.f - b.f) <= tol
     }
 
     // `WorkspaceViewModel.undoManager` is WEAK (the window owns it in the app), so the test must
@@ -210,6 +277,27 @@ final class ObjectEditWorkspaceTests: XCTestCase {
         XCTAssertFalse(vm.hasObjectEdits, "undo should clear the object edit")
     }
 
+    func testObjectBoundsCommitReportsRejectedNoOpWithoutMutation() throws {
+        let vm = try makeViewModel()
+        let ref = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+        let shape = try XCTUnwrap(
+            vm.objectMap(for: ref).objects.first {
+                self.near($0.boundsPdf, deleteRect, tol: 6)
+                    && ($0.objectType == .rectangle || $0.objectType == .filledShape)
+            }
+        )
+        vm.selectObject(shape, on: ref)
+
+        let revisionBefore = vm.structureRevision
+        let result = vm.commitObjectBoundsChange(from: shape.boundsPdf, to: shape.boundsPdf)
+
+        XCTAssertFalse(result.didApply, "a no-op drag must not be reported as a successful mutation")
+        XCTAssertEqual(result.appliedBounds, shape.boundsPdf)
+        XCTAssertFalse(vm.hasObjectEdits)
+        XCTAssertEqual(vm.structureRevision, revisionBefore)
+        XCTAssertFalse(try XCTUnwrap(vm.undoManager).canUndo)
+    }
+
     func testRestyleSelectedObjectUpdatesBytesSelectionAndUndoState() throws {
         let vm = try makeViewModel()
         let ref = try XCTUnwrap(vm.document.workspace.pageOrder.first)
@@ -258,6 +346,217 @@ final class ObjectEditWorkspaceTests: XCTestCase {
         XCTAssertLessThan(try XCTUnwrap(restored.style.fillColor).blue, 0.1)
     }
 
+    /// A move/resize and a style tweak are separate persisted operations, but they target the
+    /// same physical PDF object. Replay must bind that logical target once and apply both
+    /// mutations to it; otherwise the first operation claims the object and the second rolls the
+    /// whole commit back as unresolved.
+    func testMoveResizeThenRestyleSurvivesUndoRedoExportAndReopen() throws {
+        let vm = try makeViewModel()
+        let ref = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+        let member = ref.memberDocId
+        let undo = try XCTUnwrap(vm.undoManager)
+        undo.groupsByEvent = false
+
+        let shape = try XCTUnwrap(
+            vm.objectMap(for: ref).objects.first {
+                self.near($0.boundsPdf, deleteRect, tol: 6)
+                    && ($0.objectType == .rectangle || $0.objectType == .filledShape)
+            }
+        )
+        vm.selectObject(shape, on: ref)
+
+        let transformedBounds = CGRect(
+            x: shape.boundsPdf.minX + 35,
+            y: shape.boundsPdf.minY - 18,
+            width: shape.boundsPdf.width + 28,
+            height: shape.boundsPdf.height + 16
+        )
+        undo.beginUndoGrouping()
+        let committed = vm.commitObjectBoundsChange(from: shape.boundsPdf, to: transformedBounds)
+        undo.endUndoGrouping()
+        XCTAssertTrue(committed.didApply)
+        XCTAssertTrue(near(committed.appliedBounds, transformedBounds, tol: 2), "move/resize did not commit")
+
+        func liveShape(in data: Data) throws -> DetectedObject {
+            try XCTUnwrap(
+                PDFObjectDetectionEngine.detect(pdfData: data, pageIndex: 0, pageRefID: ref.id)
+                    .objects.first { $0.stableKey.structuralDigest == shape.stableKey.structuralDigest }
+            )
+        }
+        let transformed = try liveShape(in: try XCTUnwrap(vm.document.memberPDFData[member]))
+        XCTAssertGreaterThan(transformed.boundsPdf.minX, shape.boundsPdf.minX + 25)
+        XCTAssertGreaterThan(transformed.boundsPdf.width, shape.boundsPdf.width + 15)
+
+        let fill = CodableColor(red: 0.18, green: 0.52, blue: 0.82)
+        let stroke = CodableColor(red: 0.84, green: 0.22, blue: 0.16)
+        undo.beginUndoGrouping()
+        XCTAssertTrue(
+            vm.restyleSelectedObject(fillColor: fill, strokeColor: stroke, lineWidth: 4.5),
+            "style must compose with the existing transform instead of rolling it back"
+        )
+        undo.endUndoGrouping()
+
+        var updated = try liveShape(in: try XCTUnwrap(vm.document.memberPDFData[member]))
+        XCTAssertTrue(near(updated.transform, transformed.transform), "restyling changed the committed object transform")
+        XCTAssertEqual(try XCTUnwrap(updated.style.fillColor).blue, fill.blue, accuracy: 0.02)
+        XCTAssertEqual(updated.style.lineWidth, 4.5, accuracy: 0.05)
+
+        undo.undo()
+        updated = try liveShape(in: try XCTUnwrap(vm.document.memberPDFData[member]))
+        XCTAssertTrue(near(updated.transform, transformed.transform), "undoing style must retain geometry")
+        XCTAssertLessThan(try XCTUnwrap(updated.style.fillColor).blue, 0.1)
+
+        undo.redo()
+        updated = try liveShape(in: try XCTUnwrap(vm.document.memberPDFData[member]))
+        XCTAssertTrue(near(updated.transform, transformed.transform), "redoing style must retain geometry")
+        XCTAssertEqual(try XCTUnwrap(updated.style.strokeColor).red, stroke.red, accuracy: 0.02)
+
+        let outURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("obj-transform-style-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: outURL) }
+        XCTAssertTrue(vm.saveFlattenedPDF(to: outURL))
+        let reopened = try Data(contentsOf: outURL)
+        let reopenedShape = try liveShape(in: reopened)
+        XCTAssertTrue(near(reopenedShape.transform, transformed.transform), "export/reopen changed the committed object transform")
+        XCTAssertEqual(try XCTUnwrap(reopenedShape.style.fillColor).blue, fill.blue, accuracy: 0.02)
+        XCTAssertEqual(reopenedShape.style.lineWidth, 4.5, accuracy: 0.05)
+    }
+
+    /// The canvas commits a move and a resize on separate mouse-up events. The second gesture
+    /// must replace the existing transform operation with the final absolute transform instead
+    /// of replaying against transient live bytes or losing the original object binding.
+    func testSeparateMoveThenResizeCommitsRemainComposable() throws {
+        let vm = try makeViewModel()
+        let ref = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+        let member = ref.memberDocId
+        let shape = try XCTUnwrap(
+            vm.objectMap(for: ref).objects.first {
+                self.near($0.boundsPdf, deleteRect, tol: 6)
+                    && ($0.objectType == .rectangle || $0.objectType == .filledShape)
+            }
+        )
+        vm.selectObject(shape, on: ref)
+
+        let movedBounds = shape.boundsPdf.offsetBy(dx: 15, dy: -10)
+        let move = vm.commitObjectBoundsChange(from: shape.boundsPdf, to: movedBounds)
+        XCTAssertTrue(move.didApply)
+
+        let resizedBounds = CGRect(
+            origin: movedBounds.origin,
+            size: CGSize(width: movedBounds.width + 25, height: movedBounds.height + 16)
+        )
+        let resize = vm.commitObjectBoundsChange(from: movedBounds, to: resizedBounds)
+        XCTAssertTrue(resize.didApply, "a resize immediately after a move must remain replayable")
+        XCTAssertTrue(near(resize.appliedBounds, resizedBounds, tol: 2))
+
+        let live = PDFObjectDetectionEngine.detect(
+            pdfData: try XCTUnwrap(vm.document.memberPDFData[member]),
+            pageIndex: 0,
+            pageRefID: ref.id
+        ).objects
+        XCTAssertTrue(live.contains { near($0.boundsPdf, resizedBounds, tol: 4) })
+    }
+
+    func testOverlappingStyledRectangleMovesThroughWorkspaceReplay() throws {
+        let fixture = makeOverlappingShapeFixture()
+        let vm = try makeViewModel(data: fixture.data)
+        let ref = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+        let rectangle = try XCTUnwrap(
+            vm.objectMap(for: ref).objects.first { near($0.boundsPdf, fixture.rectangle, tol: 6) }
+        )
+        vm.selectObject(rectangle, on: ref)
+
+        let target = rectangle.boundsPdf.offsetBy(dx: -20, dy: -20)
+        let move = vm.commitObjectBoundsChange(from: rectangle.boundsPdf, to: target)
+
+        XCTAssertTrue(move.didApply, "the real-app overlapping vector fixture must remain movable")
+        XCTAssertTrue(near(move.appliedBounds, target, tol: 2))
+    }
+
+    func testIndependentEditsToSameDigestTwinsRemainDistinct() throws {
+        let fixture = makeTwinShapeFixture()
+        let vm = try makeViewModel(data: fixture.data)
+        let ref = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+        let member = ref.memberDocId
+        let initial = vm.objectMap(for: ref).objects
+        let left = try XCTUnwrap(initial.first { near($0.boundsPdf, fixture.left, tol: 6) })
+        let right = try XCTUnwrap(initial.first { near($0.boundsPdf, fixture.right, tol: 6) })
+        XCTAssertEqual(left.stableKey.structuralDigest, right.stableKey.structuralDigest)
+        XCTAssertNotEqual(left.stableKey.quantizedBoundsHint, right.stableKey.quantizedBoundsHint)
+
+        let leftTarget = left.boundsPdf.offsetBy(dx: 24, dy: 16)
+        vm.selectObject(left, on: ref)
+        let leftResult = vm.commitObjectBoundsChange(from: left.boundsPdf, to: leftTarget)
+        XCTAssertTrue(leftResult.didApply)
+
+        let projectedRight = try XCTUnwrap(
+            vm.objectMap(for: ref).objects.first { near($0.boundsPdf, right.boundsPdf, tol: 4) }
+        )
+        let rightTarget = projectedRight.boundsPdf.offsetBy(dx: -18, dy: 28)
+        vm.selectObject(projectedRight, on: ref)
+        let rightResult = vm.commitObjectBoundsChange(from: projectedRight.boundsPdf, to: rightTarget)
+        XCTAssertTrue(rightResult.didApply)
+
+        let live = PDFObjectDetectionEngine.detect(
+            pdfData: try XCTUnwrap(vm.document.memberPDFData[member]),
+            pageIndex: 0,
+            pageRefID: ref.id
+        ).objects
+        XCTAssertTrue(live.contains { near($0.boundsPdf, leftTarget, tol: 4) }, "the first twin lost its independent transform")
+        XCTAssertTrue(live.contains { near($0.boundsPdf, rightTarget, tol: 4) }, "the second twin was coalesced with the first")
+    }
+
+    func testMoveNearTwinThenRestyleKeepsProjectionAndWrittenBytesOnSameIdentity() throws {
+        let fixture = makeTwinShapeFixture()
+        let vm = try makeViewModel(data: fixture.data)
+        let ref = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+        let member = ref.memberDocId
+        let initial = vm.objectMap(for: ref).objects
+        let left = try XCTUnwrap(initial.first { near($0.boundsPdf, fixture.left, tol: 6) })
+        let right = try XCTUnwrap(initial.first { near($0.boundsPdf, fixture.right, tol: 6) })
+        XCTAssertEqual(left.stableKey.structuralDigest, right.stableKey.structuralDigest)
+
+        let proposedNearRight = right.boundsPdf.offsetBy(dx: 8, dy: 6)
+        vm.selectObject(left, on: ref)
+        let move = vm.commitObjectBoundsChange(from: left.boundsPdf, to: proposedNearRight)
+        XCTAssertTrue(move.didApply)
+        let movedNearRight = move.appliedBounds
+
+        let fill = CodableColor(red: 0.12, green: 0.78, blue: 0.24)
+        let stroke = CodableColor(red: 0.72, green: 0.16, blue: 0.62)
+        XCTAssertTrue(vm.restyleSelectedObject(fillColor: fill, strokeColor: stroke, lineWidth: 6.25))
+
+        let projected = vm.objectMap(for: ref).objects
+        let written = PDFObjectDetectionEngine.detect(
+            pdfData: try XCTUnwrap(vm.document.memberPDFData[member]),
+            pageIndex: 0,
+            pageRefID: ref.id
+        ).objects
+
+        XCTAssertTrue(projected.contains { near($0.boundsPdf, movedNearRight, tol: 3) })
+        XCTAssertTrue(projected.contains { near($0.boundsPdf, right.boundsPdf, tol: 3) },
+                      "projection moved the neighboring twin instead of the persisted identity")
+        XCTAssertFalse(projected.contains { near($0.boundsPdf, left.boundsPdf, tol: 3) },
+                       "projection left the intended twin at its canonical bounds")
+        XCTAssertTrue(written.contains { near($0.boundsPdf, right.boundsPdf, tol: 3) })
+
+        let projectedStyled = try XCTUnwrap(projected.first {
+            abs(($0.style.fillColor?.green ?? -1) - fill.green) < 0.02
+        })
+        let writtenStyled = try XCTUnwrap(
+            written.first { abs(($0.style.fillColor?.green ?? -1) - fill.green) < 0.02 },
+            "written styled target missing; objects=\(written.map { ($0.boundsPdf, $0.style) })"
+        )
+        XCTAssertTrue(near(projectedStyled.boundsPdf, movedNearRight, tol: 3))
+        XCTAssertTrue(
+            near(projectedStyled.transform, writtenStyled.transform),
+            "projection and byte replay styled different same-digest twins"
+        )
+        XCTAssertEqual(try XCTUnwrap(projectedStyled.style.fillColor).green, fill.green, accuracy: 0.02)
+        XCTAssertEqual(try XCTUnwrap(writtenStyled.style.fillColor).green, fill.green, accuracy: 0.02)
+        XCTAssertEqual(projectedStyled.style.lineWidth, writtenStyled.style.lineWidth, accuracy: 0.05)
+    }
+
     // Phase 3: committed object edits survive the real export → fresh-reopen path, from bytes.
     func testObjectEditsSurviveExportAndReopen() throws {
         let vm = try makeViewModel()
@@ -304,7 +603,8 @@ final class ObjectEditWorkspaceTests: XCTestCase {
         let old = hit.boundsPdf
         let new = old.offsetBy(dx: 50, dy: -20)
         let applied = vm.commitObjectBoundsChange(from: old, to: new)
-        XCTAssertTrue(near(applied, new, tol: 2), "commit returned \(applied)")
+        XCTAssertTrue(applied.didApply)
+        XCTAssertTrue(near(applied.appliedBounds, new, tol: 2), "commit returned \(applied.appliedBounds)")
         XCTAssertTrue(near(try XCTUnwrap(imageBounds(in: vm.document.memberPDFData[member])), imagePDF.offsetBy(dx: 50, dy: -20), tol: 3),
                       "image not moved in member bytes")
         XCTAssertNotNil(vm.objectSelection, "selection lost after move")
@@ -583,12 +883,14 @@ final class ObjectEditWorkspaceTests: XCTestCase {
 
         let moved = old.offsetBy(dx: 20, dy: 10)
         let appliedMove = vm.commitObjectBoundsChange(from: old, to: moved)
-        XCTAssertTrue(near(appliedMove, moved, tol: 3), "a rotated object should still be movable")
+        XCTAssertTrue(appliedMove.didApply)
+        XCTAssertTrue(near(appliedMove.appliedBounds, moved, tol: 3), "a rotated object should still be movable")
 
         let biggerFromMoved = moved.insetBy(dx: -30, dy: -30)
         let appliedResize = vm.commitObjectBoundsChange(from: moved, to: biggerFromMoved)
-        XCTAssertEqual(appliedResize.width, moved.width, accuracy: 2, "rotated object must not resize (would shear)")
-        XCTAssertEqual(appliedResize.height, moved.height, accuracy: 2, "rotated object must not resize (would shear)")
+        XCTAssertTrue(appliedResize.didApply, "the clamped gesture still carries a valid translation")
+        XCTAssertEqual(appliedResize.appliedBounds.width, moved.width, accuracy: 2, "rotated object must not resize (would shear)")
+        XCTAssertEqual(appliedResize.appliedBounds.height, moved.height, accuracy: 2, "rotated object must not resize (would shear)")
     }
 
     // Regression: rotating a DIFFERENT page must not disturb an active object selection, and
@@ -631,7 +933,8 @@ final class ObjectEditWorkspaceTests: XCTestCase {
         let revisionBeforeAttempt = vm.structureRevision
         let applied = vm.commitObjectBoundsChange(from: originalBounds, to: attemptedBounds)
 
-        XCTAssertEqual(applied, originalBounds, "rotated-page editing must stay refused after reselect")
+        XCTAssertFalse(applied.didApply)
+        XCTAssertEqual(applied.appliedBounds, originalBounds, "rotated-page editing must stay refused after reselect")
         XCTAssertFalse(vm.hasObjectEdits)
         XCTAssertEqual(vm.structureRevision, revisionBeforeAttempt)
     }

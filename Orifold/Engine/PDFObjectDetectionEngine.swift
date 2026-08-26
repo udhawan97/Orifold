@@ -42,33 +42,53 @@ struct PDFObjectDetectionEngine {
         var objects = map.objects
         var deletedIndexes = Set<Int>()
         var projectedRawObjectCount = map.rawObjectCount
+        var resolvedIndexByTarget: [PDFObjectReplayIdentity: Int] = [:]
 
         for operation in operations.sorted(by: { projectionRank($0.type) < projectionRank($1.type) }) {
-            let candidates = objects.indices.filter { index in
-                !deletedIndexes.contains(index) &&
-                    objects[index].stableKey.structuralDigest == operation.sourceObjectKey.structuralDigest &&
-                    objects[index].objectType == operation.objectType
-            }
-            guard let target = candidates.min(by: { lhs, rhs in
-                // Resolve against the immutable canonical snapshot, not already-projected
-                // bounds. A transform followed by a style op for one of two identical twins
-                // must not switch targets merely because the first projection moved it.
-                distanceSquared(map.objects[lhs].boundsPdf, operation.originalBoundsPdf) <
-                    distanceSquared(map.objects[rhs].boundsPdf, operation.originalBoundsPdf)
-            }) else { continue }
+            let identity = operation.sourceObjectKey.replayIdentity
+            let target = resolvedIndexByTarget[identity] ?? objects.indices
+                .filter { index in
+                    !deletedIndexes.contains(index)
+                        && objects[index].stableKey.structuralDigest == identity.structuralDigest
+                        && objects[index].objectType == operation.objectType
+                        && (identity.typeHint.isEmpty || objects[index].objectType.rawValue == identity.typeHint)
+                        && (identity.sourceXObjectName == nil
+                            || objects[index].stableKey.sourceXObjectName == identity.sourceXObjectName)
+                }
+                .min { lhs, rhs in
+                    // Resolve against the immutable canonical snapshot, not already-projected
+                    // geometry. The persisted identity hints rank exactly as they do in byte
+                    // replay; z-order breaks equal bounds distances.
+                    let lhsDistance = PDFObjectReplayHintDistance.bounds(
+                        map.objects[lhs].stableKey.quantizedBoundsHint,
+                        identity.quantizedBoundsHint
+                    )
+                    let rhsDistance = PDFObjectReplayHintDistance.bounds(
+                        map.objects[rhs].stableKey.quantizedBoundsHint,
+                        identity.quantizedBoundsHint
+                    )
+                    if lhsDistance != rhsDistance { return lhsDistance < rhsDistance }
+                    return PDFObjectReplayHintDistance.scalar(
+                        map.objects[lhs].zOrder,
+                        identity.zOrderHint
+                    ) < PDFObjectReplayHintDistance.scalar(
+                        map.objects[rhs].zOrder,
+                        identity.zOrderHint
+                    )
+                }
+            guard let target else { continue }
+            resolvedIndexByTarget[identity] = target
 
             switch operation.type {
             case .objectTransform:
                 objects[target].boundsPdf = operation.newBoundsPdf
                 objects[target].transform = operation.newTransform
             case .objectStyleChange:
-                if let payload = operation.newStylePayload {
+                if let payload = operation.newStylePayload,
+                   payload.isSupportedForStructuralReplay {
                     if let fill = payload.fillColor { objects[target].style.fillColor = fill }
                     if let stroke = payload.strokeColor { objects[target].style.strokeColor = stroke }
-                    if let width = payload.lineWidth { objects[target].style.lineWidth = width }
-                    if let opacity = payload.opacity { objects[target].style.opacity = opacity }
-                    if let dash = payload.dashArray { objects[target].style.dashPattern = dash }
-                    if let phase = payload.dashPhase { objects[target].style.dashPhase = phase }
+                    if let width = payload.lineWidth { objects[target].style.lineWidth = max(0, width) }
                 }
             case .objectReorder:
                 let oldIndex = objects[target].zOrder
@@ -133,12 +153,6 @@ struct PDFObjectDetectionEngine {
             rotated.objects[index].pageRotation = rotation
         }
         return rotated
-    }
-
-    private static func distanceSquared(_ lhs: CGRect, _ rhs: CGRect) -> CGFloat {
-        let dx = lhs.midX - rhs.midX
-        let dy = lhs.midY - rhs.midY
-        return dx * dx + dy * dy
     }
 
     private static func projectionRank(_ type: ObjectEditType) -> Int {

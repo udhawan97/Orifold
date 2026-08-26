@@ -1,6 +1,6 @@
 ---
 title: Edit existing PDF text
-description: Click detected text in a PDF and edit it in place, without exporting to another format.
+description: Edit detected text in place while retaining its typography and paragraph geometry by default.
 keywords: [edit text, change text, fix typo, modify pdf text, edit pdf, how do I edit text, how do i edit pdf text]
 ---
 
@@ -22,8 +22,8 @@ import Card from '../../../components/Card.astro';
 ## Steps
 
 1. Click on a line of text in the canvas. If Orifold detects it as editable text, it becomes an inline text field.
-2. Type your changes.
-3. Click elsewhere to commit the edit.
+2. Type your changes. The editor starts with the detected text's formatting and paragraph footprint.
+3. Use the formatting toolbar only for attributes you want to change, then choose **Done** or click elsewhere to commit.
 
 <Figure src="/Orifold/assets/screenshots/edit-text-workflow.png" alt="A sentence of detected PDF text selected for editing, with a floating formatting toolbar offering font, size, bold, italic, underline, alignment, color, Match, Copy, Paste, Reset, and Done." caption="Editing detected text in place — select, format, and click Done." />
 
@@ -45,9 +45,15 @@ import Card from '../../../components/Card.astro';
 
 ## What you should see
 
-The edited text renders in place on the page, in a font as close to the original as Orifold's engine can match.
+The edited text renders in place on the page. Unless you change an attribute, Orifold retains the detected font family, size, bold and italic traits, underline, color, alignment, measured line spacing, and paragraph or column bounds.
+
+Longer replacement text wraps from the source paragraph's existing margins. Orifold grows the edit only when needed and refuses unsafe growth over nearby graphics instead of silently covering them.
 
 Orifold uses metric-compatible bundled substitutes for common unavailable document fonts so replacement text stays closer to the original geometry. Continuous spell-check is on by default while you type; change it in **Orifold → Settings**.
+
+<Callout variant="note">
+	This flow also works on text pages created when you import supported source documents such as Markdown, HTML, RTF, and plain text. When a same-format source export can map the edit unambiguously, Orifold patches the source while retaining its surrounding structure and formatting; otherwise it fails safely instead of silently flattening or changing the wrong occurrence.
+</Callout>
 
 <Details summary="How editing keeps the original text layer intact">
 	Orifold measures where each glyph sits from PDFium's real transforms and imports through a text-layer-preserving normalizer, so an edit lands exactly on the text it replaces rather than on top of an invisible copy. The [Developer FAQ](/Orifold/developers/faq/) has the full "edit lands on top" history.

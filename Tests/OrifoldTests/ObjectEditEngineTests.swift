@@ -156,6 +156,30 @@ final class ObjectEditEngineTests: XCTestCase {
         XCTAssertEqual(restyled.style.lineWidth, 4.5, accuracy: 0.05)
     }
 
+    func testUnsupportedStyleFieldsFailClosedInsteadOfClaimingPartialSuccess() throws {
+        let pageRefID = UUID()
+        let original = makeFixture()
+        let before = PDFObjectDetectionEngine.detect(
+            pdfData: original,
+            pageIndex: 0,
+            pageRefID: pageRefID
+        )
+        let object = try XCTUnwrap(before.objects.first { near($0.boundsPdf, blueRect, tol: 6) })
+        var operation = styleOp(
+            object,
+            fill: CodableColor(red: 0.7, green: 0.2, blue: 0.1),
+            stroke: CodableColor(red: 0.1, green: 0.6, blue: 0.2),
+            lineWidth: 3
+        )
+        operation.newStylePayload?.opacity = 0.4
+
+        let result = try XCTUnwrap(
+            PDFObjectEditEngine.apply(operationsByPage: [0: [operation]], toMember: original)
+        )
+        XCTAssertTrue(result.appliedOpIDs.isEmpty)
+        XCTAssertEqual(result.unresolvedOpIDs, [operation.id])
+    }
+
     func testMoveAndDeleteRoundTripThroughRealEngine() throws {
         let pageRefID = UUID()
         let original = makeFixture()
@@ -228,6 +252,31 @@ final class ObjectEditEngineTests: XCTestCase {
         XCTAssertNotNil(result)
         XCTAssertTrue(result?.appliedOpIDs.isEmpty ?? false)
         XCTAssertEqual(result?.unresolvedOpIDs, [bogus.id])
+    }
+
+    func testPersistedExtremeReplayHintsDoNotTrapEngineResolution() throws {
+        let pageRefID = UUID()
+        let original = makeFixture()
+        let map = PDFObjectDetectionEngine.detect(
+            pdfData: original,
+            pageIndex: 0,
+            pageRefID: pageRefID
+        )
+        let object = try XCTUnwrap(map.objects.first { near($0.boundsPdf, blueRect, tol: 6) })
+        var operation = transformOp(object, dx: 8, dy: -6)
+        operation.sourceObjectKey.quantizedBoundsHint = [Int.min, Int.max, Int.min, Int.max]
+        operation.sourceObjectKey.zOrderHint = Int.min
+
+        let persisted = try JSONDecoder().decode(
+            ObjectEditOperation.self,
+            from: JSONEncoder().encode(operation)
+        )
+        let result = try XCTUnwrap(
+            PDFObjectEditEngine.apply(operationsByPage: [0: [persisted]], toMember: original)
+        )
+
+        XCTAssertEqual(result.appliedOpIDs, [persisted.id])
+        XCTAssertTrue(result.unresolvedOpIDs.isEmpty)
     }
 
     // Empty op map is a no-op returning the member unchanged; a malformed member can't load.

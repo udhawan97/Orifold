@@ -83,6 +83,8 @@ enum PDFObjectEditEngine {
         let digest: UInt64
         let boundsHint: [Int]
         let objectType: PDFObjectType
+        let zOrderHint: Int
+        let sourceXObjectName: String?
     }
 
     private static func applyOps(_ ops: [ObjectEditOperation], to page: OpaquePointer?) -> (Set<UUID>, Set<UUID>) {
@@ -95,12 +97,20 @@ enum PDFObjectEditEngine {
         for i in 0..<count {
             guard let obj = poe_GetObject(page, i),
                   let ins = PDFObjectDetectionEngine.inspect(obj: obj, pageArea: pageArea) else { continue }
-            live.append(LiveObject(handle: obj, digest: ins.structuralDigest,
-                                   boundsHint: ins.boundsHint, objectType: ins.objectType))
+            live.append(LiveObject(
+                handle: obj,
+                digest: ins.structuralDigest,
+                boundsHint: ins.boundsHint,
+                objectType: ins.objectType,
+                zOrderHint: Int(i),
+                sourceXObjectName: ins.formName
+            ))
         }
-        // Objects already claimed by an op this pass — so two ops with the same digest (visually
-        // identical twins) don't both bind to the same physical object.
+        // Objects already claimed by a logical target this pass — so two visually identical
+        // twins don't both bind to the same physical object. Operations for the same persisted
+        // target reuse its binding, allowing compatible style/transform/reorder/delete sequences.
         var claimed = Set<Int>()   // indices into `live`
+        var resolvedIndexByTarget: [PDFObjectReplayIdentity: Int] = [:]
         var applied: Set<UUID> = []
         var unresolved: Set<UUID> = []
 
@@ -109,23 +119,26 @@ enum PDFObjectEditEngine {
         let ordered = ops.sorted { orderRank($0.type) < orderRank($1.type) }
 
         for op in ordered {
-            // A structural op (delete/reorder) may target the SAME object a prior transform/style
-            // already claimed — in-place mutation doesn't consume the object, so allow it to match
-            // a claimed index. Otherwise a transform+delete pair on one object would drop the delete.
-            let allowClaimed = op.type == .objectDelete || op.type == .objectReorder
-            guard let idx = resolve(op: op, in: live, claimed: claimed, allowClaimed: allowClaimed) else {
+            let target = op.sourceObjectKey.replayIdentity
+            let resolvedIndex = resolvedIndexByTarget[target]
+                ?? resolve(op: op, in: live, claimed: claimed)
+            guard let idx = resolvedIndex else {
                 unresolved.insert(op.id)
                 continue
             }
             claimed.insert(idx)
+            resolvedIndexByTarget[target] = idx
             let handle = live[idx].handle
             switch op.type {
             case .objectTransform:
                 var m = POEFSMatrix(op.newTransform)
                 if poe_SetMatrix(handle, &m) != 0 { applied.insert(op.id) } else { unresolved.insert(op.id) }
             case .objectStyleChange:
-                applyStyle(op.newStylePayload, to: handle)
-                applied.insert(op.id)
+                if applyStyle(op.newStylePayload, to: handle) {
+                    applied.insert(op.id)
+                } else {
+                    unresolved.insert(op.id)
+                }
             case .objectReorder:
                 // Remove then re-insert at the target index (clamped) — realizes bring/send.
                 if poe_RemoveObject(page, handle) != 0 {
@@ -163,40 +176,66 @@ enum PDFObjectEditEngine {
         }
     }
 
-    /// Resolve an op to a live object index: exact structuralDigest match, tie-broken by nearest
-    /// quantized-bounds hint. `allowClaimed` lets a structural op (delete/reorder) target an object
-    /// a prior transform/style already claimed. (AddMark fast-path is added in a later phase.)
-    private static func resolve(op: ObjectEditOperation, in live: [LiveObject], claimed: Set<Int>,
-                                allowClaimed: Bool = false) -> Int? {
-        let wantDigest = op.sourceObjectKey.structuralDigest
-        let wantBounds = op.sourceObjectKey.quantizedBoundsHint
+    /// Resolve a previously unseen logical target to a live object index: exact structuralDigest
+    /// match, tie-broken by nearest quantized-bounds hint. Once resolved, every operation carrying
+    /// the same full replay identity reuses that index. (AddMark fast-path is added later.)
+    private static func resolve(op: ObjectEditOperation, in live: [LiveObject], claimed: Set<Int>) -> Int? {
+        let identity = op.sourceObjectKey.replayIdentity
         var best: Int?
-        var bestDist = Int.max
-        for (i, o) in live.enumerated() where (allowClaimed || !claimed.contains(i)) && o.digest == wantDigest {
-            let dist = boundsDistance(o.boundsHint, wantBounds)
-            if dist < bestDist { bestDist = dist; best = i }
+        var bestBoundsDistance = UInt.max
+        var bestZDistance = UInt.max
+        for (i, object) in live.enumerated()
+        where !claimed.contains(i)
+            && object.digest == identity.structuralDigest
+            && (identity.typeHint.isEmpty || object.objectType.rawValue == identity.typeHint)
+            && (identity.sourceXObjectName == nil || object.sourceXObjectName == identity.sourceXObjectName) {
+            let boundsDistance = PDFObjectReplayHintDistance.bounds(
+                object.boundsHint,
+                identity.quantizedBoundsHint
+            )
+            let zDistance = PDFObjectReplayHintDistance.scalar(
+                object.zOrderHint,
+                identity.zOrderHint
+            )
+            if boundsDistance < bestBoundsDistance
+                || (boundsDistance == bestBoundsDistance && zDistance < bestZDistance) {
+                bestBoundsDistance = boundsDistance
+                bestZDistance = zDistance
+                best = i
+            }
         }
         return best
     }
 
-    private static func boundsDistance(_ a: [Int], _ b: [Int]) -> Int {
-        guard a.count == 4, b.count == 4 else { return Int.max }
-        return abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2]) + abs(a[3] - b[3])
-    }
-
-    private static func applyStyle(_ payload: ObjectStylePayload?, to handle: OpaquePointer?) {
-        guard let payload else { return }
+    private static func applyStyle(_ payload: ObjectStylePayload?, to handle: OpaquePointer?) -> Bool {
+        guard let payload, payload.isSupportedForStructuralReplay else { return false }
+        var attemptedSetter = false
+        var allSucceeded = true
         if let fill = payload.fillColor {
-            _ = poe_SetFillColor(handle, UInt32(clampByte(fill.red)), UInt32(clampByte(fill.green)),
-                                 UInt32(clampByte(fill.blue)), UInt32(clampByte(fill.alpha)))
+            attemptedSetter = true
+            allSucceeded = poe_SetFillColor(
+                handle,
+                UInt32(clampByte(fill.red)),
+                UInt32(clampByte(fill.green)),
+                UInt32(clampByte(fill.blue)),
+                UInt32(clampByte(fill.alpha))
+            ) != 0 && allSucceeded
         }
         if let stroke = payload.strokeColor {
-            _ = poe_SetStrokeColor(handle, UInt32(clampByte(stroke.red)), UInt32(clampByte(stroke.green)),
-                                   UInt32(clampByte(stroke.blue)), UInt32(clampByte(stroke.alpha)))
+            attemptedSetter = true
+            allSucceeded = poe_SetStrokeColor(
+                handle,
+                UInt32(clampByte(stroke.red)),
+                UInt32(clampByte(stroke.green)),
+                UInt32(clampByte(stroke.blue)),
+                UInt32(clampByte(stroke.alpha))
+            ) != 0 && allSucceeded
         }
         if let width = payload.lineWidth {
-            _ = poe_SetStrokeWidth(handle, Float(max(0, width)))
+            attemptedSetter = true
+            allSucceeded = poe_SetStrokeWidth(handle, Float(max(0, width))) != 0 && allSucceeded
         }
+        return attemptedSetter && allSucceeded
     }
 
     private static func clampByte(_ v: CGFloat) -> Int {

@@ -131,6 +131,99 @@ final class ObjectDetectionTests: XCTestCase {
         XCTAssertEqual(moved.boundsPdf.minX, line.boundsPdf.minX + 12, accuracy: 0.01)
     }
 
+    func testPersistedExtremeReplayHintsDoNotTrapProjectionResolution() throws {
+        let pageRefID = UUID()
+        let detected = PDFObjectDetectionEngine.detect(
+            pdfData: makeFixture(),
+            pageIndex: 0,
+            pageRefID: pageRefID
+        )
+        let line = try XCTUnwrap(detected.objects.first { $0.objectType == .line })
+        var twin = line
+        twin.id = UUID()
+        twin.zOrder = line.zOrder + 1
+        var operation = ObjectEditOperation(
+            type: .objectTransform,
+            documentID: UUID(),
+            pageRefID: pageRefID,
+            sourceObjectKey: line.stableKey,
+            objectType: line.objectType,
+            editability: line.editability,
+            originalBoundsPdf: line.boundsPdf,
+            newBoundsPdf: line.boundsPdf.offsetBy(dx: 9, dy: 0),
+            originalTransform: line.transform,
+            newTransform: line.transform,
+            pageRotation: Int(line.pageRotation),
+            originalZIndex: line.zOrder,
+            newZIndex: line.zOrder,
+            replacementStrategy: .pdfiumStructural
+        )
+        operation.sourceObjectKey.quantizedBoundsHint = [Int.min, Int.max, Int.min, Int.max]
+        operation.sourceObjectKey.zOrderHint = Int.min
+        let persisted = try JSONDecoder().decode(
+            ObjectEditOperation.self,
+            from: JSONEncoder().encode(operation)
+        )
+        let map = PageObjectMap(
+            pageRefID: pageRefID,
+            objects: [line, twin],
+            rawObjectCount: 2
+        )
+
+        let projected = PDFObjectDetectionEngine.projecting(map, operations: [persisted])
+
+        XCTAssertEqual(projected.objects.filter { $0.boundsPdf == operation.newBoundsPdf }.count, 1)
+        XCTAssertEqual(projected.objects.filter { $0.boundsPdf == line.boundsPdf }.count, 1)
+    }
+
+    func testPersistedUnsupportedStyleDoesNotProjectChangesTheEngineWillReject() throws {
+        let pageRefID = UUID()
+        let map = PDFObjectDetectionEngine.detect(
+            pdfData: makeFixture(),
+            pageIndex: 0,
+            pageRefID: pageRefID
+        )
+        let rectangle = try XCTUnwrap(map.objects.first { $0.objectType == .rectangle })
+        let unsupported = ObjectEditOperation(
+            type: .objectStyleChange,
+            documentID: UUID(),
+            pageRefID: pageRefID,
+            sourceObjectKey: rectangle.stableKey,
+            objectType: rectangle.objectType,
+            editability: rectangle.editability,
+            originalBoundsPdf: rectangle.boundsPdf,
+            newBoundsPdf: rectangle.boundsPdf,
+            originalTransform: rectangle.transform,
+            newTransform: rectangle.transform,
+            pageRotation: Int(rectangle.pageRotation),
+            originalStylePayload: ObjectStylePayload(
+                strokeColor: rectangle.style.strokeColor,
+                fillColor: rectangle.style.fillColor,
+                opacity: rectangle.style.opacity,
+                lineWidth: rectangle.style.lineWidth
+            ),
+            newStylePayload: ObjectStylePayload(
+                fillColor: CodableColor(red: 0.9, green: 0.1, blue: 0.2),
+                opacity: 0.25
+            ),
+            originalZIndex: rectangle.zOrder,
+            newZIndex: rectangle.zOrder,
+            replacementStrategy: .pdfiumStructural
+        )
+        let persisted = try JSONDecoder().decode(
+            ObjectEditOperation.self,
+            from: JSONEncoder().encode(unsupported)
+        )
+
+        let projected = PDFObjectDetectionEngine.projecting(map, operations: [persisted])
+        let unchanged = try XCTUnwrap(
+            projected.objects.first { $0.stableKey.identifiesSameReplayTarget(as: rectangle.stableKey) }
+        )
+
+        XCTAssertEqual(unchanged.style.fillColor, rectangle.style.fillColor)
+        XCTAssertEqual(unchanged.style.opacity, rectangle.style.opacity)
+    }
+
     // Test #30 — permission-restricted document: every object locked, no crash.
     func testPermissionRestrictedLocksEverything() {
         let map = PDFObjectDetectionEngine.detect(pdfData: makeFixture(), pageIndex: 0, pageRefID: UUID(), allowsEditing: false)
