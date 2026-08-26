@@ -98,7 +98,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      # Run the complete suite once under the macOS test host. Re-running all
+      # Run the remaining suite once under the macOS test host. Re-running all
       # PDFKit/Vision tests through raw `swift test` has deadlocked on hosted
       # Xcode 16.4 at nondeterministic test boundaries; the focused smoke test
       # above still verifies the SwiftPM test path.

@@ -237,6 +237,10 @@ jobs:
           name: Orifold
           path: |
             ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg
+            ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg.sha256
+            ${{ runner.temp }}/dist/Orifold.dmg
+            ${{ runner.temp }}/dist/Orifold.dmg.sha256
+            ${{ runner.temp }}/dist/manifest.json
             ${{ runner.temp }}/dist/Orifold.zip
           if-no-files-found: error
 
@@ -291,6 +295,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run docs.yml --ref main
 
+      - name: Move rolling tag to built commit
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.release_tag == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          get_ref_api="repos/${GITHUB_REPOSITORY}/git/ref/tags/Orifold-latest"
+          update_ref_api="repos/${GITHUB_REPOSITORY}/git/refs/tags/Orifold-latest"
+          if gh api "$get_ref_api" >/dev/null 2>&1; then
+            gh api --method PATCH "$update_ref_api" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/Orifold-latest" \
+              -f sha="$GITHUB_SHA" >/dev/null
+          fi
+          resolved="$(gh api "$get_ref_api" --jq '.object.sha')"
+          if [[ "$resolved" != "$GITHUB_SHA" ]]; then
+            echo "::error::Orifold-latest resolved to $resolved instead of $GITHUB_SHA"
+            exit 1
+          fi
+
       - name: Publish rolling prebuilt release
         if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.release_tag == '' }}
         uses: softprops/action-gh-release@v3
@@ -306,7 +331,10 @@ jobs:
             DMG pipeline exercised so release day stays boring.
           files: |
             ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg
+            ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg.sha256
             ${{ runner.temp }}/dist/Orifold.dmg
+            ${{ runner.temp }}/dist/Orifold.dmg.sha256
+            ${{ runner.temp }}/dist/manifest.json
             ${{ runner.temp }}/dist/Orifold.zip
           overwrite_files: true
           make_latest: false
