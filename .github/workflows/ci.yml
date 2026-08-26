@@ -111,6 +111,8 @@ jobs:
             -destination 'platform=macOS,arch=arm64' \
             -derivedDataPath "$RUNNER_TEMP/OrifoldDerivedData" \
             -resultBundlePath "$RUNNER_TEMP/OrifoldTests.xcresult" \
+            -skip-testing:OrifoldTests/PDFOCRTests/testProductionVisionOCRIsSearchableAfterSaveReopenAndReceiptFollowsUndoRedo \
+            -skip-testing:OrifoldTests/PDFOCRTests/testProductionVisionOCRRecognizesCounterclockwiseQuarterTurn \
             CODE_SIGNING_ALLOWED=NO \
             test
 

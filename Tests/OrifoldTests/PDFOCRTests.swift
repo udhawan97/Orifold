@@ -6,6 +6,18 @@ import XCTest
 
 @MainActor
 final class PDFOCRTests: XCTestCase {
+    private func installDeterministicOCR(on viewModel: WorkspaceViewModel, text: String) {
+        viewModel.ocrRecognitionProviderForTesting = { _, _, _ in
+            [
+                PDFOCRRecognizedLine(
+                    text: text,
+                    normalizedBounds: CGRect(x: 0.15, y: 0.62, width: 0.62, height: 0.08),
+                    confidence: 0.95
+                )
+            ]
+        }
+    }
+
     func testSearchableDataAddsInvisibleTextLayer() async throws {
         let sourcePDF = try imageOnlyPDF()
         let sourceData = try XCTUnwrap(PDFSerializer.data(from: sourcePDF))
@@ -775,6 +787,7 @@ final class PDFOCRTests: XCTestCase {
         let document = WorkspaceDocument()
         try document.importPDFDocumentForTesting(try rasterTextPDF("FOLD TOKEN 8146"), filename: "cancel.pdf")
         let viewModel = WorkspaceViewModel(document: document)
+        installDeterministicOCR(on: viewModel, text: "FOLD TOKEN 8146")
 
         viewModel.makeSearchable()
         for _ in 0..<240 where viewModel.isMakingSearchable {
@@ -803,6 +816,7 @@ final class PDFOCRTests: XCTestCase {
         let document = WorkspaceDocument()
         try document.importPDFDocumentForTesting(try rasterTextPDF("FOLD TOKEN 9631"), filename: "receipt.pdf")
         let viewModel = WorkspaceViewModel(document: document)
+        installDeterministicOCR(on: viewModel, text: "FOLD TOKEN 9631")
         let undoManager = UndoManager()
         viewModel.undoManager = undoManager
 
@@ -847,6 +861,7 @@ final class PDFOCRTests: XCTestCase {
         document.workspace.pageOrder = refs
         document.memberPDFData[member.id] = sourceData
         let viewModel = WorkspaceViewModel(document: document)
+        installDeterministicOCR(on: viewModel, text: "STRUCTURE TOKEN 6428")
         let undoManager = UndoManager()
         viewModel.undoManager = undoManager
         viewModel.ocrPageSelection = .allVisiblePages
@@ -893,6 +908,7 @@ final class PDFOCRTests: XCTestCase {
         document.workspace.pageOrder = [scannedRef, untouchedRef]
         document.memberPDFData = [scannedMember.id: scannedData, untouchedMember.id: searchableData]
         let viewModel = WorkspaceViewModel(document: document)
+        installDeterministicOCR(on: viewModel, text: "FOLD TOKEN 5194")
         let undoManager = UndoManager()
         viewModel.undoManager = undoManager
 

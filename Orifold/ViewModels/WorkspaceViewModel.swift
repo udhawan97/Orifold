@@ -555,6 +555,9 @@ final class WorkspaceViewModel {
     @ObservationIgnored private var activeBatchFoldCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeBatchFoldID: UUID?
     #if DEBUG
+    /// Deterministic OCR seam for orchestration tests. End-to-end Vision coverage stays in the
+    /// two explicitly named production-provider tests instead of leaking into every timeline test.
+    @ObservationIgnored var ocrRecognitionProviderForTesting: PDFOCRService.RecognitionProvider?
     /// Deterministic seam for exercising cancellation at the result/apply boundary.
     @ObservationIgnored var ocrResultReadyHandlerForTesting: (() -> Void)?
     #endif
@@ -2882,25 +2885,41 @@ final class WorkspaceViewModel {
         operationID: UUID
     ) async throws -> PDFOCRResult {
         let progressThrottle = ProgressUpdateThrottle()
+        let progress: @Sendable (Double) -> Void = { progress in
+            guard progressThrottle.shouldEmit(progress) else { return }
+            Task { @MainActor [weak self] in
+                guard self?.activeOCRID == operationID,
+                      self?.operationProgress.isActive == true else { return }
+                let completed = min(eligiblePageCount, Int((progress * Double(eligiblePageCount)).rounded()))
+                self?.operationProgress.update(
+                    fraction: progress,
+                    detail: L10n.format("inspector.ocr.progress.pages", completed, eligiblePageCount)
+                )
+            }
+        }
+        let isCancelled: @Sendable () -> Bool = {
+            cancellation.isCancelled || Task.isCancelled
+        }
+
+        #if DEBUG
+        if let recognitionProvider = ocrRecognitionProviderForTesting {
+            return try await PDFOCRService.searchableData(
+                documents: sourceDocuments,
+                displayPageNumbersByMemberID: displayPageNumbersByMemberID,
+                options: options,
+                recognitionProvider: recognitionProvider,
+                progress: progress,
+                isCancelled: isCancelled
+            )
+        }
+        #endif
+
         return try await PDFOCRService.makeSearchable(
             documents: sourceDocuments,
             displayPageNumbersByMemberID: displayPageNumbersByMemberID,
             options: options,
-            progress: { progress in
-                guard progressThrottle.shouldEmit(progress) else { return }
-                Task { @MainActor [weak self] in
-                    guard self?.activeOCRID == operationID,
-                          self?.operationProgress.isActive == true else { return }
-                    let completed = min(eligiblePageCount, Int((progress * Double(eligiblePageCount)).rounded()))
-                    self?.operationProgress.update(
-                        fraction: progress,
-                        detail: L10n.format("inspector.ocr.progress.pages", completed, eligiblePageCount)
-                    )
-                }
-            },
-            isCancelled: {
-                cancellation.isCancelled || Task.isCancelled
-            }
+            progress: progress,
+            isCancelled: isCancelled
         )
     }
 
