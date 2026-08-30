@@ -1,6 +1,6 @@
 # Docs media capture manifest
 
-**Status: 13 of 14 slots are real photographic captures; 1 remains an illustrated SVG.** Real
+**Status: 12 public slots are real photographic captures; 1 uses a privacy-safe illustrated SVG.** Real
 captures live in `docs-site/public/assets/screenshots/` and `docs-site/public/assets/gifs/` and
 are wired into their pages' `<Figure src="...">` prop; the `Figure` component's
 dashed-placeholder fallback (see `docs-site/src/components/Figure.astro`) is not in use anywhere
@@ -37,7 +37,7 @@ marks (`gami-mark.svg`/`ori-mark.svg`), the illustrated `companion-gami-ori.svg`
 Captured for real (v0.8.1 source build, dark mode, no Dock/menu bar/recording-border in frame):
 `first-workspace-empty-state.png`, `the-orifold-window-annotated.png`,
 `annotate-markup-tools.png`, `night-mode-comparison.png`, `reader-mode-toggle.png`,
-`language-switcher.png`, `edit-text-workflow.png`, `sign-document-digital.png`,
+`language-switcher.png`, `edit-text-workflow.png`,
 `export-save-confirmation.png`, `combine-reorder-pages.png`, `reorder-rotate-delete-pages.png`,
 `import-files-overview.png`, `recently-viewed-shelf.png`.
 
@@ -47,9 +47,9 @@ shelf entry (a "Resume · p. 1" badge, "6h ago · 1 page") — the alt text was 
 one real thumbnail rather than the "3–4 demo thumbnails" the illustration implied.
 `combine-reorder-pages.png` was upgraded from a two-document to a three-document sidebar capture.
 
-Still illustrated SVG (open work — replace per the standards below when captured):
-`sign-document-workflow-visual.svg` (the Draw/Type/Initials flow — distinct from the Digital
-signing capture above, which already has a real screenshot). It's wired through the `Media`
+Privacy-safe illustrated SVG (replace only with a fully fictional real capture that meets the
+standards below): `sign-document-workflow-visual.svg`. It covers the Draw/Type/Initials flow and
+is also used on the landing page instead of the retired identity-bearing Digital capture. It is wired through the `Media`
 component (`docs-site/src/components/Media.astro`) with the illustrated SVG as the video
 `poster`, so dropping in a real clip later is a one-line change — add
 `mp4="/Orifold/assets/gifs/<name>.mp4"` next to the existing `poster=` and the still is replaced
@@ -95,7 +95,6 @@ reference; the Astro site serves only from `docs-site/public/assets/`.
 | `edit-text-workflow.png` | screenshot | **real** | [edit/edit-text](../../docs-site/src/content/docs/edit/edit-text.mdx) | A sentence selected in detected text, with the floating format toolbar open |
 | `annotate-markup-tools.png` | screenshot | **real** | [annotate/markup](../../docs-site/src/content/docs/annotate/markup.mdx) | Highlight tool active in the toolbar, one yellow highlight placed on demo text |
 | `sign-document-workflow-visual.svg` | Media poster | illustrated | [fill-sign/signatures](../../docs-site/src/content/docs/fill-sign/signatures.mdx) | Draw a signature, place it on a demo signature line, export |
-| `sign-document-digital.png` | screenshot | **real** | [fill-sign/signatures](../../docs-site/src/content/docs/fill-sign/signatures.mdx) | The Digital signing palette: self-signed identity, timestamp provider picker, signature preview |
 | `export-save-confirmation.png` | screenshot | **real** | [export/export-save](../../docs-site/src/content/docs/export/export-save.mdx) | The Export dialog: format picker, password/compress/sanitize options |
 | `language-switcher.png` | screenshot | **real** | [settings/language](../../docs-site/src/content/docs/settings/language.mdx) | Landing-screen language switcher open, all 6 languages visible |
 | `recently-viewed-shelf.png` | screenshot | **real** | [import/recently-viewed](../../docs-site/src/content/docs/import/recently-viewed.mdx) | Empty-state screen with the Recently Viewed shelf: a "Sample Proposal" thumbnail with a "Resume · p. 1" badge |

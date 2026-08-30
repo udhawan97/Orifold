@@ -1,0 +1,44 @@
+---
+title: Fold a folder
+description: Apply OCR, watermarking, and compression to every PDF in a folder while keeping originals untouched.
+keywords: [batch pdf, folder, ocr, watermark, compress, bulk processing]
+---
+
+import Callout from '../../../components/Callout.astro';
+import CardGrid from '../../../components/CardGrid.astro';
+import Card from '../../../components/Card.astro';
+
+<Callout variant="whentouse">
+	You have a folder of PDFs that all need the same finishing steps and do not want to open,
+	export, and close them one at a time.
+</Callout>
+
+## Fold the stack
+
+1. Choose **File → Fold a Folder…**.
+2. Pick the folder containing the PDFs.
+3. Choose one or more steps: make scanned pages searchable, add a watermark, or reduce file size.
+4. Start the fold and follow the per-file progress. You can cancel between files.
+
+Orifold applies selected work in the order **OCR → watermark → compress**, then validates each
+PDF before saving it. One unreadable file is reported as one failure; it does not discard the
+successful files around it.
+
+## Where results go
+
+Results land in a new `Folded` subfolder beside the originals. Existing names are disambiguated
+case-insensitively, and Orifold never modifies the source PDFs. A later run skips that `Folded`
+subtree, so generated outputs are never folded again as new inputs.
+
+<Callout variant="note">
+	The batch uses the same local engines and structural postflight as the single-document tools.
+	No PDF or recognized text is uploaded.
+</Callout>
+
+## Related
+
+<CardGrid>
+	<Card title="OCR scanned pages" href="edit/ocr/">Choose OCR policy and understand the quality receipt.</Card>
+	<Card title="Compress a PDF" href="export/compress/">Tune compression for one document.</Card>
+	<Card title="Stamps, watermarks & Bates" href="annotate/stamps/">Place and configure a watermark interactively.</Card>
+</CardGrid>

@@ -75,8 +75,18 @@ enum BatchFoldService {
 
     /// The PDFs a folder scan contributes to a batch. The scanner accepts every importable
     /// type; folding only transforms PDFs, so everything else is left untouched.
-    static func pdfURLs(from scan: FolderScanResult) -> [URL] {
-        scan.supportedURLs.filter { $0.pathExtension.lowercased() == "pdf" }
+    static func pdfURLs(from scan: FolderScanResult, inputFolder: URL) -> [URL] {
+        let outputDirectory = inputFolder
+            .appendingPathComponent(outputFolderName, isDirectory: true)
+            .standardizedFileURL
+        let outputPathPrefix = outputDirectory.path + "/"
+
+        return scan.supportedURLs.filter { url in
+            guard url.pathExtension.lowercased() == "pdf" else { return false }
+            let standardizedPath = url.standardizedFileURL.path
+            return standardizedPath != outputDirectory.path
+                && !standardizedPath.hasPrefix(outputPathPrefix)
+        }
     }
 
     /// Collision-proof output file name for one source, against the names already present in

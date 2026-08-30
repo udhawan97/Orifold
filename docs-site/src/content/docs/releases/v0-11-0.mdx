@@ -1,0 +1,55 @@
+---
+title: "v0.11.0 — Fold the whole stack, compare the drafts"
+description: Orifold v0.11.0 adds batch folder processing, side-by-side compare, read-aloud from selection, preservation-first OCR, and editing hardening.
+keywords: [release notes, v0.11.0, batch PDF, compare PDF, OCR, read aloud]
+---
+
+import Badge from '../../../components/Badge.astro';
+import Callout from '../../../components/Callout.astro';
+
+<Badge variant="new" />
+
+*Released August 30, 2026*
+
+<Callout variant="note" label="Beta">
+	Orifold is in beta, on the road to 1.0.
+</Callout>
+
+## Fold a folder without touching the originals
+
+**File → Fold a Folder…** applies OCR, watermarking, and/or compression to every PDF in a chosen
+folder. Results go to a collision-safe `Folded` subfolder, progress is reported per file, and one
+bad PDF does not abort the rest. Repeat runs skip that output subtree instead of reprocessing
+generated files. Every output passes structural validation before it lands.
+
+## Compare two drafts on one screen
+
+**File → Compare With…** pairs the workspace with another PDF. Visual changed regions, word-level
+addition/removal counts, a changed-pages strip, and a manual page offset make differences easier
+to find without changing either source.
+
+## Read aloud from the sentence you chose
+
+Select text and choose **View → Read Aloud from Here**. Orifold begins at that sentence and keeps
+the existing follow-along highlight; an unmatched selection safely falls back to the page start.
+
+## OCR with an explicit preservation policy
+
+The Inspector now exposes scans-only versus all-visible page selection, automatic or explicit
+language, continue-after-failure behavior, progress and cancellation. A quality receipt reports
+recognized and skipped pages, confidence, review items, and postflight validation. Searchable
+text is merged into the original page rather than rebuilding it.
+
+## Editing hardening
+
+Inline text and compatible object edits now preserve composition more reliably through replay,
+rotation, undo/redo, save, reopen, and export. Unsupported styles and ambiguous geometry continue
+to fail closed. Object editing remains beta.
+
+## Compatibility and privacy
+
+All document processing remains local. Orifold requires macOS 14 Sonoma or newer and ships as a
+universal Apple Silicon + Intel app. Public builds remain ad-hoc signed and not Apple-notarized
+unless the release signing secrets are configured.
+
+Full release record: [`docs/release-v0.11.0.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.11.0.md).

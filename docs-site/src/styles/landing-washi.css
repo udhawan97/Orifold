@@ -4,8 +4,8 @@
  * → ice gradient (Prussian blue on washi). Red is sacred — only the crane's
  * tancho crown, the "New" tag, the fortune dot.
  *
- * Type: Fraunces (display, optical-sized) over Inter (UI); Shippori Mincho for
- * the kanji glyphs, each carrying a small English gloss. Motion aims for the
+ * Type: native bookish serif over the macOS system sans; native Mincho faces
+ * for kanji glyphs, each carrying a small English gloss. Motion aims for the
  * buttery, scroll-driven feel of Apple/Cursor/Codex — blur-in reveals, a slow
  * gradient sheen, hero parallax, magnetic CTAs, a cursor-lit panel, count-ups —
  * all transform/opacity/filter only, and all fully stilled under reduced motion.
@@ -40,9 +40,9 @@
 	--frame-bg: #0d1524;
 	--frame-shadow: 0 40px 80px -46px rgb(13 27 42 / 58%);
 
-	--display: 'Fraunces', 'Iowan Old Style', Palatino, Georgia, serif;
-	--sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-	--kanji: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+	--display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, ui-serif, serif;
+	--sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', ui-sans-serif, sans-serif;
+	--kanji: 'Hiragino Mincho ProN', 'Yu Mincho', 'Songti SC', ui-serif, serif;
 
 	--ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 	--ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
@@ -441,20 +441,12 @@ h1 {
 }
 
 .hl { display: block; overflow: hidden; padding-block: 0.08em; }
-.hl > span { display: block; transform: translateY(118%); animation: of-lift 1.05s var(--ease-spring) both; }
-[data-load='2'] > span { animation-delay: 0.2s; }
-[data-load='3'] > span { animation-delay: 0.35s; }
+.hl > span { display: block; }
 
 .eyebrow[data-load], .sub[data-load], .btn-row[data-load], .meta-row[data-load], .inoc[data-load] {
-	opacity: 0; animation: of-rise 1s var(--ease-spring) both;
+	opacity: 1;
 }
-[data-load='1'] { animation-delay: 0.05s; }
-.sub[data-load] { animation-delay: 0.55s; }
-.btn-row[data-load] { animation-delay: 0.7s; }
-.meta-row[data-load] { animation-delay: 0.85s; }
-.inoc[data-load] { animation-delay: 0.97s; }
 
-@keyframes of-lift { to { transform: translateY(0); } }
 @keyframes of-rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 
 .sub {
@@ -1148,7 +1140,7 @@ main > section { scroll-snap-align: start; scroll-margin-top: 5.5rem; }
 	grid-template-columns: minmax(0, 1fr);
 	gap: clamp(3rem, 7vw, 5.5rem);
 	min-height: auto;
-	padding: clamp(4.5rem, 9vh, 7.5rem) 0 clamp(5rem, 10vh, 8rem);
+	padding: clamp(2.75rem, 6vh, 4.5rem) 0 clamp(4rem, 7vh, 5.5rem);
 }
 
 #sheet .hero-copy {
@@ -1160,7 +1152,7 @@ main > section { scroll-snap-align: start; scroll-margin-top: 5.5rem; }
 }
 
 #sheet h1 {
-	font-size: clamp(3.7rem, 8.2vw, 7.4rem);
+	font-size: clamp(3.7rem, 7vw, 6.4rem);
 	line-height: 0.94;
 	letter-spacing: -0.045em;
 }

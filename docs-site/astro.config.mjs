@@ -111,6 +111,7 @@ export default defineConfig({
 					label: 'Export & Protect',
 					items: [
 						{ label: 'Export & save', slug: 'export/export-save' },
+						{ label: 'Fold a folder', slug: 'export/batch-fold', badge: { text: 'New', variant: 'tip' } },
 						{ label: 'Booklet, 2-up & 4-up', slug: 'export/imposition' },
 						{ label: 'Compress a PDF', slug: 'export/compress' },
 						{ label: 'Password-protect a PDF', slug: 'export/protect' },
@@ -122,6 +123,7 @@ export default defineConfig({
 					label: 'Read Comfortably',
 					items: [
 						{ label: 'Contents & bookmarks', slug: 'reading/contents' },
+						{ label: 'Compare drafts', slug: 'reading/compare', badge: { text: 'New', variant: 'tip' } },
 						{ label: 'Read aloud', slug: 'reading/read-aloud' },
 						{ label: 'Translate text', slug: 'reading/translate', badge: { text: 'macOS 15+', variant: 'note' } },
 						{ label: 'Reader Mode', slug: 'reading/reader-mode' },
@@ -153,6 +155,7 @@ export default defineConfig({
 					label: 'Release Notes',
 					items: [
 						{ label: "What's new", slug: 'releases' },
+						{ label: 'v0.11.0', slug: 'releases/v0-11-0' },
 						{ label: 'v0.10.2', slug: 'releases/v0-10-2' },
 						{ label: 'v0.7', slug: 'releases/v7' },
 						{ label: 'v0.6', slug: 'releases/v6' },

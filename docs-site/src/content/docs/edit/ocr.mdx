@@ -1,6 +1,6 @@
 ---
 title: OCR scanned pages
-description: Make scanned PDF pages searchable and editable using local Vision OCR.
+description: Make scanned PDF pages searchable with a preservation-first, local Vision OCR workbench.
 keywords: [ocr, scan, searchable pdf, scanned document, recognize text]
 ---
 
@@ -12,19 +12,46 @@ import Card from '../../../components/Card.astro';
 	You imported a scan or a photo of a document and ⌘F finds nothing on the page.
 </Callout>
 
-## Steps
+## Choose what Orifold should recognize
 
-1. Open the scanned page in your workspace.
-2. Run OCR from the page or document menu.
-3. Wait for recognition to finish — it runs entirely on your Mac.
+1. Open **Inspector → OCR**.
+2. Under **Pages**, keep **Scans only** for the normal safe path. Orifold targets pages that
+   do not already have useful searchable text.
+3. Choose **All visible** only when an existing text layer is wrong or incomplete. Orifold
+   warns you before this broader pass.
+4. Leave **Language** on **Automatic**, or choose a specific language when you know the scan's
+   language and want Vision to use it directly.
+5. Keep **Continue after a page fails** on when a useful partial result is better than stopping
+   the entire document. Turn it off when every page must succeed together.
+6. Click **Make Searchable**. Progress and Cancel stay visible while Orifold works.
 
 <Callout variant="tip">
-	OCR runs locally using Apple's Vision framework. A scan of your passport, a lease, or a medical form never leaves the machine.
+	OCR runs locally using Apple's Vision framework. A scan of your passport, a lease, or a
+	medical form never leaves the machine.
 </Callout>
+
+## Read the quality receipt
+
+When the run finishes, the Inspector shows a receipt rather than silently declaring success.
+It records how many pages were requested and recognized, any skipped page numbers, recognized
+and low-confidence line counts, average confidence, and whether changed documents passed the
+structural postflight.
+
+Review the highlighted pages when the receipt flags skipped pages or low-confidence text. A
+successful structural check means the updated PDF is readable; it does not mean every word in a
+difficult scan was recognized perfectly.
 
 ## What you should see
 
-⌘F now finds text on the page, and the recognized text can be edited the same way as any other detected text.
+⌘F now finds recognized text on the page. Orifold adds a searchable layer to the original page
+instead of rebuilding it, preserving page geometry and existing annotations. The operation is
+also available to Undo and Redo like other workspace changes.
+
+<Callout variant="note">
+	Run OCR before editing page text or objects. If the workspace already contains committed text
+	or object edits, undo those edits before OCR; Orifold blocks the operation so one page-rewrite
+	path cannot overwrite another.
+</Callout>
 
 ## Related
 

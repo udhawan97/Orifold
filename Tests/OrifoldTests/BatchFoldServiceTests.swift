@@ -31,6 +31,7 @@ final class BatchFoldServiceTests: XCTestCase {
     }
 
     func testPDFURLsKeepsOnlyPDFExtensions() {
+        let inputFolder = URL(fileURLWithPath: "/tmp", isDirectory: true)
         let scan = FolderScanResult(
             supportedURLs: [
                 URL(fileURLWithPath: "/tmp/a.pdf"),
@@ -42,8 +43,28 @@ final class BatchFoldServiceTests: XCTestCase {
             wasTruncated: false
         )
         XCTAssertEqual(
-            BatchFoldService.pdfURLs(from: scan).map(\.lastPathComponent),
+            BatchFoldService.pdfURLs(from: scan, inputFolder: inputFolder).map(\.lastPathComponent),
             ["a.pdf", "c.PDF"]
+        )
+    }
+
+    func testPDFURLsExcludesExistingFoldedOutputSubtree() {
+        let inputFolder = URL(fileURLWithPath: "/tmp/Batch", isDirectory: true)
+        let scan = FolderScanResult(
+            supportedURLs: [
+                inputFolder.appendingPathComponent("source.pdf"),
+                inputFolder.appendingPathComponent("Nested/keep.pdf"),
+                inputFolder.appendingPathComponent("Folded/earlier-folded.pdf"),
+                inputFolder.appendingPathComponent("Folded/Nested/earlier-nested-folded.pdf"),
+                inputFolder.appendingPathComponent("Folded Backup/not-an-output.pdf")
+            ],
+            unsupportedCount: 0,
+            wasTruncated: false
+        )
+
+        XCTAssertEqual(
+            BatchFoldService.pdfURLs(from: scan, inputFolder: inputFolder).map(\.lastPathComponent),
+            ["source.pdf", "keep.pdf", "not-an-output.pdf"]
         )
     }
 

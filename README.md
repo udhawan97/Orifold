@@ -31,16 +31,24 @@
 </p>
 
 <p align="center">
-  <a href="#install"><kbd>&nbsp;⚡&nbsp;Install&nbsp;</kbd></a>&nbsp;
-  <a href="#what-it-does"><kbd>&nbsp;✨&nbsp;Features&nbsp;</kbd></a>&nbsp;
-  <a href="#your-paper-companion"><kbd>&nbsp;🐾&nbsp;Companion&nbsp;</kbd></a>&nbsp;
-  <a href="#privacy"><kbd>&nbsp;🔒&nbsp;Privacy&nbsp;</kbd></a>&nbsp;
-  <a href="#under-the-hood"><kbd>&nbsp;⚙️&nbsp;Under&nbsp;the&nbsp;hood&nbsp;</kbd></a>&nbsp;
-  <a href="https://udhawan97.github.io/Orifold/"><kbd>&nbsp;📖&nbsp;Docs&nbsp;</kbd></a>
+  <a href="https://github.com/udhawan97/Orifold/releases/latest/download/Orifold.dmg"><kbd>&nbsp;⬇️&nbsp;Download&nbsp;for&nbsp;Mac&nbsp;</kbd></a>&nbsp;
+  <a href="https://udhawan97.github.io/Orifold/"><kbd>&nbsp;🪶&nbsp;Explore&nbsp;Orifold&nbsp;</kbd></a>&nbsp;
+  <a href="https://udhawan97.github.io/Orifold/get-started/workflows/"><kbd>&nbsp;📖&nbsp;Read&nbsp;the&nbsp;docs&nbsp;</kbd></a>
 </p>
 
 <p align="center">
-  <sub>The workspace — sidebar, canvas, markup toolbar, and your paper companion, all on your Mac.</sub>
+  <a href="#what-it-does">Features</a>&nbsp;&nbsp;·&nbsp;&nbsp;
+  <a href="#install">Install options</a>&nbsp;&nbsp;·&nbsp;&nbsp;
+  <a href="#privacy">Privacy</a>&nbsp;&nbsp;·&nbsp;&nbsp;
+  <a href="#under-the-hood">Under the hood</a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/the-orifold-window-annotated.png" alt="Orifold with the Sample Proposal open: document sidebar, native PDF canvas, markup toolbar, Inspector, and Gami companion" width="880">
+</p>
+
+<p align="center">
+  <sub>The real macOS workspace — sidebar, canvas, markup toolbar, Inspector, and paper companion.</sub>
 </p>
 
 > [!NOTE]
@@ -244,7 +252,7 @@ metadata stripped before flat PDF export.
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
 | **Codebase** | 154 Swift source files in the app, ~58,000 lines |
-| **Tests** | 1,159 tests in the current release suite |
+| **Tests** | 1,160 tests in the current release suite |
 | **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) · Apple Translation (on-device reading aid on macOS 15+) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds a universal (Apple Silicon + Intel) app and packages a signed-capable DMG (`scripts/make-dmg.sh`) plus the release zip and a checksummed `manifest.json`; installer, Homebrew cask, and uninstaller ship from this repo |
@@ -338,8 +346,8 @@ GitHub Actions uses the same path when the matching `ORIFOLD_*` secrets are conf
 
 ## Roadmap
 
-Orifold is genuinely useful today — and nowhere near finished. Object editing just landed in
-beta; a few more folds are on the workbench. A friendly sneak peek, not a blood oath.
+Orifold is genuinely useful today — and nowhere near finished. Object editing continues to
+harden in beta; a few more folds are on the workbench. A friendly sneak peek, not a blood oath.
 
 - **Real redaction** — remove text and images, not just cover them
 - **Faster large-document navigation** — 300-page beasts that scroll like pamphlets

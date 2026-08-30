@@ -6,7 +6,6 @@ keywords: [sign pdf, signature, e-sign, draw signature, digital signature, pades
 
 import Callout from '../../../components/Callout.astro';
 import Details from '../../../components/Details.astro';
-import Figure from '../../../components/Figure.astro';
 import Media from '../../../components/Media.astro';
 import PetTip from '../../../components/PetTip.astro';
 
@@ -59,7 +58,9 @@ A digital signature binds a cryptographic proof to the file using a **Digital ID
 3. Optionally enable a **timestamp** so the signature records a trusted time (requires an internet connection and sends only a hash of the signature bytes to the selected timestamp authority).
 4. Click **Sign & Export…** and choose where to save.
 
-<Figure src="/Orifold/assets/gifs/sign-document-digital.png" alt="The Signatures palette with Digital selected, a self-signed identity chosen, a timestamp provider picker open (FreeTSA.org, DigiCert, Sectigo, GlobalSign), and a signature preview reading 'Umang D., Signed: Jul 7, 2026'." caption="The Digital signing palette — identity, timestamp provider, and a live signature preview before Sign & Export." />
+The Digital palette keeps the identity source, timestamp provider, appearance preview, and
+**Sign & Export…** action together. Review the displayed identity and signing-time choice before
+exporting; do not treat the preview alone as proof that a recipient will trust the certificate.
 
 <Callout variant="note">
 	**Self-signed IDs show as "identity not verified" in other viewers.** The signature is cryptographically valid and the document is fully protected, but because no certificate authority vouches for a self-signed ID, viewers like Adobe Acrobat report "the signer's identity is unknown" until you (or your recipient) manually trust it. For signatures others must verify automatically, use a CA-issued Digital ID. See **Getting a Digital ID** in the palette.

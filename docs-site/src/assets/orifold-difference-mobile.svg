@@ -48,14 +48,14 @@
         width: 100%;
         height: auto;
         color: var(--difference-ink, #edf4f8);
-        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", ui-sans-serif, sans-serif;
       }
       #orifold-difference-mobile .eyebrow { fill: var(--difference-muted, #93a5b5); font-size: 10px; font-weight: 700; letter-spacing: 2px; }
-      #orifold-difference-mobile .headline { fill: var(--difference-ink, #edf4f8); font-family: Fraunces, "Iowan Old Style", Georgia, serif; font-size: 25px; font-weight: 500; }
+      #orifold-difference-mobile .headline { fill: var(--difference-ink, #edf4f8); font-family: "Iowan Old Style", Palatino, Georgia, ui-serif, serif; font-size: 25px; font-weight: 500; }
       #orifold-difference-mobile .label { fill: var(--difference-ink, #edf4f8); font-size: 11px; font-weight: 700; letter-spacing: 1.1px; }
       #orifold-difference-mobile .body { fill: var(--difference-muted, #93a5b5); font-size: 10px; font-weight: 500; }
       #orifold-difference-mobile .micro { fill: var(--difference-muted, #93a5b5); font-size: 8px; font-weight: 700; letter-spacing: 1.1px; }
-      #orifold-difference-mobile .metric { fill: var(--difference-ice, #9ed4e8); font-family: Fraunces, "Iowan Old Style", Georgia, serif; font-size: 24px; font-weight: 500; }
+      #orifold-difference-mobile .metric { fill: var(--difference-ice, #9ed4e8); font-family: "Iowan Old Style", Palatino, Georgia, ui-serif, serif; font-size: 24px; font-weight: 500; }
       #orifold-difference-mobile .panel-stroke { stroke: var(--difference-line, #9ed4e8); stroke-opacity: 0.18; }
       #orifold-difference-mobile .friction-stroke { stroke: var(--crest, #c13a2a); }
       #orifold-difference-mobile .friction-icon { fill: none; stroke: var(--crest, #c13a2a); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }

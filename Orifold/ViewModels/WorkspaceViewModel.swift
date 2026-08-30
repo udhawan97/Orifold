@@ -9607,7 +9607,7 @@ final class WorkspaceViewModel {
         activeBatchFoldTask = Task { [weak self, folder, options, cancellation, operationID] in
             guard let self else { return }
             let scan = await FolderImportScanner.scan(folders: [folder])
-            let pdfs = BatchFoldService.pdfURLs(from: scan)
+            let pdfs = BatchFoldService.pdfURLs(from: scan, inputFolder: folder)
             guard !pdfs.isEmpty else {
                 await MainActor.run {
                     guard self.activeBatchFoldID == operationID else { return }

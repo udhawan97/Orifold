@@ -9,9 +9,8 @@
  *
  * Fallback ladder (see WEBSITE_PLAN.md §5.5):
  *   1. dmg asset present on latest release  → real url + size, dmg button.
- *   2. latest release exists but no dmg yet  → zip button + `dmgMissing` warning
- *      (this is today's reality: releases are zip-only until the PR-1 pipeline
- *      ships Orifold.dmg). The stable dmg URL is still returned optimistically.
+ *   2. latest release exists but no dmg yet  → zip button + `dmgMissing` warning.
+ *      The stable dmg URL is still returned optimistically.
  *   3. API unreachable / rate-limited         → LAST_KNOWN_GOOD fallback values.
  */
 
@@ -46,9 +45,9 @@ export interface ReleaseInfo {
 
 /** Bump this whenever a release ships, so the offline build stays truthful. */
 const LAST_KNOWN_GOOD = {
-	tag: 'v0.11.0',
-	version: '0.11.0',
-	publishedAt: '2026-08-22T00:00:00Z',
+	tag: 'v0.10.2',
+	version: '0.10.2',
+	publishedAt: '2026-08-15T12:44:09Z',
 } as const;
 
 const REPO = site.repo;
@@ -76,7 +75,7 @@ function fallback(reason: string): ReleaseInfo {
 		publishedAt: LAST_KNOWN_GOOD.publishedAt,
 		dmgUrl: stableUrl(DMG),
 		dmgSize: null,
-		dmgMissing: true,
+		dmgMissing: false,
 		zipUrl: stableUrl(ZIP),
 		releaseUrl: `https://github.com/${REPO}/releases/tag/${LAST_KNOWN_GOOD.tag}`,
 		allReleasesUrl: `https://github.com/${REPO}/releases`,

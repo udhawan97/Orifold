@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#12253a"/>
+      <stop offset="0.58" stop-color="#2b4566"/>
+      <stop offset="1" stop-color="#3d6d96"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.82" cy="0.2" r="0.72">
+      <stop offset="0" stop-color="#9ed4e8" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#9ed4e8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tile" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2b4566"/>
+      <stop offset="1" stop-color="#75bfd4"/>
+    </linearGradient>
+    <filter id="grain" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="3" seed="17"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="table" tableValues="0 0.09"/></feComponentTransfer>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="24" stdDeviation="22" flood-color="#08111d" flood-opacity="0.48"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#paper)"/>
+  <rect width="1200" height="630" rx="36" fill="url(#glow)"/>
+  <rect width="1200" height="630" rx="36" fill="#ffffff" filter="url(#grain)" opacity="0.45"/>
+  <path d="M0 520 325 308 490 630H0Z" fill="#0d1b2a" opacity="0.28"/>
+  <path d="M795 0 1200 0 1200 260Z" fill="#75bfd4" opacity="0.08"/>
+  <g filter="url(#shadow)">
+    <rect x="86" y="100" width="300" height="300" rx="66" fill="url(#tile)"/>
+    <g transform="translate(86 100) scale(.88235)">
+      <polygon points="188.7,164.9 227.1,69.7 222.7,175.1" fill="#dce2e8"/>
+      <polygon points="146.2,224.4 51,263.5 139.4,239.7" fill="#f5f3f0"/>
+      <polygon points="139.4,239.7 51,263.5 134.3,253.3" fill="#dfe3e8"/>
+      <polygon points="171.7,159.8 176.8,258.4 129.2,204" fill="#e8e9ea"/>
+      <polygon points="171.7,159.8 207.4,204 176.8,258.4" fill="#fffaf3"/>
+      <polygon points="190.4,176.8 244.8,102 207.4,190.4" fill="#fdf9f3"/>
+      <polygon points="207.4,190.4 244.8,102 226.1,195.5" fill="#e8e9ea"/>
+      <polygon points="244.8,102 259.1,81.6 238,117.3" fill="#fbf8f3"/>
+      <polygon points="259.1,81.6 289,102 242.1,108.8" fill="#f4f2ef"/>
+      <polygon points="190.4,176.8 79.9,44.2 142.8,185.3" fill="#e9e9e7"/>
+      <polygon points="221,176.8 79.9,44.2 190.4,176.8" fill="#fffaf3"/>
+      <circle cx="260" cy="88" r="8" fill="#c13a2a"/>
+    </g>
+  </g>
+  <text x="456" y="160" fill="#9ed4e8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="27" font-weight="700" letter-spacing="8">ORIFOLD</text>
+  <text x="452" y="252" fill="#f4f1e8" font-family="'Iowan Old Style', Palatino, Georgia, serif" font-size="66" font-weight="500">Fold chaos into</text>
+  <text x="452" y="330" fill="#f4f1e8" font-family="'Iowan Old Style', Palatino, Georgia, serif" font-size="66" font-weight="500" font-style="italic">one clean PDF.</text>
+  <text x="456" y="442" fill="#d8e6ee" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="27">Free · open source · local-first · macOS</text>
+  <g transform="translate(456 492)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" fill="#f4f1e8">
+    <rect width="132" height="46" rx="23" fill="#75bfd4" opacity="0.16"/><text x="24" y="30">No account</text>
+    <rect x="148" width="126" height="46" rx="23" fill="#75bfd4" opacity="0.16"/><text x="174" y="30">No upload</text>
+    <rect x="290" width="174" height="46" rx="23" fill="#75bfd4" opacity="0.16"/><text x="315" y="30">No subscription</text>
+  </g>
+  <circle cx="1115" cy="82" r="13" fill="#c13a2a"/>
+</svg>

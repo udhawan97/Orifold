@@ -13,10 +13,14 @@ import Callout from '../../../components/Callout.astro';
 ## Start and control reading
 
 1. Go to the page where reading should begin.
-2. Choose **View → Read Aloud** or **More → Read Aloud**.
-3. Use the floating control to pause or resume, stop, or change the speech speed.
+2. Choose **View → Read Aloud** or **More → Read Aloud** to begin at the top of that page.
+3. To begin later, select text in the sentence you want and choose **View → Read Aloud from Here**.
+4. Use the floating control to pause or resume, stop, or change the speech speed.
 
 Orifold follows the spoken passage and advances the canvas when speech crosses onto the next page. Choosing Read Aloud again stops the session.
+
+If the selection cannot be matched to the page's speakable text, **Read Aloud from Here** falls
+back to the top of the current page instead of failing silently.
 
 <Callout variant="note">
 	Speech uses the voices built into macOS and document text stays on your Mac. Scanned pages need an OCR text layer before they can be spoken meaningfully — start Read Aloud on a page with no text layer and Orifold explains that there's nothing to read and points you at [OCR](/Orifold/edit/ocr/), rather than doing nothing.

@@ -4,7 +4,7 @@
  * The full original story — hero, gather 一, shape 二 (+ feature cards),
  * seal 三, keep 四, ma 間, horizon, updates, the final fold, and the paper
  * fortune, with Gami and Ori talking throughout — reset on an ukiyo-e system:
- * indigo-on-cream paper, Shippori Mincho display, the app icon's own
+ * indigo-on-cream paper, native bookish display type, the app icon's own
  * indigo→ice gradient as the identity, and red reserved for the tancho crown.
  *
  * Light (paper) is the default — origami starts on paper — with a full
@@ -29,7 +29,7 @@ import icStamps from '../assets/icons/stamps.svg?raw';
 import icReader from '../assets/icons/reader.svg?raw';
 import icLanguages from '../assets/icons/languages.svg?raw';
 
-// Roadmap ("Horizon") glyphs — same line-art grammar as the feature icons.
+// Additional feature and roadmap glyphs — same line-art grammar as the core icons.
 import icRedact from '../assets/icons/redact.svg?raw';
 import icBatch from '../assets/icons/batch.svg?raw';
 import icCompare from '../assets/icons/compare.svg?raw';
@@ -44,6 +44,10 @@ import icOnDevice from '../assets/icons/on-device.svg?raw';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const rel = await getRelease();
+const canonicalUrl = new URL(`${base}/`, Astro.site).toString();
+const socialImageUrl = new URL(`${base}/assets/orifold-social-preview.png`, Astro.site).toString();
+const pageTitle = 'Orifold — Fold chaos into one clean PDF';
+const pageDescription = 'A free, open-source, local-first PDF workspace for macOS. Merge, edit, OCR, sign, compare, and export without uploading your documents.';
 
 const downloadHref = rel.dmgMissing ? rel.zipUrl : rel.dmgUrl;
 const assetKind = rel.dmgMissing ? '.zip' : '.dmg';
@@ -52,6 +56,19 @@ const subLabel = `macOS ${site.minMacOS}+ · v${rel.version}${sizePart}`;
 const releasedDate = rel.publishedAt
 	? new Date(rel.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 	: null;
+const structuredData = {
+	'@context': 'https://schema.org',
+	'@type': 'SoftwareApplication',
+	name: 'Orifold',
+	applicationCategory: 'BusinessApplication',
+	operatingSystem: `macOS ${site.minMacOS}+`,
+	description: pageDescription,
+	url: canonicalUrl,
+	downloadUrl: downloadHref,
+	softwareVersion: rel.version,
+	license: 'https://www.apache.org/licenses/LICENSE-2.0',
+	offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
 
 const cap = (name: string, dir: 'screenshots' | 'gifs' | 'landing' = 'screenshots') =>
 	`${base}/assets/${dir}/${name}`;
@@ -70,13 +87,15 @@ const scopeSvgIds = (svg: string, prefix: string) => {
 	);
 };
 
-// The six everyday folds — each card carries a faint origami kanji watermark.
+// Everyday folds — each card carries a faint origami kanji watermark.
 const cards = [
 	{ t: 'On-device OCR', k: '読', km: 'read', p: 'Vision makes a scan searchable — ⌘F finds the thing your printer emailed you.', href: 'edit/ocr/', icon: icOcr },
-	{ t: 'Compress', k: '縮', km: 'shrink', p: 'Repack oversized images losslessly so attachments stop bouncing off size limits.', href: 'export/compress/', icon: icCompress },
+	{ t: 'Compress', k: '縮', km: 'shrink', p: 'Downsample oversized images, then repack the PDF structure so attachments fit.', href: 'export/compress/', icon: icCompress },
 	{ t: 'Fill & flatten forms', k: '記', km: 'record', p: 'Detect fields, type answers, lock them — no third-party e-sign service.', href: 'fill-sign/forms/', icon: icForms },
 	{ t: 'Hanko, barcodes & Bates', k: '判', km: 'seal', p: 'Place a visual seal, generate or scan a code, and number the final packet.', href: 'annotate/hanko-barcodes/', icon: icStamps },
-	{ t: 'Contents & Read Aloud', k: '静', km: 'quiet', p: 'Follow the outline or let macOS speak from the page you are reading.', href: 'reading/read-aloud/', icon: icReader },
+	{ t: 'Fold a whole folder', k: '束', km: 'bundle', p: 'OCR, watermark, or compress every PDF in one pass while the originals stay untouched.', href: 'export/batch-fold/', icon: icBatch },
+	{ t: 'Compare drafts', k: '較', km: 'compare', p: 'See both versions together with changed regions, word counts, and shifted-page alignment.', href: 'reading/compare/', icon: icCompare },
+	{ t: 'Contents & Read Aloud', k: '静', km: 'quiet', p: 'Follow the outline or let macOS speak from the page — or sentence — you choose.', href: 'reading/read-aloud/', icon: icReader },
 	{ t: 'Six languages', k: '語', km: 'language', p: 'The whole workspace — menus to tooltips — in six languages.', href: 'settings/language/', icon: icLanguages },
 ];
 
@@ -136,22 +155,27 @@ const heroBadges = [
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
 		<meta name="theme-color" content="#f6f3ea" />
-		<title>Orifold — Fold chaos into one clean PDF</title>
+		<title>{pageTitle}</title>
 		<meta
 			name="description"
-			content="A free, open-source PDF workspace for macOS. Drop in up to 50 messy files — edit, sign, and export one polished document. Your documents never leave your Mac."
+			content={pageDescription}
 		/>
-		<meta property="og:title" content="Orifold — Fold chaos into one clean PDF" />
-		<meta
-			property="og:description"
-			content="A calm, local-first PDF workspace for macOS. Free, open source, and entirely on-device."
-		/>
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			rel="stylesheet"
-			href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=Shippori+Mincho:wght@500;600&display=swap"
-		/>
+		<link rel="canonical" href={canonicalUrl} />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Orifold" />
+		<meta property="og:url" content={canonicalUrl} />
+		<meta property="og:title" content={pageTitle} />
+		<meta property="og:description" content={pageDescription} />
+		<meta property="og:image" content={socialImageUrl} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="Orifold app icon beside the words Fold chaos into one clean PDF on an indigo paper texture." />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={pageTitle} />
+		<meta name="twitter:description" content={pageDescription} />
+		<meta name="twitter:image" content={socialImageUrl} />
+		<meta name="twitter:image:alt" content="Orifold app icon beside the words Fold chaos into one clean PDF on an indigo paper texture." />
+		<script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
 		<script is:inline>
 			// First in <head>, pre-paint: set html.js + theme + the synchronous UA gate,
 			// so no reveal-state flash and no CTA flash-and-shift on non-Mac devices.
@@ -426,9 +450,9 @@ const heroBadges = [
 							sticky note floating over a picture of the page. Then protect with AES-256,
 							compress, or sanitize, and export one clean file.
 						</p>
-						<a class="whatsnew-pill" href={`${base}/releases/`} aria-label="New in v0.10.2: split, shape, and verify PDFs locally">
-							<span class="whatsnew-tag">v0.10.2</span>
-							<span class="whatsnew-text">Split, shape, and verify<span class="whatsnew-sub"> · page tools and signature inspection</span></span>
+						<a class="whatsnew-pill" href={`${base}/releases/v0-11-0/`} aria-label="New in v0.11.0: fold a folder, compare drafts, and run preservation-first OCR">
+							<span class="whatsnew-tag">v0.11.0</span>
+							<span class="whatsnew-text">Fold, compare, and recognize<span class="whatsnew-sub"> · batch PDFs, draft comparison, and safer OCR</span></span>
 							<span class="whatsnew-arrow" aria-hidden="true"><Fragment set:html={icoChevron} /></span>
 						</a>
 						<p class="fine-print beta-note">
@@ -504,9 +528,9 @@ const heroBadges = [
 						</div>
 						<figure class="shot" data-reveal style="--d:1">
 							<div class="frame narrow">
-								<img src={cap('seal-signatures-tight.png', 'landing')} width="415" height="745" loading="lazy" decoding="async" alt="The Signatures panel with Digital selected, a self-signed identity chosen, and a live cursive signature preview reading 'Umang D.' with a 'Signed: Jul 7, 2026 at 9:12 PM' timestamp below, before Sign & Export." />
+								<img src={cap('sign-document-workflow-visual.svg', 'gifs')} width="880" height="540" loading="lazy" decoding="async" alt="Illustrated three-step signing workflow using the fictional Northwind and Company sample: draw a signature, place it on the line, then export the PDF." />
 							</div>
-							<figcaption class="tabnum">Real app capture. PAdES signing, right where you're already working.</figcaption>
+							<figcaption>Illustrated workflow. Visual signing stays entirely on your Mac; digital signing adds a verifiable PAdES seal.</figcaption>
 						</figure>
 					</div>
 				</div>
@@ -615,8 +639,8 @@ const heroBadges = [
 						<p class="kicker">Still folding · The horizon</p>
 						<h2>The crane keeps folding.</h2>
 						<p class="lede">
-							Orifold is genuinely useful today — and nowhere near finished. Object editing just
-							landed (in beta); a few more folds are taking shape on the workbench. A friendly
+							Orifold is genuinely useful today — and nowhere near finished. Batch folding and
+							comparison are now in the app; a few more folds are taking shape on the workbench. A friendly
 							sneak peek, not a blood oath.
 						</p>
 					</div>
@@ -630,30 +654,18 @@ const heroBadges = [
 								<p>Secrets that actually <em>leave</em> the file — not a polite black rectangle you can drag right off.</p>
 							</div>
 							<div class="of-card" data-reveal style="--d:1">
-								<span class="card-kanji" aria-hidden="true">束<span class="kanji-gloss">bundle</span></span>
-								<span class="glyph" aria-hidden="true" set:html={icBatch} />
-								<h3>Fold the whole stack</h3>
-								<p>Compress, OCR, or watermark a whole folder in one pass — not open, save, repeat, fifty times over.</p>
-							</div>
-							<div class="of-card" data-reveal style="--d:2">
-								<span class="card-kanji" aria-hidden="true">較<span class="kanji-gloss">compare</span></span>
-								<span class="glyph" aria-hidden="true" set:html={icCompare} />
-								<h3>Side-by-side compare</h3>
-								<p>Two drafts, one screen. Spot the change without printing both and playing spot-the-difference.</p>
-							</div>
-							<div class="of-card" data-reveal style="--d:3">
 								<span class="card-kanji" aria-hidden="true">速<span class="kanji-gloss">swift</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icFast} />
 								<h3>Big docs, quick feet</h3>
 								<p>Three-hundred-page beasts that scroll like pamphlets.</p>
 							</div>
-							<div class="of-card" data-reveal style="--d:4">
+							<div class="of-card" data-reveal style="--d:2">
 								<span class="card-kanji" aria-hidden="true">界<span class="kanji-gloss">world</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icGlobe} />
 								<h3>More languages</h3>
 								<p>Six today, more in night school — the interface <em>and</em> the OCR that reads your scans.</p>
 							</div>
-							<div class="of-card" data-reveal style="--d:5">
+							<div class="of-card" data-reveal style="--d:3">
 								<span class="card-kanji" aria-hidden="true">扉<span class="kanji-gloss">door</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icUnlock} />
 								<h3>A calmer first launch</h3>
@@ -771,14 +783,14 @@ const heroBadges = [
 								<p>Orifold is free and open source, so builds aren't notarized by Apple yet. One-time first launch:</p>
 								<p><b>macOS 14:</b> right-click Orifold → Open → Open.</p>
 								<p><b>macOS 15:</b> open Orifold once (it's blocked), then System Settings → Privacy &amp; Security → <b>Open Anyway</b> → password.</p>
-								<p>Prefer zero dialogs? Install with Homebrew below — it handles Gatekeeper for you.</p>
+								<p>Prefer zero dialogs? Install with Homebrew below — it clears the download quarantine for you.</p>
 							</div>
 
 							<details class="details">
 								<summary>Other ways to install</summary>
 								<div class="chip-cmd" style="margin-top:0.8rem">
-									<code>brew install --cask orifold</code>
-									<button type="button" class="copy-btn" data-copy="brew install --cask orifold" aria-label="Copy Homebrew command">
+									<code>brew tap udhawan97/orifold https://github.com/udhawan97/Orifold &amp;&amp; brew install --cask udhawan97/orifold/orifold</code>
+									<button type="button" class="copy-btn" data-copy="brew tap udhawan97/orifold https://github.com/udhawan97/Orifold &amp;&amp; brew install --cask udhawan97/orifold/orifold" aria-label="Copy Homebrew command">
 										<Fragment set:html={icoClipboard} /><span class="copy-btn-label">Copy</span>
 									</button>
 								</div>

@@ -1,0 +1,33 @@
+---
+title: Compare drafts
+description: Compare the current Orifold workspace with another PDF side by side, locally.
+keywords: [compare pdf, visual diff, text diff, changed pages, page offset]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+<Callout variant="whentouse">
+	You have two versions of a document and need to find changed pages, visible regions, or wording.
+</Callout>
+
+## Start a comparison
+
+1. Open the newer or working draft in Orifold.
+2. Choose **File → Compare With…** or **More → Compare With…**.
+3. Pick the other PDF.
+
+The comparison workspace pairs pages side by side. Changed regions are highlighted on both
+pages, and word-level additions and removals are counted. Use the changed-pages strip to jump
+between differences.
+
+## Align drafts whose pages shifted
+
+Use the page offset control when a cover sheet or inserted section moved every later page. The
+offset changes page pairing without changing either document. Extra pages on either side remain
+visible as one-sided differences.
+
+<Callout variant="note">
+	Comparison renders and diffs on your Mac. It respects displayed crop boxes and rotations and
+	reads text from preserved source bytes. Password-protected comparison files are declined rather
+	than guessed at or partially compared.
+</Callout>
