@@ -256,6 +256,22 @@ final class OperationCancellationToken: @unchecked Sendable {
     }
 }
 
+private struct ScanCleanupWorkItem: Sendable {
+    let memberID: UUID
+    let pageIndices: [Int]
+    let pageRefIDs: Set<UUID>
+    let previousLive: Data
+    let previousLoadedPDFData: Data?
+    let currentLive: Data
+    let original: Data?
+    let objectBase: Data?
+}
+
+private struct PreparedScanCleanupWorkItem: Sendable {
+    let workItem: ScanCleanupWorkItem
+    let outputByInput: [Data: Data]
+}
+
 private final class ProgressUpdateThrottle: @unchecked Sendable {
     private let lock = NSLock()
     private var lastUpdate = Date.distantPast
@@ -370,6 +386,7 @@ final class WorkspaceViewModel {
     /// Drives the barcode/QR composer sheet (Feature G). Set from the More-menu "Insert
     /// barcode/QR" row; the sheet arms `pendingBarcodeOptions` on Insert, then dismisses.
     var isShowingBarcodeComposer = false
+    var isShowingScanCleanup = false
     var isShowingSplitExport = false
     /// Drives the "Fold a Folder…" options sheet; set from the File menu.
     var isShowingBatchFold = false
@@ -446,6 +463,7 @@ final class WorkspaceViewModel {
     var isMakingSearchable: Bool {
         activeOCRTask != nil
     }
+    private(set) var isApplyingScanCleanup = false
     var canStartSearchable: Bool {
         hasScannedPages && canRunOCROperation
     }
@@ -502,7 +520,8 @@ final class WorkspaceViewModel {
     /// re-renders whenever documents are added, removed, or reordered.
     var memberDocuments: [MemberDocument] { loadedPDFs.map { $0.0 } }
     var canRemoveDocuments: Bool {
-        !isImporting && activeCompressionTask == nil && activeOCRTask == nil && !loadedPDFs.isEmpty
+        !isImporting && activeCompressionTask == nil && activeOCRTask == nil
+            && !isApplyingScanCleanup && !loadedPDFs.isEmpty
     }
 
     var isSigningInProgress: Bool { activeSigningTask != nil }
@@ -551,6 +570,7 @@ final class WorkspaceViewModel {
     @ObservationIgnored private var activeOCRTask: Task<Void, Never>?
     @ObservationIgnored private var activeOCRCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeOCRID: UUID?
+    @ObservationIgnored private var activeScanCleanupCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeBatchFoldTask: Task<Void, Never>?
     @ObservationIgnored private var activeBatchFoldCancellation: OperationCancellationToken?
     @ObservationIgnored private var activeBatchFoldID: UUID?
@@ -1013,6 +1033,7 @@ final class WorkspaceViewModel {
         activeImportTask?.cancel()
         activeCompressionTask?.cancel()
         activeOCRTask?.cancel()
+        activeScanCleanupCancellation?.cancel()
     }
 
     // MARK: - Import
@@ -1139,6 +1160,7 @@ final class WorkspaceViewModel {
         activeCompressionTask?.cancel()
         activeOCRCancellation?.cancel()
         activeOCRTask?.cancel()
+        activeScanCleanupCancellation?.cancel()
         activeSigningCancellation?.cancel()
         activeSigningTask?.cancel()
         activeBatchFoldCancellation?.cancel()
@@ -2448,6 +2470,10 @@ final class WorkspaceViewModel {
             editingStatus = .warning("Finish making this document searchable before making more changes.")
             return false
         }
+        guard !isApplyingScanCleanup else {
+            editingStatus = .warning(L10n.string("status.scanCleanup.finishBeforeMoreChanges"))
+            return false
+        }
         guard activeSigningTask == nil else {
             editingStatus = .warning(L10n.string("status.sign.finishBeforeMoreChanges"))
             return false
@@ -2636,6 +2662,7 @@ final class WorkspaceViewModel {
         !isImporting
             && activeCompressionTask == nil
             && activeOCRTask == nil
+            && !isApplyingScanCleanup
             && activeSigningTask == nil
             && !hasCommittedEditsBlockingOCR
     }
@@ -2712,6 +2739,159 @@ final class WorkspaceViewModel {
     }
 
     // MARK: - Searchable scans
+
+    /// Resolves the sheet's deliberately small scope choices into stable page identities.
+    /// The current-page default prevents an accidental whole-document lossy conversion.
+    @MainActor
+    func scanCleanupTargetPageRefIDs(scope: ScanCleanupScope) -> [UUID] {
+        switch scope {
+        case .currentPage:
+            guard let selectedPageRefID,
+                  document.workspace.pageOrder.contains(where: { $0.id == selectedPageRefID }) else {
+                return document.workspace.pageOrder.first.map { [$0.id] } ?? []
+            }
+            return [selectedPageRefID]
+        case .document:
+            return document.workspace.pageOrder.map(\.id)
+        }
+    }
+
+    /// Snapshots the selected page's preservation-first member bytes for a low-resolution,
+    /// background preview. The sheet never sends the live PDFKit object across actors.
+    @MainActor
+    func scanCleanupPreviewSource() -> ScanCleanupPreviewSource? {
+        guard let pageRefID = scanCleanupTargetPageRefIDs(scope: .currentPage).first,
+              let ref = workspacePageRef(pageRefID),
+              let member = document.workspace.documents.first(where: { $0.id == ref.memberDocId }),
+              let pageIndex = member.pageRefs.firstIndex(of: ref.id),
+              let data = try? currentPDFDataForOCR()[member.id] else { return nil }
+        return ScanCleanupPreviewSource(pdfData: data, pageIndex: pageIndex)
+    }
+
+    /// Raster-cleans the selected pages off the main actor, then commits every affected member
+    /// as one atomic mutation. All preserved byte lanes are prepared before the first state write,
+    /// so failure or cancellation cannot leave a half-cleaned workspace.
+    @MainActor
+    @discardableResult
+    func applyScanCleanup(pageRefIDs: [UUID], options: ScanCleanupOptions) async -> Bool {
+        guard canPerformMutatingAction() else { return false }
+        let requestedIDs = Set(pageRefIDs)
+        guard !requestedIDs.isEmpty else { return false }
+
+        let authoritativeData: [UUID: Data]
+        do {
+            authoritativeData = try currentPDFDataForOCR()
+        } catch {
+            showEditMessage(L10n.string("status.scanCleanup.applyFailed"), isError: true)
+            return false
+        }
+
+        let refsByMember = Dictionary(grouping: document.workspace.pageOrder.filter {
+            requestedIDs.contains($0.id)
+        }, by: \.memberDocId)
+        var workItems: [ScanCleanupWorkItem] = []
+        for member in document.workspace.documents where refsByMember[member.id] != nil {
+            guard let refs = refsByMember[member.id],
+                  let previousLive = document.memberPDFData[member.id],
+                  let currentLive = authoritativeData[member.id],
+                  let loadedPDF = loadedPDFs.first(where: { $0.0.id == member.id })?.1 else {
+                showEditMessage(L10n.string("status.scanCleanup.applyFailed"), isError: true)
+                return false
+            }
+            let pageIndices = refs.compactMap { member.pageRefs.firstIndex(of: $0.id) }.sorted()
+            guard pageIndices.count == refs.count else {
+                showEditMessage(L10n.string("status.scanCleanup.applyFailed"), isError: true)
+                return false
+            }
+            workItems.append(ScanCleanupWorkItem(
+                memberID: member.id,
+                pageIndices: pageIndices,
+                pageRefIDs: Set(refs.map(\.id)),
+                previousLive: previousLive,
+                previousLoadedPDFData: PDFSerializer.data(from: loadedPDF),
+                currentLive: currentLive,
+                original: originalMemberPDFData[member.id],
+                objectBase: objectBaseData[member.id]
+            ))
+        }
+        guard !workItems.isEmpty,
+              workItems.reduce(0, { $0 + $1.pageIndices.count }) == requestedIDs.count else {
+            showEditMessage(L10n.string("status.scanCleanup.applyFailed"), isError: true)
+            return false
+        }
+
+        let cancellation = OperationCancellationToken()
+        activeScanCleanupCancellation = cancellation
+        isApplyingScanCleanup = true
+        operationProgress.start(
+            title: L10n.string("scanCleanup.title"),
+            detail: L10n.string("scanCleanup.subtitle")
+        )
+        defer {
+            if activeScanCleanupCancellation === cancellation {
+                activeScanCleanupCancellation = nil
+                isApplyingScanCleanup = false
+                operationProgress.finish()
+            }
+        }
+
+        let prepared: [PreparedScanCleanupWorkItem]
+        do {
+            prepared = try await Task.detached(priority: .userInitiated) {
+                try workItems.map { workItem in
+                    var outputByInput: [Data: Data] = [:]
+                    let inputs = Set([workItem.currentLive, workItem.original, workItem.objectBase].compactMap { $0 })
+                    for input in inputs {
+                        guard !cancellation.isCancelled else { throw ScanCleanupPipelineError.cancelled }
+                        outputByInput[input] = try ScanCleanupPipeline.replacingPageContents(
+                            in: input,
+                            pageIndices: workItem.pageIndices,
+                            options: options,
+                            isCancelled: { cancellation.isCancelled }
+                        )
+                    }
+                    return PreparedScanCleanupWorkItem(workItem: workItem, outputByInput: outputByInput)
+                }
+            }.value
+        } catch {
+            if cancellation.isCancelled || error as? ScanCleanupPipelineError == .cancelled {
+                showEditMessage(L10n.string("status.scanCleanup.cancelled"), severity: .warning)
+            } else {
+                showEditMessage(L10n.string("status.scanCleanup.applyFailed"), isError: true)
+            }
+            return false
+        }
+        guard !cancellation.isCancelled else {
+            showEditMessage(L10n.string("status.scanCleanup.cancelled"), severity: .warning)
+            return false
+        }
+
+        let requests = prepared.map { preparedItem in
+            let workItem = preparedItem.workItem
+            let outputs = preparedItem.outputByInput
+            return MemberByteMutationRequest(
+                memberID: workItem.memberID,
+                previousLive: workItem.previousLive,
+                previousLoadedPDFData: workItem.previousLoadedPDFData,
+                currentLive: workItem.currentLive,
+                options: MemberMutationOptions(
+                    invalidatedPageRefIDs: workItem.pageRefIDs,
+                    reloadsLivePDF: true
+                ),
+                transform: { outputs[$0] }
+            )
+        }
+        let succeeded = mutateMemberBytes(
+            requests: requests,
+            actionNameKey: requestedIDs.count == 1 ? "undo.cleanScan" : "undo.cleanScans",
+            failureKey: "status.scanCleanup.applyFailed"
+        )
+        if succeeded {
+            warnIfEditingWouldInvalidateSignatures()
+            editingStatus = .success(L10n.format("status.scanCleanup.cleaned", requestedIDs.count))
+        }
+        return succeeded
+    }
 
     /// Safe one-click route used by the scan banner regardless of the Inspector's repair scope.
     func makeScannedPagesSearchable() {

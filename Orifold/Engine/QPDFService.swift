@@ -209,6 +209,42 @@ enum QPDFService {
         }
     }
 
+    /// Replaces a page's drawing operators and resources while retaining the destination page
+    /// object itself. Keeping that indirect object is what preserves page labels, outlines,
+    /// annotations, form references, and every catalog-level feature that points at the page.
+    /// The replacement PDF must contain exactly one page.
+    static func replacingPageContent(
+        in destinationData: Data,
+        pageIndex: Int,
+        with replacementPageData: Data
+    ) -> Data? {
+        withQPDF(destinationData, description: "page-content-destination") { destination in
+            withQPDF(replacementPageData, description: "page-content-source") { source in
+                guard hasErrors(qpdf_check_pdf(destination)) == false,
+                      hasErrors(qpdf_check_pdf(source)) == false,
+                      pageIndex >= 0,
+                      pageIndex < qpdf_get_num_pages(destination),
+                      qpdf_get_num_pages(source) == 1 else { return nil }
+
+                let destinationPage = qpdf_get_page_n(destination, numericCast(pageIndex))
+                let sourcePage = qpdf_get_page_n(source, 0)
+                for key in ["/Contents", "/Resources", "/Group"] {
+                    if hasKey(source, sourcePage, key) {
+                        let sourceValue = indirectObject(
+                            qpdf_oh_get_key(source, sourcePage, key),
+                            in: source
+                        )
+                        let copied = qpdf_oh_copy_foreign_object(destination, source, sourceValue)
+                        replaceKey(destination, in: destinationPage, key: key, value: copied)
+                    } else {
+                        removeKey(destination, from: destinationPage, key: key)
+                    }
+                }
+                return write(destination) { _ in }
+            }
+        }
+    }
+
     /// Structural diagnostic for the annotation/form graft: every terminal field in
     /// `/AcroForm/Fields` must be the same indirect object reachable from a destination page's
     /// `/Annots` array. Kept internal so replay regression tests can verify identity, not merely

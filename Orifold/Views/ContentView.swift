@@ -430,6 +430,11 @@ struct ContentView: View {
                 .environmentObject(languageManager)
                 .environment(\.locale, languageManager.effectiveLocale)
         }
+        .sheet(isPresented: $viewModel.isShowingScanCleanup) {
+            ScanCleanupSheet(viewModel: viewModel)
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.effectiveLocale)
+        }
         .sheet(isPresented: $viewModel.isShowingSplitExport) {
             SplitExportSheet(viewModel: viewModel)
                 .environmentObject(languageManager)
@@ -3165,6 +3170,7 @@ private struct ToolbarOverflowPresentations: ViewModifier {
                     case .discardAndClose: isConfirmingDiscardClose = true
                     case .insertBarcode: viewModel.isShowingBarcodeComposer = true
                     case .scanBarcodes: viewModel.scanBarcodesOnCurrentPage()
+                    case .scanCleanup: viewModel.isShowingScanCleanup = true
                     case .splitExport: viewModel.isShowingSplitExport = true
                     case .removeBlankPages: Task { await viewModel.detectBlankPages() }
                     case .exportComments: viewModel.exportCommentSummary()
@@ -3212,6 +3218,7 @@ enum MoreRoute: Equatable {
     case discardAndClose
     case insertBarcode
     case scanBarcodes
+    case scanCleanup
     case splitExport
     case removeBlankPages
     case exportComments
@@ -3334,6 +3341,15 @@ private struct ToolbarMoreMenu: View {
                 .disabled(viewModel.pageCount == 0)
             MoreMenuRow(systemImage: "qrcode.viewfinder", titleKey: "barcode.scan.title") { onRoute(.scanBarcodes) }
                 .disabled(viewModel.pageCount == 0)
+
+            MoreMenuRow(
+                systemImage: "viewfinder.rectangular",
+                titleKey: "scanCleanup.title",
+                subtitleKey: "scanCleanup.menu.subtitle",
+                trailing: { MoreChevron() },
+                action: { onRoute(.scanCleanup) }
+            )
+            .disabled(viewModel.pageCount == 0 || viewModel.isApplyingScanCleanup)
 
             MoreMenuRow(
                 systemImage: "square.split.1x2",
