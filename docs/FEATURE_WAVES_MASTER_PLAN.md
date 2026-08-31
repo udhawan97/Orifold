@@ -33,7 +33,7 @@
 | 3 | Compression pack v2 (zopfli, mozjpeg, JBIG2) | Med-High | ☐ |
 | 3 | Attachments manager | Med-High | ✅ |
 | 3 | Booklet / N-up imposition | Med-High | ✅ |
-| 3 | Scan cleanup ("Scan mode") | Med-High | ☐ |
+| 3 | Scan cleanup ("Scan mode") | Med-High | ✅ |
 | 4 | Offline translation (macOS 15 gate) | High | ✅ |
 | 4 | Archival readiness hints | Med-High | ✅ |
 | 4 | Structure/reading-order inspector | Med-High | ✅ |
@@ -45,8 +45,10 @@
 > **Status corrections, 2026-08-22:** translation and CBZ import had shipped earlier without
 > this table being ticked (CBZ landed in `0fed692` using the in-tree zip reader instead of
 > ZIPFoundation; translation landed with the repo's first macOS-15 gate). The remaining ☐
-> rows (compression pack v2, scan cleanup, CJK pack) all require macOS-local binary or spike
-> work and stay open. Wave 7 (batch folding, side-by-side compare, read-aloud-from-here) was
+> rows (compression pack v2, scan cleanup, CJK pack) all required macOS-local binary or spike
+> work at that point. Scan cleanup shipped on 2026-08-31 as a code-only, preservation-first
+> implementation; compression pack v2 and the CJK pack remain open. Wave 7 (batch folding,
+> side-by-side compare, read-aloud-from-here) was
 > planned outside this document — see `docs/release-v0.11.0.md`.
 
 ## Session protocol (every wave)

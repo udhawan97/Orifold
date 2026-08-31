@@ -336,7 +336,9 @@ mutating the active member's preserved bytes, named undo, `structureRevision` bu
 
 # Feature K — Scan cleanup ("Scan mode")  *(code-only, ZERO new @_silgen_name bindings)*
 
-Design: **quality spike FIRST**, then pure image ops (`ScanCleanup`) → page-clean pipeline (reuse the rasterizer) → apply-as-replacement (rebuild page as image-PDF, byte-swap like `applyOCRResult`) → sheet UI. No PDFium image-object surgery: replacing the whole page with a cleaned single-image page is more robust than `FPDFImageObj_SetBitmap` (which assumes the page is exactly one full-bleed image) and needs no binding.
+Design: **quality spike FIRST**, then pure image ops (`ScanCleanup`) → page-clean pipeline (reuse the rasterizer) → preservation-first page-content replacement → sheet UI. The cleaned bitmap is rendered as a one-page PDF, but qpdf imports only its `/Contents`, `/Resources`, and `/Group` onto the existing page object. That keeps the catalog, attachments, outlines, annotations, forms, page identity, dimensions, rotation, and untouched pages intact without new PDFium bindings.
+
+**Completed 2026-08-31:** all nine focused scan-cleanup tests pass, including the OCR-uplift quality spike, structural preservation, rotation/media-box preservation, and byte-exact undo/redo. The complete suite passes (1,169 tests, 33 skipped), the release build succeeds, and the clean-installed signed app completed a real skewed-PDF preview/apply/undo/redo acceptance flow.
 
 ### Task K1: ScanCleanup — pure image operations
 
@@ -359,7 +361,7 @@ enum ScanCleanup {
 - `deskewAndCrop`: perspective-correct via `CIFilter.perspectiveCorrection()` using the four corner points.
 - `binarize`: grayscale + adaptive threshold via vImage (`vImageConvert_*` to Planar8, box-blur local mean, threshold) — or `CIColorControls` contrast + `CIColorMonochrome`/threshold. Despeckle: small median (`vImageMax/Min` or `CIMedianFilter`).
 
-- [ ] **Step 1: Failing tests** on synthetic fixtures (pure, deterministic):
+- [x] **Step 1: Failing tests** on synthetic fixtures (pure, deterministic):
 
 ```swift
 final class ScanCleanupTests: XCTestCase {
@@ -376,7 +378,7 @@ final class ScanCleanupTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2:** FAIL. **Step 3:** Implement. **Step 4:** PASS. **Step 5: Commit** — `feat: scan-cleanup image ops (deskew/binarize/despeckle)`.
+- [x] **Step 2:** FAIL. **Step 3:** Implement. **Step 4:** PASS. **Step 5: Commit** — `feat: scan-cleanup image ops (deskew/binarize/despeckle)`.
 
 **Gotchas:** Vision corners are normalized + **y-flipped** vs CGImage — convert carefully. Without Leptonica (only bundled if Feature H's jbig2 lands — it did NOT this wave), despeckle is **vImage-only**; keep it modest. Binarize output is a 1-bpp-equivalent grayscale CGImage (true 1-bpp packing only matters once JBIG2 exists).
 
@@ -394,8 +396,8 @@ enum ScanCleanupPipeline {
 }
 ```
 
-- [ ] **Step 1: The spike IS the test** (roadmap gotcha): one skewed/shadowed scanned fixture page → `cleanedImage` → run `PDFOCRService.makeSearchable`-style OCR on both original and cleaned → assert **OCR confidence(cleaned) ≥ confidence(original)**. If it regresses, stop and rethink params before any UI.
-- [ ] **Step 2:** FAIL. **Step 3:** Implement (reuse `renderedImage(for:)` now internal; feed into `ScanCleanup.clean`). **Step 4:** PASS. **Step 5: Commit** — `feat: page scan-cleanup pipeline + OCR-uplift spike`.
+- [x] **Step 1: The spike IS the test** (roadmap gotcha): one skewed/shadowed scanned fixture page → `cleanedImage` → run `PDFOCRService.makeSearchable`-style OCR on both original and cleaned → assert **OCR confidence(cleaned) ≥ confidence(original)**. If it regresses, stop and rethink params before any UI.
+- [x] **Step 2:** FAIL. **Step 3:** Implement (reuse `renderedImage(for:)` now internal; feed into `ScanCleanup.clean`). **Step 4:** PASS. **Step 5: Commit** — `feat: page scan-cleanup pipeline + OCR-uplift spike`.
 
 **Gotcha:** if the widen of `renderedImage` collides with Wave 2 G3 (which may have already exposed it), re-grep and skip the redundant edit.
 
@@ -407,12 +409,12 @@ enum ScanCleanupPipeline {
 
 **Interfaces:**
 ```swift
-func applyScanCleanup(pageRefIDs: [String], options: ScanCleanupOptions)   // per-page or whole-doc
+func applyScanCleanup(pageRefIDs: [UUID], options: ScanCleanupOptions) async -> Bool
 ```
 
-- [ ] **Step 1:** Study `applyOCRResult` (:2327) and the images→PDF lane `PDFKitEngine.renderImage(_:title:)` (:1031). **Step 2: Failing test** — apply to a scanned fixture page: assert the member's new bytes pass `isStructurallySound`, page count unchanged, undo restores original bytes (pristine-base preserved). **Step 3: Implement**: for each target page, build a single-image PDF page from `ScanCleanupPipeline.cleanedImage` (mirror `renderImage`), splice it in place of the original page in the member bytes, then swap member bytes + reset pristine base + named undo + `rebuild()` — exactly the `applyOCRResult` discipline. **Step 4:** `swift test`. **Step 5: Commit** — `feat: apply scan cleanup as page replacement with undo`.
+- [x] **Step 1:** Study `applyOCRResult` and the images→PDF lane. **Step 2: Failing test** — apply to a scanned fixture page: assert the member's new bytes pass `isStructurallySound`, page count unchanged, undo restores original bytes (pristine-base preserved). **Step 3: Implement**: clean every requested page off the main actor before the first write, import only the replacement page's content/resource/group objects through qpdf, then perform one atomic member-byte mutation with named undo and cache invalidation. **Step 4:** `swift test`. **Step 5: Commit** — `feat: apply scan cleanup as page replacement with undo`.
 
-**Gotchas:** keep original bytes for undo via the existing pristine-base mechanism (do NOT lose the pre-clean scan). Replacing a page must preserve page dimensions/rotation. This is a **lossy raster replacement** — the UI copy must say so (K4).
+**Gotchas:** keep original bytes for byte-exact undo (do NOT lose the pre-clean scan). Replacing page content must preserve the existing page object, catalog, dimensions, rotation, annotations, forms, attachments, and outlines. This is a **lossy raster replacement of page content** — the UI copy must say so (K4).
 
 ### Task K4: "Clean up scan…" sheet UI + L10n
 
@@ -420,9 +422,9 @@ func applyScanCleanup(pageRefIDs: [String], options: ScanCleanupOptions)   // pe
 - Create: `Orifold/Views/ScanCleanupSheet.swift`
 - Modify: `Orifold/Views/ContentView.swift` (More menu entry), `Orifold/Resources/Localizable.xcstrings`
 
-- [ ] **Step 1:** Sheet: before/after preview, deskew/binarize/despeckle toggles, scope = this page / whole document, Apply. Keys ×6: `scanCleanup.title`, `.deskew`, `.binarize`, `.despeckle`, `.scope.page`, `.scope.document`, `.apply`, `.lossyWarning` ("Replaces the page with a cleaned image — editable text on this page will be rasterized."). Coverage + RawLocalizationKeyLeak pass.
-- [ ] **Step 2:** `swift test`; release build; **hands-on**: open a skewed scan → Clean up scan → before/after preview updates → Apply → page deskewed/cleaned; undo restores; OCR after cleanup reads better.
-- [ ] **Step 3: Commit** — `feat: scan cleanup sheet + localization`. Tick master Status row.
+- [x] **Step 1:** Sheet: before/after preview, deskew/binarize/despeckle toggles, scope = this page / whole document, Apply. Keys ×6: `scanCleanup.title`, `.deskew`, `.binarize`, `.despeckle`, `.scope.page`, `.scope.document`, `.apply`, `.lossyWarning` ("Replaces the page with a cleaned image — editable text on this page will be rasterized."). Coverage + RawLocalizationKeyLeak pass.
+- [x] **Step 2:** `swift test`; release build; **hands-on**: open a skewed scan → Clean up scan → before/after preview updates → Apply → page deskewed/cleaned; undo restores; OCR-after-cleanup quality is covered by the deterministic fixture test.
+- [x] **Step 3: Commit** — `feat: scan cleanup sheet + localization`. Tick master Status row.
 
 ---
 
