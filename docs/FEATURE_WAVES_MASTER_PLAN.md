@@ -105,8 +105,8 @@ Spell-check, metadata editor, read-aloud, demo document. No new dependencies, no
 - **Tests:** page-order math (pure function, exhaustive for 1–16 pages incl. non-multiple-of-4 padding); output page count; content presence via PDFium text extraction; annotations-baked-first regression test.
 
 ### 3D. Scan cleanup ("Scan mode")
-- **What:** Pre-OCR pipeline: `VNDetectDocumentSegmentationRequest` (macOS 12+, no gate needed) for crop/perspective → vImage adaptive threshold/contrast → optional Leptonica deskew/despeckle (free if 3A shipped jbig2's Leptonica; otherwise skip Leptonica and ship Vision+vImage only). Swap cleaned bitmap back via the bound `FPDFImageObj_SetBitmap` lane. UI: "Clean up scan…" sheet with before/after preview, per-page or whole-doc.
-- **Tests:** pure-function image ops on fixture bitmaps (skew angle recovered within tolerance; threshold output is 1-bpp); page-swap round-trip passes structural validation; OCR-after-cleanup confidence ≥ OCR-before on a skewed fixture.
+- **What:** Pre-OCR pipeline: `VNDetectDocumentSegmentationRequest` for crop/perspective and roll correction → deterministic Otsu black/white conversion → conservative isolated-pixel despeckle. Render the cleaned bitmap as a replacement page, then use qpdf to copy only `/Contents`, `/Resources`, and `/Group` onto the existing page object. UI: "Clean up scan…" proofing sheet with before/after preview, per-page or whole-document scope, and explicit rasterization/anchor-shift warnings.
+- **Tests:** pure-function image ops on fixture bitmaps (dark-border slope within tolerance; two-tone threshold output; isolated speck removal without stroke loss); qpdf page-content replacement passes structural validation while retaining attachments, annotations, geometry, and untouched-page rendering; OCR-after-cleanup confidence ≥ OCR-before on a skewed fixture; byte-exact undo/redo.
 - **Gotchas:** quality spike FIRST (one skewed/shadowed fixture through the pipeline) before building UI; keep original bytes for undo via the existing pristine-base mechanism.
 
 ## Wave 4 — Positioning features

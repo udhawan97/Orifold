@@ -352,9 +352,8 @@ struct ScanCleanupOptions: Equatable { var deskew = true; var binarize = true; v
 enum ScanCleanup {
     static func detectDocumentQuad(_ image: CGImage) -> [CGPoint]?          // stable pixel-space corners
     static func deskewAndCrop(_ image: CGImage, to quad: [CGPoint]) -> CGImage
-    static func binarize(_ image: CGImage) -> CGImage                       // adaptive threshold -> 1-bpp-ish
+    static func binarize(_ image: CGImage) -> CGImage                       // Otsu threshold -> 1-bpp-ish
     static func clean(_ image: CGImage, options: ScanCleanupOptions) -> CGImage
-    static func estimateSkewAngle(_ image: CGImage) -> CGFloat              // for the test oracle
 }
 ```
 - `detectDocumentQuad`: `VNDetectDocumentSegmentationRequest` (macOS 12+, **no `#available` gate needed** — target is 14) → `results` is `[VNRectangleObservation]`; take the top observation's normalized corners, convert them to stable top-left/top-right/bottom-right/bottom-left pixel-space points, and keep Vision types out of callers. Mirror the request/handler setup in `PDFOCRService` (`VNImageRequestHandler`).
@@ -365,10 +364,12 @@ enum ScanCleanup {
 
 ```swift
 final class ScanCleanupTests: XCTestCase {
-    func testDeskewRecoversKnownAngle() throws {
-        let skewed = /* render a black rect on white, rotated +7° */
-        let corrected = ScanCleanup.clean(skewed, options: .init(deskew: true, binarize: false, despeckle: false))
-        XCTAssertLessThan(abs(ScanCleanup.estimateSkewAngle(corrected)), 1.5, "deskew within tolerance")
+    func testDeskewStraightensAndCropsAPhotographedPage() throws {
+        let source = /* render a photographed page, rotated +7° */
+        let corrected = ScanCleanup.clean(source, options: .init(deskew: true, binarize: false, despeckle: false))
+        XCTAssertLessThan(abs(darkBorderSlope(in: corrected)), 0.03)
+        XCTAssertLessThan(corrected.width, source.width)
+        XCTAssertLessThan(corrected.height, source.height)
     }
     func testBinarizeProducesTwoTone() {
         let gray = /* 50%-gray gradient fixture */
@@ -380,7 +381,7 @@ final class ScanCleanupTests: XCTestCase {
 
 - [x] **Step 2:** FAIL. **Step 3:** Implement. **Step 4:** PASS. **Step 5: Commit** — `feat: scan-cleanup image ops (deskew/binarize/despeckle)`.
 
-**Gotchas:** Vision corners are normalized + **y-flipped** vs CGImage — convert carefully. Without Leptonica (only bundled if Feature H's jbig2 lands — it did NOT this wave), despeckle is **vImage-only**; keep it modest. Binarize output is a 1-bpp-equivalent grayscale CGImage (true 1-bpp packing only matters once JBIG2 exists).
+**Gotchas:** Vision corners begin normalized + **y-flipped** vs CGImage — convert carefully. Without Leptonica (only bundled if Feature H's jbig2 lands — it did NOT this wave), despeckling stays deliberately modest and clears only isolated dark pixels. Binarize output is a 1-bpp-equivalent grayscale CGImage (true 1-bpp packing only matters once JBIG2 exists).
 
 ### Task K2: Expose rasterizer + page-clean pipeline (+ quality spike)
 
