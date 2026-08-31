@@ -46,7 +46,7 @@
 > this table being ticked (CBZ landed in `0fed692` using the in-tree zip reader instead of
 > ZIPFoundation; translation landed with the repo's first macOS-15 gate). The remaining ☐
 > rows (compression pack v2, scan cleanup, CJK pack) all required macOS-local binary or spike
-> work at that point. Scan cleanup shipped on 2026-08-31 as a code-only, preservation-first
+> work at that point. Scan cleanup was completed on 2026-08-31 as a code-only, preservation-first
 > implementation; compression pack v2 and the CJK pack remain open. Wave 7 (batch folding,
 > side-by-side compare, read-aloud-from-here) was
 > planned outside this document — see `docs/release-v0.11.0.md`.

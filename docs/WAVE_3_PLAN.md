@@ -336,9 +336,9 @@ mutating the active member's preserved bytes, named undo, `structureRevision` bu
 
 # Feature K — Scan cleanup ("Scan mode")  *(code-only, ZERO new @_silgen_name bindings)*
 
-Design: **quality spike FIRST**, then pure image ops (`ScanCleanup`) → page-clean pipeline (reuse the rasterizer) → preservation-first page-content replacement → sheet UI. The cleaned bitmap is rendered as a one-page PDF, but qpdf imports only its `/Contents`, `/Resources`, and `/Group` onto the existing page object. That keeps the catalog, attachments, outlines, annotations, forms, page identity, dimensions, rotation, and untouched pages intact without new PDFium bindings.
+Design: **quality spike FIRST**, then pure image ops (`ScanCleanup`) → page-clean pipeline (reuse the rasterizer) → preservation-first page-content replacement → sheet UI. The cleaned bitmap is rendered as a one-page PDF, but qpdf imports only its `/Contents`, `/Resources`, and `/Group` onto the existing page object. That retains the existing catalog, page object, attachments, outlines, annotations, forms, dimensions, rotation, and untouched pages without new PDFium bindings. Dedicated regressions directly cover attachments, annotations, page geometry, untouched-page rendering, and undo/redo; outlines and forms are retained by construction but still need focused behavioral regressions.
 
-**Completed 2026-08-31:** all nine focused scan-cleanup tests pass, including the OCR-uplift quality spike, structural preservation, rotation/media-box preservation, and byte-exact undo/redo. The complete suite passes (1,169 tests, 33 skipped), the release build succeeds, and the clean-installed signed app completed a real skewed-PDF preview/apply/undo/redo acceptance flow.
+**Completed 2026-08-31:** all nine focused scan-cleanup tests pass, including the OCR-uplift quality spike, structural preservation, rotation/media-box preservation, and byte-exact undo/redo. The complete suite passes (1,169 tests, 33 skipped), the release build succeeds, and the clean-installed app with code-signature verification completed a real skewed-PDF preview/apply/undo/redo acceptance flow.
 
 ### Task K1: ScanCleanup — pure image operations
 
@@ -350,16 +350,16 @@ Design: **quality spike FIRST**, then pure image ops (`ScanCleanup`) → page-cl
 ```swift
 struct ScanCleanupOptions: Equatable { var deskew = true; var binarize = true; var despeckle = true }
 enum ScanCleanup {
-    static func detectDocumentQuad(_ image: CGImage) -> [CGPoint]?          // Vision corners, normalized
+    static func detectDocumentQuad(_ image: CGImage) -> [CGPoint]?          // stable pixel-space corners
     static func deskewAndCrop(_ image: CGImage, to quad: [CGPoint]) -> CGImage
     static func binarize(_ image: CGImage) -> CGImage                       // adaptive threshold -> 1-bpp-ish
     static func clean(_ image: CGImage, options: ScanCleanupOptions) -> CGImage
     static func estimateSkewAngle(_ image: CGImage) -> CGFloat              // for the test oracle
 }
 ```
-- `detectDocumentQuad`: `VNDetectDocumentSegmentationRequest` (macOS 12+, **no `#available` gate needed** — target is 14) → `results` is `[VNRectangleObservation]`; take the top observation's `topLeft/topRight/bottomLeft/bottomRight` (normalized). Mirror the request/handler setup in `PDFOCRService` (`VNImageRequestHandler`).
+- `detectDocumentQuad`: `VNDetectDocumentSegmentationRequest` (macOS 12+, **no `#available` gate needed** — target is 14) → `results` is `[VNRectangleObservation]`; take the top observation's normalized corners, convert them to stable top-left/top-right/bottom-right/bottom-left pixel-space points, and keep Vision types out of callers. Mirror the request/handler setup in `PDFOCRService` (`VNImageRequestHandler`).
 - `deskewAndCrop`: perspective-correct via `CIFilter.perspectiveCorrection()` using the four corner points.
-- `binarize`: grayscale + adaptive threshold via vImage (`vImageConvert_*` to Planar8, box-blur local mean, threshold) — or `CIColorControls` contrast + `CIColorMonochrome`/threshold. Despeckle: small median (`vImageMax/Min` or `CIMedianFilter`).
+- `binarize`: grayscale + deterministic global Otsu threshold to an opaque black/white raster. Despeckle is deliberately conservative: clear only isolated one-pixel dark noise so connected strokes survive.
 
 - [x] **Step 1: Failing tests** on synthetic fixtures (pure, deterministic):
 
