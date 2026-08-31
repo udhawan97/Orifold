@@ -235,12 +235,16 @@ private struct Raster {
     }
 
     func grayscale() -> [UInt8] {
-        stride(from: 0, to: pixels.count, by: 4).map { offset in
+        var values: [UInt8] = []
+        values.reserveCapacity(pixels.count / 4)
+        for offset in stride(from: 0, to: pixels.count, by: 4) {
             let red = Int(pixels[offset])
             let green = Int(pixels[offset + 1])
             let blue = Int(pixels[offset + 2])
-            return UInt8((77 * red + 150 * green + 29 * blue) >> 8)
+            let luminance = (77 * red + 150 * green + 29 * blue) >> 8
+            values.append(UInt8(luminance))
         }
+        return values
     }
 
     mutating func image() -> CGImage? {
