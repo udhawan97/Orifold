@@ -6788,7 +6788,10 @@ final class WorkspaceViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.document.workspace.tags.isEmpty)
         XCTAssertTrue(viewModel.document.workspace.comments.isEmpty)
         XCTAssertEqual(page.annotations.count, annotationCount)
-        XCTAssertEqual(viewModel.editingStatus?.message, "Finish importing before making more changes.")
+        XCTAssertEqual(
+            viewModel.editingStatus?.message,
+            L10n.string("status.import.finishBeforeMoreChanges")
+        )
         XCTAssertEqual(viewModel.editingStatus?.isError, false)
     }
 
@@ -6803,7 +6806,10 @@ final class WorkspaceViewModelTests: XCTestCase {
         undoManager.undo()
 
         XCTAssertEqual(viewModel.document.workspace.tags, ["review"])
-        XCTAssertEqual(viewModel.editingStatus?.message, "Finish importing before making more changes.")
+        XCTAssertEqual(
+            viewModel.editingStatus?.message,
+            L10n.string("status.import.finishBeforeMoreChanges")
+        )
         XCTAssertEqual(viewModel.editingStatus?.isError, false)
     }
 
@@ -6819,13 +6825,19 @@ final class WorkspaceViewModelTests: XCTestCase {
         viewModel.importFiles(urls: [importURL])
         XCTAssertFalse(viewModel.isImporting)
         XCTAssertTrue(viewModel.memberDocuments.isEmpty)
-        XCTAssertEqual(viewModel.editingStatus?.message, "Finish reducing file size before making more changes.")
+        XCTAssertEqual(
+            viewModel.editingStatus?.message,
+            L10n.string("status.compression.finishBeforeMoreChanges")
+        )
 
         viewModel.setProcessingStateForTesting(ocrActive: true)
         viewModel.importFiles(urls: [importURL])
         XCTAssertFalse(viewModel.isImporting)
         XCTAssertTrue(viewModel.memberDocuments.isEmpty)
-        XCTAssertEqual(viewModel.editingStatus?.message, "Finish making this document searchable before making more changes.")
+        XCTAssertEqual(
+            viewModel.editingStatus?.message,
+            L10n.string("status.ocr.finishBeforeMoreChanges")
+        )
 
         viewModel.setProcessingStateForTesting()
     }

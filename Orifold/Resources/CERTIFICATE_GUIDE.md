@@ -51,7 +51,9 @@ legal standing.
 4. **Import into Orifold:** Signatures panel → **Digital Signature → Import .p12 Digital ID**, choose
    the file, enter its password.
 5. **Sign & Export.** Place your signature appearance on the page, then **Sign & Export…**. Orifold
-   embeds a PAdES B-T signature (with a trusted timestamp) into the PDF.
+   embeds a PAdES B-B signature. If timestamping is enabled, current builds request a candidate
+   token but do not embed or mark it until full CMS/PKI trust validation is available; export
+   warns and continues as PAdES B-B.
 6. **Verify:** open the exported PDF in Adobe Reader — the signature panel should show
    *"Signed and all signatures are valid"* with your verified identity.
 
@@ -95,8 +97,10 @@ They can technically sign a PDF, but they are usually **not** on Adobe's AATL, s
 show "identity not verified" — similar to self-signed. For automatic trust you need a Document
 Signing / AATL certificate.
 
-**Does the timestamp cost anything?** No. Orifold uses a free public RFC-3161 timestamp authority so
-your signing time is provable, at no cost.
+**Does requesting a timestamp candidate cost anything?** No. Orifold can ask free public RFC-3161
+timestamp authorities by sending only a SHA-256 hash of the signature. Current builds do not embed
+the returned candidate because full CMS/PKI trust validation is not yet available, so the export
+warns and remains PAdES B-B without a timestamp.
 
 **Is my private key safe?** Yes. Keys stay in your macOS Keychain and signing happens locally on
 your Mac. Nothing is uploaded except the optional timestamp request (which contains only a hash, not

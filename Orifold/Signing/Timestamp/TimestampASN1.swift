@@ -2,11 +2,16 @@ import Foundation
 
 enum TimestampASN1Error: Error, Equatable, LocalizedError {
     case invalidDER(String)
+    case unsupportedTrustValidation
 
     var errorDescription: String? {
         switch self {
         case .invalidDER(let message):
             return "Invalid DER: \(message)"
+        case .unsupportedTrustValidation:
+            // This is a structured capability boundary, not user-facing copy. The signing
+            // policy maps it to the localized PAdES B-B fallback warning at the UI boundary.
+            return nil
         }
     }
 }
@@ -137,6 +142,20 @@ enum TimestampASN1 {
         }
 
         return imprint
+    }
+
+    /// Returns only after a token crosses the trust boundary required for embedding in a
+    /// signed PDF. Structural DER and message-imprint checks are necessary but are not a
+    /// cryptographic TSA assertion: accepting them alone lets an unauthenticated token be
+    /// represented as a trusted timestamp. Until CMS signature, signed-attribute,
+    /// timeStamping-EKU, and certificate-chain validation are implemented together, fail
+    /// closed so the signing caller takes its existing untimestamped B-B fallback.
+    static func validateTimeStampTokenForEmbedding(
+        _ data: Data,
+        expectedMessageImprint: Data? = nil
+    ) throws -> Data {
+        _ = try validateTimeStampToken(data, expectedMessageImprint: expectedMessageImprint)
+        throw TimestampASN1Error.unsupportedTrustValidation
     }
 
     private static func extractMessageImprint(fromSignedData value: Data) throws -> Data {

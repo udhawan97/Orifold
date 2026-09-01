@@ -62,7 +62,10 @@ enum StructureInspectionService {
             let tagged = pst_Catalog_IsTagged(document) != 0
 
             guard let page = poe_LoadPage(document, Int32(pageIndex)) else {
-                return PageStructure(pageIndex: pageIndex, isTagged: tagged, roots: [])
+                // FPDF_GetPageCount can trust a malformed page tree's `/Count` even when the
+                // referenced page dictionary cannot be loaded. That is a parser failure, not a
+                // legitimate page with no structure, and destructive callers must fail closed.
+                throw StructureInspectionError.invalidPDF
             }
             defer { poe_ClosePage(page) }
 

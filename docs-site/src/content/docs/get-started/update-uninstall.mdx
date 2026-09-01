@@ -14,7 +14,7 @@ import Callout from '../../../components/Callout.astro';
 
 ### From inside Orifold
 
-Choose **Check for Updates…** from the Orifold menu, or open **Settings → Updates**. If a newer version exists, click **Download** — Orifold fetches the signed disk image and checks it against the release's published SHA-256 checksum before it can install. When it's verified, click **Install Update…**; Orifold makes sure any open documents are saved first, then opens the disk image so you can drag the new version into Applications.
+Choose **Check for Updates…** from the Orifold menu, or open **Settings → Updates**. If a newer version exists, click **Download** — Orifold fetches the disk image and checks it against the release's published SHA-256 checksum before it can install. When it's verified, click **Quit, Install, and Relaunch…**. Orifold blocks the handoff if any open document has unsaved changes; otherwise it closes, installs the verified app, relaunches, and reopens the documents that were open.
 
 Automatic checks are **off by default**. Turning them on lets Orifold look about once a day — only ever a version check. It never downloads or installs anything on its own, and a check never sends anything but a request for the latest version number.
 
@@ -24,11 +24,7 @@ The **About Orifold** window (in the Orifold menu) also shows, right under the v
 
 When Orifold installs an update, it quietly keeps a verified copy of the version you were on. If a new build ever misbehaves, choose **Help → Restore Previous Version…**. Orifold confirms first, makes sure your open documents are saved, then closes, checksum- and signature-verifies the saved copy, swaps it back into place, and reopens — your documents untouched. The menu item is greyed out until there's actually a saved version to go back to.
 
-If the app won't launch at all, you can do the same from Terminal against the saved archive in `~/Library/Application Support/Orifold/Rollback/`:
-
-```zsh
-scripts/install-mac.sh --restore ~/Library/Application\ Support/Orifold/Rollback/Orifold-<version>.zip
-```
+The verified restore action is available only while Orifold can launch. There is currently no installed Terminal helper that can safely discover and verify the sandboxed archive when the app will not open. In that case, download the version you want from [Orifold's GitHub Releases](https://github.com/udhawan97/Orifold/releases) and reinstall it manually. Your documents are separate from the app bundle; do not delete app data while reinstalling.
 
 ### From your Desktop
 

@@ -38,7 +38,7 @@ Apple's Vision framework recognizes text in scanned pages entirely on-device, wr
 
 ## Signing — digital signatures
 
-Not a third-party engine but Orifold's own pipeline (`Signing/`): it resolves a Digital ID (imported `.p12`, Keychain, or self-signed), then constructs a detached CMS/PAdES signature (`ETSI.CAdES.detached`, SHA-256) as an append-only incremental update, optionally embedding an RFC-3161 timestamp from a TSA. Certificate trust and revocation are evaluated locally. See the [Developer FAQ](/Orifold/developers/faq/) for the byte-level detail.
+Not a third-party engine but Orifold's own pipeline (`Signing/`): it resolves a Digital ID (imported `.p12`, Keychain, or self-signed), then constructs a detached CMS/PAdES B-B signature (`ETSI.CAdES.detached`, SHA-256) as an append-only incremental update. If the user enables timestamping, it requests candidate RFC-3161 tokens by sending only the signature hash, but current builds reject them at the unimplemented CMS/PKI trust-validation boundary and export warned B-B without embedding a token. Certificate trust for the signing identity is evaluated locally; revocation and timestamp-token trust validation remain out of scope. See the [Developer FAQ](/Orifold/developers/faq/) for the byte-level detail.
 
 ## Related
 

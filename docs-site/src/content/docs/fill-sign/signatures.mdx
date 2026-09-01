@@ -48,14 +48,14 @@ Orifold has two kinds of signing, and they answer different needs. Open the **Si
 
 ## Apply a digital signature
 
-A digital signature binds a cryptographic proof to the file using a **Digital ID** (a certificate + private key). Orifold produces a standards-based PAdES signature entirely on your Mac. The optional trusted timestamp is the one step that goes online: a timestamp authority is sent a SHA-256 hash of the signature bytes — never your document — and returns a signed proof of time.
+A digital signature binds a cryptographic proof to the file using a **Digital ID** (a certificate + private key). Orifold produces a standards-based PAdES B-B signature entirely on your Mac. The optional timestamp setting is the one signing step that goes online: Orifold sends a SHA-256 hash of the signature bytes — never your document — to the chosen timestamp authority and requests a candidate token. Current builds do not embed or mark that token because full CMS/PKI trust validation is not yet available.
 
 1. Open the **Signatures** palette and choose **Digital**.
 2. Provide a Digital ID:
    - **Import .p12 / CA-issued Digital ID** — a certificate file you already have.
    - **Choose Keychain Digital ID** — an identity already in your macOS Keychain.
    - **Generate self-signed ID** — created on the spot, no cost (see the caveat below).
-3. Optionally enable a **timestamp** so the signature records a trusted time (requires an internet connection and sends only a hash of the signature bytes to the selected timestamp authority).
+3. Optionally enable a **timestamp request** (requires an internet connection and sends only a hash of the signature bytes to the selected timestamp authority). Current builds warn and export PAdES B-B without a timestamp after requesting the candidate token.
 4. Click **Sign & Export…** and choose where to save.
 
 The Digital palette keeps the identity source, timestamp provider, appearance preview, and
@@ -71,7 +71,7 @@ exporting; do not treat the preview alone as proof that a recipient will trust t
 Orifold writes an **append-only incremental update** with a detached CMS signature over a correct `ByteRange` — the original bytes are never rewritten, so a valid signature means the whole document is intact.
 
 - **Standard:** PAdES (`ETSI.CAdES.detached`), SHA-256.
-- **With a timestamp:** PAdES B-T — an RFC-3161 token is requested from a TSA (a free default, or your chosen provider) and embedded. If the TSA is unreachable, export continues as PAdES B-B and warns you.
+- **With a timestamp requested:** a candidate RFC-3161 token is requested from a TSA (a free default, or your chosen provider), but current builds do not embed or mark it until full CMS signature, TSA certificate/EKU, and certificate-chain trust validation exists. Export warns and continues as PAdES B-B without a timestamp.
 - **Verified with:** `pdfsig` (poppler) and `openssl asn1parse` report *Signature is Valid* and *Total document signed*.
 - **Out of scope today:** long-term validation (LTV / OCSP / CRL embedding).
 

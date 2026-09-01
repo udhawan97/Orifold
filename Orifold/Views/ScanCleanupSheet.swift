@@ -161,58 +161,29 @@ struct ScanCleanupSheet: View {
             .pickerStyle(.segmented)
 
             HStack(spacing: .dsSM) {
-                optionToggle(
+                ScanCleanupOptionToggle(
                     value: $options.deskew,
                     icon: "rotate.left",
                     titleKey: "scanCleanup.option.deskew",
-                    detailKey: "scanCleanup.option.deskew.detail"
+                    detailKey: "scanCleanup.option.deskew.detail",
+                    locale: locale
                 )
-                optionToggle(
+                ScanCleanupOptionToggle(
                     value: $options.binarize,
                     icon: "circle.lefthalf.filled",
                     titleKey: "scanCleanup.option.binarize",
-                    detailKey: "scanCleanup.option.binarize.detail"
+                    detailKey: "scanCleanup.option.binarize.detail",
+                    locale: locale
                 )
-                optionToggle(
+                ScanCleanupOptionToggle(
                     value: $options.despeckle,
                     icon: "sparkles",
                     titleKey: "scanCleanup.option.despeckle",
-                    detailKey: "scanCleanup.option.despeckle.detail"
+                    detailKey: "scanCleanup.option.despeckle.detail",
+                    locale: locale
                 )
             }
         }
-    }
-
-    private func optionToggle(
-        value: Binding<Bool>,
-        icon: String,
-        titleKey: String,
-        detailKey: String
-    ) -> some View {
-        HStack(alignment: .top, spacing: .dsSM) {
-            Image(systemName: icon)
-                .frame(width: 18)
-                .foregroundStyle(value.wrappedValue ? Color.dsAccent : Color.dsTextTertiary)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L10n.string(forKey: titleKey, locale: locale))
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.dsTextPrimary)
-                Text(L10n.string(forKey: detailKey, locale: locale))
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.dsTextSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 4)
-            Toggle("", isOn: value)
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-        }
-        .padding(.dsSM)
-        .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
-        .background(value.wrappedValue ? Color.dsAccentSoft : Color.dsCanvas)
-        .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
     }
 
     private var warning: some View {
@@ -303,7 +274,119 @@ struct ScanCleanupSheet: View {
     }
 }
 
+/// The actual option row used by `ScanCleanupSheet`, kept internal so focused tests can
+/// exercise the same semantic descriptor used by the production accessibility representation.
+struct ScanCleanupOptionToggle: View {
+    @Binding var value: Bool
+    let icon: String
+    let titleKey: String
+    let detailKey: String
+    let locale: Locale
+
+    var body: some View {
+        let semantics = ScanCleanupOptionAccessibility(
+            titleKey: titleKey,
+            detailKey: detailKey,
+            isOn: value,
+            locale: locale
+        )
+
+        HStack(alignment: .top, spacing: .dsSM) {
+            Image(systemName: icon)
+                .frame(width: 18)
+                .foregroundStyle(value ? Color.dsAccent : Color.dsTextTertiary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L10n.string(forKey: titleKey, locale: locale))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.dsTextPrimary)
+                Text(L10n.string(forKey: detailKey, locale: locale))
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.dsTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            // The switch owns the complete control semantics. Hiding this visual-only copy
+            // prevents VoiceOver from announcing the same name and purpose twice.
+            .accessibilityHidden(true)
+            Spacer(minLength: 4)
+            Toggle(semantics.label, isOn: $value)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .accessibilityHidden(true)
+        }
+        .padding(.dsSM)
+        .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
+        .background(value ? Color.dsAccentSoft : Color.dsCanvas)
+        .clipShape(RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous))
+        .accessibilityRepresentation {
+            Toggle(
+                semantics.label,
+                isOn: Binding(
+                    get: { semantics.isOn },
+                    set: { value = $0 }
+                )
+            )
+            .accessibilityLabel(semantics.label)
+            .accessibilityHint(semantics.hint)
+        }
+    }
+}
+
+/// Deterministic semantics shared by the rendered cleanup option and its focused tests.
+/// The rendered children are hidden above, so this descriptor is announced exactly once.
+struct ScanCleanupOptionAccessibility: Equatable {
+    let label: String
+    let isOn: Bool
+    let hint: String
+
+    init(titleKey: String, detailKey: String, isOn: Bool, locale: Locale) {
+        label = L10n.string(forKey: titleKey, locale: locale)
+        self.isOn = isOn
+        hint = L10n.string(forKey: detailKey, locale: locale)
+    }
+}
+
 private struct PreviewImages: @unchecked Sendable {
     let before: CGImage
     let after: CGImage
 }
+
+#if DEBUG
+/// Opt-in native acceptance surface used only by a specially marked disposable debug bundle.
+/// It renders the production row itself so Accessibility Inspector/VoiceOver sees the exact
+/// semantics shipped by `ScanCleanupSheet`, without adding a route to the release app.
+struct ScanCleanupAccessibilityAcceptanceView: View {
+    @State private var deskew = false
+    @State private var binarize = true
+    @State private var despeckle = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ScanCleanupOptionToggle(
+                value: $deskew,
+                icon: "viewfinder.rectangular",
+                titleKey: "scanCleanup.option.deskew",
+                detailKey: "scanCleanup.option.deskew.detail",
+                locale: Locale(identifier: "en")
+            )
+            ScanCleanupOptionToggle(
+                value: $binarize,
+                icon: "circle.lefthalf.filled",
+                titleKey: "scanCleanup.option.binarize",
+                detailKey: "scanCleanup.option.binarize.detail",
+                locale: Locale(identifier: "en")
+            )
+            ScanCleanupOptionToggle(
+                value: $despeckle,
+                icon: "sparkles",
+                titleKey: "scanCleanup.option.despeckle",
+                detailKey: "scanCleanup.option.despeckle.detail",
+                locale: Locale(identifier: "en")
+            )
+        }
+        .padding(16)
+        .frame(width: 430)
+    }
+}
+#endif

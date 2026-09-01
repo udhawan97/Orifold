@@ -89,7 +89,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | :---: | --- | --- |
 | 📥 | **Import anything** — PDFs, Word, images, scans, Markdown, HTML, CSV, and CBZ comics — even corrupt files | One workspace instead of a folder of chaos; broken PDFs repaired on the way in |
 | 🗂️ | **Organize** — reorder, rotate, crop, detect likely blanks, delete pages across documents, and edit the outline | A clean packet from messy source files |
-| ✏️ | **Annotate & edit** — highlight, notes, ink, text boxes, edit real PDF text in place | Reviewed documents without a print-sign-scan loop |
+| ✏️ | **Annotate & edit** — highlight, notes, ink, text boxes, and visually replace detected PDF text in place | Reviewed documents without a print-sign-scan loop; the original text may remain discoverable through search, copy/paste, extraction, or assistive technology |
 | 🧩 | **Edit objects** *(beta)* — the **Select** tool moves, resizes, layers, deletes, or restyles a compatible real page graphic | Fix the layout itself, not just a note stuck on top of it |
 | 🖋️ | **Sign & fill forms** — draw signatures or place a real PAdES digital signature, complete and lock form fields | Finished, tamper-evident paperwork — no third-party e-sign service |
 | 🔍 | **OCR scans** — local Vision OCR adds a searchable layer without rebuilding the original page, then validates the result | ⌘F works, while page geometry, annotations, and untouched documents stay intact |
@@ -116,7 +116,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | **Compare** | Side-by-side compare of the workspace against another PDF: index page pairing with a manual offset, changed-region highlights, word-level insert/delete counts, and a changed-pages overview |
 | **Batch folding** | Compress, OCR, or watermark every PDF in a folder in one pass — results land in a `Folded` subfolder with per-file progress, cancellation, and per-file failure isolation |
 | **Recently viewed** | An empty-state shelf of the last files you opened, with locally cached thumbnails — nothing about it leaves the machine |
-| **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place editing of detected PDF text with continuous spell-check and metric-compatible fallback fonts |
+| **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place visual replacement of detected PDF text with continuous spell-check and metric-compatible fallback fonts; original text can remain discoverable through search, copy/paste, extraction, or assistive technology |
 | **Object editing** *(beta)* | The Select tool clicks a real graphic on the page — image, logo, line, or shape — then moves, resizes, restacks (Bring to Front / Send to Back), deletes, or restyles existing solid fill/stroke channels and line width on compatible vector paths; object and inline-text edits compose safely, survive save/reopen/export, and share full undo/redo |
 | **Signatures** | Draw and place signatures, produce standards-based PAdES digital signatures with Keychain and `.p12` identities, and inspect incoming signatures for integrity, document coverage, system trust, and explicitly unverified signing-time metadata |
 | **Forms** | Detect PDF form fields, edit answers, reset forms, lock answers during export |
@@ -221,7 +221,7 @@ Orifold is local-first by design — not as a setting, as an architecture.
 - 🖥️ **Document processing runs on your Mac.** Import, OCR, compression, encryption, signing, translation, and export never upload your PDF or its text.
 - 🛡️ **Sandboxed.** The app runs under the macOS App Sandbox with user-selected file access only.
 - 📡 **Zero telemetry.** No analytics pipeline. There isn't even a server to send it to — stars are the only telemetry we get.
-- 🔔 **Explicit, narrow network use.** Orifold can check/download updates when you ask, request an optional trusted signing timestamp, and—on macOS 15+ after a first-use disclosure—let macOS download an Apple translation language model. No flow uploads your PDF or its text to an Orifold service.
+- 🔔 **Explicit, narrow network use.** Orifold can check/download updates when you ask, request an optional timestamp candidate by sending only the signature hash, and—on macOS 15+ after a first-use disclosure—let macOS download an Apple translation language model. Current builds warn and export PAdES B-B without embedding the candidate. No flow uploads your PDF or its text to an Orifold service.
 
 <details>
 <summary>&nbsp;🔍&nbsp; The fine print — sandbox entitlements & guardrails</summary>
@@ -235,7 +235,7 @@ The app enables exactly four entitlements:
 | `com.apple.security.app-sandbox` | Runs the whole app inside the macOS sandbox |
 | `com.apple.security.files.user-selected.read-write` | Read/write only the files *you* choose |
 | `com.apple.security.files.bookmarks.app-scope` | Remember your Recently Viewed files across launches |
-| `com.apple.security.network.client` | User-authorized updates, optional trusted signing timestamps, and system-managed translation language-model downloads |
+| `com.apple.security.network.client` | User-authorized updates, optional timestamp-candidate requests, and system-managed translation language-model downloads |
 
 Practical guardrails: password prompts for protected PDFs, import size limits, local validation
 before and after compression or encryption, a qpdf structural check gating every export, an
@@ -292,7 +292,7 @@ Orifold/
   Models/          Workspace, page, annotation, comment, export, decoration, recent-file models
   Pet/             Gami & Ori, the in-app companions
   Resources/       App metadata, entitlements, assets, Localizable.xcstrings (6 languages)
-  Signing/         Signing identities, CMS construction, timestamping, verification
+  Signing/         Signing identities, CMS construction, timestamp-candidate boundary, verification
   ViewModels/      Workspace state, document operations, search, export, undo
   Views/           SwiftUI interface components
 Packages/          Vendored binary engines — PDFiumBinary, QPDFBinary (universal static libs)

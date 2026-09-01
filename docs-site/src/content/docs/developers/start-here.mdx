@@ -7,7 +7,7 @@ keywords: [developers, contributing, module map, getting started, onboarding]
 import PetTip from '../../../components/PetTip.astro';
 import Stat from '../../../components/Stat.astro';
 
-Orifold is a native macOS PDF workspace: Swift 5.9+, 100% SwiftUI, local PDF engines plus a signing pipeline, <Stat name="tests" /> tests, and no document uploads. Its narrow network surface is limited to user-authorized updates, trusted signing timestamps, and system-managed translation language-model downloads. This page orients you before you open the tree.
+Orifold is a native macOS PDF workspace: Swift 5.9+, 100% SwiftUI, local PDF engines plus a signing pipeline, <Stat name="tests" /> tests, and no document uploads. Its narrow network surface is limited to user-authorized updates, timestamp-candidate requests that send only a signature hash, and system-managed translation language-model downloads. Current builds do not embed timestamp candidates. This page orients you before you open the tree.
 
 ## Read these first, in this order
 
@@ -29,7 +29,7 @@ Orifold/
   Models/          Workspace, page, annotation, comment, export, decoration, comfort, recent-file
   Pet/             Gami & Ori companions + hint placement
   Resources/       Metadata, entitlements, assets, Localizable.xcstrings (6 languages)
-  Signing/         Digital-ID providers, CMS/PAdES construction, timestamping, trust, appearance
+  Signing/         Digital-ID providers, CMS/PAdES construction, timestamp-candidate boundary, trust, appearance
   ViewModels/      Workspace state, document ops, search, export, undo
   Views/           SwiftUI interface
 Packages/          Vendored engines — PDFiumBinary, QPDFBinary (universal static libs)

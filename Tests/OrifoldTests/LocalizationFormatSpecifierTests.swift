@@ -54,6 +54,15 @@ final class LocalizationFormatSpecifierTests: XCTestCase {
         )
     }
 
+    func testScanCleanupSemanticConflictHasExactlyOneIntegerArgumentInEveryLocale() throws {
+        let entry = try XCTUnwrap(loadCatalog()["status.scanCleanup.semanticConflict"])
+
+        for language in ["en"] + Self.languages {
+            let value = try XCTUnwrap(entry[language], "Missing \(language) translation")
+            XCTAssertEqual(specifierTypes(in: value), [0: "lld"], "\(language): \(value)")
+        }
+    }
+
     // MARK: - Parsing
 
     /// Maps zero-based argument slot to its specifier type. Honors explicit

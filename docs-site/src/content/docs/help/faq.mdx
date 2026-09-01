@@ -8,7 +8,7 @@ keywords: [faq, frequently asked questions, is it free, windows version]
 Yes — Orifold is free and open source under the Apache License 2.0, with no subscription, paywall, or feature gate.
 
 **Does anything ever get uploaded?**
-Your documents do not. Import, editing, OCR, compression, encryption, translation, and export run on your Mac. Orifold can make narrow outbound requests for user-authorized updates and trusted timestamps, while macOS may download an Apple language model before the first translation. None sends your PDF or document text to an Orifold server. See [Privacy & local-first design](/Orifold/settings/privacy/).
+Your documents do not. Import, editing, OCR, compression, encryption, translation, and export run on your Mac. Orifold can make narrow outbound requests for user-authorized updates and timestamp-candidate requests, while macOS may download an Apple language model before the first translation. A timestamp request sends only a SHA-256 hash of the signature, never the PDF or its text; current builds do not embed the returned candidate. See [Privacy & local-first design](/Orifold/settings/privacy/).
 
 **Can Orifold translate a PDF offline?**
 On macOS 15 or later, Orifold can translate selected text or the current page with Apple’s on-device Translation framework. macOS may download the target language model once; after it is installed, translation runs on this Mac. The result is read-only and never changes the PDF. See [Translate text](/Orifold/reading/translate/).
@@ -23,7 +23,7 @@ Not currently — Orifold is a native macOS app requiring macOS 14 or later.
 No. Orifold uses real AES-256 encryption; there's no backdoor or recovery path. Store your password somewhere safe.
 
 **Can Orifold apply a real digital signature, or just a drawn mark?**
-Both. Draw, Type, or Initials place a *visual* mark; the **Digital** method applies a verifiable cryptographic signature (standards-based PAdES, SHA-256, optional trusted timestamp) using a Digital ID from a `.p12` file, your Keychain, or a self-signed ID — all on your Mac. A self-signed ID shows as "identity not verified" in other viewers until trusted; use a CA-issued ID when recipients must verify automatically. See [Sign documents](/Orifold/fill-sign/signatures/).
+Both. Draw, Type, or Initials place a *visual* mark; the **Digital** method applies a verifiable cryptographic signature (PAdES B-B, SHA-256) using a Digital ID from a `.p12` file, your Keychain, or a self-signed ID — all on your Mac. The optional timestamp setting currently requests a candidate token but warns and exports B-B without embedding or marking it. A self-signed ID shows as "identity not verified" in other viewers until trusted; use a CA-issued ID when recipients must verify automatically. See [Sign documents](/Orifold/fill-sign/signatures/).
 
 **How do I turn off Gami or Ori's tips, or hide them completely?**
 Click the companion chip and choose **Hide Gami Tips** to keep it visible but quiet, or use **Show Orifold Buddy** in the app menu to hide it entirely. See [Meet Gami & Ori](/Orifold/get-started/companion/).

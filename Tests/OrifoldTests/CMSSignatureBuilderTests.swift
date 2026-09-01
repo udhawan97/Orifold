@@ -93,6 +93,31 @@ final class CMSSignatureBuilderTests: XCTestCase {
         XCTAssertTrue(cms.derContainsObjectIdentifier("1.2.840.113549.1.9.16.2.14"), "missing timestamp unsigned attribute")
         XCTAssertTrue(cms.containsSubdata(timestampToken.derEncoded), "timestamp token must be embedded verbatim")
     }
+
+    func testUnverifiedTimestampCandidateWarnsAndBuildsSuccessfulBBWithoutTimestampMarker() throws {
+        let certificate = TestCertificate.makeDER(serial: Data([0xCA, 0xFE]))
+        let identity = RecordingCMSIdentity(
+            certificateDER: certificate,
+            certificateChainDER: [certificate],
+            signatureAlgorithm: .rsaPKCS1SHA256,
+            signatureValue: Data([0x10, 0x20, 0x30])
+        )
+        let decision = try TimestampEmbeddingPolicy.resolve(requested: true) {
+            throw TimestampClientError.trustValidationUnavailable
+        }
+
+        let cms = try CMSSignatureBuilder.buildCMS(
+            byteRangeBytes: Data("warned B-B export".utf8),
+            identity: identity,
+            timestamp: decision.token,
+            signingTime: Date(timeIntervalSince1970: 1_704_067_200)
+        )
+
+        XCTAssertFalse(decision.timestampWasApplied, "workspace marker must remain false")
+        XCTAssertEqual(decision.warningLocalizationKey, "status.sign.timestampUnavailable")
+        XCTAssertTrue(cms.derContainsObjectIdentifier("1.2.840.113549.1.9.16.2.47"), "B-B signed attributes must remain")
+        XCTAssertFalse(cms.derContainsObjectIdentifier("1.2.840.113549.1.9.16.2.14"), "unverified candidate must not become a timestamp attribute")
+    }
 }
 
 private final class RecordingCMSIdentity: CMSSigningIdentity {

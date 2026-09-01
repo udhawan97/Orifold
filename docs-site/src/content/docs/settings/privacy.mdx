@@ -17,7 +17,7 @@ Every document-processing feature — import, page organization, text and object
 Orifold has three network-capable flows:
 
 1. **Updates.** A manual check—or automatic checks only after you enable them—asks GitHub for the latest release metadata. A release downloads only after you choose **Download**. See [Update & uninstall](/Orifold/get-started/update-uninstall/).
-2. **Trusted signing timestamps.** If you enable the optional timestamp while applying a digital signature, Orifold contacts the chosen RFC 3161 timestamp authority. The request contains a SHA-256 hash of the signature bytes, never the document or its text. See [Sign documents](/Orifold/fill-sign/signatures/).
+2. **Signing timestamp candidates.** If you enable the optional timestamp while applying a digital signature, Orifold contacts the chosen RFC 3161 timestamp authority. The request contains a SHA-256 hash of the signature bytes, never the document or its text. Current builds do not embed or mark the returned candidate until full CMS/PKI trust validation is available; they warn and export PAdES B-B instead. See [Sign documents](/Orifold/fill-sign/signatures/).
 3. **Translation language models on macOS 15+.** After Orifold's first-use disclosure, macOS may download a requested language model from Apple. Once the required model is installed, Apple’s Translation framework processes the document text on this Mac. See [Translate selected text or a page](/Orifold/reading/translate/).
 
 None of these flows uploads a PDF or sends document text to an Orifold service. Orifold has no service capable of receiving it.
@@ -41,7 +41,7 @@ There is no analytics pipeline in Orifold, and no server to send data to even if
 
 ## Verify it yourself
 
-Orifold is open source. Read the code, watch network activity while using the app, and check the entitlements file directly in the repository. With automatic update checks disabled, expect no document-workflow traffic unless you explicitly download an update, request a trusted timestamp, or let macOS fetch a translation language model.
+Orifold is open source. Read the code, watch network activity while using the app, and check the entitlements file directly in the repository. With automatic update checks disabled, expect no document-workflow traffic unless you explicitly download an update, request a timestamp candidate, or let macOS fetch a translation language model.
 
 ## Related
 

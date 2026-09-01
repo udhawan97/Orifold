@@ -5,14 +5,12 @@ struct TimeStampToken: Equatable {
     let derEncoded: Data
     let messageImprint: Data
 
-    init(derEncoded: Data) throws {
+    init(derEncoded: Data, expectedMessageImprint: Data? = nil) throws {
         self.derEncoded = derEncoded
-        self.messageImprint = try TimestampASN1.validateTimeStampToken(derEncoded)
-    }
-
-    fileprivate init(validatedDER: Data, messageImprint: Data) {
-        self.derEncoded = validatedDER
-        self.messageImprint = messageImprint
+        self.messageImprint = try TimestampASN1.validateTimeStampTokenForEmbedding(
+            derEncoded,
+            expectedMessageImprint: expectedMessageImprint
+        )
     }
 }
 
@@ -30,6 +28,7 @@ extension CMSTimeStampToken {
 
 enum TimestampClientError: Error, Equatable, LocalizedError {
     case invalidResponse(String)
+    case trustValidationUnavailable
     case tsaRejected(status: Int, statusString: [String], failureInfo: Data?)
     case missingToken(status: Int)
     case httpStatus(Int)
@@ -38,6 +37,9 @@ enum TimestampClientError: Error, Equatable, LocalizedError {
         switch self {
         case .invalidResponse(let message):
             return "Invalid timestamp response: \(message)"
+        case .trustValidationUnavailable:
+            // Capability state is localized by TimestampEmbeddingPolicy's UI boundary.
+            return nil
         case .tsaRejected(let status, let statusString, _):
             let detail = statusString.isEmpty ? "" : " (\(statusString.joined(separator: "; ")))"
             return "Timestamp authority rejected the request with status \(status)\(detail)."
@@ -122,10 +124,56 @@ struct TimestampClient {
             return try TimestampResponseParser.parse(data, expectedMessageImprint: messageImprint)
         } catch let error as TimestampClientError {
             throw error
+        } catch TimestampASN1Error.unsupportedTrustValidation {
+            throw TimestampClientError.trustValidationUnavailable
         } catch let error as TimestampASN1Error {
             throw TimestampClientError.invalidResponse(error.localizedDescription)
         } catch {
             throw error
+        }
+    }
+}
+
+enum TimestampEmbeddingState: Equatable {
+    case notRequested
+    case applied
+    case unavailable
+}
+
+struct TimestampEmbeddingDecision: Equatable {
+    let token: CMSTimeStampToken?
+    let state: TimestampEmbeddingState
+
+    var timestampWasApplied: Bool { state == .applied }
+    var warningLocalizationKey: String? {
+        state == .unavailable ? "status.sign.timestampUnavailable" : nil
+    }
+}
+
+/// One production policy for the signing/UI boundary: cancellation remains cancellation;
+/// every other failure to obtain a fully verified token becomes an explicit, warned B-B
+/// decision with no CMS timestamp attribute and no workspace timestamp marker.
+enum TimestampEmbeddingPolicy {
+    static func resolve(
+        requested: Bool,
+        fetchVerifiedToken: () throws -> TimeStampToken
+    ) throws -> TimestampEmbeddingDecision {
+        guard requested else {
+            return TimestampEmbeddingDecision(token: nil, state: .notRequested)
+        }
+        do {
+            return TimestampEmbeddingDecision(
+                token: try fetchVerifiedToken().cmsTimeStampToken,
+                state: .applied
+            )
+        } catch is CancellationError {
+            throw SigningError.cancelled
+        } catch SigningError.cancelled {
+            throw SigningError.cancelled
+        } catch let error as URLError where error.code == .cancelled {
+            throw SigningError.cancelled
+        } catch {
+            return TimestampEmbeddingDecision(token: nil, state: .unavailable)
         }
     }
 }
@@ -214,11 +262,10 @@ enum TimestampResponseParser {
         let tokenElement = try responseReader.readElement(name: "TimeStampResp.timeStampToken")
         try responseReader.requireEnd()
 
-        let imprint = try TimestampASN1.validateTimeStampToken(
-            tokenElement.encoded,
+        return try TimeStampToken(
+            derEncoded: tokenElement.encoded,
             expectedMessageImprint: expectedMessageImprint
         )
-        return TimeStampToken(validatedDER: tokenElement.encoded, messageImprint: imprint)
     }
 
     private static func parseStatusInfo(_ data: Data) throws -> TimestampStatusInfo {

@@ -17842,37 +17842,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Orifold couldn't reach the timestamp server. Check your internet connection, or turn off timestamping and sign again."
+            "value": "Orifold could not obtain and fully verify a timestamp token. The signature can still be exported as PAdES B-B without a timestamp."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Orifold no pudo conectarse al servidor de sellado de tiempo. Comprueba tu conexión a internet o desactiva el sellado de tiempo y firma de nuevo."
+            "value": "Orifold no pudo obtener y verificar por completo un token de marca de tiempo. La firma aún puede exportarse como PAdES B-B sin marca de tiempo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Orifold n'a pas pu joindre le serveur d'horodatage. Vérifiez votre connexion internet, ou désactivez l'horodatage et signez à nouveau."
+            "value": "Orifold n’a pas pu obtenir et vérifier complètement un jeton d’horodatage. La signature peut toujours être exportée au format PAdES B-B sans horodatage."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Orifold टाइमस्टैंप सर्वर तक नहीं पहुँच सका। अपना इंटरनेट कनेक्शन जाँचें, या टाइमस्टैंपिंग बंद करके फिर से हस्ताक्षर करें।"
+            "value": "Orifold टाइमस्टैम्प टोकन प्राप्त करके उसे पूरी तरह सत्यापित नहीं कर सका। हस्ताक्षर को अब भी बिना टाइमस्टैम्प के PAdES B-B के रूप में निर्यात किया जा सकता है।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Orifoldはタイムスタンプサーバーに接続できませんでした。インターネット接続を確認するか、タイムスタンプをオフにしてもう一度署名してください。"
+            "value": "タイムスタンプトークンを取得して完全に検証できませんでした。署名はタイムスタンプなしのPAdES B-Bとして引き続き書き出せます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Orifold 无法连接到时间戳服务器。请检查您的网络连接，或关闭时间戳后重新签署。"
+            "value": "Orifold 无法获取并完整验证时间戳令牌。仍可将签名导出为不含时间戳的 PAdES B-B。"
           }
         }
       }
@@ -42114,37 +42114,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install Update…"
+            "value": "Quit, Install, and Relaunch…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Instalar actualización…"
+            "value": "Cerrar, instalar y reiniciar…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Installer la mise à jour…"
+            "value": "Quitter, installer et relancer…"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "अपडेट इंस्टॉल करें…"
+            "value": "बंद करके इंस्टॉल और फिर लॉन्च करें…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アップデートをインストール…"
+            "value": "終了してインストールし、再起動…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "安装更新…"
+            "value": "退出、安装并重新启动…"
           }
         }
       }
@@ -46132,37 +46132,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Requesting trusted timestamp…"
+            "value": "Requesting timestamp candidate…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solicitando marca de tiempo de confianza…"
+            "value": "Solicitando un token de marca de tiempo candidato…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demande d'horodatage de confiance…"
+            "value": "Demande d’un jeton d’horodatage candidat…"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "विश्वसनीय टाइमस्टैंप का अनुरोध हो रहा है…"
+            "value": "उम्मीदवार टाइमस्टैम्प टोकन का अनुरोध हो रहा है…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "信頼済みタイムスタンプを要求しています…"
+            "value": "タイムスタンプ候補トークンを要求しています…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在请求可信时间戳…"
+            "value": "正在请求候选时间戳令牌…"
           }
         }
       }
@@ -46173,37 +46173,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Requesting timestamp from %@…"
+            "value": "Requesting timestamp candidate from %@…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solicitando marca de tiempo de %@…"
+            "value": "Solicitando un token de marca de tiempo candidato de %@…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demande d'horodatage auprès de %@…"
+            "value": "Demande d’un jeton d’horodatage candidat auprès de %@…"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ से टाइमस्टैंप का अनुरोध हो रहा है…"
+            "value": "%@ से उम्मीदवार टाइमस्टैम्प टोकन का अनुरोध हो रहा है…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@からタイムスタンプを要求しています…"
+            "value": "%@からタイムスタンプ候補トークンを要求しています…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在向 %@ 请求时间戳…"
+            "value": "正在向 %@ 请求候选时间戳令牌…"
           }
         }
       }
@@ -47649,37 +47649,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Requests a free trusted timestamp over the internet so the signing time remains provable even if this certificate later expires. Only a fingerprint of the signature is sent — never your document."
+            "value": "Requests a candidate timestamp token over the internet. Only a SHA-256 hash of the signature is sent — never your document. Current builds do not embed or mark the token until full CMS/PKI trust validation is available; export warns and continues as PAdES B-B."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solicita por internet una marca de tiempo confiable gratuita para que la hora de firma siga siendo demostrable aunque este certificado caduque más adelante. Solo se envía una huella de la firma, nunca su documento."
+            "value": "Solicita por internet un token de marca de tiempo candidato. Solo se envía un hash SHA-256 de la firma, nunca el documento. Las compilaciones actuales no insertan ni marcan el token hasta disponer de validación completa de confianza CMS/PKI; la exportación avisa y continúa como PAdES B-B."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Demande via Internet un horodatage fiable gratuit afin que l'heure de signature reste prouvable même si ce certificat expire plus tard. Seule une empreinte de la signature est envoyée — jamais votre document."
+            "value": "Demande via Internet un jeton d’horodatage candidat. Seul un hachage SHA-256 de la signature est envoyé, jamais le document. Les versions actuelles n’intègrent ni ne marquent le jeton avant une validation de confiance CMS/PKI complète ; l’exportation avertit et continue en PAdES B-B."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "इंटरनेट के माध्यम से एक निःशुल्क विश्वसनीय टाइमस्टैम्प का अनुरोध करता है ताकि यह प्रमाणपत्र बाद में समाप्त होने पर भी हस्ताक्षर का समय सिद्ध किया जा सके। केवल हस्ताक्षर का फ़िंगरप्रिंट भेजा जाता है — आपका दस्तावेज़ कभी नहीं।"
+            "value": "इंटरनेट पर एक उम्मीदवार टाइमस्टैम्प टोकन माँगा जाता है। केवल हस्ताक्षर का SHA-256 हैश भेजा जाता है—दस्तावेज़ कभी नहीं। पूर्ण CMS/PKI ट्रस्ट सत्यापन उपलब्ध होने तक मौजूदा बिल्ड टोकन को एम्बेड या चिह्नित नहीं करते; निर्यात चेतावनी देकर PAdES B-B के रूप में जारी रहता है।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この証明書が後で失効しても署名時刻を証明できるよう、インターネット経由で無料の信頼できるタイムスタンプを要求します。送信されるのは署名のフィンガープリントのみで、文書自体は送信されません。"
+            "value": "インターネット経由でタイムスタンプ候補トークンを要求します。送信されるのは署名のSHA-256ハッシュのみで、文書は送信されません。完全なCMS/PKI信頼検証が利用可能になるまで、現在のビルドはトークンを埋め込んだりマークしたりせず、警告してPAdES B-Bとして書き出します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "通过互联网请求一个免费的可信时间戳，这样即使此证书日后过期，签名时间仍可证明。仅发送签名的指纹，绝不发送您的文档。"
+            "value": "通过互联网请求候选时间戳令牌。仅发送签名的 SHA-256 哈希，绝不发送文档。在提供完整 CMS/PKI 信任验证之前，当前版本不会嵌入或标记该令牌；导出时会发出警告并继续生成 PAdES B-B。"
           }
         }
       }
@@ -47731,37 +47731,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Which free timestamp authority to ask first. If it's unreachable, Orifold automatically tries the others before falling back to an unstamped signature."
+            "value": "Which timestamp authority to ask first for a candidate token. Orifold tries the others if needed. Current builds do not embed a token without full CMS/PKI trust validation, so a requested timestamp warns and exports as PAdES B-B."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Qué autoridad de marca de tiempo gratuita consultar primero. Si no está disponible, Orifold prueba automáticamente con las demás antes de recurrir a una firma sin marca de tiempo."
+            "value": "Qué autoridad de marca de tiempo consultar primero para obtener un token candidato. Orifold prueba las demás si es necesario. Las compilaciones actuales no insertan ningún token sin validación completa de confianza CMS/PKI, por lo que la solicitud avisa y exporta como PAdES B-B."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quelle autorité d'horodatage gratuite interroger en premier. Si elle est injoignable, Orifold essaie automatiquement les autres avant de revenir à une signature sans horodatage."
+            "value": "Quelle autorité d’horodatage interroger en premier pour un jeton candidat. Orifold essaie les autres si nécessaire. Les versions actuelles n’intègrent aucun jeton sans validation de confiance CMS/PKI complète ; la demande avertit donc et exporte en PAdES B-B."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "पहले किस मुफ़्त टाइमस्टैंप प्राधिकरण से संपर्क किया जाए। यदि यह अनुपलब्ध है, तो Orifold बिना टाइमस्टैंप वाले हस्ताक्षर पर वापस जाने से पहले स्वचालित रूप से अन्य को आज़माता है।"
+            "value": "उम्मीदवार टोकन के लिए पहले किस टाइमस्टैम्प प्राधिकरण से पूछा जाए। ज़रूरत होने पर Orifold अन्य प्राधिकरणों को आज़माता है। पूर्ण CMS/PKI ट्रस्ट सत्यापन के बिना मौजूदा बिल्ड टोकन एम्बेड नहीं करते, इसलिए अनुरोध चेतावनी देता है और PAdES B-B निर्यात करता है।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "最初に問い合わせる無料タイムスタンプ局。到達できない場合、Orifoldはタイムスタンプなしの署名にフォールバックする前に自動的に他の局を試します。"
+            "value": "候補トークンを最初に要求するタイムスタンプ局を選びます。必要に応じて他の局も試します。現在のビルドは完全なCMS/PKI信頼検証なしにトークンを埋め込まないため、要求時は警告してPAdES B-Bとして書き出します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "首先请求的免费时间戳颁发机构。如果无法访问，Orifold 会在回退到无时间戳签名之前自动尝试其他机构。"
+            "value": "选择首先请求候选令牌的时间戳机构；必要时 Orifold 会尝试其他机构。当前版本在没有完整 CMS/PKI 信任验证时不会嵌入令牌，因此请求时间戳会发出警告并导出为 PAdES B-B。"
           }
         }
       }
@@ -49863,37 +49863,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timestamp authority unavailable; exported as PAdES B-B without trusted timestamp."
+            "value": "Timestamp token was not fully verified and was not embedded; exported as PAdES B-B without a timestamp."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autoridad de sellado de tiempo no disponible; exportado como PAdES B-B sin sello de tiempo confiable."
+            "value": "El token de marca de tiempo no se verificó por completo ni se insertó; se exportó como PAdES B-B sin marca de tiempo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autorité d'horodatage indisponible ; exporté en PAdES B-B sans horodatage de confiance."
+            "value": "Le jeton d’horodatage n’a pas été entièrement vérifié ni intégré ; exporté en PAdES B-B sans horodatage."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टाइमस्टैम्प प्राधिकरण अनुपलब्ध; विश्वसनीय टाइमस्टैम्प के बिना PAdES B-B के रूप में निर्यात किया गया।"
+            "value": "टाइमस्टैम्प टोकन पूरी तरह सत्यापित नहीं हुआ और एम्बेड नहीं किया गया; बिना टाइमस्टैम्प के PAdES B-B के रूप में निर्यात किया गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "タイムスタンプ局が利用できないため、信頼できるタイムスタンプなしのPAdES B-Bとして書き出しました。"
+            "value": "タイムスタンプトークンを完全に検証できず、埋め込みませんでした。タイムスタンプなしのPAdES B-Bとして書き出しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "时间戳授权机构不可用；已导出为不含可信时间戳的 PAdES B-B。"
+            "value": "时间戳令牌未通过完整验证且未嵌入；已导出为不含时间戳的 PAdES B-B。"
           }
         }
       }
@@ -50068,37 +50068,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timestamp authority unavailable; exported as PAdES B-B without trusted timestamp."
+            "value": "Timestamp token was not fully verified and was not embedded; exported as PAdES B-B without a timestamp."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La autoridad de sellado de tiempo no está disponible; se exportó como PAdES B-B sin marca de tiempo verificada."
+            "value": "El token de marca de tiempo no se verificó por completo ni se insertó; se exportó como PAdES B-B sin marca de tiempo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autorité d’horodatage indisponible ; exporté au format PAdES B-B sans horodatage de confiance."
+            "value": "Le jeton d’horodatage n’a pas été entièrement vérifié ni intégré ; exporté au format PAdES B-B sans horodatage."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टाइमस्टैम्प प्राधिकरण उपलब्ध नहीं है; भरोसेमंद टाइमस्टैम्प के बिना PAdES B-B के रूप में एक्सपोर्ट किया गया।"
+            "value": "टाइमस्टैम्प टोकन पूरी तरह सत्यापित नहीं हुआ और एम्बेड नहीं किया गया; बिना टाइमस्टैम्प के PAdES B-B के रूप में एक्सपोर्ट किया गया।"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "タイムスタンプ局を利用できないため、信頼できるタイムスタンプなしのPAdES B-Bとして書き出しました。"
+            "value": "タイムスタンプトークンを完全に検証できず、埋め込みませんでした。タイムスタンプなしのPAdES B-Bとして書き出しました。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "时间戳颁发机构不可用；已导出为不含可信时间戳的 PAdES B-B。"
+            "value": "时间戳令牌未通过完整验证且未嵌入；已导出为不含时间戳的 PAdES B-B。"
           }
         }
       }
@@ -60704,6 +60704,22 @@
     "status.scanCleanup.cancelled": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Scan cleanup was cancelled. The document was not changed."}},"es":{"stringUnit":{"state":"translated","value":"Se canceló la limpieza del escaneo. El documento no se modificó."}},"fr":{"stringUnit":{"state":"translated","value":"Le nettoyage du scan a été annulé. Le document n’a pas été modifié."}},"hi":{"stringUnit":{"state":"translated","value":"स्कैन की सफ़ाई रद्द कर दी गई। दस्तावेज़ में कोई बदलाव नहीं हुआ।"}},"ja":{"stringUnit":{"state":"translated","value":"スキャンの補正をキャンセルしました。書類は変更されていません。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"已取消扫描清理。文档未发生更改。"}}}},
     "status.scanCleanup.cleaned": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Scan cleanup completed for %lld pages."}},"es":{"stringUnit":{"state":"translated","value":"Se completó la limpieza de %lld páginas."}},"fr":{"stringUnit":{"state":"translated","value":"Nettoyage terminé pour %lld pages."}},"hi":{"stringUnit":{"state":"translated","value":"%lld पेजों की स्कैन सफ़ाई पूरी हुई।"}},"ja":{"stringUnit":{"state":"translated","value":"%lldページのスキャン補正が完了しました。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"已完成 %lld 页的扫描清理。"}}}},
     "status.scanCleanup.finishBeforeMoreChanges": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Finish scan cleanup before making more changes."}},"es":{"stringUnit":{"state":"translated","value":"Termina la limpieza del escaneo antes de hacer más cambios."}},"fr":{"stringUnit":{"state":"translated","value":"Terminez le nettoyage du scan avant d’apporter d’autres modifications."}},"hi":{"stringUnit":{"state":"translated","value":"और बदलाव करने से पहले स्कैन की सफ़ाई पूरी होने दें।"}},"ja":{"stringUnit":{"state":"translated","value":"ほかの変更を行う前にスキャンの補正を完了してください。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"请先完成扫描清理，再进行其他更改。"}}}},
+    "error.export.renderPageForImageExport": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Orifold could not render page %lld for export."}},"es":{"stringUnit":{"state":"translated","value":"Orifold no pudo renderizar la página %lld para exportarla."}},"fr":{"stringUnit":{"state":"translated","value":"Orifold n’a pas pu produire le rendu de la page %lld pour l’exportation."}},"hi":{"stringUnit":{"state":"translated","value":"Orifold निर्यात के लिए पेज %lld रेंडर नहीं कर सका।"}},"ja":{"stringUnit":{"state":"translated","value":"書き出し用にページ%lldを描画できませんでした。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"Orifold 无法渲染第 %lld 页以供导出。"}}}},
+    "error.import.couldNotOpenNamed": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Could not open “%1$@”. %2$@"}},"es":{"stringUnit":{"state":"translated","value":"No se pudo abrir «%1$@». %2$@"}},"fr":{"stringUnit":{"state":"translated","value":"Impossible d’ouvrir « %1$@ ». %2$@"}},"hi":{"stringUnit":{"state":"translated","value":"“%1$@” खोला नहीं जा सका। %2$@"}},"ja":{"stringUnit":{"state":"translated","value":"「%1$@」を開けませんでした。%2$@"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"无法打开“%1$@”。%2$@"}}}},
+    "progress.compression.percent": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%lld%% complete"}},"es":{"stringUnit":{"state":"translated","value":"%lld%% completado"}},"fr":{"stringUnit":{"state":"translated","value":"%lld %% terminé"}},"hi":{"stringUnit":{"state":"translated","value":"%lld%% पूरा"}},"ja":{"stringUnit":{"state":"translated","value":"%lld%%完了"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"已完成 %lld%%"}}}},
+    "progress.compression.preparing": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Preparing PDF"}},"es":{"stringUnit":{"state":"translated","value":"Preparando el PDF"}},"fr":{"stringUnit":{"state":"translated","value":"Préparation du PDF"}},"hi":{"stringUnit":{"state":"translated","value":"PDF तैयार हो रहा है"}},"ja":{"stringUnit":{"state":"translated","value":"PDFを準備中"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"正在准备 PDF"}}}},
+    "progress.compression.title": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Reducing file size"}},"es":{"stringUnit":{"state":"translated","value":"Reduciendo el tamaño del archivo"}},"fr":{"stringUnit":{"state":"translated","value":"Réduction de la taille du fichier"}},"hi":{"stringUnit":{"state":"translated","value":"फ़ाइल का आकार घटाया जा रहा है"}},"ja":{"stringUnit":{"state":"translated","value":"ファイルサイズを削減中"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"正在减小文件大小"}}}},
+    "progress.import.fileCount": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"File %1$lld of %2$lld"}},"es":{"stringUnit":{"state":"translated","value":"Archivo %1$lld de %2$lld"}},"fr":{"stringUnit":{"state":"translated","value":"Fichier %1$lld sur %2$lld"}},"hi":{"stringUnit":{"state":"translated","value":"%2$lld में से फ़ाइल %1$lld"}},"ja":{"stringUnit":{"state":"translated","value":"%2$lld個中%1$lld個目のファイル"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"第 %1$lld 个文件，共 %2$lld 个"}}}},
+    "progress.import.fileCountWithName": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"File %1$lld of %2$lld — %3$@"}},"es":{"stringUnit":{"state":"translated","value":"Archivo %1$lld de %2$lld — %3$@"}},"fr":{"stringUnit":{"state":"translated","value":"Fichier %1$lld sur %2$lld — %3$@"}},"hi":{"stringUnit":{"state":"translated","value":"%2$lld में से फ़ाइल %1$lld — %3$@"}},"ja":{"stringUnit":{"state":"translated","value":"%2$lld個中%1$lld個目 — %3$@"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"第 %1$lld 个文件，共 %2$lld 个 — %3$@"}}}},
+    "progress.import.preparingDocument": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Preparing document"}},"es":{"stringUnit":{"state":"translated","value":"Preparando el documento"}},"fr":{"stringUnit":{"state":"translated","value":"Préparation du document"}},"hi":{"stringUnit":{"state":"translated","value":"दस्तावेज़ तैयार हो रहा है"}},"ja":{"stringUnit":{"state":"translated","value":"書類を準備中"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"正在准备文档"}}}},
+    "progress.import.preparingFiles": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Preparing %lld files"}},"es":{"stringUnit":{"state":"translated","value":"Preparando %lld archivos"}},"fr":{"stringUnit":{"state":"translated","value":"Préparation de %lld fichiers"}},"hi":{"stringUnit":{"state":"translated","value":"%lld फ़ाइलें तैयार हो रही हैं"}},"ja":{"stringUnit":{"state":"translated","value":"%lld個のファイルを準備中"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"正在准备 %lld 个文件"}}}},
+    "progress.import.title": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Importing files"}},"es":{"stringUnit":{"state":"translated","value":"Importando archivos"}},"fr":{"stringUnit":{"state":"translated","value":"Importation des fichiers"}},"hi":{"stringUnit":{"state":"translated","value":"फ़ाइलें आयात हो रही हैं"}},"ja":{"stringUnit":{"state":"translated","value":"ファイルを読み込み中"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"正在导入文件"}}}},
+    "status.compression.finishBeforeMoreChanges": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Finish reducing file size before making more changes."}},"es":{"stringUnit":{"state":"translated","value":"Termina de reducir el tamaño del archivo antes de hacer más cambios."}},"fr":{"stringUnit":{"state":"translated","value":"Terminez la réduction de la taille du fichier avant d’apporter d’autres modifications."}},"hi":{"stringUnit":{"state":"translated","value":"और बदलाव करने से पहले फ़ाइल का आकार घटने दें।"}},"ja":{"stringUnit":{"state":"translated","value":"ほかの変更を行う前にファイルサイズの削減を完了してください。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"请先完成文件大小缩减，再进行其他更改。"}}}},
+    "status.import.canceledAfterAddingMany": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Import canceled after adding %lld files."}},"es":{"stringUnit":{"state":"translated","value":"La importación se canceló después de agregar %lld archivos."}},"fr":{"stringUnit":{"state":"translated","value":"Importation annulée après l’ajout de %lld fichiers."}},"hi":{"stringUnit":{"state":"translated","value":"%lld फ़ाइलें जोड़ने के बाद आयात रद्द हो गया।"}},"ja":{"stringUnit":{"state":"translated","value":"%lld個のファイルを追加した後、読み込みをキャンセルしました。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"添加 %lld 个文件后已取消导入。"}}}},
+    "status.import.canceledAfterAddingOne": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Import canceled after adding %lld file."}},"es":{"stringUnit":{"state":"translated","value":"La importación se canceló después de agregar %lld archivo."}},"fr":{"stringUnit":{"state":"translated","value":"Importation annulée après l’ajout de %lld fichier."}},"hi":{"stringUnit":{"state":"translated","value":"%lld फ़ाइल जोड़ने के बाद आयात रद्द हो गया।"}},"ja":{"stringUnit":{"state":"translated","value":"%lld個のファイルを追加した後、読み込みをキャンセルしました。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"添加 %lld 个文件后已取消导入。"}}}},
+    "status.import.finishBeforeMoreChanges": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Finish importing before making more changes."}},"es":{"stringUnit":{"state":"translated","value":"Termina la importación antes de hacer más cambios."}},"fr":{"stringUnit":{"state":"translated","value":"Terminez l’importation avant d’apporter d’autres modifications."}},"hi":{"stringUnit":{"state":"translated","value":"और बदलाव करने से पहले आयात पूरा होने दें।"}},"ja":{"stringUnit":{"state":"translated","value":"ほかの変更を行う前に読み込みを完了してください。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"请先完成导入，再进行其他更改。"}}}},
+    "status.ocr.finishBeforeMoreChanges": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Finish making this document searchable before making more changes."}},"es":{"stringUnit":{"state":"translated","value":"Termina de hacer que este documento sea consultable antes de hacer más cambios."}},"fr":{"stringUnit":{"state":"translated","value":"Terminez de rendre ce document consultable avant d’apporter d’autres modifications."}},"hi":{"stringUnit":{"state":"translated","value":"और बदलाव करने से पहले इस दस्तावेज़ को खोज योग्य बनने दें।"}},"ja":{"stringUnit":{"state":"translated","value":"ほかの変更を行う前に、この書類の検索可能化を完了してください。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"请先完成使文档可搜索的操作，再进行其他更改。"}}}},
+    "status.scanCleanup.semanticConflict": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Page %lld contains edits or document structure that cleanup cannot safely preserve. Undo the edits, use an untagged copy, or clean a different page."}},"es":{"stringUnit":{"state":"translated","value":"La página %lld contiene ediciones o estructura del documento que la limpieza no puede conservar de forma segura. Deshaz las ediciones, usa una copia sin etiquetar o limpia otra página."}},"fr":{"stringUnit":{"state":"translated","value":"La page %lld contient des modifications ou une structure de document que le nettoyage ne peut pas conserver en toute sécurité. Annulez les modifications, utilisez une copie non balisée ou nettoyez une autre page."}},"hi":{"stringUnit":{"state":"translated","value":"पेज %lld में ऐसे संपादन या दस्तावेज़ संरचना है जिसे सफ़ाई सुरक्षित रूप से बचा नहीं सकती। संपादन पूर्ववत करें, बिना टैग वाली कॉपी इस्तेमाल करें या कोई और पेज साफ़ करें।"}},"ja":{"stringUnit":{"state":"translated","value":"ページ%lldには、補正で安全に保持できない編集内容または書類構造があります。編集を取り消すか、タグのないコピーを使うか、別のページを補正してください。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"第 %lld 页包含清理操作无法安全保留的编辑或文档结构。请撤销编辑、使用未标记的副本，或清理其他页面。"}}}},
     "undo.cleanScan": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Clean Up Scan"}},"es":{"stringUnit":{"state":"translated","value":"Limpiar escaneo"}},"fr":{"stringUnit":{"state":"translated","value":"Nettoyer le scan"}},"hi":{"stringUnit":{"state":"translated","value":"स्कैन साफ़ करें"}},"ja":{"stringUnit":{"state":"translated","value":"スキャンを補正"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"清理扫描件"}}}},
     "undo.cleanScans": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Clean Up Scans"}},"es":{"stringUnit":{"state":"translated","value":"Limpiar escaneos"}},"fr":{"stringUnit":{"state":"translated","value":"Nettoyer les scans"}},"hi":{"stringUnit":{"state":"translated","value":"स्कैन साफ़ करें"}},"ja":{"stringUnit":{"state":"translated","value":"スキャンを補正"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"清理扫描件"}}}}
   },

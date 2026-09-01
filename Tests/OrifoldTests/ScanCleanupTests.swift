@@ -176,15 +176,21 @@ final class ScanCleanupTests: XCTestCase {
         let sourceData = try XCTUnwrap(PDFSerializer.data(from: source))
         let wrapper = FileWrapper(regularFileWithContents: sourceData)
         wrapper.preferredFilename = "scan.pdf"
-        let document = try WorkspaceDocument(testingFile: wrapper, contentType: .pdf, filename: "scan.pdf")
-        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
-        let undoManager = UndoManager()
-        retainedUndoManager = undoManager
-        viewModel.undoManager = undoManager
         let attachmentDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("Orifold-scan-cleanup-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: attachmentDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: attachmentDirectory) }
+        let fingerprintStore = WorkspaceFingerprintStore(directory: attachmentDirectory)
+        let document = try WorkspaceDocument(
+            testingFile: wrapper,
+            contentType: .pdf,
+            filename: "scan.pdf",
+            fingerprintStore: fingerprintStore
+        )
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+        let undoManager = UndoManager()
+        retainedUndoManager = undoManager
+        viewModel.undoManager = undoManager
         let attachmentURL = attachmentDirectory.appendingPathComponent("proof.txt")
         try attachment.write(to: attachmentURL)
         XCTAssertTrue(viewModel.addAttachment(attachmentURL))
@@ -206,11 +212,278 @@ final class ScanCleanupTests: XCTestCase {
         XCTAssertEqual(viewModel.document.workspace.pageOrder.map(\.id), sourcePageIDs(in: viewModel))
         XCTAssertEqual(undoManager.undoActionName, L10n.string("undo.cleanScan"))
 
+        let cleanedSnapshot = try document.snapshot(contentType: .pdf)
+        let exportedData = try document.exportedPDFDataThrowing(from: cleanedSnapshot)
+        XCTAssertTrue(QPDFService.isStructurallySound(exportedData))
+        let exportedPDF = try XCTUnwrap(PDFDocument(data: exportedData))
+        XCTAssertEqual(exportedPDF.pageCount, 2)
+        XCTAssertTrue(
+            try visionRecognition(
+                in: XCTUnwrap(PDFOCRService.rasterizedImage(for: XCTUnwrap(exportedPDF.page(at: 0))))
+            ).text.localizedCaseInsensitiveContains("RECEIPT 7429")
+        )
+
+        let savedWrapper = try document.savedFileWrapper(from: cleanedSnapshot)
+        savedWrapper.preferredFilename = "scan.pdf"
+        let reopenedDocument = try WorkspaceDocument(
+            testingFile: savedWrapper,
+            contentType: .pdf,
+            filename: "scan.pdf",
+            fingerprintStore: fingerprintStore
+        )
+        let reopenedViewModel = WorkspaceViewModel(
+            document: reopenedDocument,
+            processingEngine: PDFiumProcessingEngine()
+        )
+        let reopenedMemberData = try XCTUnwrap(reopenedDocument.memberPDFData[memberID])
+        XCTAssertTrue(QPDFService.isStructurallySound(reopenedMemberData))
+        XCTAssertEqual(
+            reopenedDocument.workspace.pageOrder.map(\.id),
+            document.workspace.pageOrder.map(\.id)
+        )
+        let reopenedPDF = try XCTUnwrap(reopenedViewModel.loadedPDFs.first?.1)
+        XCTAssertEqual(reopenedPDF.pageCount, 2)
+        XCTAssertTrue(
+            try visionRecognition(
+                in: XCTUnwrap(PDFOCRService.rasterizedImage(for: XCTUnwrap(reopenedPDF.page(at: 0))))
+            ).text.localizedCaseInsensitiveContains("RECEIPT 7429")
+        )
+
         undoManager.undo()
         XCTAssertEqual(viewModel.document.memberPDFData[memberID], original)
 
         undoManager.redo()
         XCTAssertEqual(viewModel.document.memberPDFData[memberID], cleaned)
+    }
+
+    func testDocumentScopeCleanupRejectsMixedCommittedTextEditBeforeAnyMutation() async throws {
+        let source = PDFDocument()
+        for index in 0..<2 {
+            source.insert(
+                try XCTUnwrap(PDFPage(image: NSImage(cgImage: photographedPage(angleDegrees: CGFloat(index)), size: .zero))),
+                at: index
+            )
+        }
+        let sourceData = try XCTUnwrap(PDFSerializer.data(from: source))
+        let wrapper = FileWrapper(regularFileWithContents: sourceData)
+        wrapper.preferredFilename = "mixed-edit.pdf"
+        let document = try WorkspaceDocument(testingFile: wrapper, contentType: .pdf, filename: "mixed-edit.pdf")
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+        let undoManager = UndoManager()
+        retainedUndoManager = undoManager
+        viewModel.undoManager = undoManager
+        let refs = document.workspace.pageOrder
+        let blockedRef = try XCTUnwrap(refs.last)
+        document.workspace.pageEditStates = [
+            PageEditState(pageRefID: blockedRef.id, operations: [
+                PDFTextEditOperation(
+                    pageRefID: blockedRef.id,
+                    sourceBlockID: UUID(),
+                    sourceBounds: CGRect(x: 40, y: 40, width: 120, height: 24),
+                    sourceText: "Original",
+                    editedBounds: CGRect(x: 40, y: 40, width: 120, height: 24),
+                    replacementText: "Edited",
+                    fontName: "Helvetica",
+                    fontSize: 12,
+                    textColor: .documentText,
+                    alignment: .left
+                )
+            ])
+        ]
+        let beforeSnapshot = try document.snapshot(contentType: .pdf)
+        let beforeMemberPDFData = document.memberPDFData
+        let beforeLoadedPDFs = viewModel.loadedPDFs.map(\.1)
+        let beforeUndoName = undoManager.undoActionName
+
+        let applied = await viewModel.applyScanCleanup(
+            pageRefIDs: viewModel.scanCleanupTargetPageRefIDs(scope: .document),
+            options: ScanCleanupOptions()
+        )
+
+        let afterSnapshot = try document.snapshot(contentType: .pdf)
+        XCTAssertFalse(applied)
+        XCTAssertEqual(document.memberPDFData, beforeMemberPDFData)
+        XCTAssertEqual(afterSnapshot.originalMemberPDFData, beforeSnapshot.originalMemberPDFData)
+        XCTAssertEqual(afterSnapshot.workspace.pageEditStates, beforeSnapshot.workspace.pageEditStates)
+        XCTAssertEqual(afterSnapshot.workspace.objectEditStates, beforeSnapshot.workspace.objectEditStates)
+        XCTAssertEqual(afterSnapshot.workspace.modifiedAt, beforeSnapshot.workspace.modifiedAt)
+        XCTAssertEqual(viewModel.loadedPDFs.count, beforeLoadedPDFs.count)
+        for (before, after) in zip(beforeLoadedPDFs, viewModel.loadedPDFs.map(\.1)) {
+            XCTAssertTrue(before === after)
+        }
+        XCTAssertFalse(viewModel.operationProgress.isActive)
+        XCTAssertFalse(viewModel.isApplyingScanCleanup)
+        XCTAssertFalse(undoManager.canUndo)
+        XCTAssertEqual(undoManager.undoActionName, beforeUndoName)
+        XCTAssertEqual(viewModel.editingStatus?.severity, .warning)
+    }
+
+    func testCleanupRejectsCommittedObjectOperationWithoutChangingState() async throws {
+        let source = PDFDocument()
+        source.insert(
+            try XCTUnwrap(PDFPage(image: NSImage(cgImage: photographedPage(angleDegrees: 0), size: .zero))),
+            at: 0
+        )
+        let sourceData = try XCTUnwrap(PDFSerializer.data(from: source))
+        let wrapper = FileWrapper(regularFileWithContents: sourceData)
+        wrapper.preferredFilename = "object-edit.pdf"
+        let document = try WorkspaceDocument(testingFile: wrapper, contentType: .pdf, filename: "object-edit.pdf")
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+        let undoManager = UndoManager()
+        retainedUndoManager = undoManager
+        viewModel.undoManager = undoManager
+        let ref = try XCTUnwrap(document.workspace.pageOrder.first)
+        let memberID = ref.memberDocId
+        let operation = ObjectEditOperation(
+            type: .objectDelete,
+            documentID: memberID,
+            pageRefID: ref.id,
+            sourceObjectKey: PDFObjectStableKey(pageRefID: ref.id, structuralDigest: 1),
+            objectType: .imageXObject,
+            editability: .directImageEdit,
+            originalBoundsPdf: CGRect(x: 0, y: 0, width: 10, height: 10),
+            newBoundsPdf: CGRect(x: 0, y: 0, width: 10, height: 10),
+            originalTransform: .identity,
+            newTransform: .identity,
+            pageRotation: 0,
+            originalZIndex: 0,
+            newZIndex: 0,
+            replacementStrategy: .pdfiumStructural
+        )
+        document.workspace.objectEditStates = [
+            PageObjectEditState(pageRefID: ref.id, operations: [operation])
+        ]
+        let beforeSnapshot = try document.snapshot(contentType: .pdf)
+        let beforeMemberPDFData = document.memberPDFData
+        let beforeLoadedPDFs = viewModel.loadedPDFs.map(\.1)
+
+        let applied = await viewModel.applyScanCleanup(
+            pageRefIDs: [ref.id],
+            options: ScanCleanupOptions()
+        )
+
+        let afterSnapshot = try document.snapshot(contentType: .pdf)
+        XCTAssertFalse(applied)
+        XCTAssertEqual(document.memberPDFData, beforeMemberPDFData)
+        XCTAssertEqual(afterSnapshot.originalMemberPDFData, beforeSnapshot.originalMemberPDFData)
+        XCTAssertEqual(afterSnapshot.workspace.objectEditStates, beforeSnapshot.workspace.objectEditStates)
+        XCTAssertEqual(afterSnapshot.workspace.modifiedAt, beforeSnapshot.workspace.modifiedAt)
+        XCTAssertEqual(viewModel.loadedPDFs.count, beforeLoadedPDFs.count)
+        for (before, after) in zip(beforeLoadedPDFs, viewModel.loadedPDFs.map(\.1)) {
+            XCTAssertTrue(before === after)
+        }
+        XCTAssertFalse(viewModel.operationProgress.isActive)
+        XCTAssertFalse(viewModel.isApplyingScanCleanup)
+        XCTAssertFalse(undoManager.canUndo)
+        XCTAssertEqual(viewModel.editingStatus?.severity, .warning)
+    }
+
+    func testCleanupRejectsCountedButUnloadableAuthoritativePageDespiteLoadedPDFPage() async throws {
+        let source = PDFDocument()
+        source.insert(
+            try XCTUnwrap(PDFPage(image: NSImage(cgImage: photographedPage(angleDegrees: 0), size: .zero))),
+            at: 0
+        )
+        let sourceData = try XCTUnwrap(PDFSerializer.data(from: source))
+        let wrapper = FileWrapper(regularFileWithContents: sourceData)
+        wrapper.preferredFilename = "parser-disagreement.pdf"
+        let document = try WorkspaceDocument(
+            testingFile: wrapper,
+            contentType: .pdf,
+            filename: "parser-disagreement.pdf"
+        )
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+        let undoManager = UndoManager()
+        retainedUndoManager = undoManager
+        viewModel.undoManager = undoManager
+        let ref = try XCTUnwrap(document.workspace.pageOrder.first)
+        let memberID = ref.memberDocId
+        let loadedPDFsBefore = viewModel.loadedPDFs.map(\.1)
+
+        // Model a parser/lane disagreement: PDFKit still has the valid loaded page that the
+        // cleanup pipeline could rasterize, while the authoritative member lane is unreadable
+        // to the structure inspector. Preflight must reject rather than treating it as untagged.
+        let unreadableData = countedButUnloadablePageFixture()
+        XCTAssertThrowsError(try StructureInspectionService.inspect(unreadableData, pageIndex: 0))
+        document.memberPDFData[memberID] = unreadableData
+        let memberDataBefore = document.memberPDFData
+        let modifiedAtBefore = document.workspace.modifiedAt
+        let undoNameBefore = undoManager.undoActionName
+        XCTAssertFalse(viewModel.operationProgress.isActive)
+        XCTAssertFalse(viewModel.isApplyingScanCleanup)
+
+        let applied = await viewModel.applyScanCleanup(
+            pageRefIDs: [ref.id],
+            options: ScanCleanupOptions()
+        )
+
+        XCTAssertFalse(applied)
+        XCTAssertEqual(document.memberPDFData, memberDataBefore)
+        XCTAssertEqual(document.workspace.modifiedAt, modifiedAtBefore)
+        XCTAssertEqual(viewModel.loadedPDFs.count, loadedPDFsBefore.count)
+        for (before, after) in zip(loadedPDFsBefore, viewModel.loadedPDFs.map(\.1)) {
+            XCTAssertTrue(before === after)
+        }
+        XCTAssertFalse(viewModel.operationProgress.isActive)
+        XCTAssertFalse(viewModel.isApplyingScanCleanup)
+        XCTAssertFalse(undoManager.canUndo)
+        XCTAssertEqual(undoManager.undoActionName, undoNameBefore)
+        XCTAssertEqual(viewModel.editingStatus?.severity, .error)
+    }
+
+    func testCleanupRejectsTargetedTaggedPageBeforeMutation() async throws {
+        let taggedData = fixture("tagged-sample.pdf")
+        let (document, taggedRef, taggedMemberID) = makeSingleMemberDocument(
+            data: taggedData,
+            displayName: "Tagged"
+        )
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+        let undoManager = UndoManager()
+        retainedUndoManager = undoManager
+        viewModel.undoManager = undoManager
+        let beforeStructure = try StructureInspectionService.inspect(taggedData, pageIndex: 0)
+        let beforeModifiedAt = document.workspace.modifiedAt
+
+        let applied = await viewModel.applyScanCleanup(
+            pageRefIDs: [taggedRef.id],
+            options: ScanCleanupOptions()
+        )
+
+        XCTAssertFalse(applied)
+        let afterData = try XCTUnwrap(document.memberPDFData[taggedMemberID])
+        XCTAssertEqual(afterData, taggedData)
+        XCTAssertEqual(try StructureInspectionService.inspect(afterData, pageIndex: 0), beforeStructure)
+        XCTAssertEqual(document.workspace.modifiedAt, beforeModifiedAt)
+        XCTAssertFalse(viewModel.operationProgress.isActive)
+        XCTAssertFalse(viewModel.isApplyingScanCleanup)
+        XCTAssertFalse(undoManager.canUndo)
+        XCTAssertEqual(viewModel.editingStatus?.severity, .warning)
+    }
+
+    func testCleanupEligiblePageLeavesNonTargetTaggedPageFunctionalInSameMember() async throws {
+        let sourceData = twoPagePartiallyTaggedFixture()
+        let document = WorkspaceDocument()
+        var member = MemberDocument(displayName: "Partially tagged", sourcePDFRef: "partially-tagged.pdf")
+        let refs = (0..<2).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+        member.pageRefs = refs.map(\.id)
+        document.workspace.documents = [member]
+        document.workspace.pageOrder = refs
+        document.memberPDFData[member.id] = sourceData
+        let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+        let untaggedBefore = try StructureInspectionService.inspect(sourceData, pageIndex: 0)
+        let taggedBefore = try StructureInspectionService.inspect(sourceData, pageIndex: 1)
+        XCTAssertTrue(untaggedBefore.roots.isEmpty)
+        XCTAssertFalse(taggedBefore.roots.isEmpty)
+
+        let applied = await viewModel.applyScanCleanup(
+            pageRefIDs: [refs[0].id],
+            options: ScanCleanupOptions()
+        )
+
+        XCTAssertTrue(applied)
+        let cleanedData = try XCTUnwrap(document.memberPDFData[member.id])
+        XCTAssertNotEqual(cleanedData, sourceData)
+        XCTAssertEqual(try StructureInspectionService.inspect(cleanedData, pageIndex: 1), taggedBefore)
     }
 
     func testCleanupScopeDefaultsToCurrentPageAndCanExpandToDocument() throws {
@@ -230,6 +503,101 @@ final class ScanCleanupTests: XCTestCase {
 
         XCTAssertEqual(viewModel.scanCleanupTargetPageRefIDs(scope: .currentPage), [refs[1].id])
         XCTAssertEqual(viewModel.scanCleanupTargetPageRefIDs(scope: .document), refs.map(\.id))
+    }
+
+    private func fixture(_ name: String) -> Data {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/\(name)")
+        // swiftlint:disable:next force_try
+        return try! Data(contentsOf: url)
+    }
+
+    private func makeMember(data: Data, displayName: String) -> (MemberDocument, PageRef) {
+        var member = MemberDocument(displayName: displayName, sourcePDFRef: "\(displayName).pdf")
+        let ref = PageRef(memberDocId: member.id, sourcePageIndex: 0)
+        member.pageRefs = [ref.id]
+        return (member, ref)
+    }
+
+    private func makeSingleMemberDocument(
+        data: Data,
+        displayName: String
+    ) -> (WorkspaceDocument, PageRef, UUID) {
+        let document = WorkspaceDocument()
+        let (member, ref) = makeMember(data: data, displayName: displayName)
+        document.workspace.documents = [member]
+        document.workspace.pageOrder = [ref]
+        document.memberPDFData[member.id] = data
+        return (document, ref, member.id)
+    }
+
+    private func countedButUnloadablePageFixture() -> Data {
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /NotAPage >>",
+        ]
+        var output = Data("%PDF-1.7\n".utf8)
+        output.append(contentsOf: [0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A])
+        var offsets = [0]
+        for (index, body) in objects.enumerated() {
+            offsets.append(output.count)
+            output.append(Data("\(index + 1) 0 obj\n\(body)\nendobj\n".utf8))
+        }
+        let xrefOffset = output.count
+        output.append(Data("xref\n0 \(objects.count + 1)\n0000000000 65535 f \n".utf8))
+        for offset in offsets.dropFirst() {
+            output.append(Data("\(String(format: "%010d", offset)) 00000 n \n".utf8))
+        }
+        output.append(Data(
+            "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xrefOffset)\n%%EOF\n".utf8
+        ))
+        return output
+    }
+
+    /// A two-page tagged PDF whose first page has no structure participation and whose second
+    /// page owns the document's marked content. This exercises cleanup within the same member as
+    /// an untouched tagged page, rather than relying on the easier cross-member isolation case.
+    private func twoPagePartiallyTaggedFixture() -> Data {
+        let untaggedOps = "BT /F1 20 Tf 72 700 Td (Eligible untagged page) Tj ET\n"
+        let taggedOps = """
+        /H1 <</MCID 0>> BDC
+        BT /F1 24 Tf 72 700 Td (Tagged heading) Tj ET
+        EMC
+        /P <</MCID 1>> BDC
+        BT /F1 12 Tf 72 660 Td (Tagged body) Tj ET
+        EMC
+
+        """
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot 8 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 7 0 R >> >> >>",
+            "<< /Length \(untaggedOps.utf8.count) >>\nstream\n\(untaggedOps)endstream",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> >> /StructParents 0 >>",
+            "<< /Length \(taggedOps.utf8.count) >>\nstream\n\(taggedOps)endstream",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            "<< /Type /StructTreeRoot /K [9 0 R] /ParentTree 12 0 R /ParentTreeNextKey 1 >>",
+            "<< /Type /StructElem /S /Document /P 8 0 R /Pg 5 0 R /K [10 0 R 11 0 R] >>",
+            "<< /Type /StructElem /S /H1 /P 9 0 R /Pg 5 0 R /K 0 /T (Tagged heading) >>",
+            "<< /Type /StructElem /S /P /P 9 0 R /Pg 5 0 R /K 1 >>",
+            "<< /Nums [0 [10 0 R 11 0 R]] >>",
+        ]
+        var output = Data("%PDF-1.7\n".utf8)
+        output.append(contentsOf: [0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A])
+        var offsets = [0]
+        for (index, body) in objects.enumerated() {
+            offsets.append(output.count)
+            output.append(Data("\(index + 1) 0 obj\n\(body)\nendobj\n".utf8))
+        }
+        let xrefOffset = output.count
+        output.append(Data("xref\n0 \(objects.count + 1)\n0000000000 65535 f \n".utf8))
+        for offset in offsets.dropFirst() {
+            output.append(Data("\(String(format: "%010d", offset)) 00000 n \n".utf8))
+        }
+        output.append(Data("trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xrefOffset)\n%%EOF\n".utf8))
+        return output
     }
 }
 

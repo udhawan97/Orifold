@@ -90,6 +90,14 @@ final class StructureInspectionServiceTests: XCTestCase {
         }
     }
 
+    func testCountedButUnloadablePageThrowsRatherThanReturningAnEmptyTree() {
+        XCTAssertThrowsError(
+            try StructureInspectionService.inspect(countedButUnloadablePageFixture(), pageIndex: 0)
+        ) { error in
+            XCTAssertEqual(error as? StructureInspectionError, .invalidPDF)
+        }
+    }
+
     func testDocumentIsTaggedReturnsFalseForUnreadableBytesRatherThanThrowing() {
         XCTAssertFalse(StructureInspectionService.documentIsTagged(Data("nope".utf8)))
     }
@@ -151,6 +159,33 @@ final class StructureInspectionServiceTests: XCTestCase {
     private func taggedFixture() -> Data { fixture("tagged-sample.pdf") }
     private func taggedNoAltFixture() -> Data { fixture("tagged-no-alt.pdf") }
     private func untaggedFixture() -> Data { fixture("untagged-sample.pdf") }
+
+    /// PDFium can read this catalog and trust `/Count 1`, but the sole kid is not a page
+    /// dictionary, so loading page zero fails. That parser disagreement must not look like a
+    /// legitimate untagged page with an empty structure tree.
+    private func countedButUnloadablePageFixture() -> Data {
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /NotAPage >>",
+        ]
+        var output = Data("%PDF-1.7\n".utf8)
+        output.append(contentsOf: [0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A])
+        var offsets = [0]
+        for (index, body) in objects.enumerated() {
+            offsets.append(output.count)
+            output.append(Data("\(index + 1) 0 obj\n\(body)\nendobj\n".utf8))
+        }
+        let xrefOffset = output.count
+        output.append(Data("xref\n0 \(objects.count + 1)\n0000000000 65535 f \n".utf8))
+        for offset in offsets.dropFirst() {
+            output.append(Data("\(String(format: "%010d", offset)) 00000 n \n".utf8))
+        }
+        output.append(Data(
+            "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xrefOffset)\n%%EOF\n".utf8
+        ))
+        return output
+    }
 
     private func flatten(_ nodes: [StructureNode]) -> [StructureNode] {
         nodes.flatMap { [$0] + flatten($0.children) }

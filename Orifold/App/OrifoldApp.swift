@@ -62,10 +62,36 @@ struct OrifoldApp: App {
 }
 
 final class OrifoldAppDelegate: NSObject, NSApplicationDelegate {
+#if DEBUG
+    private var cleanupAccessibilityAcceptanceWindow: NSWindow?
+#endif
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Register the bundled substitution fonts before the first editor render, so
         // unembedded Arial/Times/Calibri/… resolve to their metric-compatible faces.
         FontRegistrar.registerBundledFonts()
+
+#if DEBUG
+        // A temporary debug bundle can opt into the real cleanup-row accessibility surface
+        // by setting this private Info.plist key. Release builds contain neither this branch
+        // nor the harness view, and ordinary debug launches remain unchanged.
+        if Bundle.main.object(forInfoDictionaryKey: "OrifoldCleanupAccessibilityAcceptance") as? Bool == true {
+            let hostingView = NSHostingView(rootView: ScanCleanupAccessibilityAcceptanceView())
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 430, height: 260),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Orifold Cleanup Accessibility Acceptance"
+            window.contentView = hostingView
+            window.center()
+            window.makeKeyAndOrderFront(nil)
+            cleanupAccessibilityAcceptanceWindow = window
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+#endif
 
         UpdateLaunchCoordinator.shared.applicationDidFinishLaunching()
 

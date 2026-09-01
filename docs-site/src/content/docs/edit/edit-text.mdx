@@ -1,6 +1,6 @@
 ---
 title: Edit existing PDF text
-description: Edit detected text in place while retaining its typography and paragraph geometry by default.
+description: Visually replace detected text in place while retaining its typography and paragraph geometry by default.
 keywords: [edit text, change text, fix typo, modify pdf text, edit pdf, how do I edit text, how do i edit pdf text]
 ---
 
@@ -12,7 +12,7 @@ import CardGrid from '../../../components/CardGrid.astro';
 import Card from '../../../components/Card.astro';
 
 <Callout variant="whentouse">
-	You need to fix a typo, update a date, or change a line of text directly on the PDF page.
+	You need to visually correct a typo, date, or line of text on the PDF page.
 </Callout>
 
 <Callout variant="note" label="Beta">
@@ -25,7 +25,7 @@ import Card from '../../../components/Card.astro';
 2. Type your changes. The editor starts with the detected text's formatting and paragraph footprint.
 3. Use the formatting toolbar only for attributes you want to change, then choose **Done** or click elsewhere to commit.
 
-<Figure src="/Orifold/assets/screenshots/edit-text-workflow.png" alt="A sentence of detected PDF text selected for editing, with a floating formatting toolbar offering font, size, bold, italic, underline, alignment, color, Match, Copy, Paste, Reset, and Done." caption="Editing detected text in place — select, format, and click Done." />
+<Figure src="/Orifold/assets/screenshots/edit-text-workflow.png" alt="A sentence of detected PDF text selected for visual replacement, with a floating formatting toolbar offering font, size, bold, italic, underline, alignment, color, Match, Copy, Paste, Reset, and Done." caption="Visually replacing detected text in place — select, format, and click Done." />
 
 <Callout variant="warning">
 	"Detected text" means text Orifold's reader can identify directly in the PDF's content stream. Scanned pages have no such text — run OCR first, then the recognized text becomes editable the same way.
@@ -45,7 +45,7 @@ import Card from '../../../components/Card.astro';
 
 ## What you should see
 
-The edited text renders in place on the page. Unless you change an attribute, Orifold retains the detected font family, size, bold and italic traits, underline, color, alignment, measured line spacing, and paragraph or column bounds.
+The replacement text renders in place on the page. Unless you change an attribute, Orifold retains the detected font family, size, bold and italic traits, underline, color, alignment, measured line spacing, and paragraph or column bounds.
 
 Longer replacement text wraps from the source paragraph's existing margins. Orifold grows the edit only when needed and refuses unsafe growth over nearby graphics instead of silently covering them.
 
@@ -55,12 +55,12 @@ Orifold uses metric-compatible bundled substitutes for common unavailable docume
 	This flow also works on text pages created when you import supported source documents such as Markdown, HTML, RTF, and plain text. When a same-format source export can map the edit unambiguously, Orifold patches the source while retaining its surrounding structure and formatting; otherwise it fails safely instead of silently flattening or changing the wrong occurrence.
 </Callout>
 
-<Details summary="How editing keeps the original text layer intact">
-	Orifold measures where each glyph sits from PDFium's real transforms and imports through a text-layer-preserving normalizer, so an edit lands exactly on the text it replaces rather than on top of an invisible copy. The [Developer FAQ](/Orifold/developers/faq/) has the full "edit lands on top" history.
+<Details summary="How visual replacement works">
+	Orifold measures where each glyph sits from PDFium's real transforms, then covers the detected drawing and renders the replacement at the same geometry. This is a visual replacement, not structural removal: the original text may remain discoverable through search, copy/paste, extraction, or assistive technology. The [Developer FAQ](/Orifold/developers/faq/) explains the rendering model in more detail.
 </Details>
 
 <Callout variant="danger" label="Not redaction">
-	Editing text replaces what's drawn on the page — it does not cryptographically remove the original content from the PDF file. If you need to permanently destroy sensitive text (not just cover or replace it), don't rely on inline editing alone.
+	Editing text visually replaces what's drawn on the page — it does not remove the original content from the PDF file. Search, copy/paste, extraction, or assistive technology may still expose the original text. If you need to permanently destroy sensitive text, don't rely on inline editing.
 </Callout>
 
 ## Related

@@ -206,6 +206,60 @@ final class WorkspaceOperationProgress {
     }
 }
 
+/// Localized operational copy with value-bearing branches kept in one testable seam.
+/// Filenames and counts are always formatter arguments, never part of a lookup key.
+enum WorkspaceOperationalCopy {
+    static func importProgressDetail(
+        currentIndex: Int,
+        totalCount: Int,
+        fileName: String? = nil,
+        locale: Locale? = nil
+    ) -> String {
+        guard totalCount > 1 else {
+            if let fileName, !fileName.isEmpty {
+                return fileName
+            }
+            return L10n.string("progress.import.preparingDocument", locale: locale)
+        }
+        guard currentIndex > 0 else {
+            return L10n.format("progress.import.preparingFiles", totalCount, locale: locale)
+        }
+        let current = min(currentIndex, totalCount)
+        guard let fileName, !fileName.isEmpty else {
+            return L10n.format("progress.import.fileCount", current, totalCount, locale: locale)
+        }
+        return L10n.format(
+            "progress.import.fileCountWithName",
+            current,
+            totalCount,
+            fileName,
+            locale: locale
+        )
+    }
+
+    static func importCanceled(afterAdding importedCount: Int, locale: Locale? = nil) -> String {
+        guard importedCount > 0 else {
+            return L10n.string("status.import.canceled", locale: locale)
+        }
+        let key = importedCount == 1
+            ? "status.import.canceledAfterAddingOne"
+            : "status.import.canceledAfterAddingMany"
+        return L10n.format(key, importedCount, locale: locale)
+    }
+
+    static func couldNotOpen(fileName: String, detail: String, locale: Locale? = nil) -> String {
+        L10n.format("error.import.couldNotOpenNamed", fileName, detail, locale: locale)
+    }
+
+    static func compressionProgress(percent: Int, locale: Locale? = nil) -> String {
+        L10n.format("progress.compression.percent", percent, locale: locale)
+    }
+
+    static func imageExportRenderFailure(pageNumber: Int, locale: Locale? = nil) -> String {
+        L10n.format("error.export.renderPageForImageExport", pageNumber, locale: locale)
+    }
+}
+
 /// The baked, model-free half of an export, ready to finish on any thread.
 ///
 /// Produced by `WorkspaceViewModel.bakedExportPayload` on the main thread and consumed by
@@ -270,6 +324,12 @@ private struct ScanCleanupWorkItem: Sendable {
 private struct PreparedScanCleanupWorkItem: Sendable {
     let workItem: ScanCleanupWorkItem
     let outputByInput: [Data: Data]
+}
+
+private enum ScanCleanupPreflightResult {
+    case eligible
+    case semanticConflict(workspacePageNumber: Int)
+    case unreadable
 }
 
 private final class ProgressUpdateThrottle: @unchecked Sendable {
@@ -1077,7 +1137,7 @@ final class WorkspaceViewModel {
 
     private func beginImportIfPossible() -> Bool {
         guard !isImporting else {
-            editingStatus = .warning("An import is already in progress.")
+            editingStatus = .warning(L10n.string("status.import.alreadyInProgress"))
             return false
         }
         isImporting = true
@@ -1092,7 +1152,7 @@ final class WorkspaceViewModel {
     ) async {
         await MainActor.run {
             self.operationProgress.start(
-                title: "Importing files",
+                title: L10n.string("progress.import.title"),
                 detail: importProgressDetail(currentIndex: 0, totalCount: urls.count),
                 isCancellable: true
             )
@@ -1137,7 +1197,9 @@ final class WorkspaceViewModel {
             self.operationProgress.finish()
             let wasCancelled = cancellation.isCancelled || Task.isCancelled
             if wasCancelled {
-                self.editingStatus = .warning(finalImportedCount > 0 ? "Import canceled after adding \(finalImportedCount) file\(finalImportedCount == 1 ? "" : "s")." : "Import canceled.")
+                self.editingStatus = .warning(
+                    WorkspaceOperationalCopy.importCanceled(afterAdding: finalImportedCount)
+                )
             } else if !finalFailures.isEmpty {
                 self.importError = self.importError(for: finalFailures, importedCount: finalImportedCount, totalCount: urls.count)
             }
@@ -1168,20 +1230,11 @@ final class WorkspaceViewModel {
     }
 
     private func importProgressDetail(currentIndex: Int, totalCount: Int, fileName: String? = nil) -> String {
-        guard totalCount > 1 else {
-            if let fileName, !fileName.isEmpty {
-                return fileName
-            }
-            return "Preparing document"
-        }
-        guard currentIndex > 0 else {
-            return "Preparing \(totalCount) files"
-        }
-        let countText = "File \(min(currentIndex, totalCount)) of \(totalCount)"
-        guard let fileName, !fileName.isEmpty else {
-            return countText
-        }
-        return "\(countText) - \(fileName)"
+        WorkspaceOperationalCopy.importProgressDetail(
+            currentIndex: currentIndex,
+            totalCount: totalCount,
+            fileName: fileName
+        )
     }
 
     private func importError(for failures: [AsyncImportFailure], importedCount: Int, totalCount: Int) -> ImportError {
@@ -1189,7 +1242,10 @@ final class WorkspaceViewModel {
             let failure = failures[0]
             return ImportError(
                 fileName: failure.url.lastPathComponent,
-                message: String(localized: "Could not open \"\(failure.url.lastPathComponent)\". \(DocumentImportConverter.userMessage(for: failure.error))", locale: L10n.currentLocale),
+                message: WorkspaceOperationalCopy.couldNotOpen(
+                    fileName: failure.url.lastPathComponent,
+                    detail: DocumentImportConverter.userMessage(for: failure.error)
+                ),
                 kind: ImportFailureClassifier.classify(error: failure.error, url: failure.url),
                 sourceURL: failure.url
             )
@@ -1318,7 +1374,10 @@ final class WorkspaceViewModel {
             )
             importError = ImportError(
                 fileName: fileName,
-                message: String(localized: "Could not open \"\(fileName)\". \(DocumentImportConverter.userMessage(for: error))", locale: L10n.currentLocale),
+                message: WorkspaceOperationalCopy.couldNotOpen(
+                    fileName: fileName,
+                    detail: DocumentImportConverter.userMessage(for: error)
+                ),
                 kind: ImportFailureClassifier.classify(error: error, url: url),
                 sourceURL: url
             )
@@ -2459,15 +2518,15 @@ final class WorkspaceViewModel {
 
     private func canPerformMutatingAction() -> Bool {
         guard !isImporting else {
-            editingStatus = .warning("Finish importing before making more changes.")
+            editingStatus = .warning(L10n.string("status.import.finishBeforeMoreChanges"))
             return false
         }
         guard activeCompressionTask == nil else {
-            editingStatus = .warning("Finish reducing file size before making more changes.")
+            editingStatus = .warning(L10n.string("status.compression.finishBeforeMoreChanges"))
             return false
         }
         guard activeOCRTask == nil else {
-            editingStatus = .warning("Finish making this document searchable before making more changes.")
+            editingStatus = .warning(L10n.string("status.ocr.finishBeforeMoreChanges"))
             return false
         }
         guard !isApplyingScanCleanup else {
@@ -2778,6 +2837,23 @@ final class WorkspaceViewModel {
         let requestedIDs = Set(pageRefIDs)
         guard !requestedIDs.isEmpty else { return false }
 
+        // Cleanup replaces the targeted content graph with a raster. Committed text/object
+        // operations and tagged structure both retain identities into that graph, so they cannot
+        // survive the replacement honestly. Reject the entire request before serializing live
+        // PDFKit state, starting progress, or preparing any byte lane.
+        switch scanCleanupPreflight(for: requestedIDs) {
+        case .eligible:
+            break
+        case .semanticConflict(let workspacePageNumber):
+            editingStatus = .warning(
+                L10n.format("status.scanCleanup.semanticConflict", workspacePageNumber)
+            )
+            return false
+        case .unreadable:
+            showEditMessage(L10n.string("status.scanCleanup.applyFailed"), isError: true)
+            return false
+        }
+
         let authoritativeData: [UUID: Data]
         do {
             authoritativeData = try currentPDFDataForOCR()
@@ -2891,6 +2967,44 @@ final class WorkspaceViewModel {
             editingStatus = .success(L10n.format("status.scanCleanup.cleaned", requestedIDs.count))
         }
         return succeeded
+    }
+
+    /// A read-only, all-or-nothing semantic gate for scan cleanup. The workspace page number is
+    /// returned for recovery copy; callers must not mutate, serialize, or start progress first.
+    private func scanCleanupPreflight(for requestedIDs: Set<UUID>) -> ScanCleanupPreflightResult {
+        let textEditPageIDs = Set(document.workspace.pageEditStates.compactMap { state in
+            state.operations.isEmpty ? nil : state.pageRefID
+        })
+        let objectEditPageIDs = Set(document.workspace.objectEditStates.compactMap { state in
+            state.operations.isEmpty ? nil : state.pageRefID
+        })
+        let membersByID = Dictionary(uniqueKeysWithValues: document.workspace.documents.map { ($0.id, $0) })
+
+        for (workspaceIndex, ref) in document.workspace.pageOrder.enumerated()
+        where requestedIDs.contains(ref.id) {
+            if textEditPageIDs.contains(ref.id) || objectEditPageIDs.contains(ref.id) {
+                return .semanticConflict(workspacePageNumber: workspaceIndex + 1)
+            }
+
+            guard let member = membersByID[ref.memberDocId],
+                  let pageIndex = member.pageRefs.firstIndex(of: ref.id),
+                  let memberData = document.memberPDFData[member.id] else {
+                return .unreadable
+            }
+            // Inspect every targeted page through the throwing PDFium path. The nonthrowing
+            // document-level convenience maps unreadable bytes to "not tagged", which is fine
+            // for informational UI but would make this destructive preflight fail open.
+            guard let structure = try? StructureInspectionService.inspect(
+                memberData,
+                pageIndex: pageIndex
+            ) else {
+                return .unreadable
+            }
+            if !structure.roots.isEmpty {
+                return .semanticConflict(workspacePageNumber: workspaceIndex + 1)
+            }
+        }
+        return .eligible
     }
 
     /// Safe one-click route used by the scan banner regardless of the Inspector's repair scope.
@@ -6234,7 +6348,7 @@ final class WorkspaceViewModel {
                 // by `fetchTimestampSynchronously`'s `TimestampBox` just below.
                 final class SigningOutcomeBox: @unchecked Sendable {
                     var timestampWasApplied = false
-                    var timestampFallbackMessage: String?
+                    var timestampFallbackLocalizationKey: String?
                 }
                 let outcome = SigningOutcomeBox()
                 let signedData = try PDFIncrementalSigner().sign(pdf: pdfData, field: field, appearance: appearance) { byteRangeBytes in
@@ -6243,7 +6357,7 @@ final class WorkspaceViewModel {
                         // unconditionally) — otherwise this fire-and-forget update can land
                         // AFTER the operation has already been cancelled/finished (or after
                         // an unrelated, newer operation has started), resurrecting stale
-                        // "Requesting trusted timestamp…" text. Matches the same guard
+                        // timestamp-candidate progress text. Matches the same guard
                         // already used at the OCR/compression progress callbacks elsewhere
                         // in this file.
                         Task { @MainActor in
@@ -6251,8 +6365,8 @@ final class WorkspaceViewModel {
                             self.operationProgress.update(fraction: 0.5, detail: L10n.string("signProgress.timestamping"))
                         }
                         return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity) { signatureValue in
-                            do {
-                                let token = try Self.fetchTimestampSynchronously(
+                            let decision = try TimestampEmbeddingPolicy.resolve(requested: true) {
+                                try Self.fetchTimestampSynchronously(
                                     for: signatureValue,
                                     preferring: preferredTSA,
                                     onAttempt: { option in
@@ -6264,18 +6378,11 @@ final class WorkspaceViewModel {
                                             )
                                         }
                                     }
-                                ).cmsTimeStampToken
-                                outcome.timestampWasApplied = true
-                                return token
-                            } catch SigningError.cancelled {
-                                // Must propagate, not fall back — otherwise cancelling
-                                // during a hung TSA request would silently continue signing
-                                // (just without a timestamp) instead of actually stopping.
-                                throw SigningError.cancelled
-                            } catch {
-                                outcome.timestampFallbackMessage = L10n.string("status.sign.timestampUnavailable")
-                                return nil
+                                )
                             }
+                            outcome.timestampWasApplied = decision.timestampWasApplied
+                            outcome.timestampFallbackLocalizationKey = decision.warningLocalizationKey
+                            return decision.token
                         }
                     }
                     return try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity, timestamp: nil)
@@ -6308,7 +6415,8 @@ final class WorkspaceViewModel {
                     if let index = self.document.workspace.signatures.firstIndex(where: { $0.id == placementID }) {
                         self.document.workspace.signatures[index].timestampApplied = outcome.timestampWasApplied
                     }
-                    let note = [outcome.timestampFallbackMessage, selfCheckNote].compactMap { $0 }.joined(separator: " ")
+                    let timestampFallbackMessage = outcome.timestampFallbackLocalizationKey.map { L10n.string(forKey: $0) }
+                    let note = [timestampFallbackMessage, selfCheckNote].compactMap { $0 }.joined(separator: " ")
                     self.finalizeSuccessfulExport(url: targetURL, format: .pdf, note: note)
                 }
             } catch {
@@ -7522,7 +7630,10 @@ final class WorkspaceViewModel {
             return
         }
 
-        operationProgress.start(title: "Reducing file size", detail: "Preparing PDF")
+        operationProgress.start(
+            title: L10n.string("progress.compression.title"),
+            detail: L10n.string("progress.compression.preparing")
+        )
         let cancellation = OperationCancellationToken()
         let operationID = UUID()
         activeCompressionCancellation = cancellation
@@ -7561,9 +7672,15 @@ final class WorkspaceViewModel {
                     self.activeCompressionCancellation = nil
                     self.activeCompressionID = nil
                     if let compressionError = error as? PDFCompressionError, compressionError == .cancelled {
-                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                        self.editingStatus = .warning(
+                            PDFCompressionError.cancelled.errorDescription
+                                ?? L10n.string("error.compression.cancelled")
+                        )
                     } else if error is CancellationError {
-                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                        self.editingStatus = .warning(
+                            PDFCompressionError.cancelled.errorDescription
+                                ?? L10n.string("error.compression.cancelled")
+                        )
                     } else {
                         self.exportError = ExportError(message: self.userMessage(for: error, exporting: .pdf))
                     }
@@ -7612,7 +7729,10 @@ final class WorkspaceViewModel {
             return false
         }
 
-        operationProgress.start(title: "Reducing file size", detail: "Preparing PDF")
+        operationProgress.start(
+            title: L10n.string("progress.compression.title"),
+            detail: L10n.string("progress.compression.preparing")
+        )
         let cancellation = OperationCancellationToken()
         let operationID = UUID()
         activeCompressionCancellation = cancellation
@@ -7656,9 +7776,15 @@ final class WorkspaceViewModel {
                     self.activeCompressionCancellation = nil
                     self.activeCompressionID = nil
                     if let compressionError = error as? PDFCompressionError, compressionError == .cancelled {
-                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                        self.editingStatus = .warning(
+                            PDFCompressionError.cancelled.errorDescription
+                                ?? L10n.string("error.compression.cancelled")
+                        )
                     } else if error is CancellationError {
-                        self.editingStatus = .warning(PDFCompressionError.cancelled.errorDescription ?? "File-size reduction was cancelled.")
+                        self.editingStatus = .warning(
+                            PDFCompressionError.cancelled.errorDescription
+                                ?? L10n.string("error.compression.cancelled")
+                        )
                     } else {
                         self.exportError = ExportError(message: self.userMessage(for: error, exporting: .pdf))
                     }
@@ -7689,7 +7815,9 @@ final class WorkspaceViewModel {
                               self?.operationProgress.isActive == true else { return }
                         self?.operationProgress.update(
                             fraction: progress,
-                            detail: "\(Int((progress * 100).rounded()))%"
+                            detail: WorkspaceOperationalCopy.compressionProgress(
+                                percent: Int((progress * 100).rounded())
+                            )
                         )
                     }
                 },
@@ -7863,7 +7991,9 @@ final class WorkspaceViewModel {
         for pageIndex in 0..<exportDoc.pageCount {
             guard let page = exportDoc.page(at: pageIndex),
                   let data = imageData(for: page, format: format) else {
-                exportError = ExportError(message: "Orifold could not render page \(pageIndex + 1) for export.")
+                exportError = ExportError(
+                    message: WorkspaceOperationalCopy.imageExportRenderFailure(pageNumber: pageIndex + 1)
+                )
                 return false
             }
             let filename = "page-\(String(format: "%03d", pageIndex + 1)).\(format.fileExtension)"

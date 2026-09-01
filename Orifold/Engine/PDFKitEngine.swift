@@ -1,5 +1,6 @@
 import AppKit
 import Compression
+import Darwin
 import Foundation
 import PDFKit
 import UniformTypeIdentifiers
@@ -280,7 +281,13 @@ enum DocumentImportConverter {
                 )
             }
         }
-        let data = try Data(contentsOf: url)
+        guard let boundSource = HTMLImportResourcePolicy.boundSourceFile(
+            at: url,
+            maxBytes: Int(maxImportBytes)
+        ) else {
+            throw ConversionError.unreadableDocument
+        }
+        let data = boundSource.data
         let detectedType = detectedContentType(data: data, suggestedContentType: suggestedType, filename: url.lastPathComponent)
         return try importedDocument(
             from: data,
@@ -288,7 +295,8 @@ enum DocumentImportConverter {
             filename: url.lastPathComponent,
             // Let HTML resolve relative CSS and image URLs the same way it would
             // when opened directly in a browser.
-            baseURL: detectedType.conforms(to: .html) || detectedType.conforms(to: .orifoldSVG) ? url.deletingLastPathComponent() : nil
+            baseURL: detectedType.conforms(to: .html) || detectedType.conforms(to: .orifoldSVG) ? url.deletingLastPathComponent() : nil,
+            htmlResourcePolicy: boundSource.resourcePolicy
         )
     }
 
@@ -314,13 +322,20 @@ enum DocumentImportConverter {
                 )
             }
         }
-        let data = try Data(contentsOf: url)
+        guard let boundSource = HTMLImportResourcePolicy.boundSourceFile(
+            at: url,
+            maxBytes: Int(maxImportBytes)
+        ) else {
+            throw ConversionError.unreadableDocument
+        }
+        let data = boundSource.data
         let detectedType = detectedContentType(data: data, suggestedContentType: suggestedType, filename: url.lastPathComponent)
         return try await importedDocumentAsync(
             from: data,
             contentType: detectedType,
             filename: url.lastPathComponent,
-            baseURL: detectedType.conforms(to: .html) || detectedType.conforms(to: .orifoldSVG) ? url.deletingLastPathComponent() : nil
+            baseURL: detectedType.conforms(to: .html) || detectedType.conforms(to: .orifoldSVG) ? url.deletingLastPathComponent() : nil,
+            htmlResourcePolicy: boundSource.resourcePolicy
         )
     }
 
@@ -328,7 +343,13 @@ enum DocumentImportConverter {
         try importedDocument(from: data, contentType: contentType, filename: filename, baseURL: baseURL).pdfDocument
     }
 
-    static func importedDocument(from data: Data, contentType: UTType, filename: String, baseURL: URL?) throws -> ImportedDocument {
+    static func importedDocument(
+        from data: Data,
+        contentType: UTType,
+        filename: String,
+        baseURL: URL?,
+        htmlResourcePolicy: HTMLImportResourcePolicy? = nil
+    ) throws -> ImportedDocument {
         let detectedType = detectedContentType(data: data, suggestedContentType: contentType, filename: filename)
         try validateByteCount(Int64(data.count), contentType: detectedType)
 
@@ -383,7 +404,15 @@ enum DocumentImportConverter {
 
         if detectedType.conforms(to: .html) {
             let plainHTML = try decodeText(data)
-            let attributedString = try loadAttributedString(from: data, documentType: .html, baseURL: baseURL)
+            // ReferenceFileDocument opens this path synchronously. A small inert parser keeps
+            // common inline structure without invoking either WebKit or NSAttributedString's
+            // network-capable HTML importer, so direct-open cannot wait on the main actor or
+            // initiate a URL load from attacker-controlled markup.
+            let attributedString = safeMarkupAttributedString(
+                plainHTML,
+                sourceRoot: baseURL,
+                resourcePolicy: htmlResourcePolicy
+            )
             let pdf = try renderAttributedString(attributedString, title: filename)
             return ImportedDocument(
                 pdfDocument: pdf,
@@ -391,7 +420,7 @@ enum DocumentImportConverter {
                     for: data,
                     contentType: detectedType,
                     filename: filename,
-                    attributedString: NSAttributedString(string: plainHTML),
+                    attributedString: attributedString,
                     plainText: plainHTML,
                     renderedPageCount: pdf.pageCount
                 )
@@ -460,7 +489,8 @@ enum DocumentImportConverter {
         contentType: UTType,
         filename: String,
         baseURL: URL?,
-        htmlRenderTimeout: TimeInterval = 30
+        htmlRenderTimeout: TimeInterval = 30,
+        htmlResourcePolicy: HTMLImportResourcePolicy? = nil
     ) async throws -> ImportedDocument {
         let detectedType = detectedContentType(data: data, suggestedContentType: contentType, filename: filename)
         try validateByteCount(Int64(data.count), contentType: detectedType)
@@ -476,7 +506,14 @@ enum DocumentImportConverter {
         }
 
         let plainMarkup = try decodeText(data)
-        let pdf = try await renderMarkup(data, contentType: detectedType, title: filename, baseURL: baseURL, timeout: htmlRenderTimeout)
+        let pdf = try await renderMarkup(
+            data,
+            contentType: detectedType,
+            title: filename,
+            baseURL: baseURL,
+            resourcePolicy: htmlResourcePolicy,
+            timeout: htmlRenderTimeout
+        )
         if detectedType.conforms(to: .orifoldSVG) {
             return ImportedDocument(pdfDocument: pdf, sourcePayload: nil)
         }
@@ -575,7 +612,15 @@ enum DocumentImportConverter {
         }
     }
 
-    private static func renderMarkup(_ data: Data, contentType: UTType, title: String, baseURL: URL?, timeout: TimeInterval) async throws -> PDFDocument {
+    private static func renderMarkup(
+        _ data: Data,
+        contentType: UTType,
+        title: String,
+        baseURL: URL?,
+        resourcePolicy: HTMLImportResourcePolicy?,
+        timeout: TimeInterval
+    ) async throws -> PDFDocument {
+        try Task.checkCancellation()
         let markup = try decodeText(data)
         let html = contentType.conforms(to: .orifoldSVG)
             ? svgHTMLDocument(markup)
@@ -585,22 +630,41 @@ enum DocumentImportConverter {
             let pdfData = try await HTMLPDFRenderer.render(
                 html: html,
                 baseURL: baseURL,
+                resourcePolicy: resourcePolicy,
                 timeout: timeout,
                 maxPages: maxRenderedHTMLPages
             )
+            try Task.checkCancellation()
             let paginatedData = try paginateRenderedHTMLPDFData(pdfData)
             guard let webDocument = PDFDocument(data: paginatedData) else { throw ConversionError.renderingFailed }
             document = webDocument
         } catch ConversionError.htmlRenderedTooLarge(let pageEstimate, let maxPages) {
             throw ConversionError.htmlRenderedTooLarge(pageEstimate: pageEstimate, maxPages: maxPages)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()
         } catch ConversionError.renderTimedOut {
             document = try await MainActor.run {
-                return try renderAttributedString(try loadPlainText(from: data), title: title)
+                return try renderAttributedString(
+                    safeMarkupAttributedString(
+                        markup,
+                        sourceRoot: baseURL,
+                        resourcePolicy: resourcePolicy
+                    ),
+                    title: title
+                )
             }
         } catch {
             document = try await MainActor.run {
-                let attributed = try loadAttributedString(from: data, documentType: .html, baseURL: baseURL)
-                return try renderAttributedString(attributed, title: title)
+                return try renderAttributedString(
+                    safeMarkupAttributedString(
+                        markup,
+                        sourceRoot: baseURL,
+                        resourcePolicy: resourcePolicy
+                    ),
+                    title: title
+                )
             }
         }
         document.documentAttributes = [
@@ -682,6 +746,19 @@ enum DocumentImportConverter {
             options[.baseURL] = baseURL
         }
         return try NSAttributedString(data: data, options: options, documentAttributes: nil)
+    }
+
+    private static func safeMarkupAttributedString(
+        _ markup: String,
+        sourceRoot: URL? = nil,
+        resourcePolicy: HTMLImportResourcePolicy? = nil
+    ) -> NSAttributedString {
+        let attributed = InertHTMLAttributedStringParser.parse(
+            markup,
+            sourceRoot: sourceRoot,
+            resourcePolicy: resourcePolicy
+        )
+        return attributed.length == 0 ? NSAttributedString(string: " ") : attributed
     }
 
     static func importedRTFDDocument(fromFileWrappers fileWrappers: [String: FileWrapper], filename: String) throws -> ImportedDocument {
@@ -1371,7 +1448,7 @@ private enum OfficePackageTextExtractor {
         }
     }
 
-    private static func plainTextFromMarkup(_ markup: String) -> String {
+    fileprivate static func plainTextFromMarkup(_ markup: String) -> String {
         var text = markup
         text = text.replacingOccurrences(of: "(?is)<script\\b.*?</script>", with: " ", options: .regularExpression)
         text = text.replacingOccurrences(of: "(?is)<style\\b.*?</style>", with: " ", options: .regularExpression)
@@ -1670,36 +1747,899 @@ struct SimpleZIPArchive {
     }
 }
 
+/// Synchronous HTML direct-open cannot hop to MainActor WebKit without risking a document
+/// open deadlock. This bounded parser retains common document structure, inline CSS, and
+/// explicitly authorized local/data assets without invoking an HTML engine or URL loader.
+/// Local bytes cross the same descriptor-relative policy used by the asynchronous renderer;
+/// every other URL-bearing attribute remains inert.
+private enum InertHTMLAttributedStringParser {
+    private struct Style {
+        var bold = false
+        var italic = false
+        var underline = false
+        var strikethrough = false
+        var monospace = false
+        var preformatted = false
+        var fontSize: CGFloat = 12
+        // HTML is rendered onto a fixed white PDF page. A dynamic semantic color would
+        // resolve against the app appearance and can become white in dark mode.
+        var foregroundColor = NSColor.black
+        var hidden = false
+    }
+
+    private struct Tag {
+        let name: String
+        let isClosing: Bool
+        let isSelfClosing: Bool
+        let attributes: [String: String]
+    }
+
+    private struct CSSRule {
+        let selectors: [String]
+        let declarations: [String: String]
+    }
+
+    private static let blockTags: Set<String> = [
+        "address", "article", "aside", "blockquote", "div", "footer", "form",
+        "header", "hgroup", "main", "nav", "ol", "p", "section", "table", "ul"
+    ]
+    private static let ignoredContentTags: Set<String> = [
+        "audio", "canvas", "embed", "iframe", "object", "picture", "script", "style", "video"
+    ]
+
+    static func parse(
+        _ markup: String,
+        sourceRoot: URL?,
+        resourcePolicy: HTMLImportResourcePolicy? = nil
+    ) -> NSAttributedString {
+        let output = NSMutableAttributedString(string: "")
+        var stack: [(tag: String, style: Style)] = [("", Style())]
+        let resourcePolicy = resourcePolicy ?? HTMLImportResourcePolicy(sourceRoot: sourceRoot)
+        let styleRules = cssRules(in: markup, resourcePolicy: resourcePolicy)
+        var index = markup.startIndex
+
+        while index < markup.endIndex {
+            guard markup[index] == "<" else {
+                let nextTag = markup[index...].firstIndex(of: "<") ?? markup.endIndex
+                appendText(String(markup[index..<nextTag]), style: stack.last!.style, to: output)
+                index = nextTag
+                continue
+            }
+
+            guard let tagEnd = endOfTag(in: markup, from: index) else {
+                appendText(String(markup[index...]), style: stack.last!.style, to: output)
+                break
+            }
+            let rawTag = String(markup[markup.index(after: index)..<tagEnd])
+            index = markup.index(after: tagEnd)
+            guard let tag = parsedTag(rawTag) else { continue }
+
+            if tag.isClosing {
+                if tag.name == "li" || blockTags.contains(tag.name) || headingLevel(tag.name) != nil {
+                    appendLineBreak(to: output)
+                }
+                if let matchingIndex = stack.lastIndex(where: { $0.tag == tag.name }), matchingIndex > 0 {
+                    stack.removeSubrange(matchingIndex...)
+                }
+                continue
+            }
+
+            if ignoredContentTags.contains(tag.name), !tag.isSelfClosing {
+                if let closingRange = markup.range(
+                    of: "</\(tag.name)",
+                    options: [.caseInsensitive],
+                    range: index..<markup.endIndex
+                ), let closingEnd = endOfTag(in: markup, from: closingRange.lowerBound) {
+                    index = markup.index(after: closingEnd)
+                }
+                continue
+            }
+
+            if tag.name == "br" {
+                appendLineBreak(to: output)
+                continue
+            }
+            if tag.name == "img" {
+                var imageStyle = stack.last!.style
+                applyMatchingRules(styleRules, to: &imageStyle, tag: tag)
+                if let inlineStyle = tag.attributes["style"] {
+                    apply(declarations(in: inlineStyle), to: &imageStyle)
+                }
+                guard !imageStyle.hidden else { continue }
+                appendImage(
+                    referencedBy: tag.attributes["src"],
+                    resourcePolicy: resourcePolicy,
+                    to: output
+                )
+                continue
+            }
+            if tag.name == "li" {
+                appendLineBreak(to: output)
+                appendText("• ", style: stack.last!.style, to: output)
+            } else if blockTags.contains(tag.name) || headingLevel(tag.name) != nil {
+                appendLineBreak(to: output)
+            }
+
+            guard !tag.isSelfClosing else { continue }
+            var style = stack.last!.style
+            switch tag.name {
+            case "b", "strong": style.bold = true
+            case "i", "em", "cite": style.italic = true
+            case "u": style.underline = true
+            case "s", "strike", "del": style.strikethrough = true
+            case "code", "kbd", "samp", "tt": style.monospace = true
+            case "pre":
+                style.monospace = true
+                style.preformatted = true
+            default:
+                if let level = headingLevel(tag.name) {
+                    style.bold = true
+                    style.fontSize = [24, 20, 18, 16, 14, 13][level - 1]
+                }
+            }
+            applyMatchingRules(styleRules, to: &style, tag: tag)
+            if let inlineStyle = tag.attributes["style"] {
+                apply(declarations(in: inlineStyle), to: &style)
+            }
+            stack.append((tag.name, style))
+        }
+
+        while output.string.hasSuffix("\n") {
+            output.deleteCharacters(in: NSRange(location: output.length - 1, length: 1))
+        }
+        return output
+    }
+
+    private static func parsedTag(_ raw: String) -> Tag? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("!"), !trimmed.hasPrefix("?") else { return nil }
+        let isClosing = trimmed.hasPrefix("/")
+        let nameStart = isClosing ? trimmed.index(after: trimmed.startIndex) : trimmed.startIndex
+        let nameEnd = trimmed[nameStart...].firstIndex(where: { $0.isWhitespace || $0 == "/" }) ?? trimmed.endIndex
+        let name = trimmed[nameStart..<nameEnd].lowercased()
+        guard !name.isEmpty else { return nil }
+        return Tag(
+            name: name,
+            isClosing: isClosing,
+            isSelfClosing: trimmed.hasSuffix("/") || [
+                "area", "base", "br", "col", "hr", "image", "img", "input", "link",
+                "meta", "source", "track", "wbr"
+            ].contains(name),
+            attributes: isClosing ? [:] : parsedAttributes(String(trimmed[nameEnd...]))
+        )
+    }
+
+    private static func parsedAttributes(_ source: String) -> [String: String] {
+        let pattern = #"([A-Za-z_:][A-Za-z0-9_:.-]*)(?:\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+)))?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [:] }
+        let range = NSRange(source.startIndex..<source.endIndex, in: source)
+        var attributes: [String: String] = [:]
+        for match in regex.matches(in: source, range: range) {
+            guard let nameRange = Range(match.range(at: 1), in: source) else { continue }
+            let value = (2...4).compactMap { capture -> String? in
+                guard let valueRange = Range(match.range(at: capture), in: source) else { return nil }
+                return decodeEntities(String(source[valueRange]))
+            }.first ?? ""
+            attributes[String(source[nameRange]).lowercased()] = value
+        }
+        return attributes
+    }
+
+    private static func cssRules(
+        in markup: String,
+        resourcePolicy: HTMLImportResourcePolicy
+    ) -> [CSSRule] {
+        var sheets: [String] = []
+        if let styleRegex = try? NSRegularExpression(
+            pattern: "(?is)<style\\b[^>]*>(.*?)</style>"
+        ) {
+            let range = NSRange(markup.startIndex..<markup.endIndex, in: markup)
+            for match in styleRegex.matches(in: markup, range: range) {
+                guard let bodyRange = Range(match.range(at: 1), in: markup) else { continue }
+                sheets.append(String(markup[bodyRange]))
+            }
+        }
+        if let linkRegex = try? NSRegularExpression(pattern: "(?is)<link\\b([^>]*)>") {
+            let range = NSRange(markup.startIndex..<markup.endIndex, in: markup)
+            for match in linkRegex.matches(in: markup, range: range) {
+                guard let attributesRange = Range(match.range(at: 1), in: markup) else { continue }
+                let attributes = parsedAttributes(String(markup[attributesRange]))
+                let relationships = Set(
+                    (attributes["rel"] ?? "")
+                        .lowercased()
+                        .split(whereSeparator: \.isWhitespace)
+                        .map(String.init)
+                )
+                guard relationships.contains("stylesheet"),
+                      let reference = attributes["href"],
+                      let asset = authorizedAsset(referencedBy: reference, policy: resourcePolicy),
+                      asset.data.count <= HTMLImportResourcePolicy.maxAssetBytes,
+                      asset.mimeType?.lowercased().hasPrefix("text/css") != false,
+                      let css = String(data: asset.data, encoding: .utf8) else { continue }
+                sheets.append(css)
+            }
+        }
+
+        let rulePattern = "(?s)([^{}]+)\\{([^{}]*)\\}"
+        guard let ruleRegex = try? NSRegularExpression(pattern: rulePattern) else { return [] }
+        return sheets.flatMap { rawSheet -> [CSSRule] in
+            let sheet = rawSheet.replacingOccurrences(
+                of: "(?s)/\\*.*?\\*/",
+                with: " ",
+                options: .regularExpression
+            )
+            let range = NSRange(sheet.startIndex..<sheet.endIndex, in: sheet)
+            return ruleRegex.matches(in: sheet, range: range).compactMap { match in
+                guard let selectorRange = Range(match.range(at: 1), in: sheet),
+                      let bodyRange = Range(match.range(at: 2), in: sheet) else { return nil }
+                let selectors = sheet[selectorRange]
+                    .split(separator: ",")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+                    .filter { !$0.isEmpty && !$0.hasPrefix("@") }
+                guard !selectors.isEmpty else { return nil }
+                return CSSRule(
+                    selectors: selectors,
+                    declarations: declarations(in: String(sheet[bodyRange]))
+                )
+            }
+        }
+    }
+
+    private static func declarations(in source: String) -> [String: String] {
+        var result: [String: String] = [:]
+        for declaration in source.split(separator: ";") {
+            guard let separator = declaration.firstIndex(of: ":") else { continue }
+            let name = declaration[..<separator]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            let value = declaration[declaration.index(after: separator)...]
+                .replacingOccurrences(of: "!important", with: "", options: .caseInsensitive)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty, !value.isEmpty { result[name] = value }
+        }
+        return result
+    }
+
+    private static func applyMatchingRules(_ rules: [CSSRule], to style: inout Style, tag: Tag) {
+        for rule in rules where rule.selectors.contains(where: { selector($0, matches: tag) }) {
+            apply(rule.declarations, to: &style)
+        }
+    }
+
+    private static func selector(_ rawSelector: String, matches tag: Tag) -> Bool {
+        let selector = rawSelector
+            .split(whereSeparator: \.isWhitespace)
+            .last
+            .map(String.init)?
+            .split(separator: ":", maxSplits: 1)
+            .first
+            .map(String.init) ?? rawSelector
+        guard !selector.isEmpty else { return false }
+        if selector == "*" { return true }
+        let classes = Set(
+            (tag.attributes["class"] ?? "")
+                .lowercased()
+                .split(whereSeparator: \.isWhitespace)
+                .map(String.init)
+        )
+        if selector.hasPrefix(".") { return classes.contains(String(selector.dropFirst())) }
+        if selector.hasPrefix("#") {
+            return tag.attributes["id"]?.lowercased() == String(selector.dropFirst())
+        }
+        let pieces = selector.split(separator: ".", maxSplits: 1).map(String.init)
+        if pieces.count == 2 {
+            return pieces[0] == tag.name && classes.contains(pieces[1])
+        }
+        return selector == tag.name
+    }
+
+    private static func apply(_ declarations: [String: String], to style: inout Style) {
+        for (name, rawValue) in declarations {
+            let value = rawValue.lowercased()
+            switch name {
+            case "display":
+                style.hidden = value == "none"
+            case "visibility":
+                style.hidden = value == "hidden" || value == "collapse"
+            case "font-weight":
+                style.bold = value == "bold" || value == "bolder" || (Int(value) ?? 0) >= 600
+            case "font-style":
+                style.italic = value == "italic" || value == "oblique"
+            case "font-family":
+                style.monospace = value.contains("mono") || value.contains("courier")
+            case "font-size":
+                if let size = numericCSSValue(value), size > 0, size <= 144 { style.fontSize = size }
+            case "text-decoration", "text-decoration-line":
+                if value == "none" {
+                    style.underline = false
+                    style.strikethrough = false
+                } else {
+                    style.underline = value.contains("underline")
+                    style.strikethrough = value.contains("line-through")
+                }
+            case "color":
+                if let color = cssColor(value) { style.foregroundColor = color }
+            default:
+                continue
+            }
+        }
+    }
+
+    private static func numericCSSValue(_ value: String) -> CGFloat? {
+        let numeric = value.prefix { $0.isNumber || $0 == "." }
+        return Double(numeric).map { CGFloat($0) }
+    }
+
+    private static func cssColor(_ value: String) -> NSColor? {
+        let named: [String: NSColor] = [
+            "black": .black, "blue": .blue, "gray": .gray, "green": .green,
+            "red": .red, "white": .white
+        ]
+        if let color = named[value] { return color }
+        guard value.hasPrefix("#") else { return nil }
+        let hex = String(value.dropFirst())
+        let expanded = hex.count == 3 ? hex.map { "\($0)\($0)" }.joined() : hex
+        guard expanded.count == 6, let rgb = UInt64(expanded, radix: 16) else { return nil }
+        return NSColor(
+            calibratedRed: CGFloat((rgb >> 16) & 0xff) / 255,
+            green: CGFloat((rgb >> 8) & 0xff) / 255,
+            blue: CGFloat(rgb & 0xff) / 255,
+            alpha: 1
+        )
+    }
+
+    private static func appendImage(
+        referencedBy reference: String?,
+        resourcePolicy: HTMLImportResourcePolicy,
+        to output: NSMutableAttributedString
+    ) {
+        guard let reference,
+              let asset = authorizedAsset(referencedBy: reference, policy: resourcePolicy),
+              asset.data.count <= HTMLImportResourcePolicy.maxAssetBytes,
+              let mimeType = asset.mimeType?.lowercased(),
+              ["image/bmp", "image/gif", "image/jpeg", "image/png", "image/tiff", "image/webp"]
+                .contains(mimeType),
+              let image = NSImage(data: asset.data) else { return }
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        let size = image.size
+        if size.width > 0, size.height > 0 {
+            let scale = min(1, min(480 / size.width, 360 / size.height))
+            attachment.bounds = CGRect(origin: .zero, size: CGSize(width: size.width * scale, height: size.height * scale))
+        }
+        output.append(NSAttributedString(attachment: attachment))
+    }
+
+    private static func authorizedAsset(
+        referencedBy rawReference: String,
+        policy: HTMLImportResourcePolicy
+    ) -> HTMLImportLocalAsset? {
+        let reference = rawReference.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !reference.isEmpty else { return nil }
+        if reference.lowercased().hasPrefix("data:") {
+            guard let comma = reference.firstIndex(of: ",") else { return nil }
+            let metadata = String(reference[reference.index(reference.startIndex, offsetBy: 5)..<comma])
+            let payload = String(reference[reference.index(after: comma)...])
+            let fields = metadata.split(separator: ";", omittingEmptySubsequences: false).map(String.init)
+            let mimeType = fields.first?.isEmpty == false ? fields.first : nil
+            let data: Data?
+            if fields.dropFirst().contains(where: { $0.caseInsensitiveCompare("base64") == .orderedSame }) {
+                data = Data(base64Encoded: payload)
+            } else {
+                data = payload.removingPercentEncoding.map { Data($0.utf8) }
+            }
+            guard let data, data.count <= HTMLImportResourcePolicy.maxAssetBytes else { return nil }
+            return HTMLImportLocalAsset(data: data, mimeType: mimeType)
+        }
+        guard let url = URL(string: reference, relativeTo: policy.rendererDocumentURL)?.absoluteURL else {
+            return nil
+        }
+        return policy.localAsset(for: url)
+    }
+
+    private static func endOfTag(in markup: String, from start: String.Index) -> String.Index? {
+        var quote: Character?
+        var cursor = markup.index(after: start)
+        while cursor < markup.endIndex {
+            let character = markup[cursor]
+            if let activeQuote = quote {
+                if character == activeQuote { quote = nil }
+            } else if character == "\"" || character == "'" {
+                quote = character
+            } else if character == ">" {
+                return cursor
+            }
+            cursor = markup.index(after: cursor)
+        }
+        return nil
+    }
+
+    private static func headingLevel(_ tag: String) -> Int? {
+        guard tag.count == 2, tag.first == "h", let level = tag.last?.wholeNumberValue,
+              (1...6).contains(level) else { return nil }
+        return level
+    }
+
+    private static func appendText(_ rawText: String, style: Style, to output: NSMutableAttributedString) {
+        var text = decodeEntities(rawText)
+        if !style.preformatted {
+            text = text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            if output.string.hasSuffix(" ") || output.string.hasSuffix("\n") {
+                text = text.drop(while: { $0.isWhitespace }).description
+            }
+        }
+        guard !text.isEmpty, !style.hidden else { return }
+
+        let font = documentFont(for: style)
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: style.foregroundColor
+        ]
+        if style.underline { attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue }
+        if style.strikethrough { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+        output.append(NSAttributedString(string: text, attributes: attributes))
+    }
+
+    /// Pin HTML import to public PostScript names that survive PDF embedding and reopening.
+    /// AppKit's system fonts can embed under private `.SFNS…` names, which the text editor
+    /// cannot resolve later when reconstructing an attributed source payload.
+    private static func documentFont(for style: Style) -> NSFont {
+        let name: String
+        switch (style.monospace, style.bold, style.italic) {
+        case (true, true, true): name = "Menlo-BoldItalic"
+        case (true, true, false): name = "Menlo-Bold"
+        case (true, false, true): name = "Menlo-Italic"
+        case (true, false, false): name = "Menlo-Regular"
+        case (false, true, true): name = "Georgia-BoldItalic"
+        case (false, true, false): name = "Georgia-Bold"
+        case (false, false, true): name = "Georgia-Italic"
+        case (false, false, false): name = "Georgia"
+        }
+        let fallbackName = style.monospace ? "Menlo-Regular" : "Georgia"
+        return NSFont(name: name, size: style.fontSize)
+            ?? NSFont(name: fallbackName, size: style.fontSize)
+            ?? .systemFont(ofSize: style.fontSize)
+    }
+
+    private static func appendLineBreak(to output: NSMutableAttributedString) {
+        guard output.length > 0, !output.string.hasSuffix("\n") else { return }
+        output.append(NSAttributedString(string: "\n"))
+    }
+
+    private static func decodeEntities(_ text: String) -> String {
+        var result = ""
+        var cursor = text.startIndex
+        while cursor < text.endIndex {
+            guard text[cursor] == "&",
+                  let semicolon = text[cursor...].firstIndex(of: ";"),
+                  text.distance(from: cursor, to: semicolon) <= 12 else {
+                result.append(text[cursor])
+                cursor = text.index(after: cursor)
+                continue
+            }
+            let entityStart = text.index(after: cursor)
+            let entity = String(text[entityStart..<semicolon])
+            let decoded: Character?
+            if entity.hasPrefix("#x") || entity.hasPrefix("#X") {
+                decoded = UInt32(entity.dropFirst(2), radix: 16).flatMap(UnicodeScalar.init).map(Character.init)
+            } else if entity.hasPrefix("#") {
+                decoded = UInt32(entity.dropFirst()).flatMap(UnicodeScalar.init).map(Character.init)
+            } else {
+                decoded = [
+                    "amp": "&", "apos": "'", "gt": ">", "hellip": "…", "lt": "<",
+                    "mdash": "—", "nbsp": " ", "ndash": "–", "quot": "\""
+                ][entity].flatMap { $0.first }
+            }
+            if let decoded {
+                result.append(decoded)
+                cursor = text.index(after: semicolon)
+            } else {
+                result.append(text[cursor])
+                cursor = text.index(after: cursor)
+            }
+        }
+        return result
+    }
+}
+
+/// The only URLs raw markup may resolve. Relative assets are mapped onto a private
+/// WKURLSchemeHandler; the source path itself never becomes a WebKit `file:` base URL.
+/// This makes canonical root confinement enforceable for every local resource request.
+struct HTMLImportResourcePolicy {
+    static let localScheme = "orifold-html-resource"
+    static let maxAssetBytes = 25 * 1024 * 1024
+    private static let localHost = "source"
+    private static let rootPathPrefix = "/root/"
+    private static let documentPath = "/root/__orifold_import_document__.html"
+
+    /// WebKit content rules apply before a request reaches URL loading, so blocked
+    /// network URLs cannot perform DNS lookup or connect. Navigation policy below is a
+    /// second fail-closed layer for top-level and frame navigations.
+    static let blockedSchemeRuleList = """
+    [
+      {
+        "trigger": { "url-filter": ".*" },
+        "action": { "type": "block" }
+      },
+      {
+        "trigger": { "url-filter": "^about:" },
+        "action": { "type": "ignore-previous-rules" }
+      },
+      {
+        "trigger": { "url-filter": "^data:" },
+        "action": { "type": "ignore-previous-rules" }
+      },
+      {
+        "trigger": { "url-filter": "^orifold-html-resource:" },
+        "action": { "type": "ignore-previous-rules" }
+      }
+    ]
+    """
+
+    private let sourceDirectory: HTMLImportSourceDirectory?
+
+    private init(sourceDirectory: HTMLImportSourceDirectory) {
+        self.sourceDirectory = sourceDirectory
+    }
+
+    init(sourceRoot: URL?) {
+        guard let sourceRoot, sourceRoot.isFileURL else {
+            sourceDirectory = nil
+            return
+        }
+        sourceDirectory = HTMLImportSourceDirectory(sourceRoot: sourceRoot.standardizedFileURL)
+    }
+
+    /// Opens the main source file and its asset root through one retained capability. The
+    /// fully resolved source pathname selects the initial parent, then the parent is acquired
+    /// component-by-component without following symlinks and the source bytes are read with
+    /// the same descriptor-relative routine used for later assets. Directory replacement can
+    /// therefore either fail acquisition or select one self-consistent root; it cannot make the
+    /// markup come from one directory while subresources are read from another.
+    static func boundSourceFile(at fileURL: URL, maxBytes: Int) -> HTMLImportBoundSource? {
+        guard fileURL.isFileURL, fileURL.path.hasPrefix("/"), maxBytes >= 0 else { return nil }
+        var canonicalBuffer = [CChar](repeating: 0, count: Int(PATH_MAX))
+        guard fileURL.path.withCString({ Darwin.realpath($0, &canonicalBuffer) }) != nil else {
+            return nil
+        }
+        let canonicalPath = String(cString: canonicalBuffer)
+        let path = canonicalPath as NSString
+        let filename = path.lastPathComponent
+        let parentPath = path.deletingLastPathComponent
+        guard !filename.isEmpty,
+              filename != ".",
+              filename != "..",
+              !filename.utf8.contains(0),
+              let sourceDirectory = HTMLImportSourceDirectory(canonicalRootPath: parentPath),
+              let source = sourceDirectory.readAsset(
+                  pathComponents: [filename],
+                  maxBytes: maxBytes
+              ) else {
+            return nil
+        }
+        return HTMLImportBoundSource(
+            data: source.data,
+            resourcePolicy: HTMLImportResourcePolicy(sourceDirectory: sourceDirectory)
+        )
+    }
+
+    var rendererDocumentURL: URL {
+        URL(string: "\(Self.localScheme)://\(Self.localHost)\(Self.documentPath)")!
+    }
+
+    static func allowsNavigation(to url: URL?) -> Bool {
+        guard let url else { return false }
+        switch url.scheme?.lowercased() {
+        case "about", "data":
+            return true
+        case localScheme:
+            return url.host == localHost && url.path.hasPrefix(rootPathPrefix)
+        default:
+            return false
+        }
+    }
+
+    func localAsset(for requestURL: URL) -> HTMLImportLocalAsset? {
+        guard requestURL != rendererDocumentURL else { return nil }
+        guard let sourceDirectory,
+              requestURL.scheme?.lowercased() == Self.localScheme,
+              requestURL.host == Self.localHost,
+              let encodedPath = URLComponents(
+                url: requestURL,
+                resolvingAgainstBaseURL: false
+              )?.percentEncodedPath,
+              let decodedPath = encodedPath.removingPercentEncoding,
+              decodedPath.hasPrefix(Self.rootPathPrefix) else {
+            return nil
+        }
+
+        let relativePath = String(decodedPath.dropFirst(Self.rootPathPrefix.count))
+        let components = relativePath.split(separator: "/", omittingEmptySubsequences: false)
+        guard !relativePath.isEmpty,
+              !components.isEmpty,
+              !components.contains(where: {
+                  $0.isEmpty || $0 == "." || $0 == ".." || $0.utf8.contains(0)
+              }) else {
+            return nil
+        }
+        return sourceDirectory.readAsset(
+            pathComponents: components.map(String.init),
+            maxBytes: Self.maxAssetBytes
+        )
+    }
+}
+
+struct HTMLImportBoundSource {
+    let data: Data
+    let resourcePolicy: HTMLImportResourcePolicy
+}
+
+struct HTMLImportLocalAsset {
+    let data: Data
+    let mimeType: String?
+}
+
+/// Anchors all local-resource traversal to one retained directory descriptor. Root acquisition
+/// itself starts from a stable `/` descriptor and opens every absolute-path component with
+/// `openat` + `O_NOFOLLOW`; asset traversal repeats that discipline below the retained root.
+/// `fstat` and read then operate on the exact same final descriptor. Renames and symlink swaps
+/// therefore cannot redirect either the source root or a validated asset pathname.
+private final class HTMLImportSourceDirectory {
+    private let rootDescriptor: Int32
+
+    convenience init?(sourceRoot: URL) {
+        guard sourceRoot.isFileURL, sourceRoot.path.hasPrefix("/") else { return nil }
+        var canonicalBuffer = [CChar](repeating: 0, count: Int(PATH_MAX))
+        guard sourceRoot.path.withCString({ Darwin.realpath($0, &canonicalBuffer) }) != nil else {
+            return nil
+        }
+        self.init(canonicalRootPath: String(cString: canonicalBuffer))
+    }
+
+    fileprivate init?(canonicalRootPath: String) {
+        guard canonicalRootPath.hasPrefix("/") else { return nil }
+        var currentDescriptor = Darwin.open(
+            "/",
+            O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+        )
+        guard currentDescriptor >= 0 else { return nil }
+
+        // `standardizedFileURL` rewrites the already-canonical `/private/var/...`
+        // back to the `/var` compatibility symlink on macOS. Split the `realpath`
+        // result directly so descriptor traversal never reintroduces a symlink.
+        let components = canonicalRootPath.split(separator: "/", omittingEmptySubsequences: true)
+        for component in components {
+            guard !component.isEmpty, component != ".", component != ".." else {
+                Darwin.close(currentDescriptor)
+                return nil
+            }
+            let nextDescriptor = component.withCString {
+                Darwin.openat(
+                    currentDescriptor,
+                    $0,
+                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+                )
+            }
+            guard nextDescriptor >= 0 else {
+                Darwin.close(currentDescriptor)
+                return nil
+            }
+            Darwin.close(currentDescriptor)
+            currentDescriptor = nextDescriptor
+        }
+        rootDescriptor = currentDescriptor
+    }
+
+    deinit {
+        Darwin.close(rootDescriptor)
+    }
+
+    func readAsset(pathComponents: [String], maxBytes: Int) -> HTMLImportLocalAsset? {
+        guard !pathComponents.isEmpty else { return nil }
+        var currentDescriptor = Darwin.dup(rootDescriptor)
+        guard currentDescriptor >= 0 else { return nil }
+        _ = Darwin.fcntl(currentDescriptor, F_SETFD, FD_CLOEXEC)
+        defer { Darwin.close(currentDescriptor) }
+
+        for (index, component) in pathComponents.enumerated() {
+            guard !component.isEmpty,
+                  component != ".",
+                  component != "..",
+                  !component.utf8.contains(0) else { return nil }
+            let isFinal = index == pathComponents.count - 1
+            // A hostile source directory can contain FIFOs and device nodes as well as
+            // regular files. Opening a FIFO read-only blocks before `fstat` gets the chance
+            // to reject it, so the final descriptor must be acquired nonblocking. The flag
+            // is inert for ordinary files; the same-descriptor regular-file check below
+            // remains authoritative.
+            let flags = O_RDONLY | O_CLOEXEC | O_NOFOLLOW | (isFinal ? O_NONBLOCK : O_DIRECTORY)
+            let nextDescriptor = component.withCString {
+                Darwin.openat(currentDescriptor, $0, flags)
+            }
+            guard nextDescriptor >= 0 else { return nil }
+            Darwin.close(currentDescriptor)
+            currentDescriptor = nextDescriptor
+        }
+
+        var metadata = stat()
+        guard Darwin.fstat(currentDescriptor, &metadata) == 0,
+              (metadata.st_mode & S_IFMT) == S_IFREG,
+              metadata.st_size >= 0,
+              metadata.st_size <= maxBytes,
+              let data = readAll(from: currentDescriptor, expectedSize: Int(metadata.st_size), maxBytes: maxBytes) else {
+            return nil
+        }
+        let pathExtension = URL(fileURLWithPath: pathComponents.last!).pathExtension
+        return HTMLImportLocalAsset(
+            data: data,
+            mimeType: UTType(filenameExtension: pathExtension)?.preferredMIMEType
+        )
+    }
+
+    private func readAll(from descriptor: Int32, expectedSize: Int, maxBytes: Int) -> Data? {
+        var data = Data()
+        data.reserveCapacity(expectedSize)
+        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
+        while true {
+            let bytesRead = buffer.withUnsafeMutableBytes { bytes in
+                Darwin.read(descriptor, bytes.baseAddress, bytes.count)
+            }
+            if bytesRead == 0 { return data }
+            if bytesRead < 0 {
+                if errno == EINTR { continue }
+                return nil
+            }
+            guard bytesRead <= maxBytes - data.count else { return nil }
+            data.append(buffer, count: bytesRead)
+        }
+    }
+}
+
+private final class HTMLLocalResourceSchemeHandler: NSObject, WKURLSchemeHandler {
+    private let policy: HTMLImportResourcePolicy
+    private let html: Data
+    private let stateLock = NSRecursiveLock()
+    private var servedMainDocument = false
+    private var stoppedTasks: Set<ObjectIdentifier> = []
+
+    init(policy: HTMLImportResourcePolicy, html: String) {
+        self.policy = policy
+        self.html = Data(html.utf8)
+    }
+
+    func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
+        guard let requestURL = urlSchemeTask.request.url else {
+            fail(urlSchemeTask, error: URLError(.badURL))
+            return
+        }
+
+        let shouldServeMainDocument = stateLock.withLock {
+            guard requestURL == policy.rendererDocumentURL, !servedMainDocument else { return false }
+            servedMainDocument = true
+            return true
+        }
+        if shouldServeMainDocument {
+            let response = URLResponse(
+                url: requestURL,
+                mimeType: "text/html",
+                expectedContentLength: html.count,
+                textEncodingName: "utf-8"
+            )
+            deliver(urlSchemeTask, response: response, data: html)
+            return
+        }
+
+        guard let asset = policy.localAsset(for: requestURL) else {
+            fail(urlSchemeTask, error: URLError(.noPermissionsToReadFile))
+            return
+        }
+
+        let response = URLResponse(
+            url: requestURL,
+            mimeType: asset.mimeType,
+            expectedContentLength: asset.data.count,
+            textEncodingName: nil
+        )
+        deliver(urlSchemeTask, response: response, data: asset.data)
+    }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: any WKURLSchemeTask) {
+        _ = stateLock.withLock {
+            stoppedTasks.insert(ObjectIdentifier(urlSchemeTask as AnyObject))
+        }
+    }
+
+    private func deliver(_ task: any WKURLSchemeTask, response: URLResponse, data: Data) {
+        performIfActive(task) { task.didReceive(response) }
+        performIfActive(task) { task.didReceive(data) }
+        performIfActive(task) { task.didFinish() }
+    }
+
+    private func fail(_ task: any WKURLSchemeTask, error: Error) {
+        performIfActive(task) { task.didFailWithError(error) }
+    }
+
+    private func performIfActive(_ task: any WKURLSchemeTask, action: () -> Void) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard !stoppedTasks.contains(ObjectIdentifier(task as AnyObject)) else { return }
+        action()
+    }
+}
+
 @MainActor
 private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
-    private let html: String
-    private let baseURL: URL?
+    private let documentURL: URL
     private let timeout: TimeInterval
     private let maxPages: Int
     private let webView: WKWebView
+    private let resourceHandler: HTMLLocalResourceSchemeHandler?
     private var continuation: CheckedContinuation<Data, Error>?
     private var timeoutTask: Task<Void, Never>?
+    private static var networkBlockRuleList: WKContentRuleList?
 
     nonisolated fileprivate static let pageSize = CGSize(width: 612, height: 792)
 
     static func render(
         html: String,
         baseURL: URL?,
+        resourcePolicy: HTMLImportResourcePolicy? = nil,
         timeout: TimeInterval = 30,
         maxPages: Int
     ) async throws -> Data {
-        let renderer = HTMLPDFRenderer(html: html, baseURL: baseURL, timeout: timeout, maxPages: maxPages)
+        try Task.checkCancellation()
+        let ruleList = try await networkBlockingRuleList()
+        try Task.checkCancellation()
+        let renderer = HTMLPDFRenderer(
+            html: html,
+            resourcePolicy: resourcePolicy ?? HTMLImportResourcePolicy(sourceRoot: baseURL),
+            timeout: timeout,
+            maxPages: maxPages,
+            ruleList: ruleList
+        )
         return try await renderer.render()
     }
 
-    private init(html: String, baseURL: URL?, timeout: TimeInterval, maxPages: Int) {
-        self.html = html
-        self.baseURL = baseURL
+    private static func networkBlockingRuleList() async throws -> WKContentRuleList {
+        if let networkBlockRuleList { return networkBlockRuleList }
+        let ruleList = try await withCheckedThrowingContinuation { continuation in
+            WKContentRuleListStore.default().compileContentRuleList(
+                forIdentifier: "OrifoldHTMLImportNetworkBlock-v2",
+                encodedContentRuleList: HTMLImportResourcePolicy.blockedSchemeRuleList
+            ) { ruleList, error in
+                if let ruleList {
+                    continuation.resume(returning: ruleList)
+                } else {
+                    continuation.resume(throwing: error ?? NSError(
+                        domain: "Orifold.HTMLImport",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Could not install the HTML import network policy."]
+                    ))
+                }
+            }
+        }
+        networkBlockRuleList = ruleList
+        return ruleList
+    }
+
+    private init(
+        html: String,
+        resourcePolicy: HTMLImportResourcePolicy,
+        timeout: TimeInterval,
+        maxPages: Int,
+        ruleList: WKContentRuleList
+    ) {
         self.timeout = timeout
         self.maxPages = maxPages
 
+        self.documentURL = resourcePolicy.rendererDocumentURL
+        let resourceHandler = HTMLLocalResourceSchemeHandler(policy: resourcePolicy, html: html)
+        self.resourceHandler = resourceHandler
+
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
+        configuration.userContentController.add(ruleList)
+        configuration.setURLSchemeHandler(resourceHandler, forURLScheme: HTMLImportResourcePolicy.localScheme)
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = false
         configuration.defaultWebpagePreferences = preferences
@@ -1711,15 +2651,20 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
     }
 
     private func render() async throws -> Data {
-        try await withTaskCancellationHandler {
+        try Task.checkCancellation()
+        return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation
+                guard !Task.isCancelled else {
+                    self.finish(.failure(CancellationError()))
+                    return
+                }
                 self.timeoutTask = Task { [weak self] in
                     let nanoseconds = UInt64(max(0, self?.timeout ?? 0) * 1_000_000_000)
                     try? await Task.sleep(nanoseconds: nanoseconds)
                     self?.finish(.failure(DocumentImportConverter.ConversionError.renderTimedOut))
                 }
-                self.webView.loadHTMLString(self.html, baseURL: self.baseURL)
+                self.webView.load(URLRequest(url: self.documentURL))
             }
         } onCancel: {
             Task { @MainActor [weak self] in
@@ -1781,6 +2726,14 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
                 self.createPDFSlices(pageCount: pageEstimate)
             }
         }
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
+    ) {
+        decisionHandler(HTMLImportResourcePolicy.allowsNavigation(to: navigationAction.request.url) ? .allow : .cancel)
     }
 
     private func createPDFSlices(pageCount: Int) {

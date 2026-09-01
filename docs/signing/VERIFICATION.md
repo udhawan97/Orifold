@@ -28,11 +28,11 @@ ORIFOLD_P12_PATH=id.p12 ORIFOLD_P12_PASS=test ORIFOLD_SIGN_OUT=signed.pdf \
   swift test --filter SigningVerificationHarness
 # -> wrote signed PDF: signed.pdf (34266 bytes)
 
-# Optional PAdES B-T run: request a RFC-3161 token over the CMS signature value before SignerInfo
-# is finalized. ORIFOLD_TSA_URL can override the default https://freetsa.org/tsr endpoint.
-ORIFOLD_P12_PATH=id.p12 ORIFOLD_P12_PASS=test ORIFOLD_SIGN_OUT=signed-bt.pdf \
+# Timestamp-candidate harness (expected to fail closed until full CMS/PKI token validation exists).
+# It may contact the configured TSA with the signature hash, but it must not produce or claim B-T.
+ORIFOLD_P12_PATH=id.p12 ORIFOLD_P12_PASS=test ORIFOLD_SIGN_OUT=timestamp-candidate.pdf \
   ORIFOLD_SIGN_TIMESTAMP=1 swift test --filter SigningVerificationHarness
-# -> wrote signed PDF: signed-bt.pdf (34266 bytes)
+# -> structured trust-validation failure; no timestamped artifact
 
 # 3. validate
 pdfsig signed.pdf
@@ -80,38 +80,13 @@ attributes for PAdES:
 Signer certificate is embedded (`subject = issuer = CN=Orifold Test Signer` — self-signed as
 expected).
 
-## Result 3 — PAdES B-T timestamp run
-The same harness was rerun with `ORIFOLD_SIGN_TIMESTAMP=1`, which drives the app-equivalent callback:
-```swift
-try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity) { signatureValue in
-    try Self.fetchTimestampSynchronously(for: signatureValue, tsaURL: tsaURL).cmsTimeStampToken
-}
-```
-
-`pdfsig signed-bt.pdf`:
-```
-NSS_Init failed: security library: bad database.
-Digital Signature Info of: tmp/signing-v4/signed-bt.pdf
-Signature #1:
-  - Signature Field Name: Signature 9
-  - Signer Certificate Common Name: Orifold Test Signer
-  - Signer full Distinguished Name: C=US,O=Orifold,CN=Orifold Test Signer
-  - Signing Time: Jul 01 2026 07:16:38
-  - Signing Hash Algorithm: SHA-256
-  - Signature Type: ETSI.CAdES.detached
-  - Signed Ranges: [0 - 1219], [33989 - 34266]
-  - Total document signed
-  - Signature Validation: Signature is Valid.
-  - Certificate Validation: Certificate issuer is unknown.
-```
-
-`pdfsig signed-bt.pdf -dump` plus `openssl asn1parse -inform DER -in signed-bt.pdf.sig0` confirms
-the timestamp unsigned attribute and embedded RFC-3161 token:
-```
-137: 1581:d=7  hl=2 l=  11 prim: OBJECT            :id-smime-aa-timeStampToken
-140: 1602:d=9  hl=2 l=   9 prim: OBJECT            :pkcs7-signedData
-149: 1645:d=12 hl=2 l=  11 prim: OBJECT            :id-smime-ct-TSTInfo
-```
+## Timestamp boundary
+The timestamp harness is deliberately negative in current builds. It requests a candidate token
+over the CMS signature hash, validates DER structure and message imprint, then fails closed because
+CMS signature, signed attributes, TSA time-stamping EKU, and certificate-chain trust are not yet
+validated together. The app catches that capability state at its signing policy boundary, warns,
+and exports a normal PAdES B-B signature with no timestamp unsigned attribute and no timestamp
+marker. Historical experimental token-embedding output is not current product acceptance evidence.
 
 ## Unit tests
 `swift build` and full `swift test` are green — **78 tests, 0 failures**, including the 8 byte-exact
@@ -133,7 +108,9 @@ Module F now resolves Import .p12, Choose Keychain ID, and Generate self-signed 
 try CMSSignatureBuilder.buildCMS(byteRangeBytes: byteRangeBytes, identity: identity)
 ```
 
-When the timestamp toggle is on, Orifold requests a `CMSTimeStampToken` via `TimestampClient` over
-the CMS signature value, passes it into the CMS builder before `SignerInfo` is finalized, and embeds
-it as PAdES B-T. If the TSA is unavailable, export continues as PAdES B-B and surfaces a visible
-warning. If no identity was resolved, signing still fails closed with `SigningError.missingIdentity`.
+When the timestamp toggle is on, Orifold requests candidate tokens via `TimestampClient` over the
+CMS signature hash. Current builds do not convert those candidates into `CMSTimeStampToken` because
+the complete CMS/PKI trust boundary is unavailable. The production timestamp policy returns no
+timestamp attribute, leaves the workspace marker false, exports PAdES B-B, and surfaces a localized
+warning. Cancellation propagates instead of becoming fallback success. If no identity was resolved,
+signing still fails closed with `SigningError.missingIdentity`.

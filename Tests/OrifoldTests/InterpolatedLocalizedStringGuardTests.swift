@@ -14,12 +14,11 @@ import XCTest
 /// (the only page number that reaches exported bytes) and the comment-anchor labels. Both had
 /// survived because nothing stopped a new call site appearing.
 ///
-/// The allowlist this guard shipped with has been worked down to zero, so product code is
-/// now clean and this is a plain guard rather than a ratchet. The mechanism is kept because
-/// the failure is silent — a new interpolated call compiles, runs, and quietly ships English
-/// — so "nobody will do that again" is not a control. If a site ever genuinely has to be
-/// exempted, add it to `knownOffenders` with a comment saying why; the second assertion still
-/// forces the entry out again once it is fixed.
+/// The original pattern's quote matcher missed escaped-quote call sites. Strengthening it exposed
+/// five pre-existing sites outside this operational-progress/recovery repair. They remain an exact
+/// inventory below rather than widening this finding into unrelated export copy or a security
+/// specialist's file. Any new interpolated call still fails, and the second assertion removes each
+/// inventory entry as soon as its producer is migrated.
 ///
 /// Scans product code only: a `String(localized:)` in a test is not shipped to anyone.
 final class InterpolatedLocalizedStringGuardTests: XCTestCase {
@@ -27,12 +26,18 @@ final class InterpolatedLocalizedStringGuardTests: XCTestCase {
     /// `String(localized: "…\(` — a literal opening quote followed by an interpolation
     /// before it closes. Passing a *variable* key (`String(localized: key, bundle:…)`, as
     /// `L10n` itself does) is the sanctioned path and does not match.
-    private static let interpolationPattern = #"String\(localized:\s*"[^"]*\\\("#
+    private static let interpolationPattern = #"String\(localized:\s*"(?:\\.|[^"\\])*\\\("#
 
-    /// Empty, and meant to stay that way. The 29 sites this guard was born with were
-    /// migrated to `L10n.format` on 2026-08-01; anything appearing here again is a
-    /// regression, not debt.
-    private static let knownOffenders: Set<String> = []
+    /// Exact residual inventory discovered when escaped quotes became visible to the matcher.
+    /// These are unrelated source-export messages plus PDFKitEngine's export-preparation copy;
+    /// DR-29b3f928-009 authorizes only WorkspaceViewModel operational progress/recovery producers.
+    private static let knownOffenders: Set<String> = [
+        #"PDFKitEngine.swift: return String(localized: "Orifold could not prepare \"\(name)\" for export. Reopen the document and try exporting again.", locale: L10n.currentLocale)"#,
+        #"WorkspaceViewModel.swift: return String(localized: "Orifold could not map an edit in \"\(memberName)\" back to the original \(format.menuTitle) source\(detail) Export as PDF to preserve the visual edit, or edit text that exists in the original document.", locale: L10n.currentLocale)"#,
+        #"WorkspaceViewModel.swift: return String(localized: "Orifold found more than one matching source text in \"\(memberName)\"\(detail) Export as PDF to preserve the visual edit.", locale: L10n.currentLocale)"#,
+        #"WorkspaceViewModel.swift: return String(localized: "Orifold found PDF-only annotations, signatures, or page changes in \"\(memberName)\". Export as PDF to preserve those visual edits.", locale: L10n.currentLocale)"#,
+        #"WorkspaceViewModel.swift: return String(localized: "\"\(memberName)\" was imported from a \(originFormatDescription) file, which Orifold flattens to plain text and cannot reconstruct into \(format.menuTitle). Export as PDF to keep the current content, or re-export from the original \(originFormatDescription) file if you need it in another format.", locale: L10n.currentLocale)"#,
+    ]
 
     private func productSourceFiles() throws -> [URL] {
         let root = URL(fileURLWithPath: #filePath)
@@ -64,6 +69,22 @@ final class InterpolatedLocalizedStringGuardTests: XCTestCase {
             }
         }
         return found
+    }
+
+    private func matchesInterpolatedLocalizedString(_ source: String) throws -> Bool {
+        let pattern = try NSRegularExpression(pattern: Self.interpolationPattern)
+        let range = NSRange(source.startIndex..<source.endIndex, in: source)
+        return pattern.firstMatch(in: source, range: range) != nil
+    }
+
+    func testPatternDetectsInterpolationAfterEscapedQuote() throws {
+        let specimen = #"message: String(localized: "Could not open \"\(fileName)\". Try again.")"#
+        XCTAssertTrue(try matchesInterpolatedLocalizedString(specimen))
+    }
+
+    func testPatternDoesNotRejectDynamicCatalogKey() throws {
+        let specimen = #"String(localized: key, bundle: bundle, locale: locale)"#
+        XCTAssertFalse(try matchesInterpolatedLocalizedString(specimen))
     }
 
     func testNoNewInterpolatedLocalizedStringsInProductCode() throws {
