@@ -245,7 +245,10 @@ enum BatchFoldService {
                 }
                 progress(Double(index) / totalCount, sourceURL.lastPathComponent)
                 do {
-                    guard let data = try? Data(contentsOf: sourceURL), !data.isEmpty else {
+                    guard let data = BoundedLocalFileReader.readFile(
+                        at: sourceURL,
+                        maxBytes: Int(DocumentImportConverter.maxImportBytes)
+                    ), !data.isEmpty else {
                         throw BatchFoldError.unreadablePDF
                     }
                     let folded = try await fold(

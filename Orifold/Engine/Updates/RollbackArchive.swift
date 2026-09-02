@@ -5,9 +5,9 @@ import Crypto
 ///
 /// The archive itself is a zip of the `.app` that was running *before* the current
 /// update was installed. Restoring it is not done in-process — a sandboxed app can't
-/// replace its own bundle — so restore hands this manifest to the unsandboxed installer
-/// script (`install-mac.sh --restore`), which re-verifies `sha256` before swapping.
-struct RollbackManifest: Codable, Equatable {
+/// replace its own bundle — so restore hands this manifest to a trusted unsandboxed recovery
+/// command, which re-verifies `sha256` before swapping.
+struct RollbackManifest: Codable, Equatable, Sendable {
     var version: String
     var build: String
     var sha256: String
@@ -15,6 +15,13 @@ struct RollbackManifest: Codable, Equatable {
     /// File name of the archive within the rollback directory (not an absolute path, so
     /// the manifest stays valid if the container is relocated).
     var archiveFileName: String
+    /// Exact installed bundle path this archive can restore. Older manifests omit this and are
+    /// intentionally not eligible for automatic recovery.
+    var targetBundlePath: String? = nil
+    /// Publisher identity captured from the archived trusted build. `nil` means ad-hoc/legacy
+    /// and is never accepted by the production automatic restore hand-off.
+    var bundleIdentifier: String? = nil
+    var teamIdentifier: String? = nil
 }
 
 /// Keeps exactly one previous-version archive so a bad update can be reverted, and owns
@@ -70,12 +77,16 @@ struct RollbackArchiver {
         process.waitUntilExit()
         guard process.terminationStatus == 0 else { throw ArchiveError.dittoFailed(process.terminationStatus) }
 
+        let publisher = UpdatePublisherIdentity.current(for: bundleURL)
         let manifest = RollbackManifest(
             version: version,
             build: build,
             sha256: try Self.sha256(of: archiveURL),
             archivedAt: date,
-            archiveFileName: archiveName
+            archiveFileName: archiveName,
+            targetBundlePath: bundleURL.path,
+            bundleIdentifier: publisher?.bundleIdentifier,
+            teamIdentifier: publisher?.teamIdentifier
         )
         try writeManifest(manifest)
         pruneArchivesExcept(keeping: archiveName)
@@ -92,8 +103,21 @@ struct RollbackArchiver {
 
     /// Absolute URL of the archive named by a manifest, or `nil` if the file is gone.
     func archiveURL(for manifest: RollbackManifest) -> URL? {
-        let url = directory.appendingPathComponent(manifest.archiveFileName)
-        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        let name = manifest.archiveFileName
+        // Manifests are persisted input. Keep the archive lookup inside the exact
+        // rollback directory and reject symlinks/non-regular files before any hash
+        // or restore hand-off can follow them.
+        guard !name.isEmpty,
+              name != ".",
+              name != "..",
+              !name.contains("/"),
+              !name.contains("\\"),
+              name == URL(fileURLWithPath: name).lastPathComponent else { return nil }
+        let url = directory.appendingPathComponent(name, isDirectory: false)
+        guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
+              values.isRegularFile == true,
+              values.isSymbolicLink != true else { return nil }
+        return url
     }
 
     /// Confirms the on-disk archive still matches the hash recorded at archive time —

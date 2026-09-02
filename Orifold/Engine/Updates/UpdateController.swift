@@ -70,6 +70,7 @@ final class UpdateController {
     private let markers: UpdateInstallMarkerStore
     private let handOff: UpdateInstallHandOff
     private let bundleURL: URL
+    private let publisherIdentity: UpdatePublisherIdentity?
     private let processID: Int32
     private let now: () -> Date
 
@@ -84,6 +85,7 @@ final class UpdateController {
         markers: UpdateInstallMarkerStore = UpdateInstallMarkerStore(),
         handOff: UpdateInstallHandOff? = nil,
         bundleURL: URL = Bundle.main.bundleURL,
+        publisherIdentityOverride: UpdatePublisherIdentity? = nil,
         processID: Int32 = ProcessInfo.processInfo.processIdentifier,
         now: @escaping () -> Date = Date.init
     ) {
@@ -97,6 +99,7 @@ final class UpdateController {
         self.markers = markers
         self.handOff = handOff ?? SystemUpdateInstallHandOff()
         self.bundleURL = bundleURL
+        self.publisherIdentity = publisherIdentityOverride ?? UpdatePublisherIdentity.current(for: bundleURL)
         self.processID = processID
         self.now = now
         automaticChecksEnabled = defaults.bool(forKey: Keys.automaticChecks)
@@ -118,8 +121,15 @@ final class UpdateController {
     /// whose manifest still names that same version — without this guard the menu would offer to
     /// "restore" the build you're already on.
     var canRestorePreviousVersion: Bool {
-        guard let manifest = rollbackManifest else { return false }
-        return manifest.version != currentVersion.description
+        guard let manifest = rollbackManifest,
+              let manifestVersion = UpdateVersion(string: manifest.version),
+              manifestVersion != currentVersion,
+              manifest.targetBundlePath == bundleURL.path,
+              let identity = publisherIdentity,
+              manifest.bundleIdentifier == identity.bundleIdentifier,
+              manifest.teamIdentifier == identity.teamIdentifier,
+              archiver.archiveURL(for: manifest) != nil else { return false }
+        return true
     }
 
     /// Runs a check. `userInitiated` checks always surface their result (including a
@@ -244,9 +254,9 @@ final class UpdateController {
         try? markers.writeReopenManifest(UpdateReopenManifest(
             fromVersion: version, toVersion: update.version, savedAt: now(), documents: reopenDocuments))
 
-        // Best-effort, off the main actor: digest the DMG and archive the current bundle for
-        // rollback. Neither blocks the install if it fails — the script re-verifies and keeps
-        // its own renamed backup of the old bundle.
+        // Off the main actor: digest the DMG and archive the current bundle for rollback.
+        // Recovery is a prerequisite for an automatic swap; if either input cannot be
+        // prepared, keep the current app running and require a manual install path.
         let dmgPath = dmgURL.path
         let bundleURL = self.bundleURL
         let archiver = self.archiver
@@ -257,11 +267,16 @@ final class UpdateController {
             return false
         }
 
-        let rollbackZipPath: String? = await Task.detached {
-            (try? archiver.archive(bundleURL: bundleURL, version: version, build: build))
-                .flatMap { archiver.archiveURL(for: $0)?.path }
-        }.value
-        rollbackManifest = archiver.loadManifest()
+        guard let rollback = await Task.detached(operation: { () -> (manifest: RollbackManifest, path: String)? in
+            guard let manifest = try? archiver.archive(bundleURL: bundleURL, version: version, build: build),
+                  let path = archiver.archiveURL(for: manifest)?.path else { return nil }
+            return (manifest: manifest, path: path)
+        }).value else {
+            markers.clearReopenManifest()
+            phase = .failed(UpdateFailure(kind: .verification, detail: "Could not prepare a verified rollback archive."))
+            return false
+        }
+        rollbackManifest = rollback.manifest
 
         // Record the attempt + history so the next launch can judge success vs. failure.
         try? markers.writeAttempt(InstallAttempt(
@@ -274,7 +289,11 @@ final class UpdateController {
         // or resolve by revealing the DMG manually.
         let inputs = UpdaterScriptGenerator.Inputs(
             appPID: processID, appBundlePath: bundleURL.path, dmgPath: dmgPath, dmgSHA256: digest,
-            newVersion: update.version, rollbackZipPath: rollbackZipPath)
+            newVersion: update.version, rollbackZipPath: rollback.path,
+            publisherTeamIdentifier: publisherIdentity?.teamIdentifier,
+            publisherBundleIdentifier: publisherIdentity?.bundleIdentifier ?? UpdatePublisherIdentity.expectedBundleIdentifier,
+            rollbackSHA256: rollback.manifest.sha256,
+            rollbackVersion: rollback.manifest.version)
         guard handOff.launchUpdater(inputs) else {
             markers.clearAttempt()
             phase = .failed(UpdateFailure(kind: .install, detail: "Could not start the updater."))
@@ -301,7 +320,13 @@ final class UpdateController {
         // install/download/check is active, nor re-enter during our own async window below.
         guard !phase.isBusy, !isRestoreInFlight else { return false }
         guard let manifest = rollbackManifest,
-              let archiveURL = archiver.archiveURL(for: manifest) else { return false }
+              let manifestVersion = UpdateVersion(string: manifest.version),
+              manifestVersion != currentVersion,
+              let archiveURL = archiver.archiveURL(for: manifest),
+              let identity = publisherIdentity,
+              manifest.targetBundlePath == bundleURL.path,
+              manifest.bundleIdentifier == identity.bundleIdentifier,
+              manifest.teamIdentifier == identity.teamIdentifier else { return false }
         guard documentsBlockingInstall().isEmpty else { return false }
         isRestoreInFlight = true
 
@@ -319,7 +344,9 @@ final class UpdateController {
         let inputs = UpdaterScriptGenerator.RestoreInputs(
             appPID: processID, appBundlePath: bundleURL.path,
             archiveZipPath: archivePath, archiveSHA256: manifest.sha256,
-            restoreVersion: manifest.version)
+            restoreVersion: manifest.version,
+            publisherTeamIdentifier: publisherIdentity?.teamIdentifier,
+            publisherBundleIdentifier: publisherIdentity?.bundleIdentifier ?? UpdatePublisherIdentity.expectedBundleIdentifier)
         guard handOff.launchRestore(inputs) else { isRestoreInFlight = false; return false }
 
         handOff.terminateForInstall()

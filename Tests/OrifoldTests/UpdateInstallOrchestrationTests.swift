@@ -136,6 +136,21 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
         XCTAssertNil(markers.readAttempt(), "a non-started install must not leave an attempt marker")
     }
 
+    func testInstallFailsClosedWhenRollbackArchiveCannotBePrepared() async throws {
+        let spy = SpyHandOff()
+        let history = UpdateHistoryStore(directory: tmp)
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let (c, _, bundle) = try await readyController(spy: spy, history: history, markers: markers)
+        try FileManager.default.removeItem(at: bundle)
+
+        let ok = await c.installAndRelaunch(reopenDocuments: [])
+        XCTAssertFalse(ok)
+        XCTAssertNil(spy.launchedInputs, "automatic replacement must not start without a rollback archive")
+        XCTAssertFalse(spy.terminated)
+        guard case let .failed(failure) = c.phase else { return XCTFail("expected verification failure, got \(c.phase)") }
+        XCTAssertEqual(failure.kind, .verification)
+    }
+
     func testInstallIsNoOpWhenNotReady() async {
         let spy = SpyHandOff()
         let c = UpdateController(
@@ -156,16 +171,18 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
     /// Archives a fake previous bundle, then builds a controller whose archiver points at that
     /// same directory so init loads the resulting manifest (making restore available).
     private func controllerWithArchive(spy: SpyHandOff) throws -> (UpdateController, manifest: RollbackManifest, bundle: URL, rollbackDir: URL) {
-        let previous = tmp.appendingPathComponent("Previous.app")
-        try FileManager.default.createDirectory(at: previous.appendingPathComponent("Contents"), withIntermediateDirectories: true)
-        try Data("v0.8.5".utf8).write(to: previous.appendingPathComponent("Contents/marker"))
-
         let rollbackDir = tmp.appendingPathComponent("Rollback")
         let archiver = RollbackArchiver(directory: rollbackDir)
-        let manifest = try archiver.archive(bundleURL: previous, version: "0.8.5", build: "11")
-
         let bundle = tmp.appendingPathComponent("Orifold.app")
-        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: bundle.appendingPathComponent("Contents"), withIntermediateDirectories: true)
+        try Data("v0.8.5".utf8).write(to: bundle.appendingPathComponent("Contents/marker"))
+        var manifest = try archiver.archive(bundleURL: bundle, version: "0.8.5", build: "11")
+        // The fixture is intentionally ad-hoc, so inject the trusted identity metadata that a
+        // signed production bundle would carry. This keeps the orchestration test focused on
+        // hand-off ordering while the identity extractor itself is tested separately.
+        manifest.bundleIdentifier = UpdatePublisherIdentity.expectedBundleIdentifier
+        manifest.teamIdentifier = "TEAM123456"
+        try archiver.writeManifest(manifest)
 
         let c = UpdateController(
             transport: OrchTransport(outcome: .upToDate),
@@ -175,6 +192,9 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
             archiver: archiver,
             handOff: spy,
             bundleURL: bundle,
+            publisherIdentityOverride: UpdatePublisherIdentity(
+                bundleIdentifier: UpdatePublisherIdentity.expectedBundleIdentifier,
+                teamIdentifier: "TEAM123456"),
             processID: 4242,
             now: { Date(timeIntervalSince1970: 1) }
         )

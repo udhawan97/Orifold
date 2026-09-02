@@ -14,9 +14,7 @@ on:
         required: false
         type: string
 
-permissions:
-  contents: write
-  actions: write
+permissions: {}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -27,19 +25,23 @@ jobs:
     name: Build Prebuilt App
     runs-on: macos-15
     timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      release_title: ${{ steps.release-title.outputs.title }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
       ORIFOLD_HAS_DEVELOPER_ID_CERTIFICATE: ${{ secrets.ORIFOLD_DEVELOPER_ID_CERTIFICATE_BASE64 != '' && '1' || '0' }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.release_tag || github.ref }}
           persist-credentials: false
 
       - name: Cache SwiftPM downloads
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Caches/org.swift.swiftpm
           key: ${{ runner.os }}-swiftpm-downloads-${{ hashFiles('Package.resolved') }}
@@ -231,19 +233,6 @@ jobs:
             echo "::warning::App exited early (code $code) without a crash signal — likely the headless CI session, not a crash. Structural bundle checks passed."
           fi
 
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: Orifold
-          path: |
-            ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg
-            ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg.sha256
-            ${{ runner.temp }}/dist/Orifold.dmg
-            ${{ runner.temp }}/dist/Orifold.dmg.sha256
-            ${{ runner.temp }}/dist/manifest.json
-            ${{ runner.temp }}/dist/Orifold.zip
-          if-no-files-found: error
-
       - name: Prepare tagged release notes
         if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.release_tag != '' }}
         id: release-title
@@ -261,7 +250,7 @@ jobs:
             exit 1
           fi
 
-          notes="$RUNNER_TEMP/release-notes.md"
+          notes="$RUNNER_TEMP/dist/release-notes.md"
           awk 'emit { print } /^## Release Notes$/ { emit=1 }' "$release_doc" > "$notes"
           if [[ ! -s "$notes" ]]; then
             echo "::error::Release notes are missing from $release_doc"
@@ -271,13 +260,39 @@ jobs:
           echo "title=$title" >> "$GITHUB_OUTPUT"
           echo "notes_path=$notes" >> "$GITHUB_OUTPUT"
 
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Orifold
+          path: ${{ runner.temp }}/dist
+          if-no-files-found: error
+
+  publish-tagged:
+    name: Publish Tagged Release
+    needs: build
+    if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.release_tag != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download verified build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist"
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name Orifold \
+            --dir "$RUNNER_TEMP/dist"
+
       - name: Publish tagged GitHub release
-        if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.release_tag != '' }}
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
-          name: ${{ steps.release-title.outputs.title }}
-          body_path: ${{ steps.release-title.outputs.notes_path }}
+          name: ${{ needs.build.outputs.release_title }}
+          body_path: ${{ runner.temp }}/dist/release-notes.md
           files: |
             ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg
             ${{ runner.temp }}/dist/Orifold-*-macOS-universal.dmg.sha256
@@ -288,15 +303,41 @@ jobs:
           make_latest: true
           overwrite_files: true
 
-      - name: Rebuild docs site
-        if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.release_tag != '' }}
+  rebuild-docs:
+    name: Rebuild Docs Site
+    needs: publish-tagged
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+
+    steps:
+      - name: Dispatch docs workflow
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run docs.yml --ref main
+        run: gh workflow run docs.yml --repo "$GITHUB_REPOSITORY" --ref main
+
+  publish-rolling:
+    name: Publish Rolling Prebuilt
+    needs: build
+    if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.release_tag == '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Download verified build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist"
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name Orifold \
+            --dir "$RUNNER_TEMP/dist"
 
       - name: Move rolling tag to built commit
-        if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.release_tag == '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -317,8 +358,7 @@ jobs:
           fi
 
       - name: Publish rolling prebuilt release
-        if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.release_tag == '' }}
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: Orifold-latest
           name: Orifold Latest

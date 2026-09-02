@@ -11,7 +11,7 @@ struct ScanCleanupSheet: View {
 
     @State private var scope: ScanCleanupScope = .currentPage
     @State private var options = ScanCleanupOptions()
-    @State private var preview: PreviewImages?
+    @State private var preview: ScanCleanupPreviewImages?
     @State private var isPreviewLoading = false
     @State private var previewFailed = false
 
@@ -258,15 +258,20 @@ struct ScanCleanupSheet: View {
         isPreviewLoading = true
         previewFailed = false
         let selectedOptions = options
-        let rendered = await Task.detached(priority: .userInitiated) { () -> PreviewImages? in
-            guard let document = PDFDocument(data: source.pdfData),
-                  let page = document.page(at: source.pageIndex),
-                  let before = PDFOCRService.rasterizedImage(for: page, dpi: 110) else { return nil }
-            return PreviewImages(
-                before: before,
-                after: ScanCleanup.clean(before, options: selectedOptions)
-            )
-        }.value
+        let cancellation = OperationCancellationToken()
+        let rendered = await withTaskCancellationHandler {
+            await Task.detached(priority: .userInitiated) { () -> ScanCleanupPreviewImages? in
+                guard let document = PDFDocument(data: source.pdfData),
+                      let page = document.page(at: source.pageIndex) else { return nil }
+                return ScanCleanupPipeline.previewImages(
+                    for: page,
+                    options: selectedOptions,
+                    isCancelled: { cancellation.isCancelled }
+                )
+            }.value
+        } onCancel: {
+            cancellation.cancel()
+        }
         guard !Task.isCancelled else { return }
         preview = rendered
         previewFailed = rendered == nil
@@ -345,11 +350,6 @@ struct ScanCleanupOptionAccessibility: Equatable {
         self.isOn = isOn
         hint = L10n.string(forKey: detailKey, locale: locale)
     }
-}
-
-private struct PreviewImages: @unchecked Sendable {
-    let before: CGImage
-    let after: CGImage
 }
 
 #if DEBUG

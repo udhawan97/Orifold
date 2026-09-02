@@ -36,6 +36,8 @@ final class RollbackArchiveTests: XCTestCase {
         XCTAssertEqual(manifest.version, "0.8.4")
         XCTAssertEqual(manifest.archiveFileName, "Orifold-0.8.4.zip")
         XCTAssertEqual(manifest.sha256.count, 64)
+        XCTAssertEqual(manifest.targetBundlePath, bundle.path)
+        XCTAssertNil(manifest.teamIdentifier, "the unsigned fixture must not become a trust anchor")
         XCTAssertNotNil(archiver.archiveURL(for: manifest))
         XCTAssertNoThrow(try archiver.verify(manifest))
 
@@ -76,5 +78,28 @@ final class RollbackArchiveTests: XCTestCase {
         let zips = try FileManager.default.contentsOfDirectory(at: rollbackDir, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "zip" }
         XCTAssertEqual(zips.map(\.lastPathComponent), ["Orifold-0.8.4.zip"], "Only the immediate predecessor is retained")
+    }
+
+    func testArchiveURLRejectsTraversalAndSymlink() throws {
+        let rollbackDir = directory.appendingPathComponent("Rollback")
+        try FileManager.default.createDirectory(at: rollbackDir, withIntermediateDirectories: true)
+        let outside = directory.appendingPathComponent("outside.zip")
+        try Data([0x01, 0x02]).write(to: outside)
+        let archiver = RollbackArchiver(directory: rollbackDir)
+        let baseManifest = RollbackManifest(
+            version: "0.8.4",
+            build: "11",
+            sha256: "0",
+            archivedAt: Date(),
+            archiveFileName: "../outside.zip"
+        )
+
+        XCTAssertNil(archiver.archiveURL(for: baseManifest), "manifest paths must not escape rollback directory")
+
+        let link = rollbackDir.appendingPathComponent("link.zip")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
+        var symlinkManifest = baseManifest
+        symlinkManifest.archiveFileName = link.lastPathComponent
+        XCTAssertNil(archiver.archiveURL(for: symlinkManifest), "rollback must not follow archive symlinks")
     }
 }

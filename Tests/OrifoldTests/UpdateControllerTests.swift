@@ -149,12 +149,12 @@ final class UpdateControllerTests: XCTestCase {
         let none = makeController(outcome: .success(.upToDate))
         XCTAssertFalse(none.canRestorePreviousVersion)
 
-        // Write a manifest for an OLDER version than the one running (0.8.4), then a fresh
-        // controller sees it and offers a restore.
+        // A legacy/incomplete manifest is not enough to offer an automatic restore: the
+        // archive must exist and its publisher/target metadata must match the running app.
         let archiver = RollbackArchiver(directory: rollbackDir)
         try archiver.writeManifest(RollbackManifest(version: "0.8.3", build: "10", sha256: String(repeating: "a", count: 64), archivedAt: Date(timeIntervalSince1970: 0), archiveFileName: "Orifold-0.8.3.zip"))
         let restorable = makeController(outcome: .success(.upToDate))
-        XCTAssertTrue(restorable.canRestorePreviousVersion)
+        XCTAssertFalse(restorable.canRestorePreviousVersion)
         XCTAssertEqual(restorable.rollbackManifest?.version, "0.8.3")
 
         // But a manifest naming the version already running is never offered (post-restore state).

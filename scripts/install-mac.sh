@@ -101,7 +101,7 @@ trap cleanup EXIT
 # when the app itself won't launch. Any failure after the swap begins puts the old bundle back.
 do_restore() {
     local zip_path="$1"
-    [[ -f "$zip_path" ]] || fail "Restore archive not found: $zip_path"
+    [[ -f "$zip_path" && ! -L "$zip_path" ]] || fail "Restore archive must be a regular, non-symlink file: $zip_path"
 
     local target=""
     if [[ -d "$INSTALLED_APP" ]]; then
@@ -119,10 +119,23 @@ do_restore() {
     work="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/orifold-restore.XXXXXX")" || fail "Could not create a temp directory."
 
     /usr/bin/ditto -x -k "$zip_path" "$work" >>"$LOG_FILE" 2>&1 || { /bin/rm -rf "$work"; fail "Could not read the restore archive."; }
+    local found_count
+    found_count="$(/usr/bin/find "$work" -maxdepth 2 -name "$APP_NAME.app" -type d -print | /usr/bin/wc -l | /usr/bin/tr -d ' ')"
+    [[ "$found_count" == "1" ]] || { /bin/rm -rf "$work"; fail "The archive must contain exactly one $APP_NAME.app."; }
     found="$(/usr/bin/find "$work" -maxdepth 2 -name "$APP_NAME.app" -type d -print -quit)"
-    [[ -n "$found" ]] || { /bin/rm -rf "$work"; fail "The archive did not contain $APP_NAME.app."; }
+    local bundle_identifier
+    bundle_identifier="$(/usr/bin/plutil -extract CFBundleIdentifier raw -o - "$found/Contents/Info.plist" 2>/dev/null)" || {
+        /bin/rm -rf "$work"
+        fail "The archived app has no readable bundle identity."
+    }
+    [[ "$bundle_identifier" == "com.ud.Orifold" ]] || {
+        /bin/rm -rf "$work"
+        fail "The archived app is not an Orifold bundle."
+    }
     codesign --verify --deep --strict "$found" >>"$LOG_FILE" 2>&1 \
         || { /bin/rm -rf "$work"; fail "The archived app signature could not be verified."; }
+    /usr/sbin/spctl --assess --type execute "$found" >>"$LOG_FILE" 2>&1 \
+        || { /bin/rm -rf "$work"; fail "The archived app is not accepted by Gatekeeper."; }
 
     staged="${target}.restore-staging-$$"
     backup="${target}.replaced-$$"

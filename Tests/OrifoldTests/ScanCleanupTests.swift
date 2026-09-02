@@ -76,6 +76,57 @@ final class ScanCleanupTests: XCTestCase {
         XCTAssertLessThan(cleaned.width, try XCTUnwrap(PDFOCRService.rasterizedImage(for: page)).width)
     }
 
+    func testPreviewCleansAtProductionResolutionBeforeDownsamplingForDisplay() throws {
+        let image = try photographedPage(angleDegrees: 7)
+        let document = PDFDocument()
+        document.insert(try XCTUnwrap(PDFPage(image: NSImage(cgImage: image, size: .zero))), at: 0)
+        let page = try XCTUnwrap(document.page(at: 0))
+        let options = ScanCleanupOptions()
+        let productionBefore = try XCTUnwrap(PDFOCRService.rasterizedImage(for: page))
+        let productionAfter = ScanCleanup.clean(productionBefore, options: options)
+
+        let preview = try XCTUnwrap(ScanCleanupPipeline.previewImages(
+            for: page,
+            options: options,
+            displayLongEdgePixels: 1_200
+        ))
+        let expectedBefore = try resizedForComparison(
+            productionBefore,
+            width: preview.before.width,
+            height: preview.before.height
+        )
+        let expectedAfter = try resizedForComparison(
+            productionAfter,
+            width: preview.after.width,
+            height: preview.after.height
+        )
+
+        XCTAssertEqual(max(preview.before.width, preview.before.height), 1_200)
+        XCTAssertEqual(max(preview.after.width, preview.after.height), 1_200)
+        XCTAssertGreaterThan(max(productionBefore.width, productionBefore.height), 1_200)
+        XCTAssertGreaterThan(max(productionAfter.width, productionAfter.height), 1_200)
+        XCTAssertLessThan(try pixelDifference(preview.before, expectedBefore), 0.000_1)
+        XCTAssertLessThan(try pixelDifference(preview.after, expectedAfter), 0.000_1)
+    }
+
+    func testPreviewCooperativelyCancelsAfterProductionRenderBeforeCleanup() throws {
+        let image = try photographedPage(angleDegrees: 4)
+        let document = PDFDocument()
+        document.insert(try XCTUnwrap(PDFPage(image: NSImage(cgImage: image, size: .zero))), at: 0)
+        let page = try XCTUnwrap(document.page(at: 0))
+        let cancellation = ScanCleanupCancellationProbe(cancelOnCheck: 2)
+
+        let preview = ScanCleanupPipeline.previewImages(
+            for: page,
+            options: ScanCleanupOptions(),
+            displayLongEdgePixels: 320,
+            isCancelled: { cancellation.shouldCancel() }
+        )
+
+        XCTAssertNil(preview)
+        XCTAssertEqual(cancellation.checkCount, 2)
+    }
+
     func testReplacingPageContentPreservesMemberStructureAndOtherPages() throws {
         let source = PDFDocument()
         source.insert(
@@ -769,6 +820,49 @@ private func pixelDifference(_ lhs: CGImage, _ rhs: CGImage) throws -> Double {
         partial + Double(abs(Int(pair.0) - Int(pair.1)))
     }
     return total / Double(max(left.count, 1)) / 255
+}
+
+private func resizedForComparison(_ image: CGImage, width: Int, height: Int) throws -> CGImage {
+    guard width > 0, height > 0,
+          let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+          let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+          ) else { throw ScanCleanupTestError.imageCreationFailed }
+    context.setFillColor(CGColor(gray: 1, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    context.interpolationQuality = .high
+    context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+    guard let output = context.makeImage() else { throw ScanCleanupTestError.imageCreationFailed }
+    return output
+}
+
+private final class ScanCleanupCancellationProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private let cancelOnCheck: Int
+    private var storedCheckCount = 0
+
+    init(cancelOnCheck: Int) {
+        self.cancelOnCheck = cancelOnCheck
+    }
+
+    func shouldCancel() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        storedCheckCount += 1
+        return storedCheckCount >= cancelOnCheck
+    }
+
+    var checkCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedCheckCount
+    }
 }
 
 private func makeImage(pixels: inout [UInt8], width: Int, height: Int) throws -> CGImage {

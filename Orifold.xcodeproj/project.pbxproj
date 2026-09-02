@@ -71,8 +71,10 @@
 		2D2764BED673AE7F3EA8D0C3 /* GamiExclusionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFE8FE602F97D3C700AA7B2E /* GamiExclusionContext.swift */; };
 		2DC9E01BBACC6F0CF9908FED /* FolderImportScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029BAFF1DDD1E6AB2F7DF77F /* FolderImportScannerTests.swift */; };
 		2F79AB57B69D2A47D7A2500B /* PDFOutlineBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C1D21FE1D4B5F66162C2E75 /* PDFOutlineBuilder.swift */; };
+		2FD4DA7EEA266BB62F8CD641 /* BoundedLocalFileReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEBF85F2D14A679AB4BB81B4 /* BoundedLocalFileReader.swift */; };
 		3039CCD3571222CC592E9769 /* GamiPlacementResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3932FF90CDF11F24EDCC0603 /* GamiPlacementResolver.swift */; };
 		30C88EE70A5045C708424E96 /* EditedRun2RegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29655DF65E0AADAA5792782F /* EditedRun2RegressionTests.swift */; };
+		326D01E49534C8D220034B58 /* UpdatePublisherIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4027B11DECAC083D12E79A84 /* UpdatePublisherIdentity.swift */; };
 		32EE8DA3C2DC77BEA8BCEF1B /* CSVMonospaceFidelityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A6F09B0E91A24FC9F387B22 /* CSVMonospaceFidelityTests.swift */; };
 		349200F7870CD1013C5AFB62 /* ShortcutRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09CB3F84119FE2525C199F12 /* ShortcutRegistryTests.swift */; };
 		360A3B492B6481202DBEC7B4 /* UpdateInstallMarkers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 682F6971584EC36CF17C6D18 /* UpdateInstallMarkers.swift */; };
@@ -288,6 +290,7 @@
 		DCAEBD6BC52B6FD45C4E4E56 /* UpdateInstallMarkerStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 086FFF180315597154356060 /* UpdateInstallMarkerStoreTests.swift */; };
 		DD59E749C9DACCE609107434 /* ArchivalReadinessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB5147A9EC616EC7476014D /* ArchivalReadinessService.swift */; };
 		DD721BA31B44A3383035B112 /* ReadAloudFromHereTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903BFAFBEF871AF45948B14D /* ReadAloudFromHereTests.swift */; };
+		DD7A48D24EDC486CA0288B8F /* BoundedLocalFileReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A702A673E46224B709FA4BC /* BoundedLocalFileReaderTests.swift */; };
 		DDCBA72AC4F6A7D2B4A48E89 /* ImportLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ADD069BA807904E95DA8F62 /* ImportLog.swift */; };
 		DE6A5964537073418300A020 /* UpdateCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE4B3F3027FABAB88320A171 /* UpdateCommands.swift */; };
 		DFD2B873FA923C1A2F9DFA12 /* PDFSplitPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE4934EBCE69C8DC97FA7CEB /* PDFSplitPlannerTests.swift */; };
@@ -439,6 +442,7 @@
 		3E2230CE280817EFAC54C5F0 /* LanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
 		3EEEF0BBDA74864C3E250603 /* UpdateInstallHandOff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateInstallHandOff.swift; sourceTree = "<group>"; };
 		3F40C34D130FC865F3BD94B4 /* BarcodeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeGenerator.swift; sourceTree = "<group>"; };
+		4027B11DECAC083D12E79A84 /* UpdatePublisherIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePublisherIdentity.swift; sourceTree = "<group>"; };
 		406CCE16310F6168CFC39DA5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		40D5B679DB76891AEE036AFA /* ReadAloudControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadAloudControllerTests.swift; sourceTree = "<group>"; };
 		432BBABC67F08031A55D597E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -467,6 +471,7 @@
 		53FC98026116DD49B801BA11 /* GamiHintBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamiHintBubble.swift; sourceTree = "<group>"; };
 		5483C02D19BD93C65D01C8F3 /* UpdateInstallPreflight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateInstallPreflight.swift; sourceTree = "<group>"; };
 		54B7D00C60FA90A4C405171F /* UpdateLaunchOutcomeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateLaunchOutcomeTests.swift; sourceTree = "<group>"; };
+		5A702A673E46224B709FA4BC /* BoundedLocalFileReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedLocalFileReaderTests.swift; sourceTree = "<group>"; };
 		5A9C91D6D2AFE88185E49589 /* FolderImportOrchestratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderImportOrchestratorTests.swift; sourceTree = "<group>"; };
 		5AAAA68888643ADCB4FA96CD /* RecentFilesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesSection.swift; sourceTree = "<group>"; };
 		5C7FE73E2E3BD723B3115445 /* PDFMetadataServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFMetadataServiceTests.swift; sourceTree = "<group>"; };
@@ -583,6 +588,7 @@
 		AC8C606AC354B55ABC3D30CD /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		AE4B3F3027FABAB88320A171 /* UpdateCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCommands.swift; sourceTree = "<group>"; };
 		AE91C4C7405E2C682350A15B /* SpeechChunkerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechChunkerTests.swift; sourceTree = "<group>"; };
+		AEBF85F2D14A679AB4BB81B4 /* BoundedLocalFileReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedLocalFileReader.swift; sourceTree = "<group>"; };
 		AEF0855AFAA95587E855217B /* PDFSplitPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFSplitPlanner.swift; sourceTree = "<group>"; };
 		AF04010AB26E83F5852060E3 /* GitHubReleaseTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubReleaseTransport.swift; sourceTree = "<group>"; };
 		AF8510CEACEB9CA498E57785 /* SpeechChunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechChunker.swift; sourceTree = "<group>"; };
@@ -732,6 +738,7 @@
 				5483C02D19BD93C65D01C8F3 /* UpdateInstallPreflight.swift */,
 				182B83058123FA5D2495F8A3 /* UpdateLaunchCoordinator.swift */,
 				C237FF4FEFBC634B4A505A0F /* UpdateModels.swift */,
+				4027B11DECAC083D12E79A84 /* UpdatePublisherIdentity.swift */,
 				9EF1F5924E03115940F0296F /* UpdateReopenGatherer.swift */,
 				2E0759EE79946EA92EDF61F2 /* UpdaterScriptGenerator.swift */,
 				D2CB7836444B9BA87EDBD764 /* UpdateStorePaths.swift */,
@@ -1026,6 +1033,7 @@
 				D040322FCA59914CED2A9E31 /* BatchFoldService.swift */,
 				5D4A4D15CCC442C7F428FF56 /* BlankPageDetector.swift */,
 				E2E6DDC1DD7EADB46FF86B8A /* BoundaryPage.swift */,
+				AEBF85F2D14A679AB4BB81B4 /* BoundedLocalFileReader.swift */,
 				857F335FDFA1EE81E53A07BA /* CanvasInteractionSession.swift */,
 				A335879B4C88565186BF02CB /* CBZImportService.swift */,
 				DF7A53B27D66DBAABB6D974F /* CommentSummaryExporter.swift */,
@@ -1135,6 +1143,7 @@
 				C3EC7FA54ED01A101580A8A6 /* BatchFoldServiceTests.swift */,
 				AFFB09539BBA6EE880D4EBC7 /* BlankPageDetectorTests.swift */,
 				6458CBC2349F11860C6DC241 /* BlankPageRemovalTests.swift */,
+				5A702A673E46224B709FA4BC /* BoundedLocalFileReaderTests.swift */,
 				6FEBF15EA650BF334FA51B57 /* BulletAndOverlayTests.swift */,
 				8DB60FC2EF8495E7FEE3EDAB /* CanvasInteractionSessionTests.swift */,
 				1804242BD1AD456C75377FEC /* CBZImportTests.swift */,
@@ -1456,6 +1465,7 @@
 				9F52F780ECAB63FBEA161EC9 /* BatchFoldServiceTests.swift in Sources */,
 				A8153A7B079CD7DC28AFCC38 /* BlankPageDetectorTests.swift in Sources */,
 				F2C0AE7241973362F60A2FAC /* BlankPageRemovalTests.swift in Sources */,
+				DD7A48D24EDC486CA0288B8F /* BoundedLocalFileReaderTests.swift in Sources */,
 				C56907DFC75F462F2841499D /* BulletAndOverlayTests.swift in Sources */,
 				E21499196EB18CBF45E7EE69 /* CBZImportTests.swift in Sources */,
 				976BF031FB603C521643B987 /* CMSSignatureBuilderTests.swift in Sources */,
@@ -1622,6 +1632,7 @@
 				A1CF6CD8B3B21A5198F03F3B /* BlankPageDetector.swift in Sources */,
 				B829434B745FE0901AA651E2 /* BlankPageReviewSheet.swift in Sources */,
 				86E7E7493D3BB3421F5A62F8 /* BoundaryPage.swift in Sources */,
+				2FD4DA7EEA266BB62F8CD641 /* BoundedLocalFileReader.swift in Sources */,
 				5D709656F278C241D62951A6 /* CBZImportService.swift in Sources */,
 				28440F9F9E8DB684B44F2671 /* CMSSignatureBuilder.swift in Sources */,
 				EF18C4DB816149A10CE229C8 /* CanvasInteractionSession.swift in Sources */,
@@ -1749,6 +1760,7 @@
 				25B508AD564ED774BADE667D /* UpdateInstallPreflight.swift in Sources */,
 				9F5E5266EC543E39EDFCF891 /* UpdateLaunchCoordinator.swift in Sources */,
 				6C95900D6810F348F4DEC967 /* UpdateModels.swift in Sources */,
+				326D01E49534C8D220034B58 /* UpdatePublisherIdentity.swift in Sources */,
 				9B1B750492E95674E094AE2D /* UpdateReopenGatherer.swift in Sources */,
 				CDC9935ED9F0DE23939BF2B5 /* UpdateStatusView.swift in Sources */,
 				8625E2583FFDBEF9651D33B5 /* UpdateStorePaths.swift in Sources */,

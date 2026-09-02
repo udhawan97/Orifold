@@ -29,6 +29,84 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         XCTAssertTrue(script.hasPrefix("#!/bin/zsh"))
     }
 
+    func testTrustedScriptsBindPublisherAndRecoveryPolicy() throws {
+        let team = "TEAM123456"
+        let rollbackSHA = String(repeating: "b", count: 64)
+        let script = try generator.render(.init(
+            appPID: 4321,
+            appBundlePath: "/Users/x/Applications/Orifold.app",
+            dmgPath: "/Users/x/cache/Orifold-0.8.7.dmg",
+            dmgSHA256: String(repeating: "a", count: 64),
+            newVersion: "0.8.7",
+            rollbackZipPath: "/Users/x/Rollback/Orifold-0.8.6.zip",
+            publisherTeamIdentifier: team,
+            publisherBundleIdentifier: UpdatePublisherIdentity.expectedBundleIdentifier,
+            restoreScriptPath: "/Users/x/Rollback/restore.command",
+            rollbackSHA256: rollbackSHA,
+            rollbackVersion: "0.8.6"
+        ))
+
+        XCTAssertTrue(script.contains("EXPECTED_TEAM_ID='\(team)'"))
+        XCTAssertTrue(script.contains("EXPECTED_BUNDLE_ID='com.ud.Orifold'"))
+        XCTAssertTrue(script.contains("RESTORE_SCRIPT_PATH='/Users/x/Rollback/restore.command'"))
+        XCTAssertTrue(script.contains("ROLLBACK_SHA='\(rollbackSHA)'"))
+        XCTAssertTrue(script.contains("TeamIdentifier"))
+        XCTAssertTrue(script.contains("anchor apple generic"))
+        XCTAssertTrue(script.contains(#"-R "=identifier \"$EXPECTED_BUNDLE_ID\""#))
+        XCTAssertTrue(script.contains("spctl --assess --type execute \"$candidate\""))
+        XCTAssertTrue(script.contains("canonical_version"), "bundle marketing versions must be compared canonically")
+        XCTAssertTrue(script.contains("Restore Previous Orifold.command"))
+        XCTAssertFalse(script.contains("rollbackSHA256"), "implementation details must not leak into the shell")
+
+        let restore = try generator.renderRestore(.init(
+            appPID: 4321,
+            appBundlePath: "/Users/x/Applications/Orifold.app",
+            archiveZipPath: "/Users/x/Rollback/Orifold-0.8.6.zip",
+            archiveSHA256: rollbackSHA,
+            restoreVersion: "0.8.6",
+            publisherTeamIdentifier: team,
+            publisherBundleIdentifier: UpdatePublisherIdentity.expectedBundleIdentifier
+        ))
+        XCTAssertTrue(restore.contains("EXPECTED_TEAM_ID='\(team)'"))
+        XCTAssertTrue(restore.contains("anchor apple generic"))
+        XCTAssertTrue(restore.contains(#"-R "=identifier \"$EXPECTED_BUNDLE_ID\""#))
+        XCTAssertTrue(restore.contains("spctl --assess --type execute \"$candidate\""))
+        XCTAssertTrue(restore.contains("canonical_version"), "rollback marketing versions must be compared canonically")
+    }
+
+    func testAdHocBundleDoesNotBecomeAnAutomaticPublisher() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("orifold-publisher-(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let app = root.appendingPathComponent("Orifold.app")
+        try makeSignedApp(at: app, marker: "AD-HOC")
+
+        XCTAssertNil(UpdatePublisherIdentity.current(for: app))
+    }
+
+    func testGeneratedScriptsCanonicalizeMarketingVersions() throws {
+        let function = try extractedFunction(named: "canonical_version", from: UpdaterScriptGenerator.template)
+        let harness = """
+        #!/bin/zsh -f
+        set -u
+        \(function)
+        canonical_version '0.11.0'
+        canonical_version 'release-v0.11.0+42'
+        canonical_version '0.11'
+        """
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("orifold-version-canonical-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let script = root.appendingPathComponent("canonical.sh")
+        try harness.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        let result = try runProcess("/bin/zsh", [script.path])
+        XCTAssertEqual(result.status, 0)
+        XCTAssertEqual(result.output.split(separator: "\n").map(String.init), ["0.11", "0.11", "0.11"])
+    }
+
     func testRejectsNonHexOrWrongLengthDigest() {
         XCTAssertThrowsError(try generator.render(inputs(sha: "tooshort"))) {
             XCTAssertEqual($0 as? UpdaterScriptGenerator.GeneratorError, .invalidDigest)
@@ -245,6 +323,7 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         APP_PATH='\(appPath.path)'
         BACKUP='\(backup.path)'
         ROLLBACK_ZIP=''
+        ROLLBACK_SHA=''
         say() { :; }
         cleanup() { :; }
         fail() { exit 3; }
@@ -263,6 +342,39 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: backup.path), "backup should be moved back, not left behind")
     }
 
+    func testRestoreFallbackRejectsAnUntrustedRollbackArchive() throws {
+        let restoreFn = try extractedRestoreHelper()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("orifold-rollback-fallback-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let appPath = root.appendingPathComponent("Orifold.app", isDirectory: true)
+        try writeMarkedDir(appPath, marker: "NEW-BAD")
+        let rollback = root.appendingPathComponent("rollback.zip")
+        try Data("tampered".utf8).write(to: rollback)
+        let wrongSHA = String(repeating: "0", count: 64)
+        let harness = root.appendingPathComponent("harness.sh")
+        try """
+        #!/bin/zsh -f
+        set -u
+        APP_PATH='\(appPath.path)'
+        BACKUP='\(root.appendingPathComponent("missing-backup").path)'
+        ROLLBACK_ZIP='\(rollback.path)'
+        ROLLBACK_SHA='\(wrongSHA)'
+        say() { :; }
+        cleanup() { :; }
+        fail() { exit 3; }
+        \(restoreFn)
+        restore_and_fail "post-swap verify failed"
+        """.write(to: harness, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: harness.path)
+
+        let result = try runProcess("/bin/zsh", [harness.path])
+        XCTAssertEqual(result.status, 3)
+        let marker = try String(contentsOf: appPath.appendingPathComponent("marker.txt"), encoding: .utf8)
+        XCTAssertEqual(marker, "NEW-BAD", "a failed archive digest must not be extracted or remove the current bundle")
+    }
+
     // MARK: - Helpers
 
     /// Extracts the `restore_and_fail` shell function verbatim from the shipped template so
@@ -278,6 +390,17 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         guard let relEnd = lines[(startIdx + 1)...].firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "}" }) else {
             XCTFail("could not find end of restore_and_fail()", file: file, line: line)
             throw XCTSkip("restore_and_fail() end not found")
+        }
+        return lines[startIdx...relEnd].joined(separator: "\n")
+    }
+
+    private func extractedFunction(named name: String, from template: String) throws -> String {
+        let lines = template.components(separatedBy: "\n")
+        guard let startIdx = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("\(name)() {") }) else {
+            throw XCTSkip("\(name)() not found in template")
+        }
+        guard let relEnd = lines[(startIdx + 1)...].firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "}" }) else {
+            throw XCTSkip("\(name)() end not found in template")
         }
         return lines[startIdx...relEnd].joined(separator: "\n")
     }

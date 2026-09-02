@@ -18,12 +18,44 @@ enum ScanCleanupPipelineError: LocalizedError, Equatable {
     }
 }
 
+/// Display-sized images derived from the exact production cleanup raster. The full-resolution
+/// intermediates stay inside `previewImages` and are released before this value crosses actors.
+struct ScanCleanupPreviewImages: @unchecked Sendable {
+    let before: CGImage
+    let after: CGImage
+}
+
 enum ScanCleanupPipeline {
+    /// Roughly preserves the detail of the former 110-DPI letter-page preview while avoiding
+    /// retaining the production 300-DPI raster in SwiftUI state.
+    static let previewDisplayLongEdgePixels = 1_200
+
     /// Uses the same 300-DPI, long-edge-capped rendering path as local OCR, then applies the
     /// selected cleanup operations to that bitmap.
     static func cleanedImage(for page: PDFPage, options: ScanCleanupOptions) -> CGImage? {
         guard let source = PDFOCRService.rasterizedImage(for: page) else { return nil }
         return ScanCleanup.clean(source, options: options)
+    }
+
+    /// Builds the proofing images from the same 300-DPI, 4,500-pixel-capped source used by
+    /// `cleanedImage`. Cleanup happens before either image is downsampled, so resolution-sensitive
+    /// crop detection, Otsu thresholding, and despeckling cannot disagree with Apply.
+    static func previewImages(
+        for page: PDFPage,
+        options: ScanCleanupOptions,
+        displayLongEdgePixels: Int = previewDisplayLongEdgePixels,
+        isCancelled: @Sendable () -> Bool = { false }
+    ) -> ScanCleanupPreviewImages? {
+        guard displayLongEdgePixels > 0, !isCancelled(),
+              let productionSource = PDFOCRService.rasterizedImage(for: page) else { return nil }
+        guard !isCancelled() else { return nil }
+        let productionCleaned = ScanCleanup.clean(productionSource, options: options)
+        guard !isCancelled(),
+              let before = downsampled(productionSource, longEdgePixels: displayLongEdgePixels) else { return nil }
+        guard !isCancelled(),
+              let after = downsampled(productionCleaned, longEdgePixels: displayLongEdgePixels) else { return nil }
+        guard !isCancelled() else { return nil }
+        return ScanCleanupPreviewImages(before: before, after: after)
     }
 
     /// Raster-cleans the requested pages, then swaps only their `/Contents`, `/Resources`, and
@@ -101,5 +133,30 @@ enum ScanCleanupPipeline {
         context.endPDFPage()
         context.closePDF()
         return output as Data
+    }
+
+    private static func downsampled(_ image: CGImage, longEdgePixels: Int) -> CGImage? {
+        let sourceLongEdge = max(image.width, image.height)
+        guard sourceLongEdge > 0, longEdgePixels > 0 else { return nil }
+        guard sourceLongEdge > longEdgePixels else { return image }
+
+        let scale = CGFloat(longEdgePixels) / CGFloat(sourceLongEdge)
+        let width = max(1, Int((CGFloat(image.width) * scale).rounded()))
+        let height = max(1, Int((CGFloat(image.height) * scale).rounded()))
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return nil }
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
     }
 }

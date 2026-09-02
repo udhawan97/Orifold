@@ -28,12 +28,14 @@ final class ProductContractSourceTests: XCTestCase {
         }
     }
 
-    func testUpdateGuideDoesNotPromiseUndistributedRollbackHelper() throws {
+    func testUpdateGuideDescribesBoundRecoveryHelperAndManualFallback() throws {
         let guide = try source("docs-site/src/content/docs/get-started/update-uninstall.mdx")
 
         XCTAssertFalse(guide.contains("scripts/install-mac.sh --restore"))
         XCTAssertFalse(guide.contains("~/Library/Application Support/Orifold/Rollback/"))
-        XCTAssertTrue(guide.contains("no installed Terminal helper"))
+        XCTAssertTrue(guide.contains("Restore Previous Orifold.command"))
+        XCTAssertTrue(guide.contains("exact target and archive bound"))
+        XCTAssertTrue(guide.contains("ad-hoc builds intentionally do not enable"))
         XCTAssertTrue(guide.contains("Orifold's GitHub Releases"))
         XCTAssertTrue(guide.contains("reinstall it manually"))
         XCTAssertTrue(guide.contains("installs the verified app, relaunches"))

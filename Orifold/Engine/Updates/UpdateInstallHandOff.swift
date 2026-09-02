@@ -20,11 +20,35 @@ protocol UpdateInstallHandOff {
 @MainActor
 struct SystemUpdateInstallHandOff: UpdateInstallHandOff {
     func launchUpdater(_ inputs: UpdaterScriptGenerator.Inputs) -> Bool {
+        guard let team = inputs.publisherTeamIdentifier, !team.isEmpty,
+              inputs.publisherBundleIdentifier == UpdatePublisherIdentity.expectedBundleIdentifier else {
+            return false
+        }
+        var inputs = inputs
+        if let archive = inputs.rollbackZipPath,
+           let archiveSHA = inputs.rollbackSHA256,
+           let rollbackVersion = inputs.rollbackVersion {
+            let restore = UpdaterScriptGenerator.RestoreInputs(
+                appPID: inputs.appPID,
+                appBundlePath: inputs.appBundlePath,
+                archiveZipPath: archive,
+                archiveSHA256: archiveSHA,
+                restoreVersion: rollbackVersion,
+                publisherTeamIdentifier: inputs.publisherTeamIdentifier,
+                publisherBundleIdentifier: inputs.publisherBundleIdentifier
+            )
+            guard let restoreURL = try? UpdaterScriptGenerator().writeRestore(restore) else { return false }
+            inputs.restoreScriptPath = restoreURL.path
+        }
         guard let url = try? UpdaterScriptGenerator().write(inputs) else { return false }
         return NSWorkspace.shared.open(url)
     }
 
     func launchRestore(_ inputs: UpdaterScriptGenerator.RestoreInputs) -> Bool {
+        guard let team = inputs.publisherTeamIdentifier, !team.isEmpty,
+              inputs.publisherBundleIdentifier == UpdatePublisherIdentity.expectedBundleIdentifier else {
+            return false
+        }
         guard let url = try? UpdaterScriptGenerator().writeRestore(inputs) else { return false }
         return NSWorkspace.shared.open(url)
     }
