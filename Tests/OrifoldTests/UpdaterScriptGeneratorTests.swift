@@ -535,13 +535,17 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
-        // The scripts end failure paths with `read -r _`; owning stdin means a dry run always
-        // sees EOF (or the answer under test) instead of blocking on a terminal.
-        let input = Pipe()
-        process.standardInput = input
+        // Only the consent tests own stdin, and only they get a pipe. Handing every script a
+        // closed pipe changes what its children inherit — `hdiutil attach` in the swap dry run
+        // failed on a hosted runner that way — so callers that pass no answer keep the
+        // inherited stdin these scripts have always run with.
+        let input = stdin.map { _ in Pipe() }
+        if let input { process.standardInput = input }
         try process.run()
-        if let stdin { input.fileHandleForWriting.write(Data(stdin.utf8)) }
-        try? input.fileHandleForWriting.close()
+        if let stdin, let input {
+            input.fileHandleForWriting.write(Data(stdin.utf8))
+            try? input.fileHandleForWriting.close()
+        }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         return (process.terminationStatus, String(data: data, encoding: .utf8) ?? "")
