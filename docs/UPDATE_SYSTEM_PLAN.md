@@ -151,6 +151,13 @@ on the `.command` wrapper. Appcast never offers downgrades; additive-only schema
 reads safe. Falls back to re-downloading the permanent versioned release asset if the archive
 is missing.
 
+**Shipped:** the documented no-launch route is the generated `Restore Previous Orifold.command`
+the updater leaves beside the installed app before the swap, bound to the exact target path,
+archive digest, and publisher identity. Because nobody is quitting the app to run it, it refuses
+while Orifold is running and changes nothing until the user types `YES`.
+`install-mac.sh --restore` still guesses between `/Applications` and `~/Applications` and stays
+a developer convenience, not the recovery path users are pointed at.
+
 ## G. Autosave & document recovery
 
 First verify the base: the ReferenceFileDocument/NSDocument bridge should already autosave in

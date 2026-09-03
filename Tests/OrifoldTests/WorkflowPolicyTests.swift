@@ -85,7 +85,8 @@ final class WorkflowPolicyTests: XCTestCase {
                 continue
             }
             for entry in block where (entry.text.components(separatedBy: "#").first ?? "").contains("write") {
-                violations.append("\(file.lastPathComponent):\(entry.number): \(entry.text.trimmingCharacters(in: .whitespaces))")
+                let grant = entry.text.trimmingCharacters(in: .whitespaces)
+                violations.append("\(file.lastPathComponent):\(entry.number): \(grant)")
             }
         }
         XCTAssertTrue(

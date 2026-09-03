@@ -208,6 +208,10 @@ sidecar (downloader, mismatch deleted). Added by this plan:
    post-swap (ad-hoc era: verifies integrity, not identity — identity pinning
    (Team ID) is explicitly deferred until Developer ID signing lands; note it in the
    script header so it's added at the signing flip, per WEBSITE_PLAN §6 pre-flip work).
+   **Shipped:** `UpdatePublisherIdentity` now binds the candidate's bundle identifier,
+   Developer ID Team ID, offered version, and Gatekeeper assessment in both generated
+   scripts, and `UpdateController.installAndRelaunch` refuses an ad-hoc running build
+   before it writes anything, directing the user to the installer.
 3. Quarantine strip only on the freshly-installed bundle, nothing else.
 4. The updater script is generated from a **bundled template resource** (code-signed with
    the app) into the updater-owned cache; values are baked via safe substitution (no shell
