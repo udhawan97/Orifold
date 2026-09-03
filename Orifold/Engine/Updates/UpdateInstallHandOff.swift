@@ -35,7 +35,10 @@ struct SystemUpdateInstallHandOff: UpdateInstallHandOff {
                 archiveSHA256: archiveSHA,
                 restoreVersion: rollbackVersion,
                 publisherTeamIdentifier: inputs.publisherTeamIdentifier,
-                publisherBundleIdentifier: inputs.publisherBundleIdentifier
+                publisherBundleIdentifier: inputs.publisherBundleIdentifier,
+                // Copied beside the app for the case where the new version will not launch.
+                // Nobody is quitting the app to run it, so it asks before it changes anything.
+                requiresConsent: true
             )
             guard let restoreURL = try? UpdaterScriptGenerator().writeRestore(restore) else { return false }
             inputs.restoreScriptPath = restoreURL.path

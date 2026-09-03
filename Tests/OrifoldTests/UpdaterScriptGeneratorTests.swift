@@ -165,10 +165,11 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         zip: String = "/Users/x/Rollback/Orifold-0.8.5.zip",
         sha: String = String(repeating: "b", count: 64),
         version: String = "0.8.5",
-        relaunch: String = "/usr/bin/open"
+        relaunch: String = "/usr/bin/open",
+        requiresConsent: Bool = false
     ) -> UpdaterScriptGenerator.RestoreInputs {
         .init(appPID: pid, appBundlePath: appPath, archiveZipPath: zip, archiveSHA256: sha,
-              restoreVersion: version, relaunchCommand: relaunch)
+              restoreVersion: version, requiresConsent: requiresConsent, relaunchCommand: relaunch)
     }
 
     func testRenderRestoreSubstitutesEveryToken() throws {
@@ -411,6 +412,102 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         try marker.write(to: url.appendingPathComponent("marker.txt"), atomically: true, encoding: .utf8)
     }
 
+    // MARK: - Standalone no-launch recovery helper
+
+    /// The helper the updater leaves beside the app runs long after Orifold quit, so its baked
+    /// PID is always dead. Consent and a running-app refusal are the only things standing
+    /// between a stray double-click and a silent downgrade.
+    func testRecoveryHelperGateIsOnlyRenderedForTheStandaloneCopy() throws {
+        let standalone = try UpdaterScriptGenerator().renderRestore(restoreInputs(requiresConsent: true))
+        XCTAssertTrue(standalone.contains("REQUIRE_CONSENT='1'"))
+        XCTAssertTrue(standalone.contains("pgrep"), "must refuse to run while Orifold is running")
+        XCTAssertTrue(standalone.contains("Type YES"), "must require explicit typed consent")
+        XCTAssertFalse(standalone.contains("sudo"))
+        XCTAssertFalse(standalone.contains("@@"))
+
+        // In-app restore already asked the user and is quitting; it must not prompt again.
+        let inApp = try UpdaterScriptGenerator().renderRestore(restoreInputs())
+        XCTAssertTrue(inApp.contains("REQUIRE_CONSENT=''"))
+    }
+
+    func testRecoveryHelperLeavesTheCurrentAppAloneWithoutTypedConsent() throws {
+        let fixture = try makeRestoreFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let script = try UpdaterScriptGenerator().writeRestore(
+            .init(appPID: 999_999, appBundlePath: fixture.installedApp.path, archiveZipPath: fixture.zip.path,
+                  archiveSHA256: fixture.sha, restoreVersion: "0.8.5", requiresConsent: true,
+                  relaunchCommand: fixture.recorder),
+            to: fixture.root
+        )
+        let result = try runProcess("/bin/zsh", [script.path], stdin: "no\n")
+
+        XCTAssertNotEqual(result.status, 0, "anything but YES must cancel:\n\(result.output)")
+        XCTAssertEqual(
+            try String(contentsOf: fixture.installedApp.appendingPathComponent("Contents/Resources/marker.txt"), encoding: .utf8),
+            "CURRENT",
+            "a declined recovery must not touch the installed app"
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.recorded.path), "must not relaunch")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.zip.path), "the rollback archive is kept")
+    }
+
+    func testRecoveryHelperRestoresThePreviousVersionOnTypedConsent() throws {
+        let fixture = try makeRestoreFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let script = try UpdaterScriptGenerator().writeRestore(
+            .init(appPID: 999_999, appBundlePath: fixture.installedApp.path, archiveZipPath: fixture.zip.path,
+                  archiveSHA256: fixture.sha, restoreVersion: "0.8.5", requiresConsent: true,
+                  relaunchCommand: fixture.recorder),
+            to: fixture.root
+        )
+        let result = try runProcess("/bin/zsh", [script.path], stdin: "YES\n")
+
+        XCTAssertEqual(result.status, 0, "recovery failed:\n\(result.output)")
+        XCTAssertEqual(
+            try String(contentsOf: fixture.installedApp.appendingPathComponent("Contents/Resources/marker.txt"), encoding: .utf8),
+            "PREVIOUS"
+        )
+        XCTAssertEqual(try? String(contentsOf: fixture.recorded, encoding: .utf8), fixture.installedApp.path)
+    }
+
+    private struct RestoreFixture {
+        var root: URL
+        var installedApp: URL
+        var zip: URL
+        var sha: String
+        var recorded: URL
+        var recorder: String
+    }
+
+    /// CURRENT installed, PREVIOUS archived exactly as `RollbackArchiver` writes it, plus a
+    /// relaunch recorder standing in for `open`.
+    private func makeRestoreFixture() throws -> RestoreFixture {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("orifold-recovery-\(UUID().uuidString)", isDirectory: true)
+        let installDir = root.appendingPathComponent("Applications", isDirectory: true)
+        let prevDir = root.appendingPathComponent("prev-src", isDirectory: true)
+        for directory in [installDir, prevDir] {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        let installedApp = installDir.appendingPathComponent("Orifold.app")
+        let previousApp = prevDir.appendingPathComponent("Orifold.app")
+        try makeSignedApp(at: installedApp, marker: "CURRENT")
+        try makeSignedApp(at: previousApp, marker: "PREVIOUS")
+
+        let zip = root.appendingPathComponent("Orifold-0.8.5.zip")
+        try XCTAssertProcess("/usr/bin/ditto", ["-c", "-k", "--keepParent", previousApp.path, zip.path])
+
+        let recorded = root.appendingPathComponent("relaunched.txt")
+        let recorder = root.appendingPathComponent("recorder.sh")
+        try "#!/bin/zsh\nprintf '%s' \"$1\" > '\(recorded.path)'\n".write(to: recorder, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: recorder.path)
+
+        return RestoreFixture(root: root, installedApp: installedApp, zip: zip,
+                              sha: try RollbackArchiver.sha256(of: zip), recorded: recorded, recorder: recorder.path)
+    }
+
     private func makeSignedApp(at appURL: URL, marker: String) throws {
         let macOS = appURL.appendingPathComponent("Contents/MacOS")
         let resources = appURL.appendingPathComponent("Contents/Resources")
@@ -431,14 +528,20 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
     }
 
     @discardableResult
-    private func runProcess(_ launchPath: String, _ args: [String]) throws -> (status: Int32, output: String) {
+    private func runProcess(_ launchPath: String, _ args: [String], stdin: String? = nil) throws -> (status: Int32, output: String) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: launchPath)
         process.arguments = args
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
+        // The scripts end failure paths with `read -r _`; owning stdin means a dry run always
+        // sees EOF (or the answer under test) instead of blocking on a terminal.
+        let input = Pipe()
+        process.standardInput = input
         try process.run()
+        if let stdin { input.fileHandleForWriting.write(Data(stdin.utf8)) }
+        try? input.fileHandleForWriting.close()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         return (process.terminationStatus, String(data: data, encoding: .utf8) ?? "")
