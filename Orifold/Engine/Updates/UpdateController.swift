@@ -246,6 +246,18 @@ final class UpdateController {
         guard documentsBlockingInstall().isEmpty else { return false }
         guard let dmgURL = downloadedUpdateURL, FileManager.default.fileExists(atPath: dmgURL.path) else { return false }
 
+        // Publisher gate, before any side effect. An ad-hoc or unsigned copy has no identity to
+        // bind the candidate to, so the swap can never be authorized — refusing here means no
+        // reopen manifest, rollback archive, attempt marker, or history row is written for an
+        // install that cannot happen, and the user is told why instead of seeing a generic
+        // "couldn't start the updater".
+        guard let publisher = publisherIdentity, publisher.isDeveloperID else {
+            phase = .failed(UpdateFailure(
+                kind: .untrustedBuild,
+                detail: "This copy is not signed by a Developer ID publisher, so it cannot replace itself."))
+            return false
+        }
+
         phase = .installing(update)
 
         // Preserve what's on screen so the relaunched app can reopen it (consumed once).
@@ -290,8 +302,8 @@ final class UpdateController {
         let inputs = UpdaterScriptGenerator.Inputs(
             appPID: processID, appBundlePath: bundleURL.path, dmgPath: dmgPath, dmgSHA256: digest,
             newVersion: update.version, rollbackZipPath: rollback.path,
-            publisherTeamIdentifier: publisherIdentity?.teamIdentifier,
-            publisherBundleIdentifier: publisherIdentity?.bundleIdentifier ?? UpdatePublisherIdentity.expectedBundleIdentifier,
+            publisherTeamIdentifier: publisher.teamIdentifier,
+            publisherBundleIdentifier: publisher.bundleIdentifier,
             rollbackSHA256: rollback.manifest.sha256,
             rollbackVersion: rollback.manifest.version)
         guard handOff.launchUpdater(inputs) else {

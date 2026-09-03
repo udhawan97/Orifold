@@ -22,6 +22,9 @@ struct UpdateFailure: Equatable {
         case download
         case verification
         case install
+        /// The running copy is ad-hoc or unsigned, so there is no publisher identity to bind a
+        /// candidate to. Automatic swap is refused and the user is sent to the installer.
+        case untrustedBuild
     }
     var kind: Kind
     /// Technical detail for the disclosure triangle, not the headline.

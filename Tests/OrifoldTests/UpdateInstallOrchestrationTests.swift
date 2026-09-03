@@ -74,6 +74,9 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
             markers: markers,
             handOff: spy,
             bundleURL: bundle,
+            publisherIdentityOverride: UpdatePublisherIdentity(
+                bundleIdentifier: UpdatePublisherIdentity.expectedBundleIdentifier,
+                teamIdentifier: "TEAM123456"),
             processID: 4242,
             now: { Date(timeIntervalSince1970: 100) }
         )
@@ -149,6 +152,58 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
         XCTAssertFalse(spy.terminated)
         guard case let .failed(failure) = c.phase else { return XCTFail("expected verification failure, got \(c.phase)") }
         XCTAssertEqual(failure.kind, .verification)
+    }
+
+    /// A locally built, ad-hoc-signed copy has no publisher to bind a candidate to. The refusal
+    /// must land before anything is written: no reopen manifest, no rollback archive, no attempt
+    /// marker, no history row — and it must say so, rather than reporting a broken updater.
+    func testInstallRefusesAnUntrustedRunningBuildBeforeAnySideEffect() async throws {
+        let spy = SpyHandOff()
+        let history = UpdateHistoryStore(directory: tmp)
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let dmg = tmp.appendingPathComponent("Orifold-0.9.0.dmg")
+        try Data("pretend-dmg-bytes".utf8).write(to: dmg)
+        let bundle = tmp.appendingPathComponent("Orifold.app")
+        try FileManager.default.createDirectory(at: bundle.appendingPathComponent("Contents"), withIntermediateDirectories: true)
+        let rollbackDirectory = tmp.appendingPathComponent("Rollback")
+
+        let c = UpdateController(
+            transport: OrchTransport(outcome: .available(update())),
+            downloader: OrchDownloader(result: .success(dmg)),
+            defaults: defaults,
+            currentVersion: UpdateVersion(string: "0.8.6")!,
+            currentBuild: "12",
+            archiver: RollbackArchiver(directory: rollbackDirectory),
+            history: history,
+            markers: markers,
+            handOff: spy,
+            bundleURL: bundle,
+            publisherIdentityOverride: nil,          // ad-hoc / unsigned: no Developer ID identity
+            processID: 4242,
+            now: { Date(timeIntervalSince1970: 100) }
+        )
+        await c.checkForUpdates(userInitiated: true)
+        await c.downloadUpdate()
+        guard case .readyToInstall = c.phase else { throw XCTSkip("setup failed to reach readyToInstall: \(c.phase)") }
+
+        let ok = await c.installAndRelaunch(reopenDocuments: [
+            ReopenDocument(path: "/Users/x/A.pdf", bookmarkData: nil, pageIndex: 3, displayName: "A"),
+        ])
+
+        XCTAssertFalse(ok)
+        guard case let .failed(failure) = c.phase else { return XCTFail("expected an untrusted-build failure, got \(c.phase)") }
+        XCTAssertEqual(failure.kind, .untrustedBuild)
+        XCTAssertNil(spy.launchedInputs, "no updater may be generated for an untrusted build")
+        XCTAssertFalse(spy.terminated, "the app must keep running")
+        XCTAssertNil(markers.readReopenManifest(), "nothing may be written before the trust check")
+        XCTAssertNil(markers.readAttempt())
+        XCTAssertNil(history.latest)
+        XCTAssertNil(c.rollbackManifest)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: rollbackDirectory.path),
+            "an install that never started must not archive the current bundle"
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dmg.path), "the download stays for a manual install")
     }
 
     func testInstallIsNoOpWhenNotReady() async {

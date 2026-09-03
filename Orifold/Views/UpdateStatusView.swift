@@ -125,6 +125,8 @@ struct UpdateStatusView: View {
             return L10n.string("settings.updates.status.downloadFailed", locale: locale)
         case .install:
             return L10n.string("settings.updates.status.installIncomplete", locale: locale)
+        case .untrustedBuild:
+            return L10n.string("settings.updates.status.untrustedBuild", locale: locale)
         case .network, .parsing:
             return L10n.string("settings.updates.status.failed", locale: locale)
         }
