@@ -75,8 +75,8 @@ jobs:
       - name: Swift Package build
         run: swift build
 
-      - name: PDF smoke test
-        run: swift test --filter PDFSmokeTests
+      - name: PDF smoke and workflow policy tests
+        run: swift test --filter 'PDFSmokeTests|WorkflowPolicyTests'
 
       - name: Generate and verify Xcode project
         run: |

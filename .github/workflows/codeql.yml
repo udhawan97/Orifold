@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
   group: codeql-${{ github.workflow }}-${{ github.ref }}
@@ -18,6 +17,9 @@ jobs:
     name: Analyze Swift
     runs-on: macos-15
     timeout-minutes: 75
+    permissions:
+      contents: read
+      security-events: write   # uploading the SARIF result is the only write this workflow needs
     env:
       DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
 
