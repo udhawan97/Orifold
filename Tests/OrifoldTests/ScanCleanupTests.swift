@@ -109,6 +109,39 @@ final class ScanCleanupTests: XCTestCase {
         XCTAssertLessThan(try pixelDifference(preview.after, expectedAfter), 0.000_1)
     }
 
+    /// Apply renders the page content with its `/Rotate` presentation cleared
+    /// (`replacingPageContents`), so a preview that cleaned the rotated presentation would
+    /// deskew, threshold, and crop a differently shaped bitmap than the one that gets written.
+    func testPreviewCleansTheSameUnrotatedContentApplyWritesForARotatedPage() throws {
+        let document = PDFDocument()
+        let page = try XCTUnwrap(
+            PDFPage(image: NSImage(cgImage: photographedPage(angleDegrees: 4), size: .zero))
+        )
+        page.rotation = 90
+        document.insert(page, at: 0)
+        let target = try XCTUnwrap(document.page(at: 0))
+        let options = ScanCleanupOptions()
+
+        let preview = try XCTUnwrap(ScanCleanupPipeline.previewImages(
+            for: target,
+            options: options,
+            displayLongEdgePixels: 480
+        ))
+
+        // The fixture's content is landscape (800x650). Cleaning the `/Rotate 90` presentation
+        // instead would hand Vision a portrait bitmap and produce a portrait result.
+        XCTAssertGreaterThan(preview.before.width, preview.before.height)
+        XCTAssertGreaterThan(preview.after.width, preview.after.height)
+        let applied = try XCTUnwrap(ScanCleanupPipeline.cleanedImage(for: target, options: options))
+        XCTAssertEqual(
+            Double(preview.after.width) / Double(preview.after.height),
+            Double(applied.width) / Double(applied.height),
+            accuracy: 0.01,
+            "the crop a user approves must be the crop Apply writes"
+        )
+        XCTAssertEqual(target.rotation, 90, "the page's presentation rotation must be left as it was")
+    }
+
     func testPreviewCooperativelyCancelsAfterProductionRenderBeforeCleanup() throws {
         let image = try photographedPage(angleDegrees: 4)
         let document = PDFDocument()

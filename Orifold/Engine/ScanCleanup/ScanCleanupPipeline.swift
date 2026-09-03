@@ -30,11 +30,31 @@ enum ScanCleanupPipeline {
     /// retaining the production 300-DPI raster in SwiftUI state.
     static let previewDisplayLongEdgePixels = 1_200
 
+    /// Renders the page's underlying content with its `/Rotate` presentation temporarily
+    /// cleared, then applies the selected cleanup operations to that bitmap.
+    ///
+    /// Both Apply and the sheet's proofing preview come through here. The destination page keeps
+    /// its `/Rotate` entry, so rendering without that presentation rotation is what stops the
+    /// rotation being applied twice on redisplay — and it is why a rotated scan must never be
+    /// cleaned in its presented orientation: Vision's crop, Otsu's threshold, and despeckling
+    /// would all run against a differently shaped bitmap than the one that gets written.
+    static func contentImages(
+        for page: PDFPage,
+        options: ScanCleanupOptions,
+        isCancelled: @Sendable () -> Bool = { false }
+    ) -> (before: CGImage, after: CGImage)? {
+        let preservedRotation = page.rotation
+        page.rotation = 0
+        defer { page.rotation = preservedRotation }
+        guard !isCancelled(), let source = PDFOCRService.rasterizedImage(for: page) else { return nil }
+        guard !isCancelled() else { return nil }
+        return (source, ScanCleanup.clean(source, options: options))
+    }
+
     /// Uses the same 300-DPI, long-edge-capped rendering path as local OCR, then applies the
     /// selected cleanup operations to that bitmap.
     static func cleanedImage(for page: PDFPage, options: ScanCleanupOptions) -> CGImage? {
-        guard let source = PDFOCRService.rasterizedImage(for: page) else { return nil }
-        return ScanCleanup.clean(source, options: options)
+        contentImages(for: page, options: options)?.after
     }
 
     /// Builds the proofing images from the same 300-DPI, 4,500-pixel-capped source used by
@@ -46,14 +66,12 @@ enum ScanCleanupPipeline {
         displayLongEdgePixels: Int = previewDisplayLongEdgePixels,
         isCancelled: @Sendable () -> Bool = { false }
     ) -> ScanCleanupPreviewImages? {
-        guard displayLongEdgePixels > 0, !isCancelled(),
-              let productionSource = PDFOCRService.rasterizedImage(for: page) else { return nil }
-        guard !isCancelled() else { return nil }
-        let productionCleaned = ScanCleanup.clean(productionSource, options: options)
+        guard displayLongEdgePixels > 0,
+              let production = contentImages(for: page, options: options, isCancelled: isCancelled) else { return nil }
         guard !isCancelled(),
-              let before = downsampled(productionSource, longEdgePixels: displayLongEdgePixels) else { return nil }
+              let before = downsampled(production.before, longEdgePixels: displayLongEdgePixels) else { return nil }
         guard !isCancelled(),
-              let after = downsampled(productionCleaned, longEdgePixels: displayLongEdgePixels) else { return nil }
+              let after = downsampled(production.after, longEdgePixels: displayLongEdgePixels) else { return nil }
         guard !isCancelled() else { return nil }
         return ScanCleanupPreviewImages(before: before, after: after)
     }
@@ -82,14 +100,10 @@ enum ScanCleanupPipeline {
             guard let page = source.page(at: index) else {
                 throw ScanCleanupPipelineError.pageRenderFailed(pageIndex: index)
             }
-            // The destination keeps its `/Rotate` entry. Render the underlying page content
-            // without that presentation rotation so replacing the content cannot apply the
-            // rotation twice when PDFKit/PDFium displays it again.
-            let preservedRotation = page.rotation
-            page.rotation = 0
-            let cleaned = cleanedImage(for: page, options: options)
-            page.rotation = preservedRotation
-            guard let cleaned,
+            // `cleanedImage` renders without the page's `/Rotate` presentation, which the
+            // destination keeps — so replacing the content cannot apply the rotation twice
+            // when PDFKit/PDFium displays it again.
+            guard let cleaned = cleanedImage(for: page, options: options),
                   let replacement = replacementPageData(from: cleaned, mediaBox: page.bounds(for: .mediaBox)) else {
                 throw ScanCleanupPipelineError.pageRenderFailed(pageIndex: index)
             }
