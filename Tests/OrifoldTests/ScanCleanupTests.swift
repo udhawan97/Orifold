@@ -437,7 +437,11 @@ final class ScanCleanupTests: XCTestCase {
         document.workspace.objectEditStates = [
             PageObjectEditState(pageRefID: ref.id, operations: [operation])
         ]
-        let beforeSnapshot = try document.snapshot(contentType: .pdf)
+        // This deliberately unresolved target must block output, but cleanup still needs
+        // to refuse it before serializing or mutating anything. Observe state directly:
+        // a save snapshot is now an output gate, not a passive inspection helper.
+        let beforeWorkspace = document.workspace
+        let beforeOriginalPDFData = document.currentOriginalPDFDataProvider?() ?? [:]
         let beforeMemberPDFData = document.memberPDFData
         let beforeLoadedPDFs = viewModel.loadedPDFs.map(\.1)
 
@@ -446,12 +450,11 @@ final class ScanCleanupTests: XCTestCase {
             options: ScanCleanupOptions()
         )
 
-        let afterSnapshot = try document.snapshot(contentType: .pdf)
         XCTAssertFalse(applied)
         XCTAssertEqual(document.memberPDFData, beforeMemberPDFData)
-        XCTAssertEqual(afterSnapshot.originalMemberPDFData, beforeSnapshot.originalMemberPDFData)
-        XCTAssertEqual(afterSnapshot.workspace.objectEditStates, beforeSnapshot.workspace.objectEditStates)
-        XCTAssertEqual(afterSnapshot.workspace.modifiedAt, beforeSnapshot.workspace.modifiedAt)
+        XCTAssertEqual(document.currentOriginalPDFDataProvider?() ?? [:], beforeOriginalPDFData)
+        XCTAssertEqual(document.workspace.objectEditStates, beforeWorkspace.objectEditStates)
+        XCTAssertEqual(document.workspace.modifiedAt, beforeWorkspace.modifiedAt)
         XCTAssertEqual(viewModel.loadedPDFs.count, beforeLoadedPDFs.count)
         for (before, after) in zip(beforeLoadedPDFs, viewModel.loadedPDFs.map(\.1)) {
             XCTAssertTrue(before === after)
@@ -460,6 +463,12 @@ final class ScanCleanupTests: XCTestCase {
         XCTAssertFalse(viewModel.isApplyingScanCleanup)
         XCTAssertFalse(undoManager.canUndo)
         XCTAssertEqual(viewModel.editingStatus?.severity, .warning)
+        XCTAssertThrowsError(try document.snapshot(contentType: .pdf)) { error in
+            XCTAssertEqual((error as? WorkspaceViewModel.CommittedEditReplayError)?.memberIDs, [memberID])
+        }
+        XCTAssertEqual(document.memberPDFData, beforeMemberPDFData,
+                       "refusing an output after cleanup refusal must also preserve live bytes")
+        XCTAssertEqual(document.workspace.objectEditStates, beforeWorkspace.objectEditStates)
     }
 
     func testCleanupRejectsCountedButUnloadableAuthoritativePageDespiteLoadedPDFPage() async throws {

@@ -3,7 +3,7 @@ import XCTest
 /// Supply-chain policy for `.github/workflows/*.yml`, enforced from the test suite because the
 /// failure it prevents is invisible at runtime and only visible in the YAML:
 ///
-/// 1. Every `uses:` pins a full 40-character commit SHA with a `# vX.Y.Z` comment, so an
+/// 1. Every external `uses:` pins a full 40-character commit SHA with a `# vX.Y.Z` comment, so an
 ///    upstream tag or branch that moves cannot change what runs in a job holding our secrets.
 ///    (`actions/dependency-review-action@v5` was a mutable *branch*, not even a tag.)
 /// 2. Every workflow declares a top-level `permissions:` block and none of it grants `write`.
@@ -46,6 +46,12 @@ final class WorkflowPolicyTests: XCTestCase {
             for (index, line) in try lines(of: file).enumerated() {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard trimmed.hasPrefix("uses:") || trimmed.hasPrefix("- uses:") else { continue }
+                // A local reusable workflow comes from the same immutable commit as
+                // its caller. Permit only the reviewed CI gate, never a mutable remote ref.
+                if trimmed == "uses: ./.github/workflows/ci.yml" {
+                    XCTAssertEqual(file.lastPathComponent, "release.yml")
+                    continue
+                }
                 if expression.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) == nil {
                     violations.append("\(file.lastPathComponent):\(index + 1): \(trimmed)")
                 } else {
@@ -94,5 +100,44 @@ final class WorkflowPolicyTests: XCTestCase {
             "workflow-scope permissions must stay read-only; grant write on the job that needs it:\n"
                 + violations.joined(separator: "\n")
         )
+    }
+
+    func testReleasePublishesOnlyAfterValidatingTheExactBuiltCommit() throws {
+        let files = try workflowFiles()
+        let release = try String(
+            contentsOf: XCTUnwrap(files.first { $0.lastPathComponent == "release.yml" }), encoding: .utf8
+        )
+        let ci = try String(
+            contentsOf: XCTUnwrap(files.first { $0.lastPathComponent == "ci.yml" }), encoding: .utf8
+        )
+        func job(_ name: String) throws -> String {
+            let start = try XCTUnwrap(release.range(of: "\n  \(name):\n"))
+            let remainder = release[start.upperBound...]
+            let next = remainder.range(of: #"\n  [a-z][a-z-]*:\n"#, options: .regularExpression)
+            return String(remainder[..<(next?.lowerBound ?? remainder.endIndex)])
+        }
+        let resolve = try job("resolve")
+        XCTAssertTrue(resolve.contains("ref: ${{ inputs.release_tag || github.sha }}"))
+        XCTAssertTrue(resolve.contains("git rev-parse HEAD"))
+        let validation = try job("validate")
+        XCTAssertTrue(validation.contains("needs: resolve"))
+        XCTAssertTrue(validation.contains("uses: ./.github/workflows/ci.yml"))
+        XCTAssertTrue(validation.contains("revision: ${{ needs.resolve.outputs.revision }}"))
+        let build = try job("build")
+        XCTAssertTrue(build.contains("needs: [resolve, validate]"))
+        XCTAssertTrue(build.contains("ref: ${{ needs.resolve.outputs.revision }}"))
+        for name in ["validate", "build", "publish-tagged", "publish-rolling"] {
+            let content = try job(name)
+            XCTAssertFalse(content.contains("always()"), "\(name) must not bypass failed dependencies")
+            XCTAssertFalse(content.contains("continue-on-error: true"), "\(name) must fail closed")
+        }
+        for name in ["publish-tagged", "publish-rolling"] {
+            XCTAssertTrue(try job(name).contains("needs: build"))
+        }
+        XCTAssertTrue(ci.contains("workflow_call:"))
+        XCTAssertTrue(ci.contains("ref: ${{ inputs.revision || github.sha }}"))
+        XCTAssertTrue(ci.contains("git diff --exit-code --"), "release validation must include generated-project parity")
+        XCTAssertTrue(ci.contains("- name: Xcode tests"), "release validation must include the full hosted test gate")
+        XCTAssertFalse(ci.contains("continue-on-error: true"))
     }
 }

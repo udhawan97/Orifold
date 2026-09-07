@@ -1,8 +1,8 @@
 import CryptoKit
 import Foundation
 
-/// Per-machine record of the SHA-256 of the exact bytes Orifold last wrote for each
-/// workspace, kept in a small JSON sidecar. Its sole job is to answer one question at load
+/// Per-machine record of the SHA-256 of the exact bytes Orifold prepared for each
+/// saved snapshot, kept in a small JSON sidecar. Its sole job is to answer one question at load
 /// time: *did something other than Orifold change this file since we saved it?* When the
 /// on-disk hash no longer matches what we recorded, the embedded editable workspace (edit
 /// operations, pristine bases) is stale relative to the visible content, and the loader
@@ -21,7 +21,9 @@ final class WorkspaceFingerprintStore {
     private let fileURL: URL
     private let maxEntries: Int
     private let lock = NSLock()
-    /// id → hash. `order` tracks access recency (least-recent first) for LRU eviction.
+    /// Snapshot ID → hash (older records use workspace IDs). The cap applies to all
+    /// snapshots combined; no unbounded per-workspace history is retained.
+    /// `order` tracks recording recency (least-recent first) for eviction.
     private var hashes: [String: String] = [:]
     private var order: [String] = []
     private var loaded = false
@@ -47,20 +49,20 @@ final class WorkspaceFingerprintStore {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    /// The recorded hash for a workspace, or nil if this machine has never saved it (or the
-    /// entry was evicted). Nil MUST be treated as "unknown", never as "changed".
-    func fingerprint(for workspaceID: UUID) -> String? {
+    /// The recorded hash for a snapshot (or a legacy workspace identity), or nil when
+    /// unknown or evicted. Nil MUST be treated as "unknown", never as "changed".
+    func fingerprint(for snapshotID: UUID) -> String? {
         lock.lock(); defer { lock.unlock() }
         loadIfNeeded()
-        return hashes[workspaceID.uuidString]
+        return hashes[snapshotID.uuidString]
     }
 
-    /// Record the hash of the bytes just written for `workspaceID`, promoting it to
+    /// Record the hash of the bytes prepared for `snapshotID`, promoting it to
     /// most-recently-used and evicting the oldest entries past the cap. Write-through to disk.
-    func record(hash: String, for workspaceID: UUID) {
+    func record(hash: String, for snapshotID: UUID) {
         lock.lock(); defer { lock.unlock() }
         loadIfNeeded()
-        let key = workspaceID.uuidString
+        let key = snapshotID.uuidString
         hashes[key] = hash
         order.removeAll { $0 == key }
         order.append(key)
@@ -71,9 +73,9 @@ final class WorkspaceFingerprintStore {
         persist()
     }
 
-    /// Convenience: hash `data` and record it for `workspaceID`.
-    func record(data: Data, for workspaceID: UUID) {
-        record(hash: Self.hash(of: data), for: workspaceID)
+    /// Convenience: hash `data` and record it for `snapshotID`.
+    func record(data: Data, for snapshotID: UUID) {
+        record(hash: Self.hash(of: data), for: snapshotID)
     }
 
     // MARK: - Persistence

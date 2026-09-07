@@ -54,6 +54,56 @@ final class SanitizedExportLeakTests: XCTestCase {
         XCTAssertNotNil(PDFDocument(data: sanitized), "sanitized output must still be a valid PDF")
     }
 
+    func testMetadataSerializationFailureAbortsSanitizedExport() throws {
+        let (document, viewModel) = try makeEditedWorkspaceWithComment()
+        _ = viewModel
+        let normal = try document.exportedPDFDataThrowing(
+            from: document.snapshot(contentType: .pdf),
+            options: WorkspaceExportOptions(embedsEditableWorkspaceState: true)
+        )
+        var attemptedSerialization = false
+        XCTAssertThrowsError(try WorkspaceViewModel.sanitized(
+            normal,
+            options: PDFSanitizationOptions(removesMetadata: true),
+            metadataSerializer: { pdf in
+                attemptedSerialization = true
+                XCTAssertFalse(pdf.page(at: 0)?.annotations.contains {
+                    $0.value(forAnnotationKey: PDFAnnotationKey(rawValue: "/OrifoldWorkspaceComments")) != nil
+                } ?? true)
+                return nil
+            }
+        )) { error in
+            XCTAssertTrue(error is PDFSanitizationError)
+        }
+        XCTAssertTrue(attemptedSerialization, "exercise failure after removal, before qpdf")
+        XCTAssertTrue(contains(normal, "OrifoldWorkspaceComments"), "the caller's source bytes remain intact")
+    }
+
+    func testMetadataInspectionFailureAbortsSanitization() {
+        XCTAssertThrowsError(try WorkspaceViewModel.sanitized(
+            Data("not a PDF".utf8), options: PDFSanitizationOptions(removesMetadata: true)
+        )) { error in
+            XCTAssertTrue(error is PDFSanitizationError)
+        }
+    }
+
+    func testDocumentWithoutPrivateMetadataNeedsNoReserialization() throws {
+        let original = EditingFixturePDFBuilder.makePDF(runs: [
+            .init(string: "Ordinary document", origin: CGPoint(x: 72, y: 700), fontSize: 12)
+        ])
+        let stripped = try WorkspaceDocument.dataStrippedOfOrifoldMetadata(original, serialize: { _ in
+            XCTFail("there is no private annotation to strip")
+            return nil
+        })
+        XCTAssertEqual(stripped, original)
+        XCTAssertNoThrow(try WorkspaceViewModel.sanitized(
+            original, options: nil, metadataSerializer: { _ in
+                XCTFail("nil sanitization is a pass-through")
+                return nil
+            }
+        ))
+    }
+
     func testNonSanitizedExportKeepsMetadata() throws {
         let (document, viewModel) = try makeEditedWorkspaceWithComment()
         _ = viewModel

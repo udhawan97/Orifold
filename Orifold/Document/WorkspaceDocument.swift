@@ -73,6 +73,8 @@ final class WorkspaceDocument: ReferenceFileDocument {
         var comments: [WorkspaceComment]
         var sourcePayloads: [UUID: SourceDocumentPayload] = [:]
         var editableWorkspace: Workspace?
+        /// Identifies these serialized bytes independently of the mutable workspace lineage.
+        var savedSnapshotID: UUID?
         var editableMemberPDFData: [UUID: Data] = [:]
         /// See `WorkspacePackage.originalMemberPDFData` — pristine pre-edit bytes, only
         /// for members that have committed inline text edit operations. Absent in files
@@ -82,11 +84,13 @@ final class WorkspaceDocument: ReferenceFileDocument {
         init(comments: [WorkspaceComment] = [],
              sourcePayloads: [UUID: SourceDocumentPayload] = [:],
              editableWorkspace: Workspace? = nil,
+             savedSnapshotID: UUID? = nil,
              editableMemberPDFData: [UUID: Data] = [:],
              editableOriginalMemberPDFData: [UUID: Data] = [:]) {
             self.comments = comments
             self.sourcePayloads = sourcePayloads
             self.editableWorkspace = editableWorkspace
+            self.savedSnapshotID = savedSnapshotID
             self.editableMemberPDFData = editableMemberPDFData
             self.editableOriginalMemberPDFData = editableOriginalMemberPDFData
         }
@@ -96,6 +100,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             comments = try c.decodeIfPresent([WorkspaceComment].self, forKey: .comments) ?? []
             sourcePayloads = try c.decodeIfPresent([UUID: SourceDocumentPayload].self, forKey: .sourcePayloads) ?? [:]
             editableWorkspace = try c.decodeIfPresent(Workspace.self, forKey: .editableWorkspace)
+            savedSnapshotID = try c.decodeIfPresent(UUID.self, forKey: .savedSnapshotID)
             editableMemberPDFData = try c.decodeIfPresent([UUID: Data].self, forKey: .editableMemberPDFData) ?? [:]
             editableOriginalMemberPDFData = try c.decodeIfPresent([UUID: Data].self, forKey: .editableOriginalMemberPDFData) ?? [:]
         }
@@ -255,7 +260,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
         if let editableWorkspace = metadata.editableWorkspace,
            !metadata.editableMemberPDFData.isEmpty {
             // External-modification guard: if this machine recorded a fingerprint for this
-            // workspace and the file's current bytes no longer match it, a third-party tool
+            // snapshot (legacy files use the workspace ID) and its bytes no longer match, a third-party tool
             // rewrote the file after Orifold saved it. The embedded editable state (edit
             // operations, pristine bases) is now stale relative to the visible content, so
             // let the visible content win — fall through to the flat import below, keeping
@@ -263,7 +268,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             // embedded state as before.
             let externallyModified: Bool
             if let onDiskData,
-               let known = fingerprintStore.fingerprint(for: editableWorkspace.id) {
+               let known = fingerprintStore.fingerprint(for: metadata.savedSnapshotID ?? editableWorkspace.id) {
                 externallyModified = known != WorkspaceFingerprintStore.hash(of: onDiskData)
             } else {
                 externallyModified = false
@@ -344,7 +349,8 @@ final class WorkspaceDocument: ReferenceFileDocument {
     /// text edit's saved bytes go through, and it's worth being able to assert on directly.
     func exportedPDFDataThrowing(from snapshot: WorkspacePackage,
                                  options: WorkspaceExportOptions = WorkspaceExportOptions(),
-                                 formValueOverrides: [PDFFormValueOverride] = []) throws -> Data {
+                                 formValueOverrides: [PDFFormValueOverride] = [],
+                                 savedSnapshotID: UUID = UUID()) throws -> Data {
         let docs: [(MemberDocument, PDFDocument)] = try snapshot.workspace.documents.map { member in
             guard let data = snapshot.memberPDFData[member.id],
                   let pdf = PDFDocument(data: data) else {
@@ -400,6 +406,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 workspace: snapshot.workspace,
                 sourcePayloads: sourcePayloads,
                 editableWorkspace: editableWorkspace,
+                savedSnapshotID: editableWorkspace == nil ? nil : savedSnapshotID,
                 editableMemberPDFData: editableMemberPDFData,
                 editableOriginalMemberPDFData: editableOriginalMemberPDFData,
                 omittingComments: omitsCommentMetadata
@@ -709,6 +716,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
                                       workspace: Workspace,
                                       sourcePayloads: [UUID: SourceDocumentPayload],
                                       editableWorkspace: Workspace? = nil,
+                                      savedSnapshotID: UUID? = nil,
                                       editableMemberPDFData: [UUID: Data] = [:],
                                       editableOriginalMemberPDFData: [UUID: Data] = [:],
                                       omittingComments: Bool = false) throws -> Data {
@@ -728,6 +736,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             comments: comments,
             sourcePayloads: sourcePayloads,
             editableWorkspace: editableWorkspace,
+            savedSnapshotID: savedSnapshotID,
             editableMemberPDFData: editableMemberPDFData,
             editableOriginalMemberPDFData: editableOriginalMemberPDFData
         )),
@@ -777,14 +786,21 @@ final class WorkspaceDocument: ReferenceFileDocument {
     /// source-document text, and every comment) AND the baked visible workspace-comment
     /// sticky notes. qpdf's `sanitized` (which only touches `/Info`, `/Metadata`, actions,
     /// and JavaScript) never removed these, so a "sanitized" file leaked the entire editing
-    /// history and source content. Returns `data` unchanged when nothing was stripped or the
-    /// bytes can't be re-serialized (fail-safe: better an unstripped export than a corrupt
-    /// one — the caller still runs qpdf sanitize afterwards).
-    static func dataStrippedOfOrifoldMetadata(_ data: Data) -> Data {
-        guard let pdf = PDFDocument(data: data) else { return data }
+    /// history and source content. Only a successfully inspected document with no private
+    /// annotations may pass through unchanged. Inspection or serialization failure aborts
+    /// sharing; qpdf does not remove these annotations as a fallback.
+    static func dataStrippedOfOrifoldMetadata(
+        _ data: Data,
+        serialize: (PDFDocument) -> Data? = PDFSerializer.data(from:)
+    ) throws -> Data {
+        guard let pdf = PDFDocument(data: data), !pdf.isLocked else {
+            throw PDFSanitizationError.sanitizationFailed
+        }
         var removed = removeMetadataAnnotations(from: pdf)
         for pageIndex in 0..<pdf.pageCount {
-            guard let page = pdf.page(at: pageIndex) else { continue }
+            guard let page = pdf.page(at: pageIndex) else {
+                throw PDFSanitizationError.sanitizationFailed
+            }
             for annotation in Array(page.annotations) {
                 if annotation.value(forAnnotationKey: bakedWorkspaceCommentAnnotationKey) != nil ||
                     annotation.value(forAnnotationKey: legacyBakedWorkspaceCommentAnnotationKey) != nil ||
@@ -794,7 +810,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 }
             }
         }
-        guard removed, let result = PDFSerializer.data(from: pdf) else { return data }
+        guard removed else { return data }
+        guard let result = serialize(pdf) else {
+            throw PDFSanitizationError.sanitizationFailed
+        }
         return result
     }
 
@@ -805,9 +824,9 @@ final class WorkspaceDocument: ReferenceFileDocument {
         return try savedFileWrapper(from: snapshot)
     }
 
-    /// Builds the exact bytes a save writes to disk and records their fingerprint. Split out
-    /// of `fileWrapper` so the save→reload round trip (including the fingerprint recording) is
-    /// testable without a `WriteConfiguration`, which isn't constructible outside SwiftUI.
+    /// Builds save bytes and records their snapshot-specific fingerprint. FileWrapper
+    /// preparation precedes the actual disk write: a fresh identity ensures an abandoned
+    /// write cannot invalidate any previously saved copy of this workspace.
     func savedFileWrapper(from snapshot: WorkspacePackage) throws -> FileWrapper {
         // An emptied-out workspace (last document deleted) has nothing to preserve.
         // Autosave/close-save must not fail here — that's the save-before-close path,
@@ -817,13 +836,15 @@ final class WorkspaceDocument: ReferenceFileDocument {
             let emptyData = PDFSerializer.data(from: PDFDocument()) ?? Data()
             return FileWrapper(regularFileWithContents: emptyData)
         }
+        let savedSnapshotID = UUID()
         let pdfData = try exportedPDFDataThrowing(
             from: snapshot,
-            options: WorkspaceExportOptions(embedsEditableWorkspaceState: true)
+            options: WorkspaceExportOptions(embedsEditableWorkspaceState: true),
+            savedSnapshotID: savedSnapshotID
         )
-        // Record the fingerprint of exactly these bytes so a future load can tell whether the
-        // file was rewritten by a third-party tool (external modification → drop stale edits).
-        fingerprintStore.record(data: pdfData, for: snapshot.workspace.id)
+        // Each prepared snapshot owns one bounded sidecar entry. Copies retain this identity;
+        // subsequent saves (including Save As and unsuccessful writes) get a different one.
+        fingerprintStore.record(data: pdfData, for: savedSnapshotID)
         PetBuddyHook.trigger(.save)
         return FileWrapper(regularFileWithContents: pdfData)
     }

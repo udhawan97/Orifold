@@ -1910,6 +1910,7 @@ final class WorkspaceViewModel {
     }
 
     private func currentPDFDataForExport() throws -> [UUID: Data] {
+        try reconcileCommittedEditsForOutput()
         reconcileLiveFormValuesWithLoadedPages()
         var result: [UUID: Data] = [:]
         for (member, pdf) in loadedPDFs {
@@ -5115,6 +5116,19 @@ final class WorkspaceViewModel {
         }
     }
 
+    struct CommittedEditReplayError: LocalizedError {
+        let memberIDs: Set<UUID>
+
+        var errorDescription: String? {
+            L10n.string("error.workspace.committedEditReplayFailed")
+        }
+    }
+
+    private struct CommittedEditReconciliation {
+        var regeneratedPages = 0
+        var failedMemberIDs: Set<UUID> = []
+    }
+
     /// Verifies that every page with committed text or object operations actually reflects
     /// them in its current bytes. A stale page invalidates the containing member because replay
     /// is intentionally member-atomic. Regenerating from the canonical base is the
@@ -5132,6 +5146,17 @@ final class WorkspaceViewModel {
     /// were written, so regenerate.
     @discardableResult
     func reconcileCommittedEditsWithLoadedPages() -> Int {
+        reconcileCommittedEdits().regeneratedPages
+    }
+
+    private func reconcileCommittedEditsForOutput() throws {
+        let result = reconcileCommittedEdits()
+        guard result.failedMemberIDs.isEmpty else {
+            throw CommittedEditReplayError(memberIDs: result.failedMemberIDs)
+        }
+    }
+
+    private func reconcileCommittedEdits() -> CommittedEditReconciliation {
         let textByPage = document.workspace.pageEditStates.reduce(
             into: [UUID: [PDFTextEditOperation]]()
         ) { result, state in
@@ -5154,18 +5179,19 @@ final class WorkspaceViewModel {
             staleMembers[ref.memberDocId, default: []].insert(pageRefID)
         }
 
-        var regeneratedPages = 0
+        var result = CommittedEditReconciliation()
         for (memberID, stalePageRefIDs) in staleMembers {
             if replayCommittedEdits(for: memberID) {
-                regeneratedPages += stalePageRefIDs.count
+                result.regeneratedPages += stalePageRefIDs.count
             } else {
+                result.failedMemberIDs.insert(memberID)
                 NSLog(
                     "[Orifold] Warning: member %@ has committed edits its bytes do not show, and replay failed.",
                     memberID.uuidString
                 )
             }
         }
-        return regeneratedPages
+        return result
     }
 
     /// True when a page's current stamp reflects both lanes. The legacy text-presence fallback
@@ -7437,7 +7463,7 @@ final class WorkspaceViewModel {
         // Belt-and-braces against any in-session ops↔bytes divergence: exported bytes must
         // reflect every committed edit operation, so verify (and self-heal) right before
         // they leave the app rather than trusting accumulated state.
-        reconcileCommittedEditsWithLoadedPages()
+        try reconcileCommittedEditsForOutput()
         let liveFormValueOverrides = options.lockFormAnswers
             ? PDFFormSupport.valueOverrides(in: combinedPDF)
             : []
@@ -7592,14 +7618,18 @@ final class WorkspaceViewModel {
     /// back to unsanitized data on failure -- sanitize is a privacy/security
     /// feature, so silently shipping the original bytes when it can't run
     /// would be worse than failing the export outright.
-    static func sanitized(_ data: Data, options: PDFSanitizationOptions?) throws -> Data {
+    static func sanitized(
+        _ data: Data,
+        options: PDFSanitizationOptions?,
+        metadataSerializer: (PDFDocument) -> Data? = PDFSerializer.data(from:)
+    ) throws -> Data {
         guard let options else { return data }
         // Strip Orifold's own embedded metadata FIRST when removing metadata — qpdf's
         // sanitize never touches annotations, so without this the invisible
         // /OrifoldWorkspaceComments blob (full edit history, base64 member bytes, extracted
         // source text, all comments) survived into a supposedly-sanitized share.
         let preStripped = options.removesMetadata
-            ? WorkspaceDocument.dataStrippedOfOrifoldMetadata(data)
+            ? try WorkspaceDocument.dataStrippedOfOrifoldMetadata(data, serialize: metadataSerializer)
             : data
         guard let result = QPDFService.sanitized(preStripped, removingMetadata: options.removesMetadata) else {
             throw PDFSanitizationError.sanitizationFailed
@@ -8634,6 +8664,9 @@ final class WorkspaceViewModel {
         }
         if let sanitizationError = error as? PDFSanitizationError {
             return sanitizationError.userMessage
+        }
+        if let replayError = error as? CommittedEditReplayError {
+            return replayError.localizedDescription
         }
         if let validationError = error as? PDFExportValidationError {
             return validationError.userMessage

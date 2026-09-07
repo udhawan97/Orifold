@@ -42,6 +42,9 @@ DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $APP_NAME.command"
 LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
 LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
 RELEASE_API="https://api.github.com/repos/$REPO/releases/latest"
+INSTALL_TRANSACTION_DIR=""
+INSTALL_TRANSACTION_ACTIVE=0
+INSTALL_HAD_PREVIOUS=0
 
 usage() {
     cat <<USAGE
@@ -92,9 +95,24 @@ fail() {
 }
 
 cleanup() {
-    [[ -n "${STAGE_ROOT:-}" && -d "$STAGE_ROOT" ]] && /bin/rm -rf "$STAGE_ROOT"
+    if [[ $INSTALL_TRANSACTION_ACTIVE -eq 1 ]]; then
+        if [[ -d "$INSTALL_TRANSACTION_DIR/previous.app" ]]; then
+            if ! /bin/rm -rf "$INSTALLED_APP" || ! /bin/mv "$INSTALL_TRANSACTION_DIR/previous.app" "$INSTALLED_APP"; then
+                printf "Could not restore the previous app. It is preserved at %s/previous.app\n" "$INSTALL_TRANSACTION_DIR" >&2
+                return 1
+            fi
+        elif [[ $INSTALL_HAD_PREVIOUS -eq 0 && ! -d "$INSTALL_TRANSACTION_DIR/new.app" ]]; then
+            /bin/rm -rf "$INSTALLED_APP"
+        fi
+        INSTALL_TRANSACTION_ACTIVE=0
+    fi
+    [[ -z "$INSTALL_TRANSACTION_DIR" ]] || /bin/rm -rf "$INSTALL_TRANSACTION_DIR"
+    [[ -z "${STAGE_ROOT:-}" || ! -d "$STAGE_ROOT" ]] || /bin/rm -rf "$STAGE_ROOT"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 # Restore a previously-archived Orifold.app from a zip, without building. Mirrors the in-app
 # restore path (stage-then-swap + verify + relaunch) for use from Terminal — the recovery route
@@ -351,25 +369,29 @@ capture_launch_diagnostics() {
 }
 
 stop_running_app() {
-    local process_name="$1"
+    local app_path="$1"
+    local process_name="${app_path:t:r}"
+    [[ -d "$app_path" ]] || return 0
     if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
-        print_step "Closing $process_name"
-        /usr/bin/osascript -e "tell application \"$process_name\" to quit" >/dev/null 2>&1 || true
+        print_step "Closing $app_path"
+        # A cancelled Save/Don't Save/Cancel prompt is an installer cancellation.
+        # Address this bundle only and never terminate another copy by process name.
+        /usr/bin/osascript - "$app_path" >/dev/null 2>&1 <<'QUIT_APP' || return 1
+on run argv
+    set appPath to item 1 of argv
+    if application appPath is running then
+        tell application appPath to quit
+    end if
+end run
+QUIT_APP
         for _ in {1..20}; do
-            /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || break
+            /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || return 0
             /bin/sleep 0.25
         done
-        if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
-            /usr/bin/pkill -x "$process_name" >/dev/null 2>&1 || true
-            for _ in {1..20}; do
-                /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || break
-                /bin/sleep 0.25
-            done
-        fi
-        if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
-            /usr/bin/pkill -9 -x "$process_name" >/dev/null 2>&1 || true
-        fi
+        print_note "$process_name is still running. Finish saving and quit it before updating."
+        return 1
     fi
+    return 0
 }
 
 remove_build_cache_path() {
@@ -389,15 +411,18 @@ remove_stray_app_copies() {
     # /Applications by hand, or one left over from before this installer
     # existed. Best-effort: a location we can't write to (no admin rights
     # on /Applications) is skipped with a note rather than failing the install.
-    local other_locations=("/Applications")
+    local other_locations=("/Applications" "$INSTALL_DIR")
     local name candidate loc
     for loc in "${other_locations[@]}"; do
         [[ -d "$loc" ]] || continue
         for name in "$APP_NAME" "${LEGACY_APP_NAMES[@]}"; do
             candidate="$loc/$name.app"
-            [[ -d "$candidate" ]] || continue
+            [[ "$candidate" != "$INSTALLED_APP" && -d "$candidate" ]] || continue
             print_step "Removing previous install: $candidate"
-            stop_running_app "$name"
+            if ! stop_running_app "$candidate"; then
+                print_note "Kept $candidate because it did not quit."
+                continue
+            fi
             if /bin/rm -rf "$candidate" 2>>"$LOG_FILE"; then
                 print_note "Removed $candidate"
             else
@@ -407,24 +432,41 @@ remove_stray_app_copies() {
     done
 }
 
-install_staged_app() {
+replace_staged_app() {
     [[ -d "$STAGED_APP" ]] || fail "No staged app bundle was prepared."
 
-    stop_running_app "$APP_NAME"
-    for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
-        stop_running_app "$legacy_app_name"
-    done
-    remove_stray_app_copies
+    [[ ! -L "$INSTALLED_APP" && ( ! -e "$INSTALLED_APP" || -d "$INSTALLED_APP" ) ]] \
+        || fail "The install target must be an app directory, not a symlink or other file."
+    # Prepare and verify on the destination volume before touching the installed app.
+    /bin/mkdir -p "$INSTALL_DIR" || fail "Could not create the Applications folder."
+    INSTALL_TRANSACTION_DIR="$(/usr/bin/mktemp -d "$INSTALL_DIR/.orifold-update.XXXXXX")" \
+        || fail "Could not create update staging beside the installed app."
+    /usr/bin/ditto --norsrc "$STAGED_APP" "$INSTALL_TRANSACTION_DIR/new.app" \
+        || fail "Could not stage the new app; the previous app was preserved."
+    /usr/bin/xattr -cr "$INSTALL_TRANSACTION_DIR/new.app" 2>/dev/null || true
+    verify_app_bundle "$INSTALL_TRANSACTION_DIR/new.app"
+    stop_running_app "$INSTALLED_APP" || fail "Update cancelled; the previous app was preserved."
 
-    print_step "Copying app to $INSTALLED_APP"
-    /bin/mkdir -p "$INSTALL_DIR"
-    /bin/rm -rf "$INSTALLED_APP"
-    for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
-        /bin/rm -rf "$INSTALL_DIR/$legacy_app_name.app"
-    done
-    /usr/bin/ditto --norsrc "$STAGED_APP" "$INSTALLED_APP"
-    /usr/bin/xattr -cr "$INSTALLED_APP" 2>/dev/null || true
+    print_step "Installing app at $INSTALLED_APP"
+    [[ ! -e "$INSTALLED_APP" && ! -L "$INSTALLED_APP" ]] || INSTALL_HAD_PREVIOUS=1
+    INSTALL_TRANSACTION_ACTIVE=1
+    if [[ $INSTALL_HAD_PREVIOUS -eq 1 ]]; then
+        /bin/mv "$INSTALLED_APP" "$INSTALL_TRANSACTION_DIR/previous.app" \
+            || fail "Could not move the previous app aside."
+    fi
+    /bin/mv "$INSTALL_TRANSACTION_DIR/new.app" "$INSTALLED_APP" \
+        || fail "Could not put the new app in place; restoring the previous app."
     verify_app_bundle "$INSTALLED_APP"
+    INSTALL_TRANSACTION_ACTIVE=0
+    /bin/rm -rf "$INSTALL_TRANSACTION_DIR"
+    INSTALL_TRANSACTION_DIR=""
+
+    # A usable replacement now exists. Cancelled quits leave duplicate copies intact.
+    remove_stray_app_copies
+}
+
+install_staged_app() {
+    replace_staged_app
 
     print_step "Refreshing Desktop commands"
     if [[ -d "$HOME/Desktop" ]]; then

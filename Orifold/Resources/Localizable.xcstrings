@@ -1,6 +1,47 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "error.workspace.committedEditReplayFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some committed edits could not be restored. Saving and exporting are paused to protect your work. Undo or revert the affected edits, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron restaurar algunas ediciones confirmadas. Se han pausado el guardado y la exportación para proteger tu trabajo. Deshaz o revierte las ediciones afectadas y vuelve a intentarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certaines modifications validées n’ont pas pu être restaurées. L’enregistrement et l’exportation sont suspendus pour protéger votre travail. Annulez ou rétablissez les modifications concernées, puis réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुछ लागू किए गए संपादन पुनर्स्थापित नहीं हो सके। आपके काम की सुरक्षा के लिए सहेजना और निर्यात रोक दिया गया है। प्रभावित संपादनों को पूर्ववत करें या वापस लें, फिर दोबारा कोशिश करें।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確定済みの編集の一部を復元できませんでした。作業内容を保護するため、保存と書き出しを停止しています。該当する編集を取り消すか元に戻してから、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "部分已确认的编辑无法恢复。为保护您的工作，保存和导出已暂停。请撤销或还原受影响的编辑，然后重试。"
+          }
+        }
+      }
+    },
     "readaloud.fromHere": {
       "extractionState": "manual",
       "localizations": {

@@ -21,8 +21,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  resolve:
+    name: Resolve Release Commit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.revision.outputs.sha }}
+    steps:
+      - name: Checkout selected release ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_tag || github.sha }}
+          persist-credentials: false
+      - name: Record immutable commit
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  validate:
+    name: Validate Release Commit
+    needs: resolve
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      revision: ${{ needs.resolve.outputs.revision }}
+
   build:
     name: Build Prebuilt App
+    needs: [resolve, validate]
     runs-on: macos-15
     timeout-minutes: 30
     permissions:
@@ -37,7 +64,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release_tag || github.ref }}
+          ref: ${{ needs.resolve.outputs.revision }}
           persist-credentials: false
 
       - name: Cache SwiftPM downloads

@@ -14,6 +14,8 @@ struct ScanCleanupSheet: View {
     @State private var preview: ScanCleanupPreviewImages?
     @State private var isPreviewLoading = false
     @State private var previewFailed = false
+    // Keep the attempt's outcome in the sheet even after the canvas banner expires.
+    @State private var applyFailure: WorkspaceViewModel.EditingStatus?
 
     private var targetPageCount: Int {
         viewModel.scanCleanupTargetPageRefIDs(scope: scope).count
@@ -29,6 +31,21 @@ struct ScanCleanupSheet: View {
             proofingDesk
             controls
             warning
+            if let applyFailure {
+                Label {
+                    Text(applyFailure.message)
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .accessibilityHidden(true)
+                }
+                .font(.dsCaption())
+                .foregroundStyle(applyFailure.isError ? Color.dsErrorAccent : Color.dsWarningAccent)
+                .padding(.dsMD)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.dsCard, in: RoundedRectangle(cornerRadius: .dsRadiusSm))
+                .accessibilityElement(children: .combine)
+            }
             footer
         }
         .padding(.dsXL)
@@ -240,9 +257,15 @@ struct ScanCleanupSheet: View {
     private func apply() {
         let pageRefIDs = viewModel.scanCleanupTargetPageRefIDs(scope: scope)
         let selectedOptions = options
+        applyFailure = nil
         Task {
+            let previousStatusID = viewModel.editingStatus?.id
             if await viewModel.applyScanCleanup(pageRefIDs: pageRefIDs, options: selectedOptions) {
                 dismiss()
+            } else if let status = viewModel.editingStatus, status.id != previousStatusID {
+                applyFailure = status
+            } else {
+                applyFailure = .error(L10n.string("status.scanCleanup.applyFailed", locale: locale))
             }
         }
     }

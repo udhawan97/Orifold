@@ -855,6 +855,29 @@ final class ObjectEditWorkspaceTests: XCTestCase {
             liveBytes,
             "a partial replay must not replace the last known-good live member bytes"
         )
+        XCTAssertThrowsError(try vm.dataForPDFExport()) { error in
+            XCTAssertEqual((error as? WorkspaceViewModel.CommittedEditReplayError)?.memberIDs, [member])
+        }
+        XCTAssertThrowsError(try vm.document.snapshot(contentType: .pdf)) { error in
+            XCTAssertEqual((error as? WorkspaceViewModel.CommittedEditReplayError)?.memberIDs, [member])
+        }
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent("failed-replay-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: destination) }
+        XCTAssertFalse(vm.saveFlattenedPDF(to: destination))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+        XCTAssertEqual(vm.exportError?.message, L10n.string("error.workspace.committedEditReplayFailed"))
+        let existingDestinationBytes = Data("existing destination must survive".utf8)
+        try existingDestinationBytes.write(to: destination)
+        XCTAssertFalse(vm.saveFlattenedPDF(to: destination))
+        XCTAssertEqual(try Data(contentsOf: destination), existingDestinationBytes)
+        XCTAssertEqual(vm.document.memberPDFData[member], liveBytes)
+        XCTAssertEqual(vm.document.workspace.objectEditStates.first?.operations, [unresolved],
+                       "failed output must preserve the operations for recovery")
+
+        // Reverting the unresolved operation restores the normal save/export paths.
+        vm.document.workspace.objectEditStates = []
+        XCTAssertNoThrow(try vm.document.snapshot(contentType: .pdf))
+        XCTAssertNoThrow(try vm.dataForPDFExport())
     }
 
     // objectMap caches per pageRef and returns the same identities on repeat calls.

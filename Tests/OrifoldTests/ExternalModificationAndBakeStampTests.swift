@@ -154,6 +154,68 @@ final class ExternalModificationAndBakeStampTests: XCTestCase {
         XCTAssertFalse(reopened.document.restoredOriginalMemberPDFData.isEmpty, "pristine base retained")
     }
 
+    func testDistinctSavedCopiesOfOneWorkspaceBothKeepEditableState() throws {
+        let store = tempStore()
+        let vm = try makeViewModel(from: try makePDFData(pageTexts: ["Copies original paragraph text"]), name: "Copies", store: store)
+        try applyEdit(vm, pageIndex: 0, matching: "Copies original", replacement: "Copies edited unique token")
+        let savedA = try save(vm)
+        vm.addComment("Only in the second saved copy")
+        let savedB = try save(vm)
+        XCTAssertNotEqual(savedA, savedB)
+
+        for (index, saved) in [savedA, savedB].enumerated() {
+            let reopened = try makeViewModel(from: saved, name: "Copy\(index)", store: store)
+            XCTAssertEqual(reopened.document.workspace.id, vm.document.workspace.id)
+            XCTAssertEqual(reopened.document.workspace.pageEditStates, vm.document.workspace.pageEditStates)
+            XCTAssertFalse(reopened.document.restoredOriginalMemberPDFData.isEmpty)
+            XCTAssertFalse(reopened.document.externalModificationDetected)
+            XCTAssertEqual(reopened.document.workspace.comments.count, index)
+        }
+        let rewrittenA = try makeViewModel(from: externallyRewrite(savedA), name: "ChangedCopy", store: store)
+        XCTAssertTrue(rewrittenA.document.externalModificationDetected,
+                      "remembering B must not disable external rewrite detection for A")
+    }
+
+    func testPreparingAnUnwrittenSaveDoesNotInvalidateTheLastDiskSnapshot() throws {
+        let store = tempStore()
+        let vm = try makeViewModel(from: try makePDFData(pageTexts: ["Abandoned original paragraph text"]), name: "Abandoned", store: store)
+        try applyEdit(vm, pageIndex: 0, matching: "Abandoned original", replacement: "Abandoned edited unique token")
+        let directory = makeTempDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let destination = directory.appendingPathComponent("saved.pdf")
+        let savedA = try save(vm)
+        try savedA.write(to: destination)
+        vm.addComment("This save never reaches disk")
+        _ = try vm.document.savedFileWrapper(from: vm.document.snapshot(contentType: .pdf))
+
+        let stillOnDisk = try Data(contentsOf: destination)
+        XCTAssertEqual(stillOnDisk, savedA)
+        let reopened = try makeViewModel(from: stillOnDisk, name: "StillSaved", store: store)
+        XCTAssertTrue(reopened.hasInlineTextEdits)
+        XCTAssertFalse(reopened.document.restoredOriginalMemberPDFData.isEmpty)
+        XCTAssertTrue(reopened.document.workspace.comments.isEmpty)
+        XCTAssertFalse(reopened.document.externalModificationDetected)
+    }
+
+    func testLegacyWorkspaceFingerprintStillDetectsExternalRewriteAfterNewSnapshotSave() throws {
+        let store = tempStore()
+        let vm = try makeViewModel(from: try makePDFData(pageTexts: ["Legacy original paragraph text"]), name: "Legacy", store: store)
+        try applyEdit(vm, pageIndex: 0, matching: "Legacy original", replacement: "Legacy edited unique token")
+        let pdf = try XCTUnwrap(PDFDocument(data: save(vm)))
+        let key = PDFAnnotationKey(rawValue: "/OrifoldWorkspaceComments")
+        let annotation = try XCTUnwrap(pdf.page(at: 0)?.annotations.first { $0.value(forAnnotationKey: key) != nil })
+        let raw = try XCTUnwrap(annotation.value(forAnnotationKey: key) as? String)
+        var metadata = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+        metadata.removeValue(forKey: "savedSnapshotID")
+        annotation.setValue(String(decoding: try JSONSerialization.data(withJSONObject: metadata), as: UTF8.self), forAnnotationKey: key)
+        let legacy = try XCTUnwrap(PDFSerializer.data(from: pdf))
+        store.record(data: legacy, for: vm.document.workspace.id)
+        _ = try save(vm)
+
+        XCTAssertTrue(try makeViewModel(from: legacy, name: "LegacyUnchanged", store: store).hasInlineTextEdits)
+        XCTAssertTrue(try makeViewModel(from: externallyRewrite(legacy), name: "LegacyChanged", store: store).document.externalModificationDetected)
+    }
+
     func testExternalModificationDropsStaleEditsKeepsContentAndFiresNotice() throws {
         let store = tempStore()
         let vm = try makeViewModel(from: try makePDFData(pageTexts: ["Gamma original paragraph text"]), name: "Gamma", store: store)
@@ -204,7 +266,7 @@ final class ExternalModificationAndBakeStampTests: XCTestCase {
         }
 
         XCTAssertTrue(hasBakeStamp(memberBytes), "a regenerated page carries a bake stamp")
-        let sanitized = WorkspaceDocument.dataStrippedOfOrifoldMetadata(memberBytes)
+        let sanitized = try WorkspaceDocument.dataStrippedOfOrifoldMetadata(memberBytes)
         XCTAssertFalse(hasBakeStamp(sanitized), "sanitize strips the bake stamp")
     }
 
