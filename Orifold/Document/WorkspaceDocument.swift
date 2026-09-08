@@ -764,6 +764,13 @@ final class WorkspaceDocument: ReferenceFileDocument {
         return result
     }
 
+    /// Engine bookkeeping has no visible user appearance to preserve during imposition.
+    static func isBookkeepingAnnotation(_ annotation: PDFAnnotation) -> Bool {
+        BakeStamp.isStamp(annotation)
+            || annotation.value(forAnnotationKey: workspaceCommentsAnnotationKey) != nil
+            || annotation.value(forAnnotationKey: legacyWorkspaceCommentsAnnotationKey) != nil
+    }
+
     @discardableResult
     private static func removeMetadataAnnotations(from pdf: PDFDocument) -> Bool {
         var removed = false
@@ -837,11 +844,19 @@ final class WorkspaceDocument: ReferenceFileDocument {
             return FileWrapper(regularFileWithContents: emptyData)
         }
         let savedSnapshotID = UUID()
-        let pdfData = try exportedPDFDataThrowing(
+        let attachments = try snapshot.workspace.documents.flatMap { member in
+            guard let data = snapshot.memberPDFData[member.id] else {
+                throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
+            }
+            return try AttachmentsService.capture(in: data)
+        }
+        let assembledData = try exportedPDFDataThrowing(
             from: snapshot,
             options: WorkspaceExportOptions(embedsEditableWorkspaceState: true),
             savedSnapshotID: savedSnapshotID
         )
+        // Assembly copies pages; restore document-level files after its final PDFKit pass.
+        let pdfData = try AttachmentsService.reinject(attachments, into: assembledData)
         // Each prepared snapshot owns one bounded sidecar entry. Copies retain this identity;
         // subsequent saves (including Save As and unsuccessful writes) get a different one.
         fingerprintStore.record(data: pdfData, for: savedSnapshotID)

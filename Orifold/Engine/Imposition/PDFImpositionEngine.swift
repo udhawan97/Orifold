@@ -5,6 +5,7 @@ enum PDFImpositionError: LocalizedError {
     case invalidPDF
     case impositionFailed
     case saveFailed
+    case liveAnnotations
 
     var errorDescription: String? {
         switch self {
@@ -14,6 +15,8 @@ enum PDFImpositionError: LocalizedError {
             return L10n.string("error.imposition.failed")
         case .saveFailed:
             return L10n.string("error.imposition.saveFailed")
+        case .liveAnnotations:
+            return L10n.string("error.imposition.liveAnnotations")
         }
     }
 }
@@ -41,6 +44,18 @@ enum PDFImpositionEngine {
     static func impose(_ baked: BakedPDFData, layout: ImpositionLayout) throws -> Data {
         let data = baked.bytes
         guard !data.isEmpty, data.count <= Int(Int32.max) else { throw PDFImpositionError.invalidPDF }
+        // Optional export bakers do not flatten arbitrary PDF annotations. Refuse before
+        // any page transformation rather than lose their appearance in a valid output PDF.
+        // This gate also protects callers that construct BakedPDFData outside the workspace.
+        guard let inspection = PDFDocument(data: data), !inspection.isLocked else {
+            throw PDFImpositionError.invalidPDF
+        }
+        for index in 0..<inspection.pageCount {
+            guard let page = inspection.page(at: index) else { throw PDFImpositionError.invalidPDF }
+            if page.annotations.contains(where: { !WorkspaceDocument.isBookkeepingAnnotation($0) }) {
+                throw PDFImpositionError.liveAnnotations
+            }
+        }
 
         // Scale is not PDFium work: `FPDF_ImportNPagesToOne` short-circuits a 1×1 grid to
         // a plain page copy (no resize), so the target size is applied by re-rendering

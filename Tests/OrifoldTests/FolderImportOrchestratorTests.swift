@@ -1,3 +1,4 @@
+import PDFKit
 import UniformTypeIdentifiers
 import XCTest
 @testable import Orifold
@@ -217,7 +218,7 @@ final class FolderImportOrchestratorTests: XCTestCase {
     }
 
     @MainActor
-    func testImportFirstFromPendingBatchSurfacesTruncationEvenWithNoUnsupportedFiles() {
+    func testImportFirstFromPendingBatchSurfacesTruncationEvenWithNoUnsupportedFiles() async throws {
         // Regression test: the shared "Import first 50" handler used by both the
         // drop-zone/button confirmation dialog and the File-menu's NSAlert only
         // checked unsupportedCount, silently dropping the truncation signal after
@@ -231,7 +232,62 @@ final class FolderImportOrchestratorTests: XCTestCase {
 
         importFirstFromPendingBatch(batch, into: viewModel)
 
-        XCTAssertNotNil(viewModel.editingStatus, "a truncated scan must still be surfaced after confirming the import")
+        XCTAssertNil(viewModel.editingStatus, "no success before parsing")
+        try await waitForImport(in: viewModel)
+        XCTAssertEqual(viewModel.editingStatus?.message, folderImportReadyStatusMessage(importedCount: 0, unsupportedCount: 0, wasTruncated: true))
+    }
+
+    @MainActor
+    func testOverLimitImportCountsOnlyAttachedFilesAndKeepsTheFiftyFileLimit() async throws {
+        let root = makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let viewModel = makeViewModel()
+        let pdf = PDFDocument()
+        let view = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 300))
+        pdf.insert(try XCTUnwrap(PDFDocument(data: view.dataWithPDF(inside: view.bounds))?.page(at: 0)), at: 0)
+        let bytes = try XCTUnwrap(PDFSerializer.data(from: pdf))
+        let plain = root.appendingPathComponent("plain.pdf")
+        try bytes.write(to: plain)
+        let encrypted = root.appendingPathComponent("locked.pdf")
+        try PDFEncryptionService.encryptedData(from: bytes, options: PDFEncryptionOptions(userPassword: "fixture", ownerPassword: "owner")).write(to: encrypted)
+        let corrupt = try write("corrupt.pdf", in: root, contents: "%PDF-1.4 broken")
+        let batch = PendingFolderImportBatch(
+            urls: [plain, encrypted, corrupt] + Array(repeating: corrupt, count: 47) + [plain],
+            unsupportedCount: 2,
+            wasTruncated: true
+        )
+        importFirstFromPendingBatch(batch, into: viewModel)
+        XCTAssertNil(viewModel.editingStatus)
+        try await waitForImport(in: viewModel)
+        XCTAssertEqual(viewModel.memberDocuments.count, 1)
+        XCTAssertEqual(viewModel.pendingPasswordURL, encrypted)
+        XCTAssertNotNil(viewModel.importError)
+        XCTAssertEqual(viewModel.editingStatus?.message, folderImportReadyStatusMessage(importedCount: 1, unsupportedCount: 2, wasTruncated: true))
+    }
+
+    @MainActor
+    func testOverLimitImportCancellationRetainsWarningAndBusyStartCannotAnnounceSuccess() async throws {
+        let root = makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = try write("input.txt", in: root)
+        let batch = PendingFolderImportBatch(urls: Array(repeating: url, count: 60), unsupportedCount: 1, wasTruncated: false)
+        let viewModel = makeViewModel()
+        importFirstFromPendingBatch(batch, into: viewModel)
+        importFirstFromPendingBatch(batch, into: viewModel)
+        XCTAssertEqual(viewModel.editingStatus?.severity, .warning)
+        viewModel.cancelActiveOperation()
+        try await waitForImport(in: viewModel)
+        XCTAssertEqual(viewModel.editingStatus?.severity, .warning)
+        XCTAssertEqual(viewModel.editingStatus?.message, WorkspaceOperationalCopy.importCanceled(afterAdding: viewModel.memberDocuments.count))
+    }
+
+    @MainActor
+    private func waitForImport(in viewModel: WorkspaceViewModel) async throws {
+        let deadline = Date().addingTimeInterval(15)
+        while viewModel.isImporting {
+            guard Date() < deadline else { return XCTFail("Import did not finish") }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
     }
 
     // MARK: - resolveImportDrop classification (regression guard for the folder-aware drop path)

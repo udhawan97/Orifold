@@ -1150,14 +1150,16 @@ final class WorkspaceViewModel {
         cancellation: OperationCancellationToken,
         onCompletion: ((_ importedCount: Int, _ wasCancelled: Bool) -> Void)? = nil
     ) async {
-        await MainActor.run {
+        let placement = await MainActor.run {
             self.operationProgress.start(
                 title: L10n.string("progress.import.title"),
                 detail: importProgressDetail(currentIndex: 0, totalCount: urls.count),
                 isCancellable: true
             )
+            return ImportBatchPlacement(
+                insertingAfter: targetPageRefID ?? self.document.workspace.documents.last?.pageRefs.last
+            )
         }
-        var insertionAnchorID = targetPageRefID
         var failures: [AsyncImportFailure] = []
         var importedCount = 0
         for (index, url) in urls.enumerated() {
@@ -1171,14 +1173,14 @@ final class WorkspaceViewModel {
             let result = await importDocument(from: url, cancellation: cancellation)
             switch result {
             case .success(let imported):
-                let targetID = insertionAnchorID
-                let attachedLastPageID = await MainActor.run {
-                    self.attachImportedDocument(imported.document, from: imported.url, insertingAfter: targetID)?.pageRefs.last
+                let attached = await MainActor.run {
+                    self.attachImportedDocument(
+                        imported.document,
+                        from: imported.url,
+                        position: ImportPosition(batch: placement, index: index)
+                    ) != nil
                 }
-                if let attachedLastPageID {
-                    insertionAnchorID = attachedLastPageID
-                    importedCount += 1
-                }
+                if attached { importedCount += 1 }
             case .failure(let failure):
                 failures.append(failure)
             }
@@ -1278,10 +1280,24 @@ final class WorkspaceViewModel {
         var error: Error
     }
 
+    /// Shared only for the lifetime of a batch and its password queue. Successful
+    /// attachments occupy their original positions; failures and skips leave no anchor.
+    private final class ImportBatchPlacement {
+        let insertingAfter: UUID?
+        var attachedMembers: [Int: UUID] = [:]
+
+        init(insertingAfter: UUID?) { self.insertingAfter = insertingAfter }
+    }
+
+    private struct ImportPosition {
+        let batch: ImportBatchPlacement
+        let index: Int
+    }
+
     private struct PendingPasswordImport {
         var url: URL
         var pdf: PDFDocument
-        var insertingAfter: UUID?
+        var position: ImportPosition?
     }
 
     private func importDocument(from url: URL, cancellation: OperationCancellationToken) async -> Result<AsyncImportedDocument, AsyncImportFailure> {
@@ -1402,17 +1418,17 @@ final class WorkspaceViewModel {
     @discardableResult
     private func attachImportedDocument(_ imported: DocumentImportConverter.ImportedDocument,
                                         from url: URL,
-                                        insertingAfter targetPageRefID: UUID? = nil) -> MemberDocument? {
+                                        position: ImportPosition) -> MemberDocument? {
         let pdf = imported.pdfDocument
         if pdf.isLocked {
-            enqueuePasswordImport(pdf: pdf, url: url, insertingAfter: targetPageRefID)
+            enqueuePasswordImport(pdf: pdf, url: url, position: position)
             return nil
         }
         return attachPDF(
             pdf,
             from: url,
             sourcePayload: imported.sourcePayload,
-            insertingAfter: targetPageRefID,
+            importPosition: position,
             originalPDFData: imported.originalPDFData
         )
     }
@@ -1422,7 +1438,7 @@ final class WorkspaceViewModel {
         guard pdf.unlock(withPassword: password) else { return false }
         let pending = pendingPasswordImports.first
         smokeValidatePDFData(pdf.dataRepresentation(), password: password)
-        attachPDF(pdf, from: url, sourcePayload: nil, insertingAfter: pending?.insertingAfter)
+        attachPDF(pdf, from: url, sourcePayload: nil, importPosition: pending?.position)
         removeCurrentPasswordImport()
         rebuild()
         return true
@@ -1432,8 +1448,8 @@ final class WorkspaceViewModel {
         removeCurrentPasswordImport()
     }
 
-    private func enqueuePasswordImport(pdf: PDFDocument, url: URL, insertingAfter targetPageRefID: UUID? = nil) {
-        pendingPasswordImports.append(PendingPasswordImport(url: url, pdf: pdf, insertingAfter: targetPageRefID))
+    private func enqueuePasswordImport(pdf: PDFDocument, url: URL, position: ImportPosition? = nil) {
+        pendingPasswordImports.append(PendingPasswordImport(url: url, pdf: pdf, position: position))
         presentPendingPasswordImportIfNeeded()
     }
 
@@ -1463,7 +1479,7 @@ final class WorkspaceViewModel {
     private func attachPDF(_ pdf: PDFDocument,
                            from url: URL,
                            sourcePayload: SourceDocumentPayload? = nil,
-                           insertingAfter targetPageRefID: UUID? = nil,
+                           importPosition: ImportPosition? = nil,
                            originalPDFData: Data? = nil) -> MemberDocument? {
         sanitizeInkAnnotations(in: pdf)
 
@@ -1490,7 +1506,13 @@ final class WorkspaceViewModel {
         if document.workspace.title == "Untitled Workspace", document.workspace.documents.isEmpty, !name.isEmpty {
             document.workspace.title = name
         }
-        if let targetPageRefID,
+        let targets = importPosition.map(importInsertionTargets) ?? (after: nil, before: nil)
+        if let followingPageRefID = targets.before,
+           let followingDocIndex = document.workspace.documents.firstIndex(where: { $0.pageRefs.contains(followingPageRefID) }),
+           let followingPageIndex = document.workspace.pageOrder.firstIndex(where: { $0.id == followingPageRefID }) {
+            document.workspace.documents.insert(member, at: followingDocIndex)
+            document.workspace.pageOrder.insert(contentsOf: refs, at: followingPageIndex)
+        } else if let targetPageRefID = targets.after,
            let targetDocIndex = document.workspace.documents.firstIndex(where: { $0.pageRefs.contains(targetPageRefID) }),
            let lastTargetPageID = document.workspace.documents[targetDocIndex].pageRefs.last,
            let targetPageIndex = document.workspace.pageOrder.firstIndex(where: { $0.id == lastTargetPageID }) {
@@ -1517,7 +1539,25 @@ final class WorkspaceViewModel {
         loadedPDFs.append((member, pdf))
         syncLoadedPDFsOrder()
         PetBuddyHook.trigger(.addFile)
+        if let importPosition { importPosition.batch.attachedMembers[importPosition.index] = member.id }
         return member
+    }
+
+    private func importInsertionTargets(for position: ImportPosition) -> (after: UUID?, before: UUID?) {
+        let members = Dictionary(uniqueKeysWithValues: document.workspace.documents.map { ($0.id, $0) })
+        for index in position.batch.attachedMembers.keys.sorted(by: >) where index < position.index {
+            if let id = position.batch.attachedMembers[index], let page = members[id]?.pageRefs.last {
+                return (page, nil)
+            }
+        }
+        // A leading locked member has no preceding attachment. Anchor it before the
+        // first later member instead of appending it after the already parsed batch.
+        for index in position.batch.attachedMembers.keys.sorted() where index > position.index {
+            if let id = position.batch.attachedMembers[index], let page = members[id]?.pageRefs.first {
+                return (nil, page)
+            }
+        }
+        return (position.batch.insertingAfter, nil)
     }
 
     private func smokeValidatePDFData(_ data: Data?, password: String? = nil) {
@@ -1910,6 +1950,15 @@ final class WorkspaceViewModel {
     }
 
     private func currentPDFDataForExport() throws -> [UUID: Data] {
+        // Replay and PDFKit serialization are page-oriented; capture the authoritative
+        // document-level lane before either can replace it.
+        var attachments: [UUID: [AttachmentsService.CapturedAttachment]] = [:]
+        for member in document.workspace.documents {
+            guard let data = document.memberPDFData[member.id] else {
+                throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
+            }
+            attachments[member.id] = try AttachmentsService.capture(in: data)
+        }
         try reconcileCommittedEditsForOutput()
         reconcileLiveFormValuesWithLoadedPages()
         var result: [UUID: Data] = [:]
@@ -1923,7 +1972,10 @@ final class WorkspaceViewModel {
             // LIVE document is still in hand — every later stage sees only bytes and has no
             // way to know the destinations drifted. Falls back to `data` when the member has
             // no bookmarks or the repair cannot serialize, so export never fails over this.
-            result[member.id] = PDFOutlineBuilder.reanchoring(data, toOutlineOf: pdf) ?? data
+            let outlined = PDFOutlineBuilder.reanchoring(data, toOutlineOf: pdf) ?? data
+            result[member.id] = try AttachmentsService.replacingAttachments(
+                in: outlined, with: attachments[member.id] ?? []
+            )
         }
         return result
     }
@@ -2456,43 +2508,119 @@ final class WorkspaceViewModel {
         selectPage(note.pageRef)
     }
 
+    private static let annotationIdentityKey = PDFAnnotationKey(rawValue: "/OrifoldAnnotationID")
+
+    private struct AnnotationUndoTarget {
+        let pageRefID: UUID
+        let annotationID: String
+    }
+
+    /// PDFKit objects are replaced by replay and order undo. Only a persisted annotation
+    /// identity together with a stable PageRef may cross that boundary in an undo closure.
+    private func annotationUndoTarget(for annotation: PDFAnnotation) -> AnnotationUndoTarget? {
+        guard let page = annotation.page else { return nil }
+        for (member, pdf) in loadedPDFs {
+            guard let localIndex = (0..<pdf.pageCount).first(where: { pdf.page(at: $0) === page }),
+                  member.pageRefs.indices.contains(localIndex) else { continue }
+            let identity = annotation.value(forAnnotationKey: Self.annotationIdentityKey) as? String
+                ?? UUID().uuidString
+            annotation.setValue(identity, forAnnotationKey: Self.annotationIdentityKey)
+            return AnnotationUndoTarget(pageRefID: member.pageRefs[localIndex], annotationID: identity)
+        }
+        return nil
+    }
+
+    private func annotationUndoPage(_ target: AnnotationUndoTarget) -> PDFPage? {
+        guard let ref = workspacePageRef(target.pageRefID), let lookup = memberPDF(for: ref),
+              let index = localIndex(ref: ref, memberIndex: lookup.documentIndex) else { return nil }
+        return lookup.pdf.page(at: index)
+    }
+
+    private func annotationUndoMatches(_ target: AnnotationUndoTarget, on page: PDFPage) -> [PDFAnnotation] {
+        page.annotations.filter {
+            $0.value(forAnnotationKey: Self.annotationIdentityKey) as? String == target.annotationID
+        }
+    }
+
+    private func showAnnotationUndoTargetMissing() {
+        showEditMessage(L10n.string("error.annotation.undoTargetMissing"), isError: true)
+    }
+
     func removeNoteComment(_ note: PDFNoteComment) {
         guard canPerformMutatingAction() else { return }
-        guard let page = note.annotation.page else { return }
-        page.removeAnnotation(note.annotation)
-        if selectedAnnotation === note.annotation {
-            selectedAnnotation = nil
+        guard let target = annotationUndoTarget(for: note.annotation),
+              let template = note.annotation.copy() as? PDFAnnotation else {
+            showAnnotationUndoTargetMissing()
+            return
+        }
+        restoreAnnotationPresence(target, template: template, present: false,
+                                  actionName: L10n.string("undo.removeNote"))
+    }
+
+    private func restoreAnnotationPresence(_ target: AnnotationUndoTarget, template: PDFAnnotation,
+                                           present: Bool, actionName: String) {
+        guard let page = annotationUndoPage(target) else {
+            showAnnotationUndoTargetMissing()
+            return
+        }
+        let matches = annotationUndoMatches(target, on: page)
+        let inverseTemplate: PDFAnnotation
+        if present {
+            guard matches.isEmpty, let copy = template.copy() as? PDFAnnotation else {
+                showAnnotationUndoTargetMissing()
+                return
+            }
+            page.addAnnotation(copy)
+            inverseTemplate = template
+        } else {
+            guard matches.count == 1, let annotation = matches.first,
+                  let copy = annotation.copy() as? PDFAnnotation else {
+                showAnnotationUndoTargetMissing()
+                return
+            }
+            inverseTemplate = copy
+            page.removeAnnotation(annotation)
+            if selectedAnnotation === annotation { selectedAnnotation = nil }
         }
         markAnnotationsModified()
         undoManager?.registerUndo(withTarget: self) { vm in
             guard vm.canPerformUndoMutation() else { return }
-            page.addAnnotation(note.annotation)
-            vm.markAnnotationsModified()
+            vm.restoreAnnotationPresence(target, template: inverseTemplate, present: !present, actionName: actionName)
         }
-        undoManager?.setActionName(L10n.string("undo.removeNote"))
+        undoManager?.setActionName(actionName)
     }
 
     func registerAnnotationEdit(_ annotation: PDFAnnotation,
                                 from oldSnapshot: PDFAnnotationEditSnapshot,
                                 actionName: String) {
         guard canPerformMutatingAction() else { return }
-        guard annotation.page != nil else {
+        guard let target = annotationUndoTarget(for: annotation) else {
             markAnnotationsModified()
+            showAnnotationUndoTargetMissing()
             return
         }
-        registerAnnotationSnapshotUndo(annotation, restore: oldSnapshot, actionName: actionName)
+        registerAnnotationSnapshotUndo(target, restore: oldSnapshot, actionName: actionName)
         markAnnotationsModified()
     }
 
-    private func registerAnnotationSnapshotUndo(_ annotation: PDFAnnotation,
+    private func registerAnnotationSnapshotUndo(_ target: AnnotationUndoTarget,
                                                 restore snapshot: PDFAnnotationEditSnapshot,
                                                 actionName: String) {
-        let redoSnapshot = PDFAnnotationEditSnapshot(annotation: annotation)
         undoManager?.registerUndo(withTarget: self) { vm in
             guard vm.canPerformUndoMutation() else { return }
+            guard let page = vm.annotationUndoPage(target) else {
+                vm.showAnnotationUndoTargetMissing()
+                return
+            }
+            let matches = vm.annotationUndoMatches(target, on: page)
+            guard matches.count == 1, let annotation = matches.first else {
+                vm.showAnnotationUndoTargetMissing()
+                return
+            }
+            let redoSnapshot = PDFAnnotationEditSnapshot(annotation: annotation)
             snapshot.restore(to: annotation)
             vm.markAnnotationsModified()
-            vm.registerAnnotationSnapshotUndo(annotation, restore: redoSnapshot, actionName: actionName)
+            vm.registerAnnotationSnapshotUndo(target, restore: redoSnapshot, actionName: actionName)
         }
         undoManager?.setActionName(actionName)
     }
@@ -3653,41 +3781,20 @@ final class WorkspaceViewModel {
         markWorkspaceModified()
     }
 
-    struct CollectedAttachment: Sendable {
-        let name: String
-        let data: Data
-        let mimeType: String?
+    typealias CollectedAttachment = AttachmentsService.CapturedAttachment
+
+    /// Captures document-level files before page replay/assembly can discard them.
+    private func collectMemberAttachments() throws -> [CollectedAttachment] {
+        try document.workspace.documents.flatMap { member in
+            guard let data = document.memberPDFData[member.id] else {
+                throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
+            }
+            return try AttachmentsService.capture(in: data)
+        }
     }
 
-    /// Snapshots every member's attachments into decoded `(name, bytes, mime)`
-    /// tuples. Captured at the *start* of an export — before reconcile/replay,
-    /// which regenerate member bytes from the page-content lanes that don't carry
-    /// document-level embedded files — so the attachments survive to re-injection.
-    private func collectMemberAttachments() -> [CollectedAttachment] {
-        var collected: [CollectedAttachment] = []
-        for member in document.workspace.documents {
-            guard let data = document.memberPDFData[member.id],
-                  let attachments = try? AttachmentsService.list(in: data), !attachments.isEmpty else { continue }
-            for attachment in attachments {
-                guard let bytes = try? AttachmentsService.extract(attachment.name, from: data) else { continue }
-                collected.append(CollectedAttachment(name: attachment.name, data: bytes, mimeType: attachment.mimeType))
-            }
-        }
-        return collected
-    }
-
-    /// Re-grafts collected attachments onto assembled export bytes. `add` itself
-    /// disambiguates colliding keys, so attachments with the same name across
-    /// merged members land under distinct keys.
-    static func reinjectingAttachments(_ collected: [CollectedAttachment], into exportData: Data) -> Data {
-        guard !collected.isEmpty else { return exportData }
-        var result = exportData
-        for item in collected {
-            if let updated = try? AttachmentsService.add(item.data, name: item.name, mimeType: item.mimeType, to: result) {
-                result = updated
-            }
-        }
-        return result
+    static func reinjectingAttachments(_ collected: [CollectedAttachment], into exportData: Data) throws -> Data {
+        try AttachmentsService.reinject(collected, into: exportData)
     }
 
     // MARK: - Decorations
@@ -7459,7 +7566,7 @@ final class WorkspaceViewModel {
         // PDFKit export assembly (and the compression/imposition passes). Capture
         // them BEFORE reconcile/replay can regenerate member bytes from the
         // page-content lanes, then re-graft them below.
-        let preservedAttachments = collectMemberAttachments()
+        let preservedAttachments = try collectMemberAttachments()
         // Belt-and-braces against any in-session ops↔bytes divergence: exported bytes must
         // reflect every committed edit operation, so verify (and self-heal) right before
         // they leave the app rather than trusting accumulated state.
@@ -7545,7 +7652,7 @@ final class WorkspaceViewModel {
         // deliberately strips embedded files, and encryption, which preserves them.
         try checkCancellation()
         progress?(0.6, .attachments)
-        let attachedData = Self.reinjectingAttachments(preservedAttachments, into: outlinedData)
+        let attachedData = try Self.reinjectingAttachments(preservedAttachments, into: outlinedData)
         try checkCancellation()
         progress?(0.75, .sanitize)
         let sanitizedData = try Self.sanitized(attachedData, options: options.sanitization)

@@ -72,9 +72,7 @@ final class UpdateLaunchCoordinator {
             try? await Task.sleep(nanoseconds: UInt64(Self.healthyGraceInterval * 1_000_000_000))
             guard !Task.isCancelled, let self else { return }
             self.sentinel.markHealthy()
-            if let latest = self.history.latest, latest.toVersion == self.currentVersion, !latest.launchVerified {
-                self.history.update(id: latest.id) { $0.launchVerified = true; $0.verifiedAt = Date() }
-            }
+            Self.confirmHealthyInstall(in: self.history, currentVersion: self.currentVersion)
         }
 
         Task { await UpdateController.shared.maybeRunAutomaticCheck() }
@@ -95,7 +93,30 @@ final class UpdateLaunchCoordinator {
 
     static func evaluateInstallOutcome(attempt: InstallAttempt?, currentVersion: String) -> InstallOutcome {
         guard let attempt else { return .none }
-        return attempt.toVersion == currentVersion ? .succeeded : .failed
+        return versionsMatch(attempt.toVersion, currentVersion) ? .succeeded : .failed
+    }
+
+    /// The grace-period commit, separated from the timer so persisted history can be verified.
+    static func confirmHealthyInstall(in history: UpdateHistoryStore, currentVersion: String, at date: Date = Date()) {
+        guard let latest = history.latest, !latest.launchVerified,
+              versionsMatch(latest.toVersion, currentVersion) else { return }
+        history.update(id: latest.id) { $0.launchVerified = true; $0.verifiedAt = date }
+    }
+
+    /// Both persisted offers and bundle marketing strings name numeric version identities.
+    /// Do not let two malformed values compare equal through optional equality.
+    static func versionsMatch(_ offered: String, _ running: String) -> Bool {
+        let pattern = #"^(?:release-)?[vV]?[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"#
+        let values = [offered, running].map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard values.allSatisfy({ value in
+            guard value.range(of: pattern, options: .regularExpression) != nil else { return false }
+            let core = value.replacingOccurrences(of: #"^(?:release-)?[vV]?"#, with: "", options: .regularExpression)
+                .prefix { $0 != "-" && $0 != "+" }
+            return core.split(separator: ".").allSatisfy { Int($0) != nil }
+        }),
+              let lhs = UpdateVersion(string: values[0]),
+              let rhs = UpdateVersion(string: values[1]) else { return false }
+        return lhs == rhs
     }
 
     /// Resolves a document to reopen, preferring the security-scoped bookmark (survives

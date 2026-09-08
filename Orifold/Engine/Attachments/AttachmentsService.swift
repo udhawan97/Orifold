@@ -43,6 +43,38 @@ enum AttachmentsError: Error, Equatable {
 /// this manager touch the same object graph, so a sanitized export intentionally
 /// drops every attachment listed here.
 enum AttachmentsService {
+    struct CapturedAttachment: Sendable {
+        let name: String
+        let data: Data
+        let mimeType: String?
+    }
+
+    /// Capture from the authoritative member lane before any PDFKit page serialization.
+    /// A failed extraction must abort saving, never silently omit a promised attachment.
+    static func capture(in data: Data) throws -> [CapturedAttachment] {
+        try list(in: data).map {
+            CapturedAttachment(name: $0.name, data: try extract($0.name, from: data), mimeType: $0.mimeType)
+        }
+    }
+
+    static func reinject(_ attachments: [CapturedAttachment], into data: Data) throws -> Data {
+        try attachments.reduce(data) { result, attachment in
+            try add(attachment.data, name: attachment.name, mimeType: attachment.mimeType, to: result)
+        }
+    }
+
+    /// Replace, rather than append: the serialized live PDF may still carry an attachment
+    /// removed from the authoritative byte lane. An empty capture therefore clears it too.
+    static func replacingAttachments(in data: Data, with attachments: [CapturedAttachment]) throws -> Data {
+        let existing = try list(in: data)
+        guard !existing.isEmpty || !attachments.isEmpty else { return data }
+        var result = data
+        for attachment in existing {
+            result = try remove(attachment.name, from: result)
+        }
+        return try reinject(attachments, into: result)
+    }
+
     // MARK: - List / extract (qpdf_oh name-tree walk)
 
     /// Returns every embedded file in `data`, in name-tree order. An absent name

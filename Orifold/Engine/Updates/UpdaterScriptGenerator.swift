@@ -188,6 +188,45 @@ struct UpdaterScriptGenerator {
 
     // MARK: - Template
 
+    /// Both scripts own the same transaction lifecycle. A pre-swap interruption leaves the
+    /// target untouched; an uncommitted swap restores its backup. Uncatchable interruption
+    /// leaves the backup plus the prewritten, archive-bound standalone helper for recovery.
+    private static let transactionHelpers = ##"""
+    TRANSACTION_ACTIVE=0
+    HAD_PREVIOUS=0
+
+    rollback_transaction() {
+        [[ "$TRANSACTION_ACTIVE" == 1 ]] || return 0
+        if [[ -d "$BACKUP" && ! -L "$BACKUP" ]]; then
+            if ! rm -rf "$APP_PATH" || ! mv "$BACKUP" "$APP_PATH"; then
+                say "Recovery could not finish. The previous app is preserved at $BACKUP."
+                return 1
+            fi
+        elif [[ "$HAD_PREVIOUS" == 0 ]]; then
+            # A restore into a previously absent target must remove an unverified new copy.
+            [[ -e "$STAGING" ]] || rm -rf "$APP_PATH" || return 1
+        else
+            say "The update stopped. If Orifold will not open, run Restore Previous Orifold.command."
+            return 1
+        fi
+        TRANSACTION_ACTIVE=0
+        return 0
+    }
+
+    finish_transaction() {
+        local result=$?
+        trap - EXIT HUP INT TERM
+        rollback_transaction || result=1
+        cleanup
+        exit "$result"
+    }
+
+    trap finish_transaction EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    trap 'exit 129' HUP
+    """##
+
     static let template = ##"""
     #!/bin/zsh -f
     set -u
@@ -261,10 +300,13 @@ struct UpdaterScriptGenerator {
         [[ -d "$STAGING" ]] && rm -rf "$STAGING" 2>/dev/null
     }
 
+    @@TRANSACTION_HELPERS@@
+
     fail() {
+        rollback_transaction
         cleanup
         say ""
-        say "The update did not complete. Your current version was not changed."
+        say "The update did not complete."
         say "$1"
         say ""
         say "Press Return to close this window."
@@ -272,22 +314,7 @@ struct UpdaterScriptGenerator {
         exit 1
     }
 
-    # After the old bundle has been moved aside, a failure must put it back — even if the
-    # swap already succeeded and a (possibly-unlaunchable) new bundle now sits at APP_PATH
-    # (e.g. post-swap verification failed). Remove whatever is at the target first, then
-    # restore the known-good backup (or the rollback archive); never leave the new one.
     restore_and_fail() {
-        if [[ -d "$BACKUP" ]]; then
-            rm -rf "$APP_PATH" 2>/dev/null
-            mv "$BACKUP" "$APP_PATH" 2>/dev/null
-        elif [[ -n "$ROLLBACK_ZIP" && -n "$ROLLBACK_SHA" && -f "$ROLLBACK_ZIP" ]]; then
-            local actualRollbackSHA
-            actualRollbackSHA="$(shasum -a 256 "$ROLLBACK_ZIP" 2>/dev/null | awk '{print $1}')"
-            if [[ "$actualRollbackSHA" == "$ROLLBACK_SHA" ]]; then
-                rm -rf "$APP_PATH" 2>/dev/null
-                ditto -x -k "$ROLLBACK_ZIP" "$(dirname "$APP_PATH")" 2>/dev/null
-            fi
-        fi
         fail "$1"
     }
 
@@ -318,7 +345,7 @@ struct UpdaterScriptGenerator {
         /Volumes/*|/private/var/folders/*)
             fail "Orifold is running from a temporary location. Move it to Applications, then update." ;;
     esac
-    [[ -d "$APP_PATH" ]] || fail "The current app was not found where expected."
+    [[ -d "$APP_PATH" && ! -L "$APP_PATH" ]] || fail "The current app was not found where expected."
     [[ -w "$(dirname "$APP_PATH")" ]] || fail "No permission to update Orifold in $(dirname "$APP_PATH")."
 
     # 4. Mount the verified image.
@@ -341,7 +368,9 @@ struct UpdaterScriptGenerator {
     ditto "$NEW_APP" "$STAGING" || fail "Could not copy the new version into place."
 
     # 7. Swap. From here on, any failure restores the previous version.
-    rm -rf "$BACKUP"
+    [[ ! -e "$BACKUP" && ! -L "$BACKUP" ]] || fail "A previous backup already exists at $BACKUP."
+    HAD_PREVIOUS=1
+    TRANSACTION_ACTIVE=1
     mv "$APP_PATH" "$BACKUP" || fail "Could not move the current version aside."
     mv "$STAGING" "$APP_PATH" || restore_and_fail "Could not move the new version into place."
 
@@ -352,7 +381,8 @@ struct UpdaterScriptGenerator {
     verify_publisher_identity "$APP_PATH" \
         || restore_and_fail "The installed app failed publisher verification."
 
-    # 9. Success: clean up and relaunch the new version.
+    # 9. Commit only after both installed-copy checks succeeded.
+    TRANSACTION_ACTIVE=0
     rm -rf "$BACKUP"
     [[ -d "$MOUNT" ]] && hdiutil detach "$MOUNT" -quiet 2>/dev/null
     rm -f "$DMG_PATH" 2>/dev/null
@@ -362,12 +392,11 @@ struct UpdaterScriptGenerator {
     fi
     say "Orifold $NEW_VERSION is installed."
     exit 0
-    """##
+    """##.replacingOccurrences(of: "@@TRANSACTION_HELPERS@@", with: transactionHelpers)
 
     // Restore template: same stage-then-swap + verify + relaunch contract as `template`, but the
     // source is the archived previous-version zip (extracted) instead of a downloaded DMG
-    // (mounted). Kept as a separate template so the shipped, dry-run-tested update path stays
-    // byte-for-byte untouched.
+    // (mounted). Transaction cleanup is shared so interruption behavior cannot drift.
     static let restoreTemplate = ##"""
     #!/bin/zsh -f
     set -u
@@ -426,10 +455,13 @@ struct UpdaterScriptGenerator {
         [[ -d "$STAGING" ]] && rm -rf "$STAGING" 2>/dev/null
     }
 
+    @@TRANSACTION_HELPERS@@
+
     fail() {
+        rollback_transaction
         cleanup
         say ""
-        say "Restore did not complete. Your current version was not changed."
+        say "Restore did not complete."
         say "$1"
         say ""
         say "Press Return to close this window."
@@ -437,14 +469,7 @@ struct UpdaterScriptGenerator {
         exit 1
     }
 
-    # After the current bundle has been moved aside, a failure must put it back — whether the
-    # target slot is empty (a failed swap) OR now holds a restored bundle that failed its
-    # post-swap verification (remove it first, then restore the known-good backup).
     restore_and_fail() {
-        if [[ -d "$BACKUP" ]]; then
-            rm -rf "$APP_PATH" 2>/dev/null
-            mv "$BACKUP" "$APP_PATH" 2>/dev/null
-        fi
         fail "$1"
     }
 
@@ -469,7 +494,7 @@ struct UpdaterScriptGenerator {
     fi
 
     # 1. Wait (max 60s) for the running app to quit. A stale/gone PID proceeds immediately.
-    if [[ "$APP_PID" == <-> ]]; then
+    if [[ -z "$REQUIRE_CONSENT" && "$APP_PID" == <-> ]]; then
         i=0
         while kill -0 "$APP_PID" 2>/dev/null; do
             sleep 0.5
@@ -492,7 +517,12 @@ struct UpdaterScriptGenerator {
         /Volumes/*|/private/var/folders/*)
             fail "Orifold is running from a temporary location. Move it to Applications, then restore." ;;
     esac
-    [[ -d "$APP_PATH" ]] || fail "The current app was not found where expected."
+    [[ ! -L "$APP_PATH" && ( ! -e "$APP_PATH" || -d "$APP_PATH" ) ]] \
+        || fail "The restore target is not an app directory."
+    if [[ ! -d "$APP_PATH" ]]; then
+        [[ -n "$REQUIRE_CONSENT" && -n "$EXPECTED_TEAM_ID" ]] \
+            || fail "A missing app requires its trusted standalone recovery helper."
+    fi
     [[ -w "$(dirname "$APP_PATH")" ]] || fail "No permission to restore Orifold in $(dirname "$APP_PATH")."
 
     # 4. Extract the verified archive and locate the restored bundle.
@@ -512,8 +542,12 @@ struct UpdaterScriptGenerator {
     ditto "$OLD_APP" "$STAGING" || fail "Could not copy the previous version into place."
 
     # 7. Swap. From here on, any failure restores the current version.
-    rm -rf "$BACKUP"
-    mv "$APP_PATH" "$BACKUP" || fail "Could not move the current version aside."
+    [[ ! -e "$BACKUP" && ! -L "$BACKUP" ]] || fail "A previous backup already exists at $BACKUP."
+    [[ ! -d "$APP_PATH" ]] || HAD_PREVIOUS=1
+    TRANSACTION_ACTIVE=1
+    if [[ "$HAD_PREVIOUS" == 1 ]]; then
+        mv "$APP_PATH" "$BACKUP" || fail "Could not move the current version aside."
+    fi
     mv "$STAGING" "$APP_PATH" || restore_and_fail "Could not move the previous version into place."
 
     # 8. Strip quarantine and verify the restored copy.
@@ -523,7 +557,8 @@ struct UpdaterScriptGenerator {
     verify_publisher_identity "$APP_PATH" \
         || restore_and_fail "The restored app failed publisher verification."
 
-    # 9. Success: clean up and relaunch the restored version.
+    # 9. Commit only after both installed-copy checks succeeded.
+    TRANSACTION_ACTIVE=0
     rm -rf "$BACKUP"
     cleanup
 
@@ -532,5 +567,5 @@ struct UpdaterScriptGenerator {
     fi
     say "Orifold $RESTORE_VERSION is restored."
     exit 0
-    """##
+    """##.replacingOccurrences(of: "@@TRANSACTION_HELPERS@@", with: transactionHelpers)
 }

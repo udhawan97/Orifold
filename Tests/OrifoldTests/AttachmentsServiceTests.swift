@@ -114,6 +114,46 @@ final class AttachmentsServiceTests: XCTestCase {
         XCTAssertEqual(try AttachmentsService.list(in: exported), [])
     }
 
+    func testAddedAttachmentSurvivesNormalSaveAndReopenWithLiveAnnotation() throws {
+        let viewModel = try makeViewModel()
+        let memberID = try XCTUnwrap(viewModel.document.workspace.documents.first?.id)
+        let payload = Data("normal-save-payload".utf8)
+        let payloadURL = try writeTempFile(payload, name: "saved.txt")
+        defer { try? FileManager.default.removeItem(at: payloadURL.deletingLastPathComponent()) }
+        XCTAssertTrue(viewModel.addAttachment(payloadURL))
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let annotation = PDFAnnotation(bounds: CGRect(x: 20, y: 20, width: 120, height: 30),
+                                       forType: .freeText, withProperties: nil)
+        annotation.contents = "Live note"
+        page.addAnnotation(annotation)
+        let widget = PDFAnnotation(bounds: CGRect(x: 20, y: 80, width: 150, height: 30),
+                                   forType: .widget, withProperties: nil)
+        widget.widgetFieldType = .text
+        widget.fieldName = "Fictional reference"
+        widget.widgetStringValue = "Live answer"
+        page.addAnnotation(widget)
+        viewModel.markAnnotationsModified()
+        // Loader retains unreadable orphan bytes for possible recovery; they are not a
+        // workspace member and must not make an otherwise valid snapshot fail.
+        viewModel.document.memberPDFData[UUID()] = Data("unreadable orphan".utf8)
+
+        let snapshot = try viewModel.document.snapshot(contentType: .pdf)
+        XCTAssertEqual(try AttachmentsService.extract("saved.txt", from: XCTUnwrap(snapshot.memberPDFData[memberID])), payload)
+        let saved = try viewModel.document.savedFileWrapper(from: snapshot)
+        XCTAssertEqual(try AttachmentsService.extract("saved.txt", from: XCTUnwrap(saved.regularFileContents)), payload)
+        let reopened = try WorkspaceDocument(testingFile: saved, contentType: .pdf)
+        XCTAssertEqual(try AttachmentsService.extract("saved.txt", from: XCTUnwrap(reopened.memberPDFData[memberID])), payload)
+        let reopenedPDF = try XCTUnwrap(PDFDocument(data: XCTUnwrap(reopened.memberPDFData[memberID])))
+        XCTAssertTrue(try XCTUnwrap(reopenedPDF.page(at: 0)).annotations.contains { $0.contents == "Live note" })
+        XCTAssertEqual(reopenedPDF.page(at: 0)?.annotations.first { $0.isPDFWidget }?.widgetStringValue, "Live answer")
+
+        XCTAssertTrue(viewModel.removeAttachment(named: "saved.txt"))
+        let removed = try viewModel.document.savedFileWrapper(from: viewModel.document.snapshot(contentType: .pdf))
+        XCTAssertEqual(try AttachmentsService.list(in: XCTUnwrap(removed.regularFileContents)), [])
+        let reopenedRemoved = try WorkspaceDocument(testingFile: removed, contentType: .pdf)
+        XCTAssertEqual(try AttachmentsService.list(in: XCTUnwrap(reopenedRemoved.memberPDFData[memberID])), [])
+    }
+
     // MARK: - Harness
 
     // `WorkspaceViewModel.undoManager` is weak (the window owns it in the app), so

@@ -219,6 +219,7 @@
 		ABAE6EBD45CD11B8BD7CF43B /* ScanCleanupAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08BF45A865A6F0E16E8763B9 /* ScanCleanupAccessibilityTests.swift */; };
 		AC1D271AF738BD39C59D8EAD /* RollbackArchiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E98DA1B1CE8640C68E4E6E2 /* RollbackArchiveTests.swift */; };
 		AC6BC0F182766DF4C6405472 /* PDFiumImpositionBindings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14A9C9AB5877320CB4BE6E79 /* PDFiumImpositionBindings.swift */; };
+		ACBA398A8B98CF8F43F070D2 /* AnnotationUndoReloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46C6BF3DBD83D7516E5FE927 /* AnnotationUndoReloadTests.swift */; };
 		AEB9D8F0C2F63AAD91ABCF03 /* Phase0TrappedFixtureValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1266C3696FD74416769B9575 /* Phase0TrappedFixtureValidationTests.swift */; };
 		B0964B8B35E19A6AAED42587 /* UpdateVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED0DE8438F197CF21AE1940 /* UpdateVersion.swift */; };
 		B15A8226B8609E9694E7DCDC /* LocalizationFormatSpecifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87F925F4855FBEBA29BAA152 /* LocalizationFormatSpecifierTests.swift */; };
@@ -451,6 +452,7 @@
 		43D1CEC6303AD21D084418BF /* PKCS12SigningIdentityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PKCS12SigningIdentityProvider.swift; sourceTree = "<group>"; };
 		46695953350E864E6D8D2C2B /* BarcodeScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannerTests.swift; sourceTree = "<group>"; };
 		46819B205EA48E6131902459 /* WorkspaceFingerprintStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceFingerprintStore.swift; sourceTree = "<group>"; };
+		46C6BF3DBD83D7516E5FE927 /* AnnotationUndoReloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationUndoReloadTests.swift; sourceTree = "<group>"; };
 		486735D298C40BAC0194DD53 /* KeychainSigningIdentityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSigningIdentityProvider.swift; sourceTree = "<group>"; };
 		48BED5F2F3215DF6CED7F113 /* CMSSignatureBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CMSSignatureBuilder.swift; sourceTree = "<group>"; };
 		493E39D458EEA2259EE67F8F /* PDFVisualDiffTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFVisualDiffTests.swift; sourceTree = "<group>"; };
@@ -1135,6 +1137,7 @@
 			isa = PBXGroup;
 			children = (
 				8F8A6392BF8207F57BDD6C56 /* AFMMetricsStoreTests.swift */,
+				46C6BF3DBD83D7516E5FE927 /* AnnotationUndoReloadTests.swift */,
 				65FB11FCFC377A6E50E9D4A1 /* ArchivalReadinessServiceTests.swift */,
 				0564F172087301BF35BBA33A /* AttachmentsServiceTests.swift */,
 				CF6C8ACB383FD001168356DF /* AVSpeechSynthesizerAdapterTests.swift */,
@@ -1459,6 +1462,7 @@
 			files = (
 				F0CE60E1F3ABF5AE9F9C478A /* AFMMetricsStoreTests.swift in Sources */,
 				CBC863BA3D2FF8D64307BD36 /* AVSpeechSynthesizerAdapterTests.swift in Sources */,
+				ACBA398A8B98CF8F43F070D2 /* AnnotationUndoReloadTests.swift in Sources */,
 				F8D19A6FD3F13156BA22A991 /* ArchivalReadinessServiceTests.swift in Sources */,
 				DA02211A120193087C318512 /* AttachmentsServiceTests.swift in Sources */,
 				209C7BFDE0B59F85B36BC0AC /* BakeStampConsolidationTests.swift in Sources */,

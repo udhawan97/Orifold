@@ -2822,9 +2822,15 @@ func applyFolderImportOutcome(
 @MainActor
 func importFirstFromPendingBatch(_ batch: PendingFolderImportBatch, into viewModel: WorkspaceViewModel) {
     let firstBatch = Array(batch.urls.prefix(maximumImportBatchSize))
-    viewModel.importFiles(urls: firstBatch)
-    if let message = folderImportReadyStatusMessage(importedCount: firstBatch.count, unsupportedCount: batch.unsupportedCount, wasTruncated: batch.wasTruncated) {
+    viewModel.importFiles(urls: firstBatch) { importedCount, wasCancelled in
+        guard !wasCancelled else { return }
+        guard let message = folderImportReadyStatusMessage(
+            importedCount: importedCount,
+            unsupportedCount: batch.unsupportedCount,
+            wasTruncated: batch.wasTruncated
+        ) else { return }
         viewModel.editingStatus = .success(message)
+        AccessibilityNotification.Announcement(message).post()
     }
 }
 

@@ -302,7 +302,7 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
     /// pre-checked), so this drives the helper extracted verbatim from the shipped template
     /// through exactly that caller-2 state.
     func testRestoreAfterPostSwapVerifyFailurePutsOldBundleBack() throws {
-        let restoreFn = try extractedRestoreHelper()
+        let restoreFn = try extractedFunction(named: "rollback_transaction", from: UpdaterScriptGenerator.template)
 
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("orifold-restore-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -329,7 +329,10 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         cleanup() { :; }
         fail() { exit 3; }
         \(restoreFn)
-        restore_and_fail "post-swap verify failed"
+        TRANSACTION_ACTIVE=1
+        HAD_PREVIOUS=1
+        rollback_transaction
+        exit 3
         """.write(to: harness, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: harness.path)
 
@@ -343,8 +346,8 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: backup.path), "backup should be moved back, not left behind")
     }
 
-    func testRestoreFallbackRejectsAnUntrustedRollbackArchive() throws {
-        let restoreFn = try extractedRestoreHelper()
+    func testRollbackWithoutBackupPreservesTheTargetAndDoesNotExtractAnArchive() throws {
+        let restoreFn = try extractedFunction(named: "rollback_transaction", from: UpdaterScriptGenerator.template)
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("orifold-rollback-fallback-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -366,34 +369,20 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         cleanup() { :; }
         fail() { exit 3; }
         \(restoreFn)
-        restore_and_fail "post-swap verify failed"
+        TRANSACTION_ACTIVE=1
+        HAD_PREVIOUS=1
+        rollback_transaction
+        exit 3
         """.write(to: harness, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: harness.path)
 
         let result = try runProcess("/bin/zsh", [harness.path])
         XCTAssertEqual(result.status, 3)
         let marker = try String(contentsOf: appPath.appendingPathComponent("marker.txt"), encoding: .utf8)
-        XCTAssertEqual(marker, "NEW-BAD", "a failed archive digest must not be extracted or remove the current bundle")
+        XCTAssertEqual(marker, "NEW-BAD", "a missing backup must not trigger archive extraction or remove the current bundle")
     }
 
     // MARK: - Helpers
-
-    /// Extracts the `restore_and_fail` shell function verbatim from the shipped template so
-    /// the test drives the real code, not a hand-copied approximation.
-    private func extractedRestoreHelper(file: StaticString = #filePath, line: UInt = #line) throws -> String {
-        // Indentation is normalized by Swift's multiline-literal stripping, so match the
-        // opening/closing braces by trimmed content rather than a fixed indent.
-        let lines = UpdaterScriptGenerator.template.components(separatedBy: "\n")
-        guard let startIdx = lines.firstIndex(where: { $0.contains("restore_and_fail() {") }) else {
-            XCTFail("restore_and_fail() not found in template", file: file, line: line)
-            throw XCTSkip("restore_and_fail() not found")
-        }
-        guard let relEnd = lines[(startIdx + 1)...].firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "}" }) else {
-            XCTFail("could not find end of restore_and_fail()", file: file, line: line)
-            throw XCTSkip("restore_and_fail() end not found")
-        }
-        return lines[startIdx...relEnd].joined(separator: "\n")
-    }
 
     private func extractedFunction(named name: String, from template: String) throws -> String {
         let lines = template.components(separatedBy: "\n")
@@ -470,6 +459,183 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
             "PREVIOUS"
         )
         XCTAssertEqual(try? String(contentsOf: fixture.recorded, encoding: .utf8), fixture.installedApp.path)
+    }
+
+    // MARK: - Contained transaction probes (marker bundles, no native installation)
+
+    func testSyntheticBothSwapsRollBackCatchableInterruptionAndVerificationFailure() throws {
+        for restore in [false, true] {
+            for scenario in ["after-backup", "after-install", "postverify"] {
+                let fixture = try makeSyntheticFixture()
+                defer { try? FileManager.default.removeItem(at: fixture.root) }
+                let result = try runSyntheticScript(fixture, restore: restore, scenario: scenario)
+                XCTAssertEqual(result.status, scenario == "postverify" ? 1 : 143, "\(restore) \(scenario): \(result.output)")
+                XCTAssertEqual(try String(contentsOf: fixture.target.appendingPathComponent("marker.txt")), "ORIGINAL")
+            }
+        }
+    }
+
+    func testSyntheticAbruptSwapCanBeRecoveredAtTheExactMissingTarget() throws {
+        for restore in [false, true] {
+            let fixture = try makeSyntheticFixture()
+            defer { try? FileManager.default.removeItem(at: fixture.root) }
+            // Prepare recovery while the original target still exists. The updater must
+            // retain a usable copy before its first rename; restart cannot regenerate it.
+            let prepared = try writeSyntheticScript(fixture, restore: true, scenario: "success",
+                                                    destination: fixture.root.appendingPathComponent("prepared-recovery.command"))
+            let expectedHelper = try Data(contentsOf: prepared)
+            let retained = fixture.target.deletingLastPathComponent().appendingPathComponent("Restore Previous Orifold.command")
+            if restore { try FileManager.default.copyItem(at: prepared, to: retained) }
+            let interrupted = try runSyntheticScript(fixture, restore: restore, scenario: "abrupt", recoveryScript: prepared)
+            XCTAssertEqual(interrupted.status, 137, interrupted.output)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.target.path), interrupted.output)
+            let backup = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: fixture.target.deletingLastPathComponent(), includingPropertiesForKeys: nil)
+                .first { $0.lastPathComponent.contains(restore ? ".replaced-" : ".previous-") })
+            XCTAssertEqual(try String(contentsOf: backup.appendingPathComponent("marker.txt")), "ORIGINAL")
+            XCTAssertEqual(try Data(contentsOf: retained), expectedHelper)
+            let recovered = try runProcess("/bin/zsh", [retained.path], stdin: "YES\n")
+            XCTAssertEqual(recovered.status, 0, recovered.output)
+            XCTAssertEqual(try String(contentsOf: fixture.target.appendingPathComponent("marker.txt")), "ARCHIVED")
+            XCTAssertEqual(try String(contentsOf: backup.appendingPathComponent("marker.txt")), "ORIGINAL", "abandoned backups are never swept")
+        }
+    }
+
+    func testSyntheticMissingTargetRecoveryRejectsWrongDigestPublisherAndConsent() throws {
+        for scenario in ["wrong-digest", "wrong-publisher", "no-consent", "missing-identity"] {
+            let fixture = try makeSyntheticFixture()
+            defer { try? FileManager.default.removeItem(at: fixture.root) }
+            try FileManager.default.removeItem(at: fixture.target)
+            let result = try runSyntheticScript(fixture, restore: true, scenario: scenario)
+            XCTAssertNotEqual(result.status, 0, "\(scenario): \(result.output)")
+            XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.target.path), scenario)
+            XCTAssertEqual(try String(contentsOf: fixture.archived.appendingPathComponent("marker.txt")), "ARCHIVED")
+        }
+    }
+
+    func testSyntheticMissingTargetRecoveryRemovesAnUnverifiedCopyOnInterruption() throws {
+        let fixture = try makeSyntheticFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try FileManager.default.removeItem(at: fixture.target)
+        let result = try runSyntheticScript(fixture, restore: true, scenario: "after-install")
+        XCTAssertNotEqual(result.status, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.target.path))
+        let retry = try runSyntheticScript(fixture, restore: true, scenario: "success")
+        XCTAssertEqual(retry.status, 0, retry.output)
+    }
+
+    func testSyntheticSuccessfulSwapsCommitAndRejectSymlinkTargets() throws {
+        for restore in [false, true] {
+            let fixture = try makeSyntheticFixture()
+            defer { try? FileManager.default.removeItem(at: fixture.root) }
+            let result = try runSyntheticScript(fixture, restore: restore, scenario: "success")
+            XCTAssertEqual(result.status, 0, result.output)
+            XCTAssertEqual(try String(contentsOf: fixture.target.appendingPathComponent("marker.txt")), restore ? "ARCHIVED" : "CANDIDATE")
+            try Data("synthetic archived transport bytes".utf8).write(to: fixture.artifact)
+            try FileManager.default.removeItem(at: fixture.target)
+            try FileManager.default.createSymbolicLink(at: fixture.target, withDestinationURL: fixture.archived)
+            XCTAssertNotEqual(try runSyntheticScript(fixture, restore: restore, scenario: "success").status, 0)
+            XCTAssertEqual(try String(contentsOf: fixture.archived.appendingPathComponent("marker.txt")), "ARCHIVED")
+        }
+    }
+
+    private struct SyntheticFixture {
+        let root: URL
+        let target: URL
+        let candidate: URL
+        let archived: URL
+        let artifact: URL
+    }
+
+    private func makeSyntheticFixture() throws -> SyntheticFixture {
+        // The production scripts reject translocated /private/var/folders targets. Keep
+        // synthetic bundles in this checkout's disposable build tree instead of bypassing it.
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent(".build/orifold-synthetic-\(UUID().uuidString)")
+        let target = root.appendingPathComponent("Applications/Orifold.app")
+        let candidate = root.appendingPathComponent("candidate/Orifold.app")
+        let archived = root.appendingPathComponent("archived/Orifold.app")
+        for (url, marker, version) in [(target, "ORIGINAL", "0.10.0"), (candidate, "CANDIDATE", "0.11.0"), (archived, "ARCHIVED", "0.10.0")] {
+            try FileManager.default.createDirectory(at: url.appendingPathComponent("Contents"), withIntermediateDirectories: true)
+            try marker.write(to: url.appendingPathComponent("marker.txt"), atomically: true, encoding: .utf8)
+            let plist = ["CFBundleIdentifier": "com.ud.Orifold", "CFBundleShortVersionString": version]
+            try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+                .write(to: url.appendingPathComponent("Contents/Info.plist"))
+        }
+        let artifact = root.appendingPathComponent("artifact")
+        try Data("synthetic archived transport bytes".utf8).write(to: artifact)
+        return SyntheticFixture(root: root, target: target, candidate: candidate, archived: archived, artifact: artifact)
+    }
+
+    /// Execute the actual rendered shell lifecycle, intercepting only OS/process/signing and
+    /// transport operations. The real hash, plist checks, renames, rollback and consent run.
+    /// `exit` models delivery of a termination trap; no signal reaches any process. Replacing
+    /// the shell with a failing process models uncatchable interruption without EXIT cleanup.
+    private func runSyntheticScript(_ fixture: SyntheticFixture, restore: Bool, scenario: String,
+                                    recoveryScript: URL? = nil) throws -> (status: Int32, output: String) {
+        let url = try writeSyntheticScript(fixture, restore: restore, scenario: scenario, recoveryScript: recoveryScript)
+        return try runProcess("/bin/zsh", [url.path], stdin: scenario == "no-consent" ? "no\n" : "YES\n")
+    }
+
+    private func writeSyntheticScript(_ fixture: SyntheticFixture, restore: Bool, scenario: String,
+                                      recoveryScript: URL? = nil, destination: URL? = nil) throws -> URL {
+        let sha = scenario == "wrong-digest" ? String(repeating: "0", count: 64) : try RollbackArchiver.sha256(of: fixture.artifact)
+        let team: String? = scenario == "missing-identity" ? nil : "TEAM123456"
+        var script: String
+        if restore {
+            script = try generator.renderRestore(.init(
+                appPID: 4321, appBundlePath: fixture.target.path, archiveZipPath: fixture.artifact.path,
+                archiveSHA256: sha, restoreVersion: "0.10.0", publisherTeamIdentifier: team,
+                requiresConsent: true, relaunchCommand: "/usr/bin/true"))
+        } else {
+            script = try generator.render(.init(
+                appPID: 4321, appBundlePath: fixture.target.path, dmgPath: fixture.artifact.path,
+                dmgSHA256: sha, newVersion: "0.11.0", publisherTeamIdentifier: team,
+                restoreScriptPath: recoveryScript?.path, relaunchCommand: "/usr/bin/true"))
+        }
+        script = script.replacingOccurrences(of: "/usr/bin/codesign", with: "codesign")
+            .replacingOccurrences(of: "/usr/sbin/spctl", with: "fixture_spctl")
+            .replacingOccurrences(of: "kill -0", with: "fixture_pid")
+            .replacingOccurrences(of: "pgrep -f -q", with: "fixture_pid")
+        let stubs = """
+        SCENARIO='\(scenario)'
+        SOURCE_APP='\(restore ? fixture.archived.path : fixture.candidate.path)'
+        TMPDIR='\(fixture.root.path)'
+        fixture_pid() { return 1; }
+        fixture_spctl() { return 0; }
+        xattr() { return 0; }
+        codesign() {
+            if [[ "$1" == -d ]]; then
+                if [[ "$SCENARIO" == wrong-publisher ]]; then print 'TeamIdentifier=OTHERTEAM'; else print 'TeamIdentifier=TEAM123456'; fi
+                return 0
+            fi
+            [[ "$SCENARIO" != postverify || "${@[-1]}" != "$APP_PATH" ]]
+        }
+        hdiutil() {
+            [[ "$1" != detach ]] || return 0
+            /bin/mkdir -p "$MOUNT"
+            /bin/cp -R "$SOURCE_APP" "$MOUNT/Orifold.app"
+        }
+        ditto() {
+            if [[ "$1" == -x ]]; then
+                /bin/mkdir -p "$4"
+                /bin/cp -R "$SOURCE_APP" "$4/Orifold.app"
+            else
+                /bin/cp -R "$1" "$2"
+            fi
+        }
+        mv() {
+            /bin/mv "$@" || return $?
+            if [[ "$1" == "$APP_PATH" ]]; then
+                [[ "$SCENARIO" != after-backup ]] || exit 143
+                if [[ "$SCENARIO" == abrupt ]]; then exec /bin/zsh -f -c 'exit 137'; fi
+            fi
+            if [[ "$1" == "$STAGING" && "$SCENARIO" == after-install ]]; then exit 143; fi
+        }
+        """
+        script = script.replacingOccurrences(of: "set -u\n", with: "set -u\n\(stubs)\n")
+        let url = destination ?? fixture.root.appendingPathComponent("probe.command")
+        try script.write(to: url, atomically: true, encoding: .utf8)
+        return url
     }
 
     private struct RestoreFixture {

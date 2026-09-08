@@ -195,6 +195,37 @@ final class InlineEditReconciliationTests: XCTestCase {
                        "regeneration must start from the pristine base — the first bake's text must be gone, not buried")
     }
 
+    func testAnnotationUndoAndRedoResolveLiveObjectsAfterTextReplayUndo() throws {
+        let viewModel = try makeViewModel(from: makePDFData(pageTexts: ["Editable body text"]))
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        viewModel.undoManager = undo
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let annotation = PDFAnnotation(bounds: CGRect(x: 20, y: 20, width: 100, height: 24),
+                                       forType: .freeText, withProperties: nil)
+        annotation.contents = "Original note"
+        page.addAnnotation(annotation)
+        let original = PDFAnnotationEditSnapshot(annotation: annotation)
+        annotation.contents = "Changed note"
+        undo.beginUndoGrouping()
+        viewModel.registerAnnotationEdit(annotation, from: original, actionName: "Edit note")
+        undo.endUndoGrouping()
+        try applyEdit(viewModel, pageIndex: 0, matching: "Editable body", replacement: "Replaced body text")
+        undo.undo()
+        let liveAfterReplayUndo = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0)?.annotations.first {
+            $0.contents == "Changed note"
+        })
+        XCTAssertFalse(liveAfterReplayUndo === annotation)
+        undo.undo()
+        XCTAssertEqual(liveAfterReplayUndo.contents, "Original note")
+        undo.redo()
+        XCTAssertEqual(liveAfterReplayUndo.contents, "Changed note")
+        undo.redo()
+        XCTAssertTrue(try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0)).annotations.contains {
+            $0.contents == "Changed note"
+        })
+    }
+
     /// Order-mutation undo snapshots restore member bytes; they must restore the edit
     /// operations captured at the same instant, or the two diverge exactly like the
     /// trapped-file bug. Sequence: edit page 1 → delete page 2 → undo the delete →

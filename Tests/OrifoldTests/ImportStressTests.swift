@@ -329,22 +329,93 @@ final class ImportStressTests: XCTestCase {
         XCTAssertEqual(viewModel.memberDocuments.suffix(localUnlockedPDFImportFixtureURLs.count).map(\.displayName), localUnlockedPDFImportFixtureURLs.reversed().map { $0.deletingPathExtension().lastPathComponent })
     }
 
-    private func makeSinglePagePDF() -> PDFPage? {
-        let view = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 300))
+    @MainActor
+    func testDeferredEncryptedBatchPreservesMemberPageAndExportOrderAcrossPositionsAndSkips() async throws {
+        let cases: [(locked: [Bool], skipped: Set<Int>, failed: Set<Int>, targeted: Bool)] = [
+            ([true, false], [], [], false),
+            ([false, true, true], [], [], false),
+            ([true, true, true], [], [], false),
+            ([true, true, true], [], [], true),
+            ([false, true, false, true], [], [], false),
+            ([true, true, false], [], [], true),
+            ([true, true, false, true], [0, 3], [], true),
+            ([true, false, true, false], [], [1], true),
+        ]
+        for (caseIndex, scenario) in cases.enumerated() {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let document = WorkspaceDocument()
+            let viewModel = WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+            let existing = try writeSinglePagePDF(named: "existing.pdf", in: directory, width: 210, pageCount: 2)
+            let trailing = try writeSinglePagePDF(named: "trailing.pdf", in: directory, width: 220)
+            viewModel.importFiles(urls: [existing, trailing])
+            try await waitForLocalImportToFinish(in: viewModel)
+            let originalRefs = document.workspace.pageOrder
+            let originalBytes = document.memberPDFData
+            var urls: [URL] = []
+            for (index, locked) in scenario.locked.enumerated() {
+                if scenario.failed.contains(index) {
+                    let corrupt = directory.appendingPathComponent("input-\(index).pdf")
+                    try Data("%PDF-1.4 broken".utf8).write(to: corrupt)
+                    urls.append(corrupt)
+                } else {
+                    urls.append(try locked
+                    ? writeEncryptedSinglePagePDF(named: "input-\(index).pdf", password: "fixture", in: directory, width: CGFloat(310 + index))
+                    : writeSinglePagePDF(named: "input-\(index).pdf", in: directory, width: CGFloat(310 + index)))
+                }
+            }
+            viewModel.importFiles(urls: urls, insertingAfter: scenario.targeted ? originalRefs[0].id : nil)
+            try await waitForLocalImportToFinish(in: viewModel)
+            for (index, locked) in scenario.locked.enumerated() where locked {
+                XCTAssertEqual(viewModel.pendingPasswordURL, urls[index])
+                if scenario.skipped.contains(index) {
+                    viewModel.cancelPendingPasswordImport()
+                } else {
+                    XCTAssertTrue(viewModel.unlock(pdf: try XCTUnwrap(viewModel.pendingPasswordPDF), password: "fixture", url: urls[index]))
+                }
+            }
+            let retained = scenario.locked.indices.filter { !scenario.skipped.contains($0) && !scenario.failed.contains($0) }
+            let importedNames = retained.map { "input-\($0)" }
+            let expectedNames = scenario.targeted
+                ? ["existing"] + importedNames + ["trailing"]
+                : ["existing", "trailing"] + importedNames
+            XCTAssertEqual(viewModel.memberDocuments.map(\.displayName), expectedNames, "case \(caseIndex)")
+            let namesByID = Dictionary(uniqueKeysWithValues: viewModel.memberDocuments.map { ($0.id, $0.displayName) })
+            let expectedPageNames = scenario.targeted
+                ? ["existing", "existing"] + importedNames + ["trailing"]
+                : ["existing", "existing", "trailing"] + importedNames
+            XCTAssertEqual(document.workspace.pageOrder.compactMap { namesByID[$0.memberDocId] }, expectedPageNames)
+            let originalIDs = originalRefs.map(\.id)
+            let retainedOriginalRefs = document.workspace.pageOrder.filter { originalIDs.contains($0.id) }
+            XCTAssertEqual(retainedOriginalRefs.map(\.id), originalIDs)
+            XCTAssertEqual(retainedOriginalRefs.map(\.sourcePageIndex), originalRefs.map(\.sourcePageIndex))
+            for (id, bytes) in originalBytes { XCTAssertEqual(document.memberPDFData[id], bytes) }
+            let exported = try XCTUnwrap(PDFDocument(data: viewModel.dataForPDFExport()))
+            let importedWidths = retained.map { CGFloat(310 + $0) }
+            let expectedWidths: [CGFloat] = scenario.targeted
+                ? [210, 210] + importedWidths + [220] : [210, 210, 220] + importedWidths
+            XCTAssertEqual((0..<exported.pageCount).compactMap { exported.page(at: $0)?.bounds(for: .mediaBox).width }, expectedWidths)
+            XCTAssertNil(viewModel.pendingPasswordPDF)
+        }
+    }
+
+    private func makeSinglePagePDF(width: CGFloat = 300) -> PDFPage? {
+        let view = NSView(frame: CGRect(x: 0, y: 0, width: width, height: 300))
         return PDFDocument(data: view.dataWithPDF(inside: view.bounds))?.page(at: 0)
     }
 
-    private func writeSinglePagePDF(named filename: String, in directory: URL) throws -> URL {
+    private func writeSinglePagePDF(named filename: String, in directory: URL, width: CGFloat = 300, pageCount: Int = 1) throws -> URL {
         let url = directory.appendingPathComponent(filename)
         let pdf = PDFDocument()
-        pdf.insert(try XCTUnwrap(makeSinglePagePDF()), at: 0)
+        for index in 0..<pageCount { pdf.insert(try XCTUnwrap(makeSinglePagePDF(width: width)), at: index) }
         try XCTUnwrap(pdf.dataRepresentation()).write(to: url)
         return url
     }
 
-    private func writeEncryptedSinglePagePDF(named filename: String, password: String, in directory: URL) throws -> URL {
+    private func writeEncryptedSinglePagePDF(named filename: String, password: String, in directory: URL, width: CGFloat = 300) throws -> URL {
         let source = PDFDocument()
-        source.insert(try XCTUnwrap(makeSinglePagePDF()), at: 0)
+        source.insert(try XCTUnwrap(makeSinglePagePDF(width: width)), at: 0)
         let encrypted = try PDFEncryptionService.encryptedData(
             from: try XCTUnwrap(source.dataRepresentation()),
             options: PDFEncryptionOptions(userPassword: password, ownerPassword: "\(password)-owner")

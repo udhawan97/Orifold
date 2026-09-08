@@ -114,6 +114,79 @@ final class ExportPipelineOrderingTests: XCTestCase {
                              "the baked stamp must survive imposition — imposing before the bake drops it silently")
     }
 
+    func testImpositionRefusesLiveMarkupInsteadOfDroppingItsAppearance() throws {
+        for subtype: PDFAnnotationSubtype in [.ink, .highlight, .freeText, .widget] {
+            for layout: ImpositionLayout in [.nUp(rows: 1, cols: 2), .booklet] {
+                let viewModel = try makeViewModel()
+                let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+                let annotation = PDFAnnotation(bounds: CGRect(x: 40, y: 100, width: 180, height: 40),
+                                               forType: subtype, withProperties: nil)
+                annotation.contents = "Keep this markup"
+                if subtype == .widget {
+                    annotation.widgetFieldType = .text
+                    annotation.fieldName = "Fictional field"
+                    annotation.widgetStringValue = "Keep this answer"
+                }
+                if subtype == .ink {
+                    let path = NSBezierPath()
+                    path.move(to: CGPoint(x: 0, y: 0))
+                    path.line(to: CGPoint(x: 150, y: 30))
+                    annotation.add(path)
+                }
+                page.addAnnotation(annotation)
+                viewModel.markAnnotationsModified()
+                let sourceBefore = viewModel.document.memberPDFData
+                let ordinary = try viewModel.dataForPDFExport()
+                XCTAssertTrue(try XCTUnwrap(PDFDocument(data: ordinary)?.page(at: 0)).annotations.contains {
+                    $0.type == annotation.type
+                })
+                XCTAssertThrowsError(try viewModel.dataForPDFExport(options: WorkspaceExportOptions(imposition: layout))) { error in
+                    guard case PDFImpositionError.liveAnnotations = error else {
+                        return XCTFail("Expected a preservation refusal, got \(error)")
+                    }
+                }
+                XCTAssertEqual(viewModel.document.memberPDFData, sourceBefore)
+            }
+        }
+    }
+
+    func testImpositionAllowsBookkeepingAndExplicitlyFlattenedForms() throws {
+        let viewModel = try makeViewModel()
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let stamp = PDFAnnotation(bounds: BakeStamp.bounds, forType: .freeText, withProperties: nil)
+        stamp.setValue("bookkeeping", forAnnotationKey: PDFAnnotationKey(rawValue: BakeStamp.annotationKey))
+        page.addAnnotation(stamp)
+        let bookkeepingOutput = try viewModel.dataForPDFExport(options: WorkspaceExportOptions(
+            embedsEditableWorkspaceState: true, imposition: .booklet))
+        XCTAssertEqual(PDFDocument(data: bookkeepingOutput)?.pageCount, 2)
+
+        let widget = PDFAnnotation(bounds: CGRect(x: 40, y: 100, width: 180, height: 40),
+                                   forType: .widget, withProperties: nil)
+        widget.widgetFieldType = .text
+        widget.fieldName = "Fictional field"
+        widget.widgetStringValue = "Keep this answer"
+        page.addAnnotation(widget)
+        let output = try viewModel.dataForPDFExport(options: WorkspaceExportOptions(
+            lockFormAnswers: true, imposition: .nUp(rows: 1, cols: 2)))
+        XCTAssertEqual(PDFDocument(data: output)?.pageCount, 2)
+        XCTAssertGreaterThan(try inkCoverage(of: output), 0, "the explicitly flattened answer remains visible")
+    }
+
+    func testRefusedImpositionLeavesAnExistingDestinationUntouched() throws {
+        let viewModel = try makeViewModel()
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let annotation = PDFAnnotation(bounds: CGRect(x: 20, y: 20, width: 120, height: 40),
+                                       forType: .freeText, withProperties: nil)
+        annotation.contents = "Keep this annotation"
+        page.addAnnotation(annotation)
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent("impose-refusal-\(UUID()).pdf")
+        let existing = try makeFourPagePDF()
+        try existing.write(to: destination)
+        defer { try? FileManager.default.removeItem(at: destination) }
+        XCTAssertFalse(viewModel.saveFlattenedPDF(to: destination, options: WorkspaceExportOptions(imposition: .booklet)))
+        XCTAssertEqual(try Data(contentsOf: destination), existing)
+    }
+
     // Attachments are re-grafted after imposition (which drops them) and before
     // sanitize (which strips them deliberately).
     func testAttachmentSurvivesAnImposedExport() throws {
