@@ -90,6 +90,81 @@ final class AttachmentsServiceTests: XCTestCase {
         XCTAssertEqual(try AttachmentsService.list(in: restored), [])
     }
 
+    func testAttachmentSurvivesRotationUndoRedoTimeline() throws {
+        let viewModel = try makeViewModel()
+        let memberID = try XCTUnwrap(viewModel.document.workspace.documents.first?.id)
+        let pageRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        let payload = Data("timeline-attachment".utf8)
+        let payloadURL = try writeTempFile(payload, name: "timeline.txt")
+        defer { try? FileManager.default.removeItem(at: payloadURL.deletingLastPathComponent()) }
+
+        XCTAssertTrue(viewModel.addAttachment(payloadURL))
+        let undo = try XCTUnwrap(retainedUndoManager)
+        undo.beginUndoGrouping()
+        viewModel.rotatePages([pageRef], by: 90)
+        undo.endUndoGrouping()
+
+        undo.undo()
+        XCTAssertEqual(
+            try AttachmentsService.extract(
+                "timeline.txt",
+                from: XCTUnwrap(viewModel.document.memberPDFData[memberID])
+            ),
+            payload,
+            "undoing a later page operation must not replace canonical bytes with a stale PDFKit snapshot"
+        )
+
+        let saved = try viewModel.document.savedFileWrapper(
+            from: viewModel.document.snapshot(contentType: .pdf)
+        )
+        let reopened = try WorkspaceDocument(testingFile: saved, contentType: .pdf)
+        XCTAssertEqual(
+            try AttachmentsService.extract(
+                "timeline.txt",
+                from: XCTUnwrap(reopened.memberPDFData[memberID])
+            ),
+            payload
+        )
+
+        undo.redo()
+        XCTAssertEqual(
+            try AttachmentsService.extract(
+                "timeline.txt",
+                from: XCTUnwrap(viewModel.document.memberPDFData[memberID])
+            ),
+            payload
+        )
+        undo.undo()
+        XCTAssertEqual(
+            try AttachmentsService.extract(
+                "timeline.txt",
+                from: XCTUnwrap(viewModel.document.memberPDFData[memberID])
+            ),
+            payload
+        )
+    }
+
+    func testRotationUndoDoesNotResurrectRemovedAttachment() throws {
+        let viewModel = try makeViewModel()
+        let memberID = try XCTUnwrap(viewModel.document.workspace.documents.first?.id)
+        let pageRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        let payloadURL = try writeTempFile(Data("remove-before-rotate".utf8), name: "removed.txt")
+        defer { try? FileManager.default.removeItem(at: payloadURL.deletingLastPathComponent()) }
+
+        XCTAssertTrue(viewModel.addAttachment(payloadURL))
+        XCTAssertTrue(viewModel.removeAttachment(named: "removed.txt"))
+        let undo = try XCTUnwrap(retainedUndoManager)
+        undo.beginUndoGrouping()
+        viewModel.rotatePages([pageRef], by: 90)
+        undo.endUndoGrouping()
+
+        undo.undo()
+        XCTAssertEqual(
+            try AttachmentsService.list(in: XCTUnwrap(viewModel.document.memberPDFData[memberID])),
+            []
+        )
+    }
+
     // Regression: attachments live only in the member byte lane, which the PDFKit
     // export assembly drops — they must be re-grafted onto the exported bytes.
     func testAttachmentsSurviveExport() throws {

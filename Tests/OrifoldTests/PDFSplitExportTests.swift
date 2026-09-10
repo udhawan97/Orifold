@@ -21,6 +21,46 @@ final class PDFSplitExportTests: XCTestCase {
         XCTAssertTrue(viewModel.splitExportParts(rule: .everyN(0)).isEmpty)
     }
 
+    func testSplitExportPartsBakeWorkspaceDecorations() throws {
+        let viewModel = try makeViewModel(from: makePDFData(pageCount: 2))
+        let undecorated = viewModel.splitExportParts(rule: .everyN(1))
+        XCTAssertEqual(undecorated.count, 2)
+        let undecoratedCoverage = try undecorated.map { try DecorationProbe.inkCoverage(of: $0.data) }
+        try DecorationProbe.addBlackDecoration(to: viewModel)
+
+        let decorated = viewModel.splitExportParts(rule: .everyN(1))
+        XCTAssertEqual(decorated.count, 2)
+        let decoratedCoverage = try decorated.map { try DecorationProbe.inkCoverage(of: $0.data) }
+
+        XCTAssertGreaterThan(
+            decoratedCoverage[0],
+            undecoratedCoverage[0] + 0.05,
+            "split output must run the workspace decoration bake used by full export"
+        )
+        XCTAssertEqual(
+            decoratedCoverage[1],
+            undecoratedCoverage[1],
+            accuracy: 0.02,
+            "a page-specific decoration must stay on its target part"
+        )
+    }
+
+    func testSelectedPageExportBakesWorkspaceDecorations() throws {
+        let viewModel = try makeViewModel(from: makePDFData(pageCount: 2))
+        let firstRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        let undecorated = try viewModel.subsetExportData(for: [firstRef])
+        let undecoratedCoverage = try DecorationProbe.inkCoverage(of: undecorated)
+        try DecorationProbe.addBlackDecoration(to: viewModel)
+
+        let decorated = try viewModel.subsetExportData(for: [firstRef])
+
+        XCTAssertGreaterThan(
+            try DecorationProbe.inkCoverage(of: decorated),
+            undecoratedCoverage + 0.05,
+            "selected-page output must use the same decoration bake as full export"
+        )
+    }
+
     func testTopLevelBookmarkBoundariesReadDepthZeroNodesOnly() throws {
         let pdf = try XCTUnwrap(PDFDocument(data: makePDFData(pageCount: 4)))
         PDFOutlineBuilder.apply([

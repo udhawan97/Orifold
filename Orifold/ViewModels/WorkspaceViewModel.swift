@@ -1758,13 +1758,13 @@ final class WorkspaceViewModel {
         var decorations: [PageDecoration]
         var signatureIdentities: [UUID: any SigningIdentity]
         var pageRotations: [UUID: Int]
-        var pdfData: [UUID: Data]
+        var memberTimeline: MemberTimelineSnapshot
         /// Canonical member bases must travel with page structure. Member-atomic replay indexes
         /// operations into these bytes, so restoring one without the other can target a neighbor.
         var originalMemberPDFData: [UUID: Data]
         var incomingSignatureSources: [UUID: IncomingSignatureSource]
         var sourcePayloads: [UUID: SourceDocumentPayload]
-        /// Captured together with `pdfData` because the two must move as a unit: the PDF
+        /// Captured together with `memberTimeline` because the two must move as a unit: the PDF
         /// bytes contain the BAKED result of these operations. Restoring bytes from one
         /// point in time with operations from another leaves an edit that the editor
         /// "remembers" but the page/export doesn't show (or vice versa, ghost ink with no
@@ -1772,7 +1772,7 @@ final class WorkspaceViewModel {
         var pageEditStates: [PageEditState]
         /// Same rule as `pageEditStates`, for the object-editing lane: `objectBaseData` is the
         /// frozen per-member base that `objectEditStates`' ops replay onto, so the two must move
-        /// together with `pdfData` or a later object edit re-derives bytes from a base that no
+        /// together with `memberTimeline` or a later object edit re-derives bytes from a base that no
         /// longer matches the restored ops.
         var objectEditStates: [PageObjectEditState]
         var objectBaseData: [UUID: Data]
@@ -1808,12 +1808,29 @@ final class WorkspaceViewModel {
         var objectBaseData: [UUID: Data]              // per-member base bytes object ops apply to
         var objectSelection: ObjectSelectionState?    // so undo doesn't leave a stale overlay
         var pageRotations: [UUID: Int]
-        var pdfData: [UUID: Data]
+        var memberTimeline: MemberTimelineSnapshot
         var incomingSignatureSources: [UUID: IncomingSignatureSource]
     }
 
+    /// Timeline restores need the authoritative document-level bytes and the serialized live
+    /// PDFKit page state. Attachments exist only in the former, while unsaved annotations and
+    /// form values can exist only in the latter, so one dictionary cannot represent both safely.
+    private struct MemberTimelineSnapshot {
+        var canonicalPDFData: [UUID: Data]
+        var livePDFData: [UUID: Data]
+    }
+
+    private func captureMemberTimelineSnapshot() -> MemberTimelineSnapshot {
+        // Capture canonical bytes before currentPDFData reconciles live form values.
+        let canonicalPDFData = document.memberPDFData
+        return MemberTimelineSnapshot(
+            canonicalPDFData: canonicalPDFData,
+            livePDFData: currentPDFData()
+        )
+    }
+
     private func captureOrderSnapshot() -> OrderSnapshot {
-        let pdfData = currentPDFData()
+        let memberTimeline = captureMemberTimelineSnapshot()
         return OrderSnapshot(
             documents: document.workspace.documents,
             pageOrder: document.workspace.pageOrder,
@@ -1822,9 +1839,9 @@ final class WorkspaceViewModel {
             decorations: document.workspace.decorations,
             signatureIdentities: signingIdentitiesByPlacementID,
             pageRotations: currentPageRotations(),
-            pdfData: pdfData,
+            memberTimeline: memberTimeline,
             originalMemberPDFData: originalMemberPDFData,
-            incomingSignatureSources: incomingSignatureSourcesRebased(to: pdfData),
+            incomingSignatureSources: incomingSignatureSources,
             sourcePayloads: document.sourcePayloads,
             pageEditStates: document.workspace.pageEditStates,
             objectEditStates: document.workspace.objectEditStates,
@@ -1852,7 +1869,7 @@ final class WorkspaceViewModel {
         document.workspace.signatures = snapshot.signatures
         document.workspace.decorations = snapshot.decorations
         signingIdentitiesByPlacementID = snapshot.signatureIdentities
-        document.memberPDFData = snapshot.pdfData
+        document.memberPDFData = snapshot.memberTimeline.canonicalPDFData
         originalMemberPDFData = snapshot.originalMemberPDFData
         incomingSignatureSources = snapshot.incomingSignatureSources
         invalidatePageInspection()
@@ -1862,7 +1879,7 @@ final class WorkspaceViewModel {
         objectBaseData = snapshot.objectBaseData
         lastOCRQualityReport = snapshot.ocrQualityReport
         loadedPDFs = snapshot.documents.compactMap { member in
-            guard let data = snapshot.pdfData[member.id],
+            guard let data = snapshot.memberTimeline.livePDFData[member.id],
                   let pdf = PDFDocument(data: data) else { return nil }
             return (member, pdf)
         }
@@ -2067,35 +2084,16 @@ final class WorkspaceViewModel {
     }
 
     private func captureInlineTextEditSnapshot() -> InlineTextEditSnapshot {
-        let pdfData = currentPDFData()
+        let memberTimeline = captureMemberTimelineSnapshot()
         return InlineTextEditSnapshot(
             editStates: document.workspace.pageEditStates,
             objectEditStates: document.workspace.objectEditStates,
             objectBaseData: objectBaseData,
             objectSelection: objectSelection,
             pageRotations: currentPageRotations(),
-            pdfData: pdfData,
-            incomingSignatureSources: incomingSignatureSourcesRebased(to: pdfData)
+            memberTimeline: memberTimeline,
+            incomingSignatureSources: incomingSignatureSources
         )
-    }
-
-    /// Snapshotting serializes the live PDFKit documents, so the restored bytes may differ
-    /// from the import baseline even when the user made no member-level edit. Rebase only
-    /// still-valid sources onto those snapshot bytes; sources already invalidated by a real
-    /// mutation stay dropped.
-    private func incomingSignatureSourcesRebased(
-        to snapshotPDFData: [UUID: Data]
-    ) -> [UUID: IncomingSignatureSource] {
-        var rebased: [UUID: IncomingSignatureSource] = [:]
-        for (memberID, source) in incomingSignatureSources {
-            guard document.memberPDFData[memberID] == source.normalizedBaselineData,
-                  let baseline = snapshotPDFData[memberID] else { continue }
-            rebased[memberID] = IncomingSignatureSource(
-                signedPDFData: source.signedPDFData,
-                normalizedBaselineData: baseline
-            )
-        }
-        return rebased
     }
 
     private func restoreInlineTextEditSnapshot(_ snapshot: InlineTextEditSnapshot, actionName: String) {
@@ -2110,13 +2108,16 @@ final class WorkspaceViewModel {
         // have no entry in it, and wholesale replacement silently dropped them from
         // loadedPDFs/memberPDFData (vanishing from the canvas and every export) while
         // they remained in the workspace structure.
-        var mergedPDFData = document.memberPDFData
-        for (memberID, data) in snapshot.pdfData {
-            mergedPDFData[memberID] = data
+        var mergedCanonicalPDFData = document.memberPDFData
+        for memberID in snapshot.memberTimeline.livePDFData.keys {
+            if let canonicalData = snapshot.memberTimeline.canonicalPDFData[memberID] {
+                mergedCanonicalPDFData[memberID] = canonicalData
+            }
         }
-        document.memberPDFData = mergedPDFData
+        document.memberPDFData = mergedCanonicalPDFData
         loadedPDFs = document.workspace.documents.compactMap { member in
-            guard let data = mergedPDFData[member.id],
+            guard let data = snapshot.memberTimeline.livePDFData[member.id]
+                    ?? mergedCanonicalPDFData[member.id],
                   let pdf = PDFDocument(data: data) else { return nil }
             return (member, pdf)
         }
@@ -2586,6 +2587,26 @@ final class WorkspaceViewModel {
         undoManager?.registerUndo(withTarget: self) { vm in
             guard vm.canPerformUndoMutation() else { return }
             vm.restoreAnnotationPresence(target, template: inverseTemplate, present: !present, actionName: actionName)
+        }
+        undoManager?.setActionName(actionName)
+    }
+
+    /// Registers creation undo using stable workspace identity rather than retaining the
+    /// PDFPage/PDFAnnotation objects, which replay and structural undo are free to replace.
+    private func registerAnnotationCreationUndo(_ annotation: PDFAnnotation, actionName: String) {
+        guard let target = annotationUndoTarget(for: annotation),
+              let template = annotation.copy() as? PDFAnnotation else {
+            showAnnotationUndoTargetMissing()
+            return
+        }
+        undoManager?.registerUndo(withTarget: self) { vm in
+            guard vm.canPerformUndoMutation() else { return }
+            vm.restoreAnnotationPresence(
+                target,
+                template: template,
+                present: false,
+                actionName: actionName
+            )
         }
         undoManager?.setActionName(actionName)
     }
@@ -4715,9 +4736,11 @@ final class WorkspaceViewModel {
             document.workspace.objectEditStates = snapshot.objectEditStates
             objectBaseData = snapshot.objectBaseData
             objectSelection = snapshot.objectSelection
-            document.memberPDFData = snapshot.pdfData
+            document.memberPDFData = snapshot.memberTimeline.canonicalPDFData
             loadedPDFs = document.workspace.documents.compactMap { m in
-                snapshot.pdfData[m.id].flatMap { PDFDocument(data: $0) }.map { (m, $0) }
+                snapshot.memberTimeline.livePDFData[m.id]
+                    .flatMap { PDFDocument(data: $0) }
+                    .map { (m, $0) }
             }
             objectAnalysisCache.removeAll(); textAnalysisCache.removeAll()
             rebuild()
@@ -5505,7 +5528,7 @@ final class WorkspaceViewModel {
     @discardableResult
     func applyHighlight(to selection: PDFSelection) -> Bool {
         guard canPerformMutatingAction() else { return false }
-        var didAddAnnotation = false
+        var addedAnnotations: [PDFAnnotation] = []
         selection.selectionsByLine().forEach { line in
             guard let page = line.pages.first else { return }
             let bounds = line.bounds(for: page)
@@ -5513,18 +5536,15 @@ final class WorkspaceViewModel {
             let ann = PDFAnnotation(bounds: bounds, forType: .highlight, withProperties: nil)
             ann.color = annotationColor.withAlphaComponent(0.4)
             page.addAnnotation(ann)
-            undoManager?.registerUndo(withTarget: self) { vm in
-                guard vm.canPerformUndoMutation() else { return }
-                page.removeAnnotation(ann)
-            }
-            didAddAnnotation = true
+            addedAnnotations.append(ann)
         }
-        if didAddAnnotation {
+        if !addedAnnotations.isEmpty {
+            let actionName = L10n.string("undo.highlight")
+            addedAnnotations.forEach { registerAnnotationCreationUndo($0, actionName: actionName) }
             markAnnotationsModified()
-            undoManager?.setActionName(L10n.string("undo.highlight"))
             PetBuddyHook.trigger(.highlight)
         }
-        return didAddAnnotation
+        return !addedAnnotations.isEmpty
     }
 
     @discardableResult
@@ -5538,12 +5558,8 @@ final class WorkspaceViewModel {
         ann.color = annotationColor
         ann.setValue(true, forAnnotationKey: Self.draftTextAnnotationKey)
         page.addAnnotation(ann)
+        registerAnnotationCreationUndo(ann, actionName: L10n.string("undo.addNote"))
         markAnnotationsModified()
-        undoManager?.registerUndo(withTarget: self) { vm in
-            guard vm.canPerformUndoMutation() else { return }
-            page.removeAnnotation(ann)
-        }
-        undoManager?.setActionName(L10n.string("undo.addNote"))
         PetBuddyHook.trigger(.note)
         return ann
     }
@@ -5570,12 +5586,8 @@ final class WorkspaceViewModel {
         border.lineWidth = 0
         ann.border = border
         page.addAnnotation(ann)
+        registerAnnotationCreationUndo(ann, actionName: L10n.string("undo.addTextBox"))
         markAnnotationsModified()
-        undoManager?.registerUndo(withTarget: self) { vm in
-            guard vm.canPerformUndoMutation() else { return }
-            page.removeAnnotation(ann)
-        }
-        undoManager?.setActionName(L10n.string("undo.addTextBox"))
         return ann
     }
 
@@ -5617,12 +5629,8 @@ final class WorkspaceViewModel {
         border.lineWidth = 0
         ann.border = border
         page.addAnnotation(ann)
+        registerAnnotationCreationUndo(ann, actionName: L10n.string("undo.replacePDFText"))
         markAnnotationsModified()
-        undoManager?.registerUndo(withTarget: self) { vm in
-            guard vm.canPerformUndoMutation() else { return }
-            page.removeAnnotation(ann)
-        }
-        undoManager?.setActionName(L10n.string("undo.replacePDFText"))
         return ann
     }
 
@@ -5649,12 +5657,8 @@ final class WorkspaceViewModel {
         ann.border?.lineWidth = 2
         ann.add(localPath)
         page.addAnnotation(ann)
+        registerAnnotationCreationUndo(ann, actionName: L10n.string("undo.inkStroke"))
         markAnnotationsModified()
-        undoManager?.registerUndo(withTarget: self) { vm in
-            guard vm.canPerformUndoMutation() else { return }
-            page.removeAnnotation(ann)
-        }
-        undoManager?.setActionName(L10n.string("undo.inkStroke"))
         PetBuddyHook.trigger(.ink)
     }
 
@@ -9703,17 +9707,11 @@ final class WorkspaceViewModel {
         let uniqueIDs = Set(refs.map(\.id))
         let orderedRefs = document.workspace.pageOrder.filter { uniqueIDs.contains($0.id) }
         guard !orderedRefs.isEmpty else { return }
-        let output = PDFDocument()
-        for ref in orderedRefs {
-            guard let lookup = memberPDF(for: ref),
-                  let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex),
-                  let page = lookup.pdf.page(at: localIdx),
-                  let copiedPage = page.copy() as? PDFPage else { continue }
-            output.insert(copiedPage, at: output.pageCount)
-        }
-        guard output.pageCount > 0,
-              let data = PDFSerializer.data(from: output) else {
-            exportError = ExportError(message: L10n.string("error.export.preparePagesForExport"))
+        let data: Data
+        do {
+            data = try subsetExportData(for: orderedRefs)
+        } catch {
+            exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
             return
         }
         let panel = NSSavePanel()
@@ -9741,22 +9739,56 @@ final class WorkspaceViewModel {
         let data: Data
     }
 
+    /// Produces a page subset from the already-baked full export. Baking before slicing keeps
+    /// workspace-only decorations, signatures, comments, form values, and live annotations on
+    /// the same preservation path as normal PDF export. Page numbers retain their workspace
+    /// numbering because the bake sees the original full order.
+    func subsetExportData(for refs: [PageRef]) throws -> Data {
+        let selectedIDs = Set(refs.map(\.id))
+        let pageIndices = document.workspace.pageOrder.indices.filter {
+            selectedIDs.contains(document.workspace.pageOrder[$0].id)
+        }
+        guard !pageIndices.isEmpty else { throw PDFKitEngine.ExportAssemblyError.emptyDocument }
+        return try Self.serializedSubset(
+            pageIndices: pageIndices,
+            from: dataForPDFExport()
+        )
+    }
+
+    private static func serializedSubset(pageIndices: [Int], from bakedData: Data) throws -> Data {
+        guard let pdf = PDFDocument(data: bakedData), pdf.pageCount > 0 else {
+            throw PDFKitEngine.ExportAssemblyError.emptyDocument
+        }
+        let selected = IndexSet(pageIndices)
+        guard selected.count == pageIndices.count,
+              selected.allSatisfy({ pdf.pageCount > $0 }) else {
+            throw PDFKitEngine.ExportAssemblyError.emptyDocument
+        }
+        // A subset export historically carried no document outline. Clear it before removing
+        // pages so PDFKit cannot retain destinations to pages that no longer exist.
+        pdf.outlineRoot = nil
+        for index in stride(from: pdf.pageCount - 1, through: 0, by: -1)
+            where !selected.contains(index) {
+            pdf.removePage(at: index)
+        }
+        guard pdf.pageCount == selected.count,
+              let data = PDFSerializer.data(from: pdf) else {
+            throw PDFKitEngine.ExportAssemblyError.emptyDocument
+        }
+        return data
+    }
+
     /// Pure data half of split-by-rule: partitions the workspace page order with
-    /// `PDFSplitPlanner` and serializes each part exactly the way `exportPages` does.
+    /// `PDFSplitPlanner` and slices each part from one shared baked export.
     /// Panel-free so tests can cover it; `splitExport(rule:)` owns the interactive write.
     func splitExportParts(rule: PDFSplitPlanner.Rule) -> [SplitExportPart] {
         let order = document.workspace.pageOrder
+        guard let bakedData = try? dataForPDFExport() else { return [] }
         return PDFSplitPlanner.parts(totalPages: order.count, rule: rule).compactMap { part in
-            let output = PDFDocument()
-            for index in part.pageIndices where order.indices.contains(index) {
-                let ref = order[index]
-                guard let lookup = memberPDF(for: ref),
-                      let localIdx = localIndex(ref: ref, memberIndex: lookup.documentIndex),
-                      let page = lookup.pdf.page(at: localIdx),
-                      let copiedPage = page.copy() as? PDFPage else { continue }
-                output.insert(copiedPage, at: output.pageCount)
-            }
-            guard output.pageCount > 0, let data = PDFSerializer.data(from: output) else { return nil }
+            guard let data = try? Self.serializedSubset(
+                pageIndices: part.pageIndices.filter { order.indices.contains($0) },
+                from: bakedData
+            ) else { return nil }
             return SplitExportPart(name: part.name, data: data)
         }
     }
@@ -10257,7 +10289,7 @@ final class WorkspaceViewModel {
     @discardableResult
     func applyMarkup(_ type: PDFAnnotationSubtype, to selection: PDFSelection) -> Bool {
         guard canPerformMutatingAction() else { return false }
-        var didAddAnnotation = false
+        var addedAnnotations: [PDFAnnotation] = []
         selection.selectionsByLine().forEach { line in
             guard let page = line.pages.first else { return }
             let bounds = line.bounds(for: page)
@@ -10265,18 +10297,15 @@ final class WorkspaceViewModel {
             let ann = PDFAnnotation(bounds: bounds, forType: type, withProperties: nil)
             ann.color = annotationColor.withAlphaComponent(0.8)
             page.addAnnotation(ann)
-            undoManager?.registerUndo(withTarget: self) { vm in
-                guard vm.canPerformUndoMutation() else { return }
-                page.removeAnnotation(ann)
-            }
-            didAddAnnotation = true
+            addedAnnotations.append(ann)
         }
-        if didAddAnnotation {
+        if !addedAnnotations.isEmpty {
+            let actionName = type == .underline ? "Underline" : "Strikeout"
+            addedAnnotations.forEach { registerAnnotationCreationUndo($0, actionName: actionName) }
             markAnnotationsModified()
-            undoManager?.setActionName(type == .underline ? "Underline" : "Strikeout")
             PetBuddyHook.trigger(.highlight)
         }
-        return didAddAnnotation
+        return !addedAnnotations.isEmpty
     }
 
     private func hasEquivalentAnnotation(on page: PDFPage, subtype: PDFAnnotationSubtype, bounds: CGRect) -> Bool {
