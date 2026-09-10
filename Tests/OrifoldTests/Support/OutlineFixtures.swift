@@ -104,6 +104,7 @@ enum DecorationProbe {
     /// Solid black makes "did the bake run?" an unambiguous pixel question.
     static func addBlackDecoration(to viewModel: WorkspaceViewModel) throws {
         let pageRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        let pageBounds = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0)?.bounds(for: .mediaBox))
         let bitmap = try XCTUnwrap(NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 64, bitsPerSample: 8,
             samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -118,7 +119,12 @@ enum DecorationProbe {
         viewModel.document.workspace.decorations.append(PageDecoration.image(
             imageData: png,
             pageRefID: pageRef.id,
-            rect: CGRect(x: 40, y: 300, width: 400, height: 160)
+            rect: CGRect(
+                x: pageBounds.minX + pageBounds.width * 0.1,
+                y: pageBounds.minY + pageBounds.height * 0.35,
+                width: pageBounds.width * 0.7,
+                height: pageBounds.height * 0.25
+            )
         ))
     }
 

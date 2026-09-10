@@ -27,6 +27,11 @@ final class PDFSplitExportTests: XCTestCase {
         XCTAssertEqual(undecorated.count, 2)
         let undecoratedCoverage = try undecorated.map { try DecorationProbe.inkCoverage(of: $0.data) }
         try DecorationProbe.addBlackDecoration(to: viewModel)
+        XCTAssertGreaterThan(
+            try DecorationProbe.inkCoverage(of: viewModel.dataForPDFExport()),
+            undecoratedCoverage[0] + 0.05,
+            "precondition: the shared full export must bake the decoration"
+        )
 
         let decorated = viewModel.splitExportParts(rule: .everyN(1))
         XCTAssertEqual(decorated.count, 2)
