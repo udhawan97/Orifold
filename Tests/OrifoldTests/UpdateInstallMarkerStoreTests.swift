@@ -48,6 +48,33 @@ final class UpdateInstallMarkerStoreTests: XCTestCase {
         XCTAssertNil(store.readAttempt())
     }
 
+    func testOwnedCleanupPreservesMarkersFromAnotherInstallSession() throws {
+        let owner = UUID()
+        let other = UUID()
+        var reopen = manifest()
+        reopen.sessionID = owner
+        let attempt = InstallAttempt(
+            sessionID: owner,
+            fromVersion: "0.8.6",
+            toVersion: "0.8.7",
+            dmgPath: "/cache/Orifold-0.8.7.dmg",
+            dmgSHA256: String(repeating: "a", count: 64),
+            startedAt: Date(timeIntervalSince1970: 42)
+        )
+        try store.writeReopenManifest(reopen)
+        try store.writeAttempt(attempt)
+
+        store.clearReopenManifest(ownedBy: other)
+        store.clearAttempt(ownedBy: other)
+        XCTAssertEqual(store.readReopenManifest(), reopen)
+        XCTAssertEqual(store.readAttempt(), attempt)
+
+        store.clearReopenManifest(ownedBy: owner)
+        store.clearAttempt(ownedBy: owner)
+        XCTAssertNil(store.readReopenManifest())
+        XCTAssertNil(store.readAttempt())
+    }
+
     func testAbsentMarkersReadNil() {
         XCTAssertNil(store.readReopenManifest())
         XCTAssertNil(store.readAttempt())

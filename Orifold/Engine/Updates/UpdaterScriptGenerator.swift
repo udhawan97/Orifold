@@ -40,6 +40,9 @@ struct UpdaterScriptGenerator {
         var restoreScriptPath: String? = nil
         var rollbackSHA256: String? = nil
         var rollbackVersion: String? = nil
+        /// Revocable app-owned authorization. Production hand-off always supplies one; empty is
+        /// retained for deterministic legacy script tests.
+        var authorizationPath: String? = nil
         /// Command used to relaunch the installed app. `open` in production; overridden in
         /// tests so the swap can be verified without actually launching anything.
         var relaunchCommand: String = "/usr/bin/open"
@@ -62,6 +65,7 @@ struct UpdaterScriptGenerator {
         /// nothing until the user types `YES`. In-app restore leaves this false: the user has
         /// already confirmed in the app, which is quitting to let the swap happen.
         var requiresConsent: Bool = false
+        var authorizationPath: String? = nil
         var relaunchCommand: String = "/usr/bin/open"
     }
 
@@ -87,6 +91,10 @@ struct UpdaterScriptGenerator {
         if let restoreScript = inputs.restoreScriptPath, restoreScript.contains("'") {
             throw GeneratorError.unsafeValue(restoreScript)
         }
+        if let authorizationPath = inputs.authorizationPath,
+           authorizationPath.isEmpty || authorizationPath.contains("'") {
+            throw GeneratorError.unsafeValue(authorizationPath)
+        }
         if let rollbackSHA = inputs.rollbackSHA256,
            (rollbackSHA.count != 64 || !rollbackSHA.allSatisfy(\.isHexDigit)) {
             throw GeneratorError.invalidDigest
@@ -106,6 +114,7 @@ struct UpdaterScriptGenerator {
             .replacingOccurrences(of: "@@EXPECTED_BUNDLE_ID@@", with: inputs.publisherBundleIdentifier)
             .replacingOccurrences(of: "@@RESTORE_SCRIPT_PATH@@", with: inputs.restoreScriptPath ?? "")
             .replacingOccurrences(of: "@@ROLLBACK_SHA@@", with: inputs.rollbackSHA256 ?? "")
+            .replacingOccurrences(of: "@@AUTHORIZATION_PATH@@", with: inputs.authorizationPath ?? "")
             .replacingOccurrences(of: "@@RELAUNCH_CMD@@", with: inputs.relaunchCommand)
     }
 
@@ -142,6 +151,10 @@ struct UpdaterScriptGenerator {
         guard inputs.publisherBundleIdentifier == UpdatePublisherIdentity.expectedBundleIdentifier else {
             throw GeneratorError.unsafeValue(inputs.publisherBundleIdentifier)
         }
+        if let authorizationPath = inputs.authorizationPath,
+           authorizationPath.isEmpty || authorizationPath.contains("'") {
+            throw GeneratorError.unsafeValue(authorizationPath)
+        }
 
         return Self.restoreTemplate
             .replacingOccurrences(of: "@@APP_PID@@", with: String(inputs.appPID))
@@ -152,6 +165,7 @@ struct UpdaterScriptGenerator {
             .replacingOccurrences(of: "@@EXPECTED_TEAM_ID@@", with: inputs.publisherTeamIdentifier ?? "")
             .replacingOccurrences(of: "@@EXPECTED_BUNDLE_ID@@", with: inputs.publisherBundleIdentifier)
             .replacingOccurrences(of: "@@REQUIRE_CONSENT@@", with: inputs.requiresConsent ? "1" : "")
+            .replacingOccurrences(of: "@@AUTHORIZATION_PATH@@", with: inputs.authorizationPath ?? "")
             .replacingOccurrences(of: "@@RELAUNCH_CMD@@", with: inputs.relaunchCommand)
     }
 
@@ -243,12 +257,14 @@ struct UpdaterScriptGenerator {
     EXPECTED_BUNDLE_ID='@@EXPECTED_BUNDLE_ID@@'
     RESTORE_SCRIPT_PATH='@@RESTORE_SCRIPT_PATH@@'
     ROLLBACK_SHA='@@ROLLBACK_SHA@@'
+    AUTHORIZATION_PATH='@@AUTHORIZATION_PATH@@'
     RELAUNCH_CMD='@@RELAUNCH_CMD@@'
 
     PATH="/usr/bin:/bin:/usr/sbin:/sbin"
     MOUNT="${TMPDIR:-/tmp}/orifold-update-mount-$$"
     STAGING="${APP_PATH}.update-staging-$$"
     BACKUP="${APP_PATH}.previous-$$"
+    AUTHORIZATION_CLAIM="${AUTHORIZATION_PATH}.claimed-$$"
 
     say() { printf "%s\n" "$1"; }
 
@@ -298,6 +314,18 @@ struct UpdaterScriptGenerator {
     cleanup() {
         [[ -d "$MOUNT" ]] && hdiutil detach "$MOUNT" -quiet 2>/dev/null
         [[ -d "$STAGING" ]] && rm -rf "$STAGING" 2>/dev/null
+        [[ -n "$AUTHORIZATION_PATH" ]] && rm -f "$AUTHORIZATION_PATH" "$AUTHORIZATION_CLAIM" 2>/dev/null
+    }
+
+    authorization_is_live() {
+        [[ -z "$AUTHORIZATION_PATH" ]] || [[ -f "$AUTHORIZATION_PATH" && ! -L "$AUTHORIZATION_PATH" ]]
+    }
+
+    claim_authorization() {
+        [[ -z "$AUTHORIZATION_PATH" ]] && return 0
+        authorization_is_live || return 1
+        /bin/mv "$AUTHORIZATION_PATH" "$AUTHORIZATION_CLAIM" 2>/dev/null || return 1
+        /bin/rm -f "$AUTHORIZATION_CLAIM"
     }
 
     @@TRANSACTION_HELPERS@@
@@ -318,18 +346,27 @@ struct UpdaterScriptGenerator {
         fail "$1"
     }
 
+    cancel_handoff() {
+        cleanup
+        say "The update was cancelled before any app files changed."
+        exit 0
+    }
+
     printf "\033]0;Orifold Updater\007"
     say "Installing Orifold $NEW_VERSION…"
 
     # 1. Wait (max 60s) for the old app to quit. A stale/gone PID proceeds immediately.
+    authorization_is_live || cancel_handoff
     if [[ "$APP_PID" == <-> ]]; then
         i=0
         while kill -0 "$APP_PID" 2>/dev/null; do
+            authorization_is_live || cancel_handoff
             sleep 0.5
             i=$((i + 1))
             [[ $i -ge 120 ]] && fail "Orifold is still running, so nothing was changed."
         done
     fi
+    claim_authorization || cancel_handoff
 
     # 2. Re-verify the download immediately before installing (closes the verify→install gap).
     [[ -f "$DMG_PATH" ]] || fail "The downloaded update could not be found."
@@ -411,12 +448,14 @@ struct UpdaterScriptGenerator {
     EXPECTED_TEAM_ID='@@EXPECTED_TEAM_ID@@'
     EXPECTED_BUNDLE_ID='@@EXPECTED_BUNDLE_ID@@'
     REQUIRE_CONSENT='@@REQUIRE_CONSENT@@'
+    AUTHORIZATION_PATH='@@AUTHORIZATION_PATH@@'
     RELAUNCH_CMD='@@RELAUNCH_CMD@@'
 
     PATH="/usr/bin:/bin:/usr/sbin:/sbin"
     EXTRACT="${TMPDIR:-/tmp}/orifold-restore-extract-$$"
     STAGING="${APP_PATH}.restore-staging-$$"
     BACKUP="${APP_PATH}.replaced-$$"
+    AUTHORIZATION_CLAIM="${AUTHORIZATION_PATH}.claimed-$$"
 
     say() { printf "%s\n" "$1"; }
 
@@ -453,6 +492,18 @@ struct UpdaterScriptGenerator {
     cleanup() {
         [[ -d "$EXTRACT" ]] && rm -rf "$EXTRACT" 2>/dev/null
         [[ -d "$STAGING" ]] && rm -rf "$STAGING" 2>/dev/null
+        [[ -n "$AUTHORIZATION_PATH" ]] && rm -f "$AUTHORIZATION_PATH" "$AUTHORIZATION_CLAIM" 2>/dev/null
+    }
+
+    authorization_is_live() {
+        [[ -z "$AUTHORIZATION_PATH" ]] || [[ -f "$AUTHORIZATION_PATH" && ! -L "$AUTHORIZATION_PATH" ]]
+    }
+
+    claim_authorization() {
+        [[ -z "$AUTHORIZATION_PATH" ]] && return 0
+        authorization_is_live || return 1
+        /bin/mv "$AUTHORIZATION_PATH" "$AUTHORIZATION_CLAIM" 2>/dev/null || return 1
+        /bin/rm -f "$AUTHORIZATION_CLAIM"
     }
 
     @@TRANSACTION_HELPERS@@
@@ -471,6 +522,12 @@ struct UpdaterScriptGenerator {
 
     restore_and_fail() {
         fail "$1"
+    }
+
+    cancel_handoff() {
+        cleanup
+        say "Restore was cancelled before any app files changed."
+        exit 0
     }
 
     printf "\033]0;Orifold Restore\007"
@@ -494,14 +551,17 @@ struct UpdaterScriptGenerator {
     fi
 
     # 1. Wait (max 60s) for the running app to quit. A stale/gone PID proceeds immediately.
+    authorization_is_live || cancel_handoff
     if [[ -z "$REQUIRE_CONSENT" && "$APP_PID" == <-> ]]; then
         i=0
         while kill -0 "$APP_PID" 2>/dev/null; do
+            authorization_is_live || cancel_handoff
             sleep 0.5
             i=$((i + 1))
             [[ $i -ge 120 ]] && fail "Orifold is still running, so nothing was changed."
         done
     fi
+    claim_authorization || cancel_handoff
 
     # 2. Re-verify the archive immediately before restoring.
     [[ -f "$ARCHIVE_ZIP" ]] || fail "The saved previous version could not be found."

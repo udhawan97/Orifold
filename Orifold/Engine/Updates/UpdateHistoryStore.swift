@@ -117,6 +117,14 @@ final class UpdateHistoryStore {
         save()
     }
 
+    /// Removes an install record when the app's normal termination review cancels the hand-off.
+    /// The update never started in that case, so retaining an unverified row would be misleading.
+    func remove(id: UUID) {
+        guard let index = records.firstIndex(where: { $0.id == id }) else { return }
+        records.remove(at: index)
+        save()
+    }
+
     // MARK: - Persistence
 
     private static func load(from url: URL) -> [UpdateHistoryRecord] {

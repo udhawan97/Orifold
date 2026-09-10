@@ -2784,8 +2784,8 @@ func applyFolderImportOutcome(
         // Reported from the completion handler with the count that actually landed. Doing
         // it here, up front, announced "Imported 12 files" (to VoiceOver as well) before a
         // single file had been parsed — and any that then failed made the number a lie.
-        viewModel.importFiles(urls: urls) { importedCount, wasCancelled in
-            guard !wasCancelled else { return }
+        viewModel.importFiles(urls: urls) { [weak viewModel] importedCount, wasCancelled in
+            guard !wasCancelled, let viewModel else { return }
             guard let message = folderImportReadyStatusMessage(
                 importedCount: importedCount,
                 unsupportedCount: unsupportedCount,
@@ -2822,8 +2822,8 @@ func applyFolderImportOutcome(
 @MainActor
 func importFirstFromPendingBatch(_ batch: PendingFolderImportBatch, into viewModel: WorkspaceViewModel) {
     let firstBatch = Array(batch.urls.prefix(maximumImportBatchSize))
-    viewModel.importFiles(urls: firstBatch) { importedCount, wasCancelled in
-        guard !wasCancelled else { return }
+    viewModel.importFiles(urls: firstBatch) { [weak viewModel] importedCount, wasCancelled in
+        guard !wasCancelled, let viewModel else { return }
         guard let message = folderImportReadyStatusMessage(
             importedCount: importedCount,
             unsupportedCount: batch.unsupportedCount,

@@ -19,15 +19,23 @@ private final class SpyHandOff: UpdateInstallHandOff {
     var restoreInputs: UpdaterScriptGenerator.RestoreInputs?
     var terminated = false
     var launchResult = true
+    var terminationAccepted = true
+    private(set) var helperAuthorized = false
     func launchUpdater(_ inputs: UpdaterScriptGenerator.Inputs) -> Bool {
         launchedInputs = inputs
+        helperAuthorized = launchResult
         return launchResult
     }
     func launchRestore(_ inputs: UpdaterScriptGenerator.RestoreInputs) -> Bool {
         restoreInputs = inputs
+        helperAuthorized = launchResult
         return launchResult
     }
-    func terminateForInstall() { terminated = true }
+    func terminateForInstall() -> Bool {
+        terminated = true
+        return terminationAccepted
+    }
+    func abandonLaunchedHelper() { helperAuthorized = false }
 }
 
 @MainActor
@@ -55,7 +63,12 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
 
     /// Builds a controller already advanced to `.readyToInstall` with a real on-disk DMG and
     /// a fake current bundle to archive.
-    private func readyController(spy: SpyHandOff, history: UpdateHistoryStore, markers: UpdateInstallMarkerStore) async throws -> (UpdateController, dmg: URL, bundle: URL) {
+    private func readyController(
+        spy: SpyHandOff,
+        history: UpdateHistoryStore,
+        markers: UpdateInstallMarkerStore,
+        openDocumentsSnapshot: @escaping @MainActor () -> [UpdateInstallPreflight.DocumentState] = { [] }
+    ) async throws -> (UpdateController, dmg: URL, bundle: URL) {
         let dmg = tmp.appendingPathComponent("Orifold-0.9.0.dmg")
         try Data("pretend-dmg-bytes".utf8).write(to: dmg)
 
@@ -78,7 +91,8 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
                 bundleIdentifier: UpdatePublisherIdentity.expectedBundleIdentifier,
                 teamIdentifier: "TEAM123456"),
             processID: 4242,
-            now: { Date(timeIntervalSince1970: 100) }
+            now: { Date(timeIntervalSince1970: 100) },
+            openDocumentsSnapshot: openDocumentsSnapshot
         )
         await c.checkForUpdates(userInitiated: true)
         await c.downloadUpdate()
@@ -137,6 +151,136 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
         guard case let .failed(failure) = c.phase else { return XCTFail("expected failed, got \(c.phase)") }
         XCTAssertEqual(failure.kind, .install)
         XCTAssertNil(markers.readAttempt(), "a non-started install must not leave an attempt marker")
+    }
+
+    func testInstallStopsBeforeHelperLaunchWhenReopenManifestCannotBeSaved() async throws {
+        let spy = SpyHandOff()
+        let history = UpdateHistoryStore(directory: tmp)
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let (c, _, _) = try await readyController(spy: spy, history: history, markers: markers)
+        try FileManager.default.createDirectory(
+            at: tmp.appendingPathComponent("reopen-manifest.json"),
+            withIntermediateDirectories: false
+        )
+
+        let ok = await c.installAndRelaunch(reopenDocuments: [
+            ReopenDocument(path: "/Users/x/A.pdf", bookmarkData: nil, pageIndex: 3, displayName: "A"),
+        ])
+
+        XCTAssertFalse(ok)
+        XCTAssertNil(spy.launchedInputs, "a missing reopen record must stop before helper launch")
+        XCTAssertFalse(spy.terminated, "a missing reopen record must keep the app running")
+        guard case let .failed(failure) = c.phase else { return XCTFail("expected a useful install failure") }
+        XCTAssertEqual(failure.kind, .install)
+
+        try FileManager.default.removeItem(at: tmp.appendingPathComponent("reopen-manifest.json"))
+        await c.checkForUpdates(userInitiated: true)
+        await c.downloadUpdate()
+        XCTAssertEqual(c.phase, .readyToInstall(update()), "the verified download must remain retryable after repair")
+    }
+
+    func testInstallStopsBeforeHelperLaunchWhenAttemptMarkerCannotBeSaved() async throws {
+        let spy = SpyHandOff()
+        let history = UpdateHistoryStore(directory: tmp)
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let (c, _, _) = try await readyController(spy: spy, history: history, markers: markers)
+        try FileManager.default.createDirectory(
+            at: tmp.appendingPathComponent("install-attempt.json"),
+            withIntermediateDirectories: false
+        )
+
+        let ok = await c.installAndRelaunch(reopenDocuments: [])
+
+        XCTAssertFalse(ok)
+        XCTAssertNil(spy.launchedInputs, "an unrecorded attempt must stop before helper launch")
+        XCTAssertFalse(spy.terminated, "an unrecorded attempt must keep the app running")
+        guard case let .failed(failure) = c.phase else { return XCTFail("expected a useful install failure") }
+        XCTAssertEqual(failure.kind, .install)
+
+        try FileManager.default.removeItem(at: tmp.appendingPathComponent("install-attempt.json"))
+        await c.checkForUpdates(userInitiated: true)
+        await c.downloadUpdate()
+        XCTAssertEqual(c.phase, .readyToInstall(update()), "the verified download must remain retryable after repair")
+    }
+
+    func testCancelledTerminationRevokesHelperBeforeReturningToRetryableState() async throws {
+        let spy = SpyHandOff()
+        spy.terminationAccepted = false
+        let history = UpdateHistoryStore(directory: tmp)
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let (c, _, _) = try await readyController(spy: spy, history: history, markers: markers)
+
+        let ok = await c.installAndRelaunch(reopenDocuments: [])
+
+        XCTAssertFalse(ok)
+        XCTAssertTrue(spy.terminated, "the normal termination path must still review open documents")
+        XCTAssertFalse(spy.helperAuthorized, "a cancelled quit must revoke the launched helper")
+        XCTAssertEqual(c.phase, .readyToInstall(update()), "the user must be able to retry explicitly")
+        XCTAssertNil(markers.readAttempt(), "a cancelled hand-off is not a pending install")
+        XCTAssertNil(markers.readReopenManifest(), "a cancelled hand-off must not reopen stale state later")
+        XCTAssertNil(history.latest, "a cancelled hand-off must not leave an unverified install row")
+
+        spy.terminationAccepted = true
+        let retryOK = await c.installAndRelaunch(reopenDocuments: [])
+        XCTAssertTrue(retryOK, "the user must be able to retry explicitly")
+        XCTAssertTrue(spy.helperAuthorized)
+    }
+
+    func testInstallRechecksUnsavedDocumentsAfterPreparationBeforeLaunchingHelper() async throws {
+        let spy = SpyHandOff()
+        let history = UpdateHistoryStore(directory: tmp)
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        var snapshotCount = 0
+        let (c, _, _) = try await readyController(
+            spy: spy,
+            history: history,
+            markers: markers,
+            openDocumentsSnapshot: {
+                snapshotCount += 1
+                return snapshotCount > 1
+                    ? [.init(displayName: "Changed.pdf", hasUnsavedChanges: true)]
+                    : []
+            }
+        )
+
+        let ok = await c.installAndRelaunch(reopenDocuments: [])
+
+        XCTAssertFalse(ok)
+        XCTAssertGreaterThanOrEqual(snapshotCount, 2)
+        XCTAssertNil(spy.launchedInputs, "a document changed during preparation must stop helper launch")
+        XCTAssertFalse(spy.terminated)
+        XCTAssertEqual(c.phase, .readyToInstall(update()))
+        XCTAssertNil(markers.readAttempt())
+        XCTAssertNil(markers.readReopenManifest())
+        XCTAssertNil(history.latest)
+    }
+
+    func testSystemHandOffCreatesAndRevokesOneAuthorizationToken() throws {
+        var openedURL: URL?
+        let handOff = SystemUpdateInstallHandOff(cacheDirectory: tmp) { url in
+            openedURL = url
+            return true
+        }
+        let inputs = UpdaterScriptGenerator.Inputs(
+            appPID: 4242,
+            appBundlePath: "/Applications/Orifold.app",
+            dmgPath: tmp.appendingPathComponent("Orifold-0.9.0.dmg").path,
+            dmgSHA256: String(repeating: "a", count: 64),
+            newVersion: "0.9.0",
+            publisherTeamIdentifier: "TEAM123456",
+            publisherBundleIdentifier: UpdatePublisherIdentity.expectedBundleIdentifier
+        )
+
+        XCTAssertTrue(handOff.launchUpdater(inputs))
+        XCTAssertNotNil(openedURL)
+        let authorizationURLs = try FileManager.default.contentsOfDirectory(
+            at: tmp,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "authorized" }
+        XCTAssertEqual(authorizationURLs.count, 1)
+
+        handOff.abandonLaunchedHelper()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: authorizationURLs[0].path))
     }
 
     func testInstallFailsClosedWhenRollbackArchiveCannotBePrepared() async throws {
@@ -271,6 +415,22 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
         XCTAssertEqual(inputs.restoreVersion, "0.8.5")
         XCTAssertEqual(inputs.archiveSHA256, manifest.sha256)
         XCTAssertEqual(inputs.archiveZipPath, rollbackDir.appendingPathComponent(manifest.archiveFileName).path)
+    }
+
+    func testCancelledRestoreTerminationRevokesHelperAndAllowsRetry() async throws {
+        let spy = SpyHandOff()
+        spy.terminationAccepted = false
+        let (c, _, _, _) = try controllerWithArchive(spy: spy)
+
+        let firstOK = await c.restorePreviousVersion()
+        XCTAssertFalse(firstOK)
+        XCTAssertTrue(spy.terminated)
+        XCTAssertFalse(spy.helperAuthorized, "a cancelled quit must revoke the restore helper")
+
+        spy.terminationAccepted = true
+        let retryOK = await c.restorePreviousVersion()
+        XCTAssertTrue(retryOK, "restore must leave its in-flight gate retryable")
+        XCTAssertTrue(spy.helperAuthorized)
     }
 
     func testRestoreNotOfferedForTheVersionAlreadyRunning() throws {

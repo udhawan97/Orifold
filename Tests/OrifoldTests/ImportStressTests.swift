@@ -330,6 +330,53 @@ final class ImportStressTests: XCTestCase {
     }
 
     @MainActor
+    func testDeferredBatchCompletionWaitsForPasswordDecisionsAndCountsOnlyAttachedFiles() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let lockedA = try writeEncryptedSinglePagePDF(named: "locked-a.pdf", password: "first", in: directory, width: 310)
+        let plain = try writeSinglePagePDF(named: "plain.pdf", in: directory, width: 320)
+        let malformed = directory.appendingPathComponent("malformed.pdf")
+        try Data("%PDF-1.4 broken".utf8).write(to: malformed)
+        let lockedB = try writeEncryptedSinglePagePDF(named: "locked-b.pdf", password: "second", in: directory, width: 340)
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument(), processingEngine: PDFKitProcessingEngineFallback())
+        var completions: [(importedCount: Int, wasCancelled: Bool)] = []
+
+        viewModel.importFiles(urls: [lockedA, plain, malformed, lockedB]) { importedCount, wasCancelled in
+            completions.append((importedCount, wasCancelled))
+        }
+        try await waitForLocalImportToFinish(in: viewModel)
+
+        XCTAssertTrue(completions.isEmpty, "the batch is not complete while password decisions remain")
+        XCTAssertEqual(viewModel.memberDocuments.map(\.displayName), ["plain"])
+        XCTAssertNotNil(viewModel.importError, "the malformed input must keep its existing failure notice")
+        XCTAssertEqual(viewModel.pendingPasswordURL, lockedA)
+        XCTAssertFalse(viewModel.unlock(pdf: try XCTUnwrap(viewModel.pendingPasswordPDF), password: "wrong", url: lockedA))
+        XCTAssertTrue(completions.isEmpty, "a wrong password must not resolve the pending item")
+        XCTAssertEqual(viewModel.pendingPasswordURL, lockedA)
+
+        XCTAssertTrue(viewModel.unlock(pdf: try XCTUnwrap(viewModel.pendingPasswordPDF), password: "first", url: lockedA))
+        XCTAssertTrue(completions.isEmpty, "the second locked file still needs a decision")
+        XCTAssertEqual(viewModel.pendingPasswordURL, lockedB)
+        viewModel.cancelPendingPasswordImport()
+
+        XCTAssertEqual(completions.count, 1)
+        XCTAssertEqual(completions[0].importedCount, 2)
+        XCTAssertFalse(completions[0].wasCancelled)
+        XCTAssertEqual(viewModel.memberDocuments.map(\.displayName), ["locked-a", "plain"])
+        let namesByID = Dictionary(uniqueKeysWithValues: viewModel.memberDocuments.map { ($0.id, $0.displayName) })
+        XCTAssertEqual(viewModel.document.workspace.pageOrder.compactMap { namesByID[$0.memberDocId] }, ["locked-a", "plain"])
+        let exported = try XCTUnwrap(PDFDocument(data: viewModel.dataForPDFExport()))
+        XCTAssertEqual(
+            (0..<exported.pageCount).compactMap { exported.page(at: $0)?.bounds(for: .mediaBox).width },
+            [310, 320]
+        )
+
+        viewModel.cancelPendingPasswordImport()
+        XCTAssertEqual(completions.count, 1, "completion must be one-shot after the queue is empty")
+    }
+
+    @MainActor
     func testDeferredEncryptedBatchPreservesMemberPageAndExportOrderAcrossPositionsAndSkips() async throws {
         let cases: [(locked: [Bool], skipped: Set<Int>, failed: Set<Int>, targeted: Bool)] = [
             ([true, false], [], [], false),

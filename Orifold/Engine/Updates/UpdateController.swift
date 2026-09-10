@@ -73,6 +73,7 @@ final class UpdateController {
     private let publisherIdentity: UpdatePublisherIdentity?
     private let processID: Int32
     private let now: () -> Date
+    private let openDocumentsSnapshot: @MainActor () -> [UpdateInstallPreflight.DocumentState]
 
     init(
         transport: UpdateTransport = GitHubReleaseTransport(),
@@ -87,7 +88,10 @@ final class UpdateController {
         bundleURL: URL = Bundle.main.bundleURL,
         publisherIdentityOverride: UpdatePublisherIdentity? = nil,
         processID: Int32 = ProcessInfo.processInfo.processIdentifier,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        openDocumentsSnapshot: @escaping @MainActor () -> [UpdateInstallPreflight.DocumentState] = {
+            UpdateInstallPreflight.openDocumentsSnapshot()
+        }
     ) {
         self.transport = transport
         self.downloader = downloader
@@ -102,6 +106,7 @@ final class UpdateController {
         self.publisherIdentity = publisherIdentityOverride ?? UpdatePublisherIdentity.current(for: bundleURL)
         self.processID = processID
         self.now = now
+        self.openDocumentsSnapshot = openDocumentsSnapshot
         automaticChecksEnabled = defaults.bool(forKey: Keys.automaticChecks)
         lastCheckAt = defaults.object(forKey: Keys.lastCheckAt) as? Date
         skippedVersion = defaults.string(forKey: Keys.skippedVersion)
@@ -218,7 +223,7 @@ final class UpdateController {
     /// Open documents with unsaved changes that must be saved or closed before an install
     /// proceeds. Empty when it's safe to install.
     func documentsBlockingInstall() -> [UpdateInstallPreflight.DocumentState] {
-        UpdateInstallPreflight.blockingDocuments(UpdateInstallPreflight.openDocumentsSnapshot())
+        UpdateInstallPreflight.blockingDocuments(openDocumentsSnapshot())
     }
 
     /// Hands the verified download to the OS installer UI (opens the DMG's
@@ -263,8 +268,22 @@ final class UpdateController {
         // Preserve what's on screen so the relaunched app can reopen it (consumed once).
         let version = currentVersion.description
         let build = currentBuild
-        try? markers.writeReopenManifest(UpdateReopenManifest(
-            fromVersion: version, toVersion: update.version, savedAt: now(), documents: reopenDocuments))
+        let sessionID = UUID()
+        do {
+            try markers.writeReopenManifest(UpdateReopenManifest(
+                sessionID: sessionID,
+                fromVersion: version,
+                toVersion: update.version,
+                savedAt: now(),
+                documents: reopenDocuments
+            ))
+        } catch {
+            phase = .failed(UpdateFailure(
+                kind: .install,
+                detail: "Could not preserve the documents to reopen after updating: \(error.localizedDescription)"
+            ))
+            return false
+        }
 
         // Off the main actor: digest the DMG and archive the current bundle for rollback.
         // Recovery is a prerequisite for an automatic swap; if either input cannot be
@@ -274,7 +293,7 @@ final class UpdateController {
         let archiver = self.archiver
 
         guard let digest = await Task.detached(operation: { try? RollbackArchiver.sha256(of: URL(fileURLWithPath: dmgPath)) }).value else {
-            markers.clearReopenManifest()
+            markers.clearReopenManifest(ownedBy: sessionID)
             phase = .failed(UpdateFailure(kind: .verification, detail: "Could not hash the downloaded update."))
             return false
         }
@@ -284,16 +303,39 @@ final class UpdateController {
                   let path = archiver.archiveURL(for: manifest)?.path else { return nil }
             return (manifest: manifest, path: path)
         }).value else {
-            markers.clearReopenManifest()
+            markers.clearReopenManifest(ownedBy: sessionID)
             phase = .failed(UpdateFailure(kind: .verification, detail: "Could not prepare a verified rollback archive."))
             return false
         }
         rollbackManifest = rollback.manifest
 
+        // Preparation can take long enough for a document to become dirty after the initial
+        // UI check. Recheck immediately before authorizing the external helper.
+        guard documentsBlockingInstall().isEmpty else {
+            markers.clearReopenManifest(ownedBy: sessionID)
+            phase = .readyToInstall(update)
+            return false
+        }
+
         // Record the attempt + history so the next launch can judge success vs. failure.
-        try? markers.writeAttempt(InstallAttempt(
-            fromVersion: version, toVersion: update.version, dmgPath: dmgPath, dmgSHA256: digest, startedAt: now()))
-        history.record(UpdateHistoryRecord(
+        do {
+            try markers.writeAttempt(InstallAttempt(
+                sessionID: sessionID,
+                fromVersion: version,
+                toVersion: update.version,
+                dmgPath: dmgPath,
+                dmgSHA256: digest,
+                startedAt: now()
+            ))
+        } catch {
+            markers.clearReopenManifest(ownedBy: sessionID)
+            phase = .failed(UpdateFailure(
+                kind: .install,
+                detail: "Could not record the update attempt: \(error.localizedDescription)"
+            ))
+            return false
+        }
+        let historyRecord = history.record(UpdateHistoryRecord(
             fromVersion: version, fromBuild: build, toVersion: update.version, toBuild: "",
             installedAt: now(), launchVerified: false))
 
@@ -307,12 +349,21 @@ final class UpdateController {
             rollbackSHA256: rollback.manifest.sha256,
             rollbackVersion: rollback.manifest.version)
         guard handOff.launchUpdater(inputs) else {
-            markers.clearAttempt()
+            markers.clearAttempt(ownedBy: sessionID)
+            markers.clearReopenManifest(ownedBy: sessionID)
+            history.remove(id: historyRecord.id)
             phase = .failed(UpdateFailure(kind: .install, detail: "Could not start the updater."))
             return false
         }
 
-        handOff.terminateForInstall()
+        guard handOff.terminateForInstall() else {
+            handOff.abandonLaunchedHelper()
+            markers.clearAttempt(ownedBy: sessionID)
+            markers.clearReopenManifest(ownedBy: sessionID)
+            history.remove(id: historyRecord.id)
+            phase = .readyToInstall(update)
+            return false
+        }
         return true
     }
 
@@ -361,7 +412,11 @@ final class UpdateController {
             publisherBundleIdentifier: publisherIdentity?.bundleIdentifier ?? UpdatePublisherIdentity.expectedBundleIdentifier)
         guard handOff.launchRestore(inputs) else { isRestoreInFlight = false; return false }
 
-        handOff.terminateForInstall()
+        guard handOff.terminateForInstall() else {
+            handOff.abandonLaunchedHelper()
+            isRestoreInFlight = false
+            return false
+        }
         return true
     }
 

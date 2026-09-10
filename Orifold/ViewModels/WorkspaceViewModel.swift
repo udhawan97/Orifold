@@ -1098,10 +1098,9 @@ final class WorkspaceViewModel {
 
     // MARK: - Import
 
-    /// `onCompletion` receives the number of files that actually landed, once the import
-    /// has finished. Callers that summarize a batch must use it rather than the count they
-    /// handed in: this runs asynchronously, so a caller reporting up front is announcing a
-    /// result that has not happened yet and may not match.
+    /// `onCompletion` receives the number of files that actually landed, after parsing and
+    /// every queued password decision have finished. A cancelled parse completes promptly
+    /// with `wasCancelled` so later password decisions cannot overwrite its warning.
     func importFiles(
         urls: [URL],
         insertingAfter targetPageRefID: UUID? = nil,
@@ -1157,11 +1156,11 @@ final class WorkspaceViewModel {
                 isCancellable: true
             )
             return ImportBatchPlacement(
-                insertingAfter: targetPageRefID ?? self.document.workspace.documents.last?.pageRefs.last
+                insertingAfter: targetPageRefID ?? self.document.workspace.documents.last?.pageRefs.last,
+                onCompletion: onCompletion
             )
         }
         var failures: [AsyncImportFailure] = []
-        var importedCount = 0
         for (index, url) in urls.enumerated() {
             if cancellation.isCancelled || Task.isCancelled { break }
             await MainActor.run {
@@ -1173,19 +1172,17 @@ final class WorkspaceViewModel {
             let result = await importDocument(from: url, cancellation: cancellation)
             switch result {
             case .success(let imported):
-                let attached = await MainActor.run {
-                    self.attachImportedDocument(
+                await MainActor.run {
+                    _ = self.attachImportedDocument(
                         imported.document,
                         from: imported.url,
                         position: ImportPosition(batch: placement, index: index)
-                    ) != nil
+                    )
                 }
-                if attached { importedCount += 1 }
             case .failure(let failure):
                 failures.append(failure)
             }
         }
-        let finalImportedCount = importedCount
         let finalFailures = failures
         await MainActor.run {
             self.operationProgress.update(
@@ -1200,17 +1197,21 @@ final class WorkspaceViewModel {
             let wasCancelled = cancellation.isCancelled || Task.isCancelled
             if wasCancelled {
                 self.editingStatus = .warning(
-                    WorkspaceOperationalCopy.importCanceled(afterAdding: finalImportedCount)
+                    WorkspaceOperationalCopy.importCanceled(afterAdding: placement.importedCount)
                 )
             } else if !finalFailures.isEmpty {
-                self.importError = self.importError(for: finalFailures, importedCount: finalImportedCount, totalCount: urls.count)
+                self.importError = self.importError(
+                    for: finalFailures,
+                    importedCount: placement.importedCount,
+                    totalCount: urls.count
+                )
             }
             if self.pendingPasswordPDF != nil {
                 self.isShowingPasswordPrompt = true
             }
-            // Last, so a batch summary never overwrites a cancellation warning or lands
-            // alongside a failure alert claiming a count that includes the failures.
-            onCompletion?(finalImportedCount, wasCancelled)
+            // Last, so an immediately complete batch cannot overwrite its cancellation
+            // warning and a deferred batch cannot announce until every password decision.
+            placement.finishParsing(wasCancelled: wasCancelled)
         }
     }
 
@@ -1280,13 +1281,56 @@ final class WorkspaceViewModel {
         var error: Error
     }
 
-    /// Shared only for the lifetime of a batch and its password queue. Successful
-    /// attachments occupy their original positions; failures and skips leave no anchor.
+    /// Shared only for the lifetime of a batch and its password queue. It is both the
+    /// insertion-order ledger and the one-shot completion ledger, so a deferred unlock
+    /// cannot drift from the count reported to folder-import UI and VoiceOver.
     private final class ImportBatchPlacement {
         let insertingAfter: UUID?
-        var attachedMembers: [Int: UUID] = [:]
+        private(set) var attachedMembers: [Int: UUID] = [:]
+        private(set) var importedCount = 0
+        private var unresolvedPasswordCount = 0
+        private var parsingFinished = false
+        private var wasCancelled = false
+        private var completionDelivered = false
+        private var onCompletion: ((_ importedCount: Int, _ wasCancelled: Bool) -> Void)?
 
-        init(insertingAfter: UUID?) { self.insertingAfter = insertingAfter }
+        init(
+            insertingAfter: UUID?,
+            onCompletion: ((_ importedCount: Int, _ wasCancelled: Bool) -> Void)?
+        ) {
+            self.insertingAfter = insertingAfter
+            self.onCompletion = onCompletion
+        }
+
+        func recordAttachment(_ memberID: UUID, at index: Int) {
+            guard attachedMembers.updateValue(memberID, forKey: index) == nil else { return }
+            importedCount += 1
+        }
+
+        func recordPendingPassword() {
+            unresolvedPasswordCount += 1
+        }
+
+        func resolvePendingPassword() {
+            guard unresolvedPasswordCount > 0 else { return }
+            unresolvedPasswordCount -= 1
+            deliverCompletionIfReady()
+        }
+
+        func finishParsing(wasCancelled: Bool) {
+            parsingFinished = true
+            self.wasCancelled = wasCancelled
+            deliverCompletionIfReady()
+        }
+
+        private func deliverCompletionIfReady() {
+            guard parsingFinished, !completionDelivered else { return }
+            guard wasCancelled || unresolvedPasswordCount == 0 else { return }
+            completionDelivered = true
+            let completion = onCompletion
+            onCompletion = nil
+            completion?(importedCount, wasCancelled)
+        }
     }
 
     private struct ImportPosition {
@@ -1441,14 +1485,18 @@ final class WorkspaceViewModel {
         attachPDF(pdf, from: url, sourcePayload: nil, importPosition: pending?.position)
         removeCurrentPasswordImport()
         rebuild()
+        pending?.position?.batch.resolvePendingPassword()
         return true
     }
 
     func cancelPendingPasswordImport() {
+        let pending = pendingPasswordImports.first
         removeCurrentPasswordImport()
+        pending?.position?.batch.resolvePendingPassword()
     }
 
     private func enqueuePasswordImport(pdf: PDFDocument, url: URL, position: ImportPosition? = nil) {
+        position?.batch.recordPendingPassword()
         pendingPasswordImports.append(PendingPasswordImport(url: url, pdf: pdf, position: position))
         presentPendingPasswordImportIfNeeded()
     }
@@ -1539,7 +1587,9 @@ final class WorkspaceViewModel {
         loadedPDFs.append((member, pdf))
         syncLoadedPDFsOrder()
         PetBuddyHook.trigger(.addFile)
-        if let importPosition { importPosition.batch.attachedMembers[importPosition.index] = member.id }
+        if let importPosition {
+            importPosition.batch.recordAttachment(member.id, at: importPosition.index)
+        }
         return member
     }
 

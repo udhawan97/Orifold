@@ -32,14 +32,18 @@ struct ReopenDocument: Codable, Equatable {
 /// older app can still read (and safely ignore) a newer app's manifest.
 struct UpdateReopenManifest: Codable, Equatable {
     var schemaVersion: Int = 1
+    /// Identifies the install preparation that owns this one-shot record. Older manifests
+    /// decode with `nil`; current cleanup never deletes a record owned by another session.
+    var sessionID: UUID?
     var fromVersion: String
     var toVersion: String
     var savedAt: Date
     var documents: [ReopenDocument]
 
-    private enum CodingKeys: String, CodingKey { case schemaVersion, fromVersion, toVersion, savedAt, documents }
+    private enum CodingKeys: String, CodingKey { case schemaVersion, sessionID, fromVersion, toVersion, savedAt, documents }
 
-    init(fromVersion: String, toVersion: String, savedAt: Date, documents: [ReopenDocument]) {
+    init(sessionID: UUID? = nil, fromVersion: String, toVersion: String, savedAt: Date, documents: [ReopenDocument]) {
+        self.sessionID = sessionID
         self.fromVersion = fromVersion
         self.toVersion = toVersion
         self.savedAt = savedAt
@@ -49,6 +53,7 @@ struct UpdateReopenManifest: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        sessionID = try c.decodeIfPresent(UUID.self, forKey: .sessionID)
         fromVersion = try c.decodeIfPresent(String.self, forKey: .fromVersion) ?? ""
         toVersion = try c.decode(String.self, forKey: .toVersion)
         savedAt = try c.decodeIfPresent(Date.self, forKey: .savedAt) ?? Date(timeIntervalSince1970: 0)
@@ -60,15 +65,17 @@ struct UpdateReopenManifest: Codable, Equatable {
 /// new version) from failure/abandonment (still the old version).
 struct InstallAttempt: Codable, Equatable {
     var schemaVersion: Int = 1
+    var sessionID: UUID?
     var fromVersion: String
     var toVersion: String
     var dmgPath: String
     var dmgSHA256: String
     var startedAt: Date
 
-    private enum CodingKeys: String, CodingKey { case schemaVersion, fromVersion, toVersion, dmgPath, dmgSHA256, startedAt }
+    private enum CodingKeys: String, CodingKey { case schemaVersion, sessionID, fromVersion, toVersion, dmgPath, dmgSHA256, startedAt }
 
-    init(fromVersion: String, toVersion: String, dmgPath: String, dmgSHA256: String, startedAt: Date) {
+    init(sessionID: UUID? = nil, fromVersion: String, toVersion: String, dmgPath: String, dmgSHA256: String, startedAt: Date) {
+        self.sessionID = sessionID
         self.fromVersion = fromVersion
         self.toVersion = toVersion
         self.dmgPath = dmgPath
@@ -79,6 +86,7 @@ struct InstallAttempt: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        sessionID = try c.decodeIfPresent(UUID.self, forKey: .sessionID)
         fromVersion = try c.decode(String.self, forKey: .fromVersion)
         toVersion = try c.decode(String.self, forKey: .toVersion)
         dmgPath = try c.decodeIfPresent(String.self, forKey: .dmgPath) ?? ""
@@ -118,6 +126,13 @@ struct UpdateInstallMarkerStore {
 
     func clearReopenManifest() { try? FileManager.default.removeItem(at: reopenURL) }
 
+    /// Removes only the record written by `sessionID`. A failed atomic replacement may leave
+    /// an older valid manifest in place; install cleanup must not erase that other session.
+    func clearReopenManifest(ownedBy sessionID: UUID) {
+        guard readReopenManifest()?.sessionID == sessionID else { return }
+        clearReopenManifest()
+    }
+
     // MARK: - Install attempt
 
     func writeAttempt(_ attempt: InstallAttempt) throws {
@@ -129,6 +144,11 @@ struct UpdateInstallMarkerStore {
     }
 
     func clearAttempt() { try? FileManager.default.removeItem(at: attemptURL) }
+
+    func clearAttempt(ownedBy sessionID: UUID) {
+        guard readAttempt()?.sessionID == sessionID else { return }
+        clearAttempt()
+    }
 
     // MARK: - Codable helpers
 

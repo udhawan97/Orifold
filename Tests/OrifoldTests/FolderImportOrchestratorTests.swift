@@ -218,6 +218,42 @@ final class FolderImportOrchestratorTests: XCTestCase {
     }
 
     @MainActor
+    func testReadyFolderSummaryWaitsForEncryptedUnlockAndCountsUnsupportedFile() async throws {
+        let root = makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let pdf = PDFDocument()
+        let view = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 300))
+        pdf.insert(try XCTUnwrap(PDFDocument(data: view.dataWithPDF(inside: view.bounds))?.page(at: 0)), at: 0)
+        let bytes = try XCTUnwrap(PDFSerializer.data(from: pdf))
+        let encrypted = root.appendingPathComponent("locked.pdf")
+        try PDFEncryptionService.encryptedData(
+            from: bytes,
+            options: PDFEncryptionOptions(userPassword: "fixture", ownerPassword: "owner")
+        ).write(to: encrypted)
+        try write("archive.zip", in: root)
+        let outcome = await importPickedOrDropped(files: [], folders: [root])
+        let viewModel = makeViewModel()
+
+        applyFolderImportOutcome(outcome, into: viewModel) { _ in
+            XCTFail("an ordinary one-file import should not need over-limit confirmation")
+        }
+        try await waitForImport(in: viewModel)
+
+        XCTAssertEqual(viewModel.pendingPasswordURL?.lastPathComponent, encrypted.lastPathComponent)
+        XCTAssertNil(viewModel.editingStatus, "the final folder summary must wait for password resolution")
+        XCTAssertTrue(viewModel.unlock(
+            pdf: try XCTUnwrap(viewModel.pendingPasswordPDF),
+            password: "fixture",
+            url: try XCTUnwrap(viewModel.pendingPasswordURL)
+        ))
+        XCTAssertEqual(viewModel.memberDocuments.map(\.displayName), ["locked"])
+        XCTAssertEqual(
+            viewModel.editingStatus?.message,
+            folderImportReadyStatusMessage(importedCount: 1, unsupportedCount: 1, wasTruncated: false)
+        )
+    }
+
+    @MainActor
     func testImportFirstFromPendingBatchSurfacesTruncationEvenWithNoUnsupportedFiles() async throws {
         // Regression test: the shared "Import first 50" handler used by both the
         // drop-zone/button confirmation dialog and the File-menu's NSAlert only
@@ -238,31 +274,61 @@ final class FolderImportOrchestratorTests: XCTestCase {
     }
 
     @MainActor
-    func testOverLimitImportCountsOnlyAttachedFilesAndKeepsTheFiftyFileLimit() async throws {
+    func testOverLimitFirstFiftyWaitsForEncryptedUnlockAndKeepsUnsupportedNotice() async throws {
         let root = makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
-        let viewModel = makeViewModel()
         let pdf = PDFDocument()
         let view = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 300))
         pdf.insert(try XCTUnwrap(PDFDocument(data: view.dataWithPDF(inside: view.bounds))?.page(at: 0)), at: 0)
         let bytes = try XCTUnwrap(PDFSerializer.data(from: pdf))
-        let plain = root.appendingPathComponent("plain.pdf")
-        try bytes.write(to: plain)
-        let encrypted = root.appendingPathComponent("locked.pdf")
-        try PDFEncryptionService.encryptedData(from: bytes, options: PDFEncryptionOptions(userPassword: "fixture", ownerPassword: "owner")).write(to: encrypted)
-        let corrupt = try write("corrupt.pdf", in: root, contents: "%PDF-1.4 broken")
-        let batch = PendingFolderImportBatch(
-            urls: [plain, encrypted, corrupt] + Array(repeating: corrupt, count: 47) + [plain],
-            unsupportedCount: 2,
-            wasTruncated: true
-        )
+        let encrypted = root.appendingPathComponent("file-010.pdf")
+        for index in 0...maximumImportBatchSize {
+            let url = root.appendingPathComponent(String(format: "file-%03d.pdf", index))
+            if url == encrypted {
+                try PDFEncryptionService.encryptedData(
+                    from: bytes,
+                    options: PDFEncryptionOptions(userPassword: "fixture", ownerPassword: "owner")
+                ).write(to: url)
+            } else {
+                try bytes.write(to: url)
+            }
+        }
+        try write("archive.zip", in: root)
+        let outcome = await importPickedOrDropped(files: [], folders: [root])
+        guard case .needsConfirmation(let batch) = outcome else {
+            return XCTFail("expected .needsConfirmation, got \(outcome)")
+        }
+        XCTAssertEqual(batch.urls.count, maximumImportBatchSize + 1)
+        XCTAssertEqual(batch.unsupportedCount, 1)
+        XCTAssertFalse(batch.wasTruncated)
+        let viewModel = makeViewModel()
+
         importFirstFromPendingBatch(batch, into: viewModel)
-        XCTAssertNil(viewModel.editingStatus)
         try await waitForImport(in: viewModel)
-        XCTAssertEqual(viewModel.memberDocuments.count, 1)
-        XCTAssertEqual(viewModel.pendingPasswordURL, encrypted)
-        XCTAssertNotNil(viewModel.importError)
-        XCTAssertEqual(viewModel.editingStatus?.message, folderImportReadyStatusMessage(importedCount: 1, unsupportedCount: 2, wasTruncated: true))
+
+        XCTAssertEqual(viewModel.memberDocuments.count, maximumImportBatchSize - 1)
+        XCTAssertEqual(viewModel.pendingPasswordURL?.lastPathComponent, encrypted.lastPathComponent)
+        XCTAssertNil(viewModel.editingStatus, "the first-50 summary must wait for its encrypted member")
+        XCTAssertFalse(viewModel.memberDocuments.map(\.displayName).contains("file-050"))
+
+        XCTAssertTrue(viewModel.unlock(
+            pdf: try XCTUnwrap(viewModel.pendingPasswordPDF),
+            password: "fixture",
+            url: try XCTUnwrap(viewModel.pendingPasswordURL)
+        ))
+        XCTAssertEqual(viewModel.memberDocuments.count, maximumImportBatchSize)
+        XCTAssertEqual(
+            viewModel.memberDocuments.map(\.displayName),
+            (0..<maximumImportBatchSize).map { String(format: "file-%03d", $0) }
+        )
+        XCTAssertEqual(
+            viewModel.editingStatus?.message,
+            folderImportReadyStatusMessage(
+                importedCount: maximumImportBatchSize,
+                unsupportedCount: 1,
+                wasTruncated: false
+            )
+        )
     }
 
     @MainActor

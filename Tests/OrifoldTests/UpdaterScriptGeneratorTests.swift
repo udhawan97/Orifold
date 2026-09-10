@@ -194,6 +194,32 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         }
     }
 
+    func testGeneratedUpdaterStopsBeforeSwapWhenAuthorizationWasRevoked() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("orifold-revoked-handoff-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let authorization = root.appendingPathComponent("missing.authorization")
+        let script = try generator.write(
+            .init(
+                appPID: 999_999,
+                appBundlePath: root.appendingPathComponent("Orifold.app").path,
+                dmgPath: root.appendingPathComponent("missing.dmg").path,
+                dmgSHA256: String(repeating: "a", count: 64),
+                newVersion: "0.8.7",
+                authorizationPath: authorization.path
+            ),
+            to: root
+        )
+
+        let result = try runProcess("/bin/zsh", [script.path])
+
+        XCTAssertEqual(result.status, 0)
+        XCTAssertTrue(result.output.contains("cancelled before any app files changed"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: authorization.path))
+    }
+
     /// Live dry-run of the restore swap: a signed "CURRENT" bundle installed, a signed
     /// "PREVIOUS" bundle zipped exactly as `RollbackArchiver` does (`ditto -c -k --keepParent`),
     /// then the generated restore script runs and must replace CURRENT with PREVIOUS and relaunch.
