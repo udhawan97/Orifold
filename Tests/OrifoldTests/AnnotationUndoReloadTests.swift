@@ -101,6 +101,8 @@ final class AnnotationUndoReloadTests: XCTestCase {
         undo.beginUndoGrouping()
         XCTAssertTrue(viewModel.applyMarkup(.underline, to: selection))
         undo.endUndoGrouping()
+        let createdMarkup = try XCTUnwrap(page.annotations.first { $0.type == "Underline" })
+        viewModel.selectedAnnotation = createdMarkup
         let originalPage = page
 
         let pageRef = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
@@ -111,6 +113,10 @@ final class AnnotationUndoReloadTests: XCTestCase {
         let restoredPage = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
         XCTAssertFalse(restoredPage === originalPage)
         XCTAssertEqual(markupCount(in: viewModel, type: "Underline"), 1)
+        XCTAssertTrue(viewModel.selectedAnnotation === createdMarkup)
+        let markupBeforeCreationUndo = try XCTUnwrap(restoredPage.annotations.first { $0.type == "Underline" })
+        let expectedBounds = markupBeforeCreationUndo.bounds
+        let expectedColor = try XCTUnwrap(markupBeforeCreationUndo.color.usingColorSpace(.deviceRGB))
 
         undo.undo()
         XCTAssertEqual(
@@ -118,8 +124,21 @@ final class AnnotationUndoReloadTests: XCTestCase {
             0,
             "creation undo must remove markup from the current live page after structure replaced PDFKit objects"
         )
+        XCTAssertNil(viewModel.selectedAnnotation, "creation undo must clear a detached selection by stable identity")
         undo.redo()
         XCTAssertEqual(markupCount(in: viewModel, type: "Underline"), 1)
+        let restoredMarkup = try XCTUnwrap(
+            viewModel.loadedPDFs.first?.1.page(at: 0)?.annotations.first { $0.type == "Underline" }
+        )
+        XCTAssertEqual(restoredMarkup.bounds.origin.x, expectedBounds.origin.x, accuracy: 0.001)
+        XCTAssertEqual(restoredMarkup.bounds.origin.y, expectedBounds.origin.y, accuracy: 0.001)
+        XCTAssertEqual(restoredMarkup.bounds.width, expectedBounds.width, accuracy: 0.001)
+        XCTAssertEqual(restoredMarkup.bounds.height, expectedBounds.height, accuracy: 0.001)
+        let restoredColor = try XCTUnwrap(restoredMarkup.color.usingColorSpace(.deviceRGB))
+        XCTAssertEqual(restoredColor.redComponent, expectedColor.redComponent, accuracy: 0.001)
+        XCTAssertEqual(restoredColor.greenComponent, expectedColor.greenComponent, accuracy: 0.001)
+        XCTAssertEqual(restoredColor.blueComponent, expectedColor.blueComponent, accuracy: 0.001)
+        XCTAssertEqual(restoredColor.alphaComponent, expectedColor.alphaComponent, accuracy: 0.001)
     }
 
     private func liveAnnotation(_ viewModel: WorkspaceViewModel) throws -> PDFAnnotation {

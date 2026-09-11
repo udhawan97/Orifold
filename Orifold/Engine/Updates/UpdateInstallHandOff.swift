@@ -15,8 +15,9 @@ protocol UpdateInstallHandOff {
     /// never returns in production; `false` means AppKit returned without terminating (for
     /// example, the user cancelled an unsaved-document review).
     func terminateForInstall() -> Bool
-    /// Revokes the one launched helper before callers expose a retryable UI state.
-    func abandonLaunchedHelper()
+    /// Revokes the one launched helper before callers expose a retryable UI state. Returns
+    /// `true` only when the authorization token is confirmed absent.
+    @discardableResult func abandonLaunchedHelper() -> Bool
 }
 
 /// Production hand-off: generate the script into the updater cache, open it in Terminal,
@@ -26,14 +27,17 @@ protocol UpdateInstallHandOff {
 final class SystemUpdateInstallHandOff: UpdateInstallHandOff {
     private let cacheDirectory: URL
     private let open: (URL) -> Bool
+    private let removeAuthorization: (URL) throws -> Void
     private var authorizationURL: URL?
 
     init(
         cacheDirectory: URL = UpdateStorePaths.updaterCacheDirectory(),
-        open: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) }
+        open: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
+        removeAuthorization: @escaping (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) }
     ) {
         self.cacheDirectory = cacheDirectory
         self.open = open
+        self.removeAuthorization = removeAuthorization
     }
 
     func launchUpdater(_ inputs: UpdaterScriptGenerator.Inputs) -> Bool {
@@ -94,10 +98,17 @@ final class SystemUpdateInstallHandOff: UpdateInstallHandOff {
         return false
     }
 
-    func abandonLaunchedHelper() {
-        guard let authorizationURL else { return }
-        try? FileManager.default.removeItem(at: authorizationURL)
+    @discardableResult
+    func abandonLaunchedHelper() -> Bool {
+        guard let authorizationURL else { return true }
+        do {
+            try removeAuthorization(authorizationURL)
+        } catch {
+            guard !FileManager.default.fileExists(atPath: authorizationURL.path) else { return false }
+        }
+        guard !FileManager.default.fileExists(atPath: authorizationURL.path) else { return false }
         self.authorizationURL = nil
+        return true
     }
 
     private func beginAuthorization() -> URL? {

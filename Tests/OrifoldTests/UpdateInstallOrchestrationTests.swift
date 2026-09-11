@@ -20,13 +20,18 @@ private final class SpyHandOff: UpdateInstallHandOff {
     var terminated = false
     var launchResult = true
     var terminationAccepted = true
+    var abandonResult = true
     private(set) var helperAuthorized = false
+    private(set) var updaterLaunchCount = 0
+    private(set) var restoreLaunchCount = 0
     func launchUpdater(_ inputs: UpdaterScriptGenerator.Inputs) -> Bool {
+        updaterLaunchCount += 1
         launchedInputs = inputs
         helperAuthorized = launchResult
         return launchResult
     }
     func launchRestore(_ inputs: UpdaterScriptGenerator.RestoreInputs) -> Bool {
+        restoreLaunchCount += 1
         restoreInputs = inputs
         helperAuthorized = launchResult
         return launchResult
@@ -35,7 +40,10 @@ private final class SpyHandOff: UpdateInstallHandOff {
         terminated = true
         return terminationAccepted
     }
-    func abandonLaunchedHelper() { helperAuthorized = false }
+    func abandonLaunchedHelper() -> Bool {
+        if abandonResult { helperAuthorized = false }
+        return abandonResult
+    }
 }
 
 @MainActor
@@ -226,6 +234,27 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
         XCTAssertTrue(spy.helperAuthorized)
     }
 
+    func testCancelledTerminationBlocksRetryWhenHelperRevocationFails() async throws {
+        let spy = SpyHandOff()
+        spy.terminationAccepted = false
+        spy.abandonResult = false
+        let history = UpdateHistoryStore(directory: tmp)
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let (c, _, _) = try await readyController(spy: spy, history: history, markers: markers)
+
+        let firstResult = await c.installAndRelaunch(reopenDocuments: [])
+        XCTAssertFalse(firstResult)
+        XCTAssertTrue(spy.helperAuthorized)
+        guard case let .failed(failure) = c.phase else { return XCTFail("expected failed, got \(c.phase)") }
+        XCTAssertEqual(failure.kind, .install)
+        XCTAssertNil(markers.readAttempt())
+        XCTAssertNil(markers.readReopenManifest())
+        XCTAssertNil(history.latest)
+        let retryResult = await c.installAndRelaunch(reopenDocuments: [])
+        XCTAssertFalse(retryResult, "failed revocation must not expose Retry")
+        XCTAssertEqual(spy.updaterLaunchCount, 1)
+    }
+
     func testInstallRechecksUnsavedDocumentsAfterPreparationBeforeLaunchingHelper() async throws {
         let spy = SpyHandOff()
         let history = UpdateHistoryStore(directory: tmp)
@@ -279,8 +308,36 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
         ).filter { $0.pathExtension == "authorized" }
         XCTAssertEqual(authorizationURLs.count, 1)
 
-        handOff.abandonLaunchedHelper()
+        XCTAssertTrue(handOff.abandonLaunchedHelper())
         XCTAssertFalse(FileManager.default.fileExists(atPath: authorizationURLs[0].path))
+    }
+
+    func testSystemHandOffRetainsOwnershipAndBlocksDuplicateLaunchWhenRevocationFails() throws {
+        var openedURLs: [URL] = []
+        let handOff = SystemUpdateInstallHandOff(
+            cacheDirectory: tmp,
+            open: { url in openedURLs.append(url); return true },
+            removeAuthorization: { _ in throw CocoaError(.fileWriteNoPermission) }
+        )
+        let inputs = UpdaterScriptGenerator.Inputs(
+            appPID: 4242,
+            appBundlePath: "/Applications/Orifold.app",
+            dmgPath: tmp.appendingPathComponent("Orifold-0.9.0.dmg").path,
+            dmgSHA256: String(repeating: "a", count: 64),
+            newVersion: "0.9.0",
+            publisherTeamIdentifier: "TEAM123456",
+            publisherBundleIdentifier: UpdatePublisherIdentity.expectedBundleIdentifier
+        )
+
+        XCTAssertTrue(handOff.launchUpdater(inputs))
+        XCTAssertFalse(handOff.abandonLaunchedHelper())
+        XCTAssertFalse(handOff.launchUpdater(inputs), "a live token must keep a second helper from launching")
+        XCTAssertEqual(openedURLs.count, 1)
+        let authorizationURLs = try FileManager.default.contentsOfDirectory(
+            at: tmp,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "authorized" }
+        XCTAssertEqual(authorizationURLs.count, 1)
     }
 
     func testInstallFailsClosedWhenRollbackArchiveCannotBePrepared() async throws {
@@ -431,6 +488,25 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
         let retryOK = await c.restorePreviousVersion()
         XCTAssertTrue(retryOK, "restore must leave its in-flight gate retryable")
         XCTAssertTrue(spy.helperAuthorized)
+    }
+
+    func testCancelledRestoreBlocksRetryWhenHelperRevocationFails() async throws {
+        let spy = SpyHandOff()
+        spy.terminationAccepted = false
+        spy.abandonResult = false
+        let (c, _, _, _) = try controllerWithArchive(spy: spy)
+
+        let firstResult = await c.restorePreviousVersion()
+        XCTAssertFalse(firstResult)
+        XCTAssertTrue(spy.helperAuthorized)
+        XCTAssertFalse(c.canRestorePreviousVersion)
+        guard case let .failed(failure) = c.phase else { return XCTFail("expected failed, got \(c.phase)") }
+        XCTAssertEqual(failure.kind, .install)
+
+        spy.terminationAccepted = true
+        let retryResult = await c.restorePreviousVersion()
+        XCTAssertFalse(retryResult, "failed revocation must keep the restore gate closed")
+        XCTAssertEqual(spy.restoreLaunchCount, 1)
     }
 
     func testRestoreNotOfferedForTheVersionAlreadyRunning() throws {

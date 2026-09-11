@@ -2631,7 +2631,12 @@ final class WorkspaceViewModel {
             }
             inverseTemplate = copy
             page.removeAnnotation(annotation)
-            if selectedAnnotation === annotation { selectedAnnotation = nil }
+            let selectedAnnotationID = selectedAnnotation?
+                .value(forAnnotationKey: Self.annotationIdentityKey) as? String
+            if selectedAnnotation === annotation
+                || selectedAnnotationID == target.annotationID {
+                selectedAnnotation = nil
+            }
         }
         markAnnotationsModified()
         undoManager?.registerUndo(withTarget: self) { vm in

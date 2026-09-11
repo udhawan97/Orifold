@@ -126,7 +126,8 @@ final class UpdateController {
     /// whose manifest still names that same version — without this guard the menu would offer to
     /// "restore" the build you're already on.
     var canRestorePreviousVersion: Bool {
-        guard let manifest = rollbackManifest,
+        guard !isRestoreInFlight,
+              let manifest = rollbackManifest,
               let manifestVersion = UpdateVersion(string: manifest.version),
               manifestVersion != currentVersion,
               manifest.targetBundlePath == bundleURL.path,
@@ -357,11 +358,16 @@ final class UpdateController {
         }
 
         guard handOff.terminateForInstall() else {
-            handOff.abandonLaunchedHelper()
+            let helperWasRevoked = handOff.abandonLaunchedHelper()
             markers.clearAttempt(ownedBy: sessionID)
             markers.clearReopenManifest(ownedBy: sessionID)
             history.remove(id: historyRecord.id)
-            phase = .readyToInstall(update)
+            phase = helperWasRevoked
+                ? .readyToInstall(update)
+                : .failed(UpdateFailure(
+                    kind: .install,
+                    detail: "Could not revoke the launched updater. Quit Orifold before trying again."
+                ))
             return false
         }
         return true
@@ -413,8 +419,15 @@ final class UpdateController {
         guard handOff.launchRestore(inputs) else { isRestoreInFlight = false; return false }
 
         guard handOff.terminateForInstall() else {
-            handOff.abandonLaunchedHelper()
-            isRestoreInFlight = false
+            let helperWasRevoked = handOff.abandonLaunchedHelper()
+            if helperWasRevoked {
+                isRestoreInFlight = false
+            } else {
+                phase = .failed(UpdateFailure(
+                    kind: .install,
+                    detail: "Could not revoke the launched restore helper. Quit Orifold before trying again."
+                ))
+            }
             return false
         }
         return true
