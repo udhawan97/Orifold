@@ -126,7 +126,7 @@ final class UpdateController {
     /// whose manifest still names that same version — without this guard the menu would offer to
     /// "restore" the build you're already on.
     var canRestorePreviousVersion: Bool {
-        guard !isRestoreInFlight,
+        guard !isRestoreInFlight, !hasUnresolvedHelperHandOff,
               let manifest = rollbackManifest,
               let manifestVersion = UpdateVersion(string: manifest.version),
               manifestVersion != currentVersion,
@@ -142,7 +142,7 @@ final class UpdateController {
     /// previously-skipped version and the "you're up to date" confirmation); background
     /// checks stay quiet unless there's a fresh, non-skipped update.
     func checkForUpdates(userInitiated: Bool) async {
-        if phase.isBusy { return }
+        if phase.isBusy || hasUnresolvedHelperHandOff { return }
         phase = .checking
         do {
             let outcome = try await transport.checkForUpdate(currentVersion: currentVersion)
@@ -248,6 +248,7 @@ final class UpdateController {
     /// verified to install or the updater couldn't be launched.
     @discardableResult
     func installAndRelaunch(reopenDocuments: [ReopenDocument]) async -> Bool {
+        guard !hasUnresolvedHelperHandOff else { return false }
         guard case let .readyToInstall(update) = phase else { return false }
         guard documentsBlockingInstall().isEmpty else { return false }
         guard let dmgURL = downloadedUpdateURL, FileManager.default.fileExists(atPath: dmgURL.path) else { return false }
@@ -359,15 +360,18 @@ final class UpdateController {
 
         guard handOff.terminateForInstall() else {
             let helperWasRevoked = handOff.abandonLaunchedHelper()
-            markers.clearAttempt(ownedBy: sessionID)
-            markers.clearReopenManifest(ownedBy: sessionID)
-            history.remove(id: historyRecord.id)
-            phase = helperWasRevoked
-                ? .readyToInstall(update)
-                : .failed(UpdateFailure(
+            if helperWasRevoked {
+                markers.clearAttempt(ownedBy: sessionID)
+                markers.clearReopenManifest(ownedBy: sessionID)
+                history.remove(id: historyRecord.id)
+                phase = .readyToInstall(update)
+            } else {
+                hasUnresolvedHelperHandOff = true
+                phase = .failed(UpdateFailure(
                     kind: .install,
                     detail: "Could not revoke the launched updater. Quit Orifold before trying again."
                 ))
+            }
             return false
         }
         return true
@@ -382,12 +386,13 @@ final class UpdateController {
     /// two launched restore scripts would race the same bundle swap. (The install path gets the
     /// same protection structurally, from its `.readyToInstall` → `.installing` phase transition.)
     private var isRestoreInFlight = false
+    private var hasUnresolvedHelperHandOff = false
 
     @discardableResult
     func restorePreviousVersion() async -> Bool {
         // Match install's re-entrancy discipline: never start a bundle swap while an
         // install/download/check is active, nor re-enter during our own async window below.
-        guard !phase.isBusy, !isRestoreInFlight else { return false }
+        guard !phase.isBusy, !isRestoreInFlight, !hasUnresolvedHelperHandOff else { return false }
         guard let manifest = rollbackManifest,
               let manifestVersion = UpdateVersion(string: manifest.version),
               manifestVersion != currentVersion,
@@ -423,6 +428,7 @@ final class UpdateController {
             if helperWasRevoked {
                 isRestoreInFlight = false
             } else {
+                hasUnresolvedHelperHandOff = true
                 phase = .failed(UpdateFailure(
                     kind: .install,
                     detail: "Could not revoke the launched restore helper. Quit Orifold before trying again."

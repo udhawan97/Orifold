@@ -247,11 +247,13 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
         XCTAssertTrue(spy.helperAuthorized)
         guard case let .failed(failure) = c.phase else { return XCTFail("expected failed, got \(c.phase)") }
         XCTAssertEqual(failure.kind, .install)
-        XCTAssertNil(markers.readAttempt())
-        XCTAssertNil(markers.readReopenManifest())
-        XCTAssertNil(history.latest)
+        XCTAssertNotNil(markers.readAttempt(), "the live helper may still install after a later quit")
+        XCTAssertNotNil(markers.readReopenManifest(), "relaunch must still recover the promised documents")
+        XCTAssertNotNil(history.latest, "a later helper run must retain its unverified install record")
+
+        await c.checkForUpdates(userInitiated: true)
         let retryResult = await c.installAndRelaunch(reopenDocuments: [])
-        XCTAssertFalse(retryResult, "failed revocation must not expose Retry")
+        XCTAssertFalse(retryResult, "failed revocation must keep controller-level Retry closed")
         XCTAssertEqual(spy.updaterLaunchCount, 1)
     }
 
