@@ -60,7 +60,9 @@
 > [!TIP]
 > **New in v0.11.1:** selected-page and split exports keep every visible decoration;
 > annotation and page undo preserve the current document; encrypted folder imports report
-> their final resolved count; and cancelled updates return safely to an explicit retry.
+> their final resolved count; and a cancelled update returns to explicit retry after its helper
+> authorization is revoked. If revocation cannot be confirmed, recovery records stay intact and
+> update actions remain closed until Orifold exits.
 
 ## The fold
 

@@ -20,9 +20,10 @@ import Callout from '../../components/Callout.astro';
 Selected-page and split exports now keep workspace decorations. Page operations preserve
 embedded attachments through undo and redo, and newly created annotations remain undoable after
 a structural page restore. Folder imports wait for encrypted-file decisions before announcing
-their final count. Update and restore handoffs now stop safely when quit is cancelled, while
-failed session markers prevent the helper from starting and leave the verified download ready
-for a deliberate retry.
+their final count. When quit is cancelled, update and restore handoffs return to deliberate retry
+only after helper authorization is revoked. If revocation cannot be confirmed, Orifold keeps the
+recovery records and closes further update actions until exit. Failed session markers still stop
+the helper before launch and leave the verified download available after repair.
 
 [Read the v0.11.1 release notes](/Orifold/releases/v0-11-1/), or see the
 [full release record](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.11.1.md).

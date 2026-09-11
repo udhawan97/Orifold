@@ -50,8 +50,9 @@ zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --output /tmp/Orifold-0.11.1
   wrong passwords, skips, malformed inputs, unsupported files, truncation, and cancellation keep
   their established behavior.
 - Update and restore helpers now require an app-owned, revocable handoff authorization. If macOS
-  quit review is cancelled, the helper exits before changing the app and Orifold returns to an
-  explicit retry state.
+  quit review is cancelled and revocation succeeds, the helper exits before changing the app and
+  Orifold returns to an explicit retry state. If revocation cannot be confirmed, Orifold retains
+  the attempt, reopen and history records and blocks further update handoffs until it exits.
 - Reopen and install-attempt markers are now required prerequisites. A write failure keeps the
   app open, reports a useful preparation failure, preserves the verified download, and cleans
   only records owned by the current attempt.

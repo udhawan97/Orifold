@@ -45,9 +45,9 @@ export interface ReleaseInfo {
 
 /** Bump this whenever a release ships, so the offline build stays truthful. */
 const LAST_KNOWN_GOOD = {
-	tag: 'v0.11.1',
-	version: '0.11.1',
-	publishedAt: '2026-09-10T00:00:00Z',
+	tag: 'v0.11.0',
+	version: '0.11.0',
+	publishedAt: '2026-08-30T05:01:33Z',
 } as const;
 
 const REPO = site.repo;

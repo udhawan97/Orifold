@@ -34,10 +34,11 @@ retain their failure notice, and the final status is announced once.
 ## Cancelled updates stay cancelled
 
 The external update and restore helpers now require a short-lived authorization owned by the
-running app. If normal macOS quit review keeps the app open, Orifold revokes that authorization,
+running app. If normal macOS quit review keeps the app open and revocation succeeds, Orifold
 cleans only the current attempt's markers, returns to a retryable state, and prevents the helper
-from changing the app later. Reopen and attempt markers must also be persisted successfully
-before a helper can launch.
+from changing the app later. If revocation cannot be confirmed, it keeps the attempt, reopen and
+history records and closes further update actions until Orifold exits. Reopen and attempt markers
+must also be persisted successfully before a helper can launch.
 
 ## Compatibility and privacy
 
