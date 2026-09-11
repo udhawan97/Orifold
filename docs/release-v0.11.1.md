@@ -67,7 +67,7 @@ zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --output /tmp/Orifold-0.11.1
 
 ## Verification contract
 
-- The Swift suite contains 1,264 tests; environment-gated fixture tests may skip when their local
+- The Swift suite contains 1,267 tests; environment-gated fixture tests may skip when their local
   corpora are unavailable.
 - Focused regressions cover attachment-preserving page timelines, decorated subset and split
   exports, annotation creation undo after structural restore, mixed encrypted folder imports,
