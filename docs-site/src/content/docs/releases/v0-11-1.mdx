@@ -1,0 +1,48 @@
+---
+title: "v0.11.1 — Keep every page, finish every handoff"
+description: Orifold v0.11.1 preserves decorations and attachments, repairs annotation undo, resolves encrypted folder-import counts, and hardens update handoffs.
+keywords: [release notes, v0.11.1, PDF export, attachments, undo, encrypted PDF, updater]
+---
+
+import Badge from '../../../components/Badge.astro';
+import Callout from '../../../components/Callout.astro';
+
+<Badge variant="new" />
+
+*Released September 10, 2026*
+
+<Callout variant="note" label="Beta">
+	Orifold is in beta, on the road to 1.0.
+</Callout>
+
+## Exports keep what the workspace shows
+
+- Selected-page and split exports now pass through the same bake as a full PDF export, preserving
+  page decorations and other visible workspace content on the right page.
+- Page-operation undo and redo keep the authoritative member bytes, including embedded
+  attachments, while restoring live PDFKit state separately.
+- A newly added highlight, underline, strikeout, note, text box, replacement, or ink stroke stays
+  undoable after another page operation rebuilds the live PDF objects.
+
+## Folder summaries wait for the real result
+
+Folder imports now keep one completion ledger through parsing and every password decision. An
+encrypted PDF unlocked later contributes to the final imported count and returns to its original
+batch position. Wrong passwords remain pending, skipped files remain excluded, malformed inputs
+retain their failure notice, and the final status is announced once.
+
+## Cancelled updates stay cancelled
+
+The external update and restore helpers now require a short-lived authorization owned by the
+running app. If normal macOS quit review keeps the app open, Orifold revokes that authorization,
+cleans only the current attempt's markers, returns to a retryable state, and prevents the helper
+from changing the app later. Reopen and attempt markers must also be persisted successfully
+before a helper can launch.
+
+## Compatibility and privacy
+
+Document processing remains local. Orifold requires macOS 14 Sonoma or newer and ships as a
+universal Apple Silicon + Intel app. Public builds remain ad-hoc signed and not Apple-notarized
+unless the release signing secrets are configured.
+
+Full release record: [`docs/release-v0.11.1.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.11.1.md).
