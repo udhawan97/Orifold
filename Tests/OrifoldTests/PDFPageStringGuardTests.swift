@@ -76,8 +76,6 @@ final class PDFPageStringGuardTests: XCTestCase {
         #"PDFOCRTests.swift: XCTAssertTrue(outputPDF.page(at: 1)?.string?.contains("Existing searchable text") == true)"#,
         #"PDFOCRTests.swift: XCTAssertTrue(outputPage.string?.contains("Searchable invoice phrase") == true)"#,
         #"PDFOCRTests.swift: let outputString = try XCTUnwrap(outputPDF.page(at: 0)?.string)"#,
-        #"Phase0TrappedFixtureValidationTests.swift: XCTAssertFalse((pristinePage.attributedString?.string ?? "").contains("yolo"),"#,
-        #"Phase0TrappedFixtureValidationTests.swift: let liveText = livePage.attributedString?.string ?? """#,
         #"SourceDocumentRoundTripTests.swift: let exportedString = try XCTUnwrap(exportedPage.string, sample.format.rawValue)"#,
         #"StressFixtureLifecycleTests.swift: let pdfkit = strip(page.attributedString?.string ?? page.string ?? "")"#,
         #"UserFlowRegressionRound2Tests.swift: XCTAssertFalse(exportedPDF.page(at: 0)?.string?.contains("First doc") ?? false, "the removed document's content must not appear in the export")"#
