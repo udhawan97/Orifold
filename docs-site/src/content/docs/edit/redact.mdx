@@ -1,0 +1,44 @@
+---
+title: Redact text & images
+description: Permanently remove text, images, and annotations from a PDF — not just cover them. In beta.
+keywords: [redact, redaction, remove text, black out, blackout, censor, permanently delete text, hide sensitive information, pdf redaction]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+<Callout variant="note" label="Beta">
+	Redaction is new. It removes page content for real and verifies the result before it touches your document, but it has a few deliberate limits, listed below. [Feedback](https://github.com/udhawan97/Orifold/issues) helps it mature.
+</Callout>
+
+<Callout variant="whentouse">
+	Something on the page must not leave with the file: an account number, a name, a signature, a photo. Covering it with a black box isn't enough, because the original stays in the PDF where anyone can copy or extract it.
+</Callout>
+
+## Steps
+
+1. Pick the **Redact** tool from the toolbar. It's the black-bar icon next to the markup tools.
+2. Drag a rectangle over each thing to remove. Marks show as a red, dashed wash and change nothing yet. Press <kbd>⌘Z</kbd> to take one back.
+3. When everything is marked, choose **Apply Redactions…** in the bar at the bottom of the page, then confirm.
+
+Everything under each mark is removed from the document and replaced with a solid black box:
+
+- **Text** under the mark is deleted from the file, so search, copy/paste, and extraction can't find it.
+- **Images** under the mark have their pixels blacked out. An image entirely inside a mark is deleted.
+- **Annotations** under the mark (notes, highlights, links) are deleted.
+
+Before Orifold changes anything, it re-reads the result and checks that no text remains inside any mark. If the check fails, nothing is changed. The removal reaches every copy Orifold keeps of your document, so save, reopen, export, and later edits can't bring the content back. <kbd>⌘Z</kbd> still undoes the redaction until you close the document.
+
+## Limits
+
+<Callout variant="danger" label="Read before you share">
+	- **Neighbouring words may become pixels.** A PDF often stores a whole line as one piece of text. Orifold keeps the words next to your mark visible, but they become part of an image and stop being searchable or selectable. Running [OCR](/Orifold/edit/ocr/) makes them searchable again.
+	- **Metadata, bookmarks, and accessibility tags aren't changed.** If a redacted word also appears in the document title or a bookmark, remove it there too, and turn on [Sanitize for sharing](/Orifold/export/sanitize/) when you export.
+	- **Shapes partly under a mark stay** in the file, hidden under the black box. Shapes entirely inside a mark are removed.
+	- **Form fields can't be redacted in place.** A field's answer is stored outside the page, so Orifold refuses and asks you to clear or remove the field first.
+	- **Pages with text or object edits are refused** until you undo those edits, so an edit can't write the removed text back.
+</Callout>
+
+## Related
+
+- [Edit existing PDF text](/Orifold/edit/edit-text/): visual replacement, which is *not* redaction
+- [Sanitize for sharing](/Orifold/export/sanitize/): strip metadata, scripts, and embedded files on export

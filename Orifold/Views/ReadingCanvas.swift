@@ -65,6 +65,12 @@ struct ReadingCanvas: View {
                         viewModel.editingStatus = nil
                     }
                 }
+                if !viewModel.pendingRedactions.isEmpty {
+                    RedactionBar(viewModel: viewModel)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .padding(.bottom, .dsLG)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
                 if viewModel.isReadingAloud {
                     ReadAloudCapsule(viewModel: viewModel)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -180,6 +186,52 @@ private struct SignaturePlacementBanner: View {
         .overlay {
             RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
                 .strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+    }
+}
+
+/// Shown while redaction marks are pending: nothing is removed until Apply is confirmed.
+private struct RedactionBar: View {
+    @Bindable var viewModel: WorkspaceViewModel
+    @State private var isConfirming = false
+    // Passed into every L10n call so SwiftUI re-invokes `body` on a language change.
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        HStack(spacing: .dsMD) {
+            Image(systemName: AnnotationTool.redact.iconName)
+                .foregroundStyle(Color.red)
+            Text(L10n.format("readingCanvas.redactionBar.title", viewModel.pendingRedactions.count, locale: locale))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.dsTextPrimary)
+            Button(L10n.string(forKey: "readingCanvas.redactionBar.clear.button", locale: locale)) {
+                viewModel.clearRedactionMarks()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            Button(L10n.string(forKey: "readingCanvas.redactionBar.apply.button", locale: locale)) {
+                isConfirming = true
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .controlSize(.small)
+            .disabled(viewModel.operationProgress.isActive)
+        }
+        .padding(.horizontal, .dsLG)
+        .padding(.vertical, .dsSM)
+        .background(.regularMaterial, in: Capsule())
+        .overlay {
+            Capsule().strokeBorder(Color.dsSeparator, lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.16), radius: 12, x: 0, y: 4)
+        .accessibilityElement(children: .contain)
+        .alert(L10n.string(forKey: "redaction.confirm.title", locale: locale), isPresented: $isConfirming) {
+            Button(L10n.string(forKey: "redaction.confirm.apply", locale: locale), role: .destructive) {
+                viewModel.applyRedactions()
+            }
+            Button(L10n.string(forKey: "redaction.confirm.cancel", locale: locale), role: .cancel) {}
+        } message: {
+            Text(L10n.string(forKey: "redaction.confirm.message", locale: locale))
         }
     }
 }
@@ -693,6 +745,10 @@ struct PDFViewRepresentable: NSViewRepresentable {
         context.coordinator.applySearchHighlights(viewModel.searchResults)
         nsView.applyDocumentComfortSettings(viewModel.documentComfortSettings)
         context.coordinator.updateCanvasBannerInset(viewModel.canvasBannerInset)
+        if context.coordinator.drawnRedactionMarks != viewModel.pendingRedactions {
+            context.coordinator.drawnRedactionMarks = viewModel.pendingRedactions
+            context.coordinator.refreshDecorationOverlays()
+        }
     }
 
     // MARK: - Coordinator
@@ -705,6 +761,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         let objectOverlay = SignatureSelectionOverlayView()   // reused for content-object selection
         let commentMarkerOverlay = CommentMarkerOverlayView()
         let commentRegionOverlay = CommentRegionOverlayView()
+        var drawnRedactionMarks: [WorkspaceViewModel.RedactionMark] = []
         private weak var inlineEditor: InlineTextEditorOverlay?
         private var notePopover: NSPopover?
         private let decorationOverlays = NSHashTable<PageDecorationOverlayView>.weakObjects()
@@ -1628,9 +1685,19 @@ struct PDFViewRepresentable: NSViewRepresentable {
             }
         }
 
+        /// Region comments and redaction marks share one drag-a-rectangle overlay.
+        private func usesRegionOverlay(_ tool: AnnotationTool) -> Bool {
+            tool == .commentRegion || tool == .redact
+        }
+
         func setupCommentRegionOverlay() {
             commentRegionOverlay.onRegionCommitted = { [weak self] page, rect in
                 guard let self, let pdfView else { return }
+                if self.viewModel.currentTool == .redact {
+                    // The mark redraws through `updateNSView`, which observes `pendingRedactions`.
+                    self.viewModel.addRedactionMark(rect: rect, on: page, in: pdfView.document)
+                    return
+                }
                 if self.viewModel.createAnchoredRegionComment(rect: rect, on: page, in: pdfView.document) != nil {
                     self.refreshCommentOverlays()
                 }
@@ -1684,7 +1751,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
             commentMarkerOverlay.reload()
 
             commentRegionOverlay.pdfView = pdfView
-            commentRegionOverlay.isHidden = viewModel.currentTool != .commentRegion
+            commentRegionOverlay.isHidden = !usesRegionOverlay(viewModel.currentTool)
         }
 
         func updateCanvasBannerInset(_ desiredTopInset: CGFloat) {
@@ -2032,6 +2099,7 @@ final class PageDecorationOverlayView: NSView {
             return
         }
         drawFormHighlights(on: page, pageRef: pageRef, viewModel: viewModel)
+        drawRedactionMarks(pageRef: pageRef, viewModel: viewModel)
         let decorations = viewModel.document.workspace.decorations.filter(\.isEnabled)
         guard !decorations.isEmpty else { return }
         let pageCount = viewModel.document.workspace.pageOrder.count
@@ -2063,6 +2131,21 @@ final class PageDecorationOverlayView: NSView {
             case .overlayPDF:
                 break
             }
+        }
+    }
+
+    /// Pending redactions: a translucent red wash with a dashed edge — visibly "not yet
+    /// applied", unlike the solid black the engine burns in.
+    private func drawRedactionMarks(pageRef: PageRef, viewModel: WorkspaceViewModel) {
+        for mark in viewModel.pendingRedactions where mark.pageRefID == pageRef.id {
+            guard let rect = pageRectToOverlayRect(mark.rect)?.standardized else { continue }
+            NSColor.systemRed.withAlphaComponent(0.18).setFill()
+            NSBezierPath(rect: rect).fill()
+            NSColor.systemRed.setStroke()
+            let edge = NSBezierPath(rect: rect.insetBy(dx: 0.75, dy: 0.75))
+            edge.lineWidth = 1.5
+            edge.setLineDash([6, 3], count: 2, phase: 0)
+            edge.stroke()
         }
     }
 

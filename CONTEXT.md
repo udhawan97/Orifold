@@ -90,3 +90,11 @@ is one slot rather than parallel flags.
 and redo revert the model without changing which member is selected, so this is the only
 signal an inspector draft can watch to re-seed itself. Editable inspector tabs get that
 wiring from the `inspectorDraft` modifier rather than repeating it.
+
+**Redaction** (`RedactionEngine`, `applyRedactions`) — permanent removal of whatever lies under
+a marked region, as opposed to the *visual* replacement that inline text edits and the eraser
+perform. It is a member-byte mutation, so every lane is redacted: a base lane left intact would
+let replay resurrect the content. It deliberately breaks *preserving* for the words that share
+a text object with a redacted one (they survive as a pixel patch), and it refuses pages that
+carry text or object edit operations, because replaying those would write their strings back
+over the redaction. Pending marks (`RedactionMark`) are session-only and never saved.

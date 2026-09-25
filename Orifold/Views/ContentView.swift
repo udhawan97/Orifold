@@ -1839,6 +1839,7 @@ private struct AnnotationToolPicker: View {
         [.none],
         [.comment, .commentRegion],
         [.highlight, .underline, .strikeout, .eraser],
+        [.redact],
         [.note, .ink]
     ]
 

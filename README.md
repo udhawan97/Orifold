@@ -54,7 +54,7 @@
 > [!NOTE]
 > Orifold is a **work-in-progress beta**, built in the open. Everyday PDF work — merge,
 > annotate, OCR, sign, protect, export — is solid and gated by 1,000+ tests. Object editing
-> landed in v0.8.8 and is still hardening; a few folds (real redaction among them)
+> and true redaction are newer and still hardening in beta; a few folds
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
 > [!TIP]
@@ -98,6 +98,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
 | 📚 | **Fold the whole stack** — batch compress, OCR, or watermark every PDF in a folder | A stack of documents processed in one pass, originals untouched |
 | 🔁 | **Compare drafts** — the workspace side by side against another PDF, with changed-region highlights and word-level counts | Spot exactly what changed between two versions |
+| ⬛ | **Redact** — mark text, images, and annotations, then remove them from the file for real, verified before it lands *(beta)* | Secrets that actually leave the document instead of hiding under a box |
 | 🧼 | **Sanitize** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't mean to send |
 | 🔒 | **Protect & export** — real AES-256 password; split, scale, or export to DOCX, Markdown, HTML, PNG, JPEG | The format the next person needs, locked when it matters |
 | 📖 | **Read comfortably** — nested Contents, read aloud, Reader Mode, Document Comfort, and read-only on-device translation on macOS 15+ | Long documents that are easier to navigate and absorb |
@@ -126,6 +127,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | **Metadata & attachments** | Edit PDF title, author, subject, and keywords; list, add, extract, or remove embedded files from the Inspector with undo support |
 | **Structure & archival** | Inspect the current page's tagged reading-order tree and alt-text coverage; check encryption, embedded fonts, XMP, output intent, tagging, and active-content signals before long-term storage |
 | **Compression** | Downsample oversized images, then a lossless qpdf object-stream pass repacks the structure; post-compression validation confirms the result |
+| **Redaction** *(beta)* | Mark regions with the Redact tool, then apply: text, form XObjects, and annotations under each mark are deleted from every stored copy of the page, image pixels are zeroed in place, black boxes are burned in, and the result is re-read to prove no text survives inside a mark; pages with pending text/object edits and marks over form fields are refused rather than half-redacted |
 | **Sanitize** | Optional export pass strips catalog auto-run actions, embedded JavaScript, embedded files, and (opt-in) document metadata |
 | **Protection** | Real AES-256 (PDF 2.0 / R6) password protection with permission checks and post-export verification |
 | **Export** | PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, comment-summary Markdown, or print; split PDFs every N pages, by ranges, or at top-level bookmarks; scale to A4 or US Letter; impose as booklet, 2-up, or 4-up; and structurally validate every PDF before it reaches disk |
@@ -350,7 +352,6 @@ GitHub Actions uses the same path when the matching `ORIFOLD_*` secrets are conf
 Orifold is genuinely useful today — and nowhere near finished. Object editing continues to
 harden in beta; a few more folds are on the workbench. A friendly sneak peek, not a blood oath.
 
-- **Real redaction** — remove text and images, not just cover them
 - **Faster large-document navigation** — 300-page beasts that scroll like pamphlets
 - **More languages** — broader interface, OCR, and translation coverage
 - **A calmer first launch** — pending one very official Apple notarization handshake

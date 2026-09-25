@@ -93,6 +93,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
     case editText  = "textformat"
     case ink       = "pencil.tip"
     case eraser    = "eraser"
+    case redact    = "redact"
     case underline = "underline"
     case strikeout = "strikethrough"
     case signature = "signature"
@@ -112,6 +113,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
         case .editText:  return L10n.string("annotationTool.editText.label")
         case .ink:       return L10n.string("annotationTool.ink.label")
         case .eraser:    return L10n.string("annotationTool.eraser.label")
+        case .redact:    return L10n.string("annotationTool.redact.label")
         case .underline: return L10n.string("annotationTool.underline.label")
         case .strikeout: return L10n.string("annotationTool.strikeout.label")
         case .signature: return L10n.string("annotationTool.signature.label")
@@ -130,6 +132,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
         case .editText:  return "character.cursor.ibeam"
         case .ink:       return "scribble.variable"
         case .eraser:    return "eraser"
+        case .redact:    return "rectangle.inset.filled"
         case .underline: return "underline"
         case .strikeout: return "strikethrough"
         case .signature: return "signature"
@@ -148,6 +151,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
         case .editText:  return L10n.string("annotationTool.editText.helpText")
         case .ink:       return L10n.string("annotationTool.ink.helpText")
         case .eraser:    return L10n.string("annotationTool.eraser.helpText")
+        case .redact:    return L10n.string("annotationTool.redact.helpText")
         case .underline: return L10n.string("annotationTool.underline.helpText")
         case .strikeout: return L10n.string("annotationTool.strikeout.helpText")
         case .signature: return L10n.string("annotationTool.signature.helpText")
@@ -158,7 +162,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
     var isColorable: Bool {
         switch self {
         case .highlight, .note, .editText, .ink, .underline, .strikeout: return true
-        case .none, .comment, .commentRegion, .eraser, .signature, .stamp, .selectObject: return false
+        case .none, .comment, .commentRegion, .eraser, .redact, .signature, .stamp, .selectObject: return false
         }
     }
 
@@ -166,7 +170,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
 
     var isReaderModeAllowed: Bool {
         switch self {
-        case .editText, .signature, .selectObject:
+        case .editText, .signature, .selectObject, .redact:
             return false
         case .none, .highlight, .note, .comment, .commentRegion, .ink, .eraser, .underline, .strikeout, .stamp:
             return true

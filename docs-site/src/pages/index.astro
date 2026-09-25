@@ -30,7 +30,6 @@ import icReader from '../assets/icons/reader.svg?raw';
 import icLanguages from '../assets/icons/languages.svg?raw';
 
 // Additional feature and roadmap glyphs — same line-art grammar as the core icons.
-import icRedact from '../assets/icons/redact.svg?raw';
 import icBatch from '../assets/icons/batch.svg?raw';
 import icCompare from '../assets/icons/compare.svg?raw';
 import icFast from '../assets/icons/fast.svg?raw';
@@ -639,8 +638,8 @@ const heroBadges = [
 						<p class="kicker">Still folding · The horizon</p>
 						<h2>The crane keeps folding.</h2>
 						<p class="lede">
-							Orifold is genuinely useful today — and nowhere near finished. Batch folding and
-							comparison are now in the app; a few more folds are taking shape on the workbench. A friendly
+							Orifold is genuinely useful today — and nowhere near finished. Batch folding,
+							comparison, and real redaction are now in the app; a few more folds are taking shape on the workbench. A friendly
 							sneak peek, not a blood oath.
 						</p>
 					</div>
@@ -648,24 +647,18 @@ const heroBadges = [
 					<div class="feature-band">
 						<div class="card-grid">
 							<div class="of-card" data-reveal style="--d:0">
-								<span class="card-kanji" aria-hidden="true">消<span class="kanji-gloss">erase</span></span>
-								<span class="glyph" aria-hidden="true" set:html={icRedact} />
-								<h3>Real redaction</h3>
-								<p>Secrets that actually <em>leave</em> the file — not a polite black rectangle you can drag right off.</p>
-							</div>
-							<div class="of-card" data-reveal style="--d:1">
 								<span class="card-kanji" aria-hidden="true">速<span class="kanji-gloss">swift</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icFast} />
 								<h3>Big docs, quick feet</h3>
 								<p>Three-hundred-page beasts that scroll like pamphlets.</p>
 							</div>
-							<div class="of-card" data-reveal style="--d:2">
+							<div class="of-card" data-reveal style="--d:1">
 								<span class="card-kanji" aria-hidden="true">界<span class="kanji-gloss">world</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icGlobe} />
 								<h3>More languages</h3>
 								<p>Six today, more in night school — the interface <em>and</em> the OCR that reads your scans.</p>
 							</div>
-							<div class="of-card" data-reveal style="--d:3">
+							<div class="of-card" data-reveal style="--d:2">
 								<span class="card-kanji" aria-hidden="true">扉<span class="kanji-gloss">door</span></span>
 								<span class="glyph" aria-hidden="true" set:html={icUnlock} />
 								<h3>A calmer first launch</h3>

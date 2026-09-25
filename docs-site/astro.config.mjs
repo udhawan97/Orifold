@@ -84,6 +84,7 @@ export default defineConfig({
 						{ label: 'Match, copy, paste & reset formatting', slug: 'edit/formatting' },
 						{ label: 'OCR scanned pages', slug: 'edit/ocr' },
 						{ label: 'Move & edit objects', slug: 'edit/edit-objects', badge: { text: 'Beta', variant: 'caution' } },
+						{ label: 'Redact text & images', slug: 'edit/redact', badge: { text: 'Beta', variant: 'caution' } },
 						{ label: 'Undo & redo', slug: 'edit/undo' },
 					],
 				},
