@@ -24,6 +24,7 @@ Everything under each mark is removed from the document and replaced with a soli
 
 - **Text** under the mark is deleted from the file, so search, copy/paste, and extraction can't find it.
 - **Images** under the mark have their pixels blacked out. An image entirely inside a mark is deleted.
+- **Shapes** under the mark (outlined text, drawn signatures, diagrams) are deleted. Any part outside the mark is kept as an image.
 - **Annotations** under the mark (notes, highlights, links) are deleted.
 
 Before Orifold changes anything, it re-reads the result and checks that no text remains inside any mark. If the check fails, nothing is changed. The removal reaches every copy Orifold keeps of your document, so save, reopen, export, and later edits can't bring the content back. <kbd>⌘Z</kbd> still undoes the redaction until you close the document.
@@ -33,7 +34,7 @@ Before Orifold changes anything, it re-reads the result and checks that no text 
 <Callout variant="danger" label="Read before you share">
 	- **Neighbouring words may become pixels.** A PDF often stores a whole line as one piece of text. Orifold keeps the words next to your mark visible, but they become part of an image and stop being searchable or selectable. Running [OCR](/Orifold/edit/ocr/) makes them searchable again.
 	- **Metadata, bookmarks, and accessibility tags aren't changed.** If a redacted word also appears in the document title or a bookmark, remove it there too, and turn on [Sanitize for sharing](/Orifold/export/sanitize/) when you export.
-	- **Shapes partly under a mark stay** in the file, hidden under the black box. Shapes entirely inside a mark are removed.
+	- **Page-wide shapes stay.** A background or frame covering at least half the page stays in the file, hidden under the black box, so the whole page doesn't turn into an image. Smaller shapes under a mark, like outlined text or a drawn signature, are removed, and any part outside the mark comes back as an image.
 	- **Form fields can't be redacted in place.** A field's answer is stored outside the page, so Orifold refuses and asks you to clear or remove the field first.
 	- **Pages with text or object edits are refused** until you undo those edits, so an edit can't write the removed text back.
 </Callout>

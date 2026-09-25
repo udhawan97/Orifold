@@ -101,6 +101,32 @@ final class RedactionEngineTests: XCTestCase {
         XCTAssertTrue(try streamsCarry("KEEPME", in: redacted), "detector sanity: surviving text is found")
     }
 
+    // MARK: - Vector art
+
+    func testPartlyCoveredSmallPathIsRemovedAndRedrawnAsPixels() throws {
+        // A small vector shape (think outlined text or a vector signature) half under a mark
+        // must leave the object graph; its visible half comes back as a pixel patch.
+        let source = try vectorFixture(path: "0 0 1 rg 100 300 200 40 re f")
+        XCTAssertEqual(try pathCount(source), 1, "fixture sanity")
+
+        let redacted = try RedactionEngine.redact(source, regions: [0: [CGRect(x: 90, y: 290, width: 110, height: 60)]])
+
+        XCTAssertEqual(try pathCount(redacted), 1, "only the burned-in box may remain as a path")
+        let visibleHalf = try XCTUnwrap(bitmap(redacted).colorAt(x: 260, y: 792 - 320)?.usingColorSpace(.deviceRGB))
+        XCTAssertGreaterThan(visibleHalf.blueComponent, 0.8, "the uncovered half still renders")
+        XCTAssertLessThan(visibleHalf.redComponent, 0.2)
+    }
+
+    func testPageScaleBackgroundIsCoveredNotRasterized() throws {
+        let source = try vectorFixture(path: "0.95 0.95 0.9 rg 0 0 612 792 re f")
+
+        let redacted = try RedactionEngine.redact(source, regions: [0: [secretRegion]])
+
+        XCTAssertEqual(try pathCount(redacted), 2, "a page-wide fill stays (plus the box); no full-page patch")
+        XCTAssertEqual(try imageStreamCount(redacted), 0)
+        XCTAssertTrue(try streamsCarry("KEEPME", in: redacted), "the rest of the page keeps real text")
+    }
+
     // MARK: - Images
 
     private let imageRect = CGRect(x: 100, y: 300, width: 200, height: 200)
@@ -186,6 +212,39 @@ final class RedactionEngineTests: XCTestCase {
         context.endPDFPage()
         context.closePDF()
         return data as Data
+    }
+
+    /// A raw page with one path (content given verbatim) and a line of WinAnsi text.
+    private func vectorFixture(path: String) throws -> Data {
+        let content = "\(path)\nBT /F1 12 Tf 0 0 0 rg 72 400 Td (KEEPME) Tj ET\n"
+        let raw = """
+        %PDF-1.4
+        1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+        2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+        3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] \
+        /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj
+        4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj
+        5 0 obj << /Length \(content.utf8.count) >> stream
+        \(content)endstream endobj
+        trailer << /Root 1 0 R >>
+        %%EOF
+        """
+        return try XCTUnwrap(QPDFService.repaired(Data(raw.utf8)))
+    }
+
+    /// Top-level PATH page objects on page 0, counted by PDFium.
+    private func pathCount(_ data: Data) throws -> Int {
+        pdfiumLock.lock()
+        defer { pdfiumLock.unlock() }
+        FPDF_InitLibrary()
+        defer { FPDF_DestroyLibrary() }
+        return try data.withUnsafeBytes { raw in
+            let document = try XCTUnwrap(FPDF_LoadMemDocument(raw.baseAddress, Int32(data.count), nil))
+            defer { FPDF_CloseDocument(document) }
+            let page = try XCTUnwrap(poe_LoadPage(document, 0))
+            defer { poe_ClosePage(page) }
+            return (0..<poe_CountObjects(page)).filter { poe_GetType(poe_GetObject(page, $0)) == POEObjType.path }.count
+        }
     }
 
     private func plainTextFixture() throws -> Data {

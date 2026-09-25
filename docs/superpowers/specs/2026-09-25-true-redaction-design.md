@@ -17,8 +17,9 @@ bytes, so neither save, export, nor a later replay can bring the content back.
   usually a line or a run. Words in the same object outside the region are kept as an
   image patch, not as text. They stay visible but can't be selected or searched. OCR can
   restore them.
-- **Vector paths partly under a region** stay in the content and are covered by the black
-  box. Paths fully inside a region are deleted.
+- **Page-scale vector fills partly under a region** (≥ 50% of the page, such as backgrounds
+  and frames) stay in the content, covered by the black box. Smaller vector art is removed
+  and patched.
 - **Refused, not handled:** pages with pending inline text edits or object edits (replay
   would re-add their strings), and regions that touch a form-field widget (the field value
   lives in `/AcroForm`, outside the page). The user gets a specific message.
@@ -54,8 +55,10 @@ page:
    - **image:** wholly inside → remove it. Otherwise get its bitmap, map each region
      through the inverse image matrix into pixel space (axis-aligned bounding box, which
      errs toward more black), zero those pixels, and `SetBitmap`.
-   - **path / shading:** remove only when wholly inside a region. (Large background fills and
-     gradients would otherwise rasterize whole pages.)
+   - **path / shading:** handled like text (remove, then patch), *except* when partly covered
+     and page-scale (bounds ≥ 50% of the page area, i.e. backgrounds and frames). Those stay
+     under the black box so the whole page isn't rasterized. (Revised after council review:
+     small vector art such as outlined text or a vector signature must not survive occluded.)
 No separate orphan pass. Tests showed that `GenerateContent` rewrites the page's
 `/Resources` with only what the new content uses (inherited `/Pages` resources included),
 and `SaveAsCopy` writes only reachable objects. `RedactionEngineTests` scans every stream in

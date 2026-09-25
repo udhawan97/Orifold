@@ -8,7 +8,8 @@ import Foundation
 //      every region painted black, then walk the top-level objects. Text and form XObjects
 //      that touch a region are removed; the parts of them outside the region come back as an
 //      image patch cut from that snapshot (PDFium can only delete whole text objects). Image
-//      pixels under a region are zeroed; paths/shadings are removed only when wholly inside.
+//      pixels under a region are zeroed. Vector art is treated like text, except a page-scale
+//      fill (≥ half the page — a background or frame), which stays under the black box.
 //      Intersecting annotations go too. A black box is burned in per region.
 //   2. Verify — reload the saved bytes; any character box inside a region is a failure.
 //
@@ -81,6 +82,8 @@ enum RedactionEngine {
     /// Patch resolution: 3× ≈ 216 dpi, capped so a poster-size page can't allocate gigabytes.
     private static let snapshotScale: CGFloat = 3
     private static let maxSnapshotSide: CGFloat = 6000
+    /// Partly covered paths/shadings at least this share of the page area are covered, not removed.
+    private static let pageScaleFraction: CGFloat = 0.5
 
     /// Permanently removes everything under `regions` (member-local page index → rects in PDF
     /// user space, i.e. PDFKit page space). Throws rather than returning partially redacted
@@ -143,17 +146,20 @@ enum RedactionEngine {
                   let bounds = objectBounds(object),
                   rects.contains(where: { $0.intersects(bounds) }) else { continue }
             let whollyInside = rects.contains { $0.contains(bounds) }
-            switch poe_GetType(object) {
-            case POEObjType.path, POEObjType.shading:
-                // Partly covered vector art stays (under the burned-in box): removing a page's
-                // background fill would rasterize the whole page for nothing.
-                if whollyInside { try remove(object, from: page) }
-            case POEObjType.image where !whollyInside && blackOutPixels(of: object, under: rects):
+            let type = poe_GetType(object)
+            let isVectorArt = type == POEObjType.path || type == POEObjType.shading
+            let pageArea = snapshot.box.width * snapshot.box.height
+            if isVectorArt && !whollyInside && bounds.width * bounds.height >= pageArea * pageScaleFraction {
+                // A page-scale fill (background, frame) stays under the burned-in box: patching
+                // it would rasterize the whole page. Smaller vector art — outlined text, a vector
+                // signature — is removed and patched like text.
                 continue
-            default:
-                try remove(object, from: page)
-                if !whollyInside { patches.append(try snapshot.patch(covering: bounds, in: document)) }
             }
+            if type == POEObjType.image && !whollyInside && blackOutPixels(of: object, under: rects) {
+                continue
+            }
+            try remove(object, from: page)
+            if !whollyInside { patches.append(try snapshot.patch(covering: bounds, in: document)) }
         }
         for index in doomedAnnotations.reversed() where poe_RemoveAnnotation(page, index) == 0 {
             throw Failure.writeFailed
