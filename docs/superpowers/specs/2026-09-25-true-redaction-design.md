@@ -56,19 +56,10 @@ page:
      errs toward more black), zero those pixels, and `SetBitmap`.
    - **path / shading:** remove only when wholly inside a region. (Large background fills and
      gradients would otherwise rasterize whole pages.)
-8. **Prune leftovers (qpdf).** PDFium leaves a removed object's XObject in `/Resources`,
-   where it stays in the file and stays extractable. Push inherited attributes down, then
-   rebuild each redacted page's `/Resources` (copy-on-write) with only the XObject names its
-   content still invokes. qpdf's writer drops everything nothing reaches any more.
-   Verification (step 7) runs on these pruned bytes.
-4. **Delete intersecting annotations**, iterating in reverse. Skip the bake stamp (it sits
-   off-page and never intersects anyway).
-5. **Burn in.** Append one filled black rect path per region, then run
-   `poeTouchPathColorsForGenerateContent` and `GenerateContent`.
-6. Save with the shared `FPDF_SaveAsCopy` binding.
-7. **Verify on the saved bytes.** Reload them and use `FPDFText` to confirm no character box
-   on a redacted page intersects any region (a region inset by 0.5 pt absorbs
-   edge-rounding noise). Otherwise throw `.verificationFailed`.
+No separate orphan pass. Tests showed that `GenerateContent` rewrites the page's
+`/Resources` with only what the new content uses (inherited `/Pages` resources included),
+and `SaveAsCopy` writes only reachable objects. `RedactionEngineTests` scans every stream in
+the output (literal and hex text, and image count and width) to hold that line.
 
 Bindings reuse the `poe_*` set. New symbols use a `red_` prefix, with signatures matching
 any existing binding of the same symbol byte for byte (the release-build silgen rule).
