@@ -524,6 +524,7 @@ final class WorkspaceViewModel {
         activeOCRTask != nil
     }
     private(set) var isApplyingScanCleanup = false
+    private(set) var pendingRedactions: [RedactionMark] = []
     var canStartSearchable: Bool {
         hasScannedPages && canRunOCROperation
     }
@@ -9403,6 +9404,157 @@ final class WorkspaceViewModel {
         init(_ message: String) {
             errorDescription = message
         }
+    }
+
+    // MARK: - Redaction
+
+    /// A region waiting to be redacted. Session-only: marks are cheap to redraw and never
+    /// persisted, so a saved file can't carry a list of "where the secrets were".
+    struct RedactionMark: Identifiable, Equatable {
+        var id = UUID()
+        var pageRefID: UUID
+        var rect: CGRect
+    }
+
+    @discardableResult
+    func addRedactionMark(rect: CGRect, on page: PDFPage, in pdfDocument: PDFDocument?) -> UUID? {
+        guard let ref = pageRef(for: page, in: pdfDocument) else { return nil }
+        let bounds = rect.standardized.intersection(page.bounds(for: .mediaBox))
+        guard !bounds.isNull, bounds.width >= 4, bounds.height >= 4 else { return nil }
+        return addRedactionMark(rect: bounds, pageRefID: ref.id)
+    }
+
+    @discardableResult
+    func addRedactionMark(rect: CGRect, pageRefID: UUID) -> UUID {
+        let mark = RedactionMark(pageRefID: pageRefID, rect: rect.standardized)
+        insertRedactionMark(mark, at: pendingRedactions.count)
+        undoManager?.setActionName(L10n.string("undo.markRedaction"))
+        return mark.id
+    }
+
+    func removeRedactionMark(id: UUID) {
+        guard let index = pendingRedactions.firstIndex(where: { $0.id == id }) else { return }
+        let mark = pendingRedactions.remove(at: index)
+        undoManager?.registerUndo(withTarget: self) { $0.insertRedactionMark(mark, at: index) }
+    }
+
+    func clearRedactionMarks() {
+        pendingRedactions.removeAll()
+    }
+
+    private func insertRedactionMark(_ mark: RedactionMark, at index: Int) {
+        pendingRedactions.insert(mark, at: min(index, pendingRedactions.count))
+        undoManager?.registerUndo(withTarget: self) { $0.removeRedactionMark(id: mark.id) }
+    }
+
+    /// Permanently removes everything under the pending marks from every byte lane of each
+    /// affected member (one undo step), then scrubs the side stores that quote page text:
+    /// comment snippets and the rich-import source payload. Neither scrub is undone —
+    /// restoring a secret is never the safe direction. Pages with text or object edit
+    /// operations are refused: replay would re-apply their strings over the redaction.
+    @discardableResult
+    func applyRedactions() -> Bool {
+        guard canPerformMutatingAction(), !pendingRedactions.isEmpty else { return false }
+        let marksByRef = Dictionary(grouping: pendingRedactions, by: \.pageRefID)
+        let orderedRefs = document.workspace.pageOrder.filter { marksByRef[$0.id] != nil }
+        guard !orderedRefs.isEmpty else {
+            pendingRedactions.removeAll()   // every marked page was deleted since
+            return false
+        }
+
+        let editedPageIDs = Set(
+            document.workspace.pageEditStates.filter { !$0.operations.isEmpty }.map(\.pageRefID)
+                + document.workspace.objectEditStates.filter { !$0.operations.isEmpty }.map(\.pageRefID)
+        )
+        if let conflict = document.workspace.pageOrder.firstIndex(where: {
+            marksByRef[$0.id] != nil && editedPageIDs.contains($0.id)
+        }) {
+            showEditMessage(L10n.format("status.redaction.editConflict", conflict + 1), isError: true)
+            return false
+        }
+
+        struct MemberRedaction {
+            var regionsByLocalIndex: [Int: [CGRect]] = [:]
+            var pageRefIDs: Set<UUID> = []
+        }
+        var redactionsByMemberID: [UUID: MemberRedaction] = [:]
+        var liveDataByMemberID: [UUID: Data] = [:]
+        var previousLiveByMemberID: [UUID: Data] = [:]
+        var previousLoadedByMemberID: [UUID: Data] = [:]
+
+        for ref in orderedRefs {
+            guard let lookup = memberPDF(for: ref),
+                  let localIndex = localIndex(ref: ref, memberIndex: lookup.documentIndex) else { return false }
+            if liveDataByMemberID[ref.memberDocId] == nil {
+                guard let previousLive = document.memberPDFData[ref.memberDocId],
+                      let serializedLive = PDFSerializer.data(from: lookup.pdf),
+                      let liveData = Self.preservingAttachments(from: previousLive, in: serializedLive) else {
+                    return false
+                }
+                previousLiveByMemberID[ref.memberDocId] = previousLive
+                previousLoadedByMemberID[ref.memberDocId] = serializedLive
+                liveDataByMemberID[ref.memberDocId] = liveData
+            }
+            redactionsByMemberID[ref.memberDocId, default: MemberRedaction()]
+                .regionsByLocalIndex[localIndex, default: []] += marksByRef[ref.id, default: []].map(\.rect)
+            redactionsByMemberID[ref.memberDocId, default: MemberRedaction()].pageRefIDs.insert(ref.id)
+        }
+
+        var firstFailure: RedactionEngine.Failure?
+        var requests: [MemberByteMutationRequest] = []
+        for (memberID, redaction) in redactionsByMemberID {
+            guard let currentLive = liveDataByMemberID[memberID],
+                  let previousLive = previousLiveByMemberID[memberID],
+                  let previousLoaded = previousLoadedByMemberID[memberID] else { return false }
+            requests.append(MemberByteMutationRequest(
+                memberID: memberID,
+                previousLive: previousLive,
+                previousLoadedPDFData: previousLoaded,
+                currentLive: currentLive,
+                options: MemberMutationOptions(
+                    invalidatesAnalysisCaches: true,
+                    invalidatedPageRefIDs: redaction.pageRefIDs,
+                    reloadsLivePDF: true
+                ),
+                transform: { data in
+                    do {
+                        return try RedactionEngine.redact(data, regions: redaction.regionsByLocalIndex)
+                    } catch {
+                        if firstFailure == nil { firstFailure = error as? RedactionEngine.Failure }
+                        return nil
+                    }
+                }
+            ))
+        }
+        guard mutateMemberBytes(
+            requests: requests,
+            actionNameKey: "undo.applyRedactions",
+            failureKey: "status.redaction.failed"
+        ) else {
+            if case .formFieldInRegion = firstFailure {
+                showEditMessage(L10n.string("status.redaction.formField"), isError: true)
+            }
+            return false
+        }
+
+        let redactedMarks = pendingRedactions
+        var scrubbedSnippet = false
+        for index in document.workspace.comments.indices {
+            guard let anchor = document.workspace.comments[index].anchor,
+                  anchor.snippet != nil,
+                  redactedMarks.contains(where: { $0.pageRefID == anchor.pageRefID && $0.rect.intersects(anchor.rect) })
+            else { continue }
+            document.workspace.comments[index].anchor?.snippet = nil
+            scrubbedSnippet = true
+        }
+        if scrubbedSnippet { markCommentsModified() }
+        for memberID in redactionsByMemberID.keys {
+            document.sourcePayloads.removeValue(forKey: memberID)
+        }
+        pendingRedactions.removeAll()
+        editingStatus = .success(L10n.format("status.redaction.applied", redactedMarks.count))
+        warnIfEditingWouldInvalidateSignatures()
+        return true
     }
 
     // MARK: - Page operations (all keyed by PageRef.id, all undoable)
