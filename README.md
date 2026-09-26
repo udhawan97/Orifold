@@ -23,7 +23,7 @@
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-2b4566?style=flat-square&logo=apple&logoColor=white">
   <img alt="Universal — Apple Silicon + Intel" src="https://img.shields.io/badge/universal-Apple_Silicon_%2B_Intel-2b4566?style=flat-square">
-  <img alt="version v0.11.1" src="https://img.shields.io/badge/version-v0.11.1-46536b?style=flat-square">
+  <img alt="version v0.12.0" src="https://img.shields.io/badge/version-v0.12.0-46536b?style=flat-square">
   <img alt="Local document processing" src="https://img.shields.io/badge/privacy-local_processing-3f6b52?style=flat-square">
   <img alt="6 languages" src="https://img.shields.io/badge/i18n-6_languages-46536b?style=flat-square">
   <img alt="Apache 2.0 License" src="https://img.shields.io/badge/license-Apache_2.0-46536b?style=flat-square">
@@ -58,11 +58,11 @@
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
 > [!TIP]
-> **New in v0.11.1:** selected-page and split exports keep every visible decoration;
-> annotation and page undo preserve the current document; encrypted folder imports report
-> their final resolved count; and a cancelled update returns to explicit retry after its helper
-> authorization is revoked. If revocation cannot be confirmed, recovery records stay intact and
-> update actions remain closed until Orifold exits.
+> **New in v0.12.0:** folder folds now leave a complete, session-only result ledger and never
+> replace an existing output; reusable presets make common OCR, compression, and review copies
+> one click away; and Compare With… reports progress, cancellation, page identity, exclusions,
+> and unavailable analysis honestly. True redaction also removes supported page content for real
+> and verifies the result before export.
 
 ## The fold
 
@@ -321,13 +321,13 @@ xcodebuild test  -quiet -project Orifold.xcodeproj -scheme Orifold -destination 
 
 # Build the same release zip GitHub Releases ships, then the universal DMG
 ORIFOLD_UNIVERSAL=1 ./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
-zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.11.1
+zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.12.0
 
 # Install from the current source checkout without opening the app
 ./scripts/install-mac.sh --no-open
 ```
 
-App metadata: `CFBundleShortVersionString` `0.11.1`, `CFBundleVersion` `27`.
+App metadata: `CFBundleShortVersionString` `0.12.0`, `CFBundleVersion` `28`.
 </details>
 
 <details>

@@ -1,0 +1,62 @@
+---
+title: "v0.12.0 — Trust every fold, compare every draft"
+description: Orifold v0.12.0 adds safe batch-fold results and presets, honest cancellable comparisons, and verified true redaction.
+keywords: [release notes, v0.12.0, batch folding, PDF comparison, redaction, local-first]
+---
+
+import Badge from '../../../components/Badge.astro';
+import Callout from '../../../components/Callout.astro';
+
+<Badge variant="new" />
+
+*Released September 26, 2026*
+
+<Callout variant="note" label="Beta">
+	Orifold is in beta, on the road to 1.0.
+</Callout>
+
+## Folder folds tell the whole story
+
+- Folder operations now retain a session-only result ledger for every planned input: completed,
+  failed, cancelled while processing, or not started.
+- Outputs use a no-replace publication path, so an existing file stays byte-for-byte intact even
+  when a destination appears during the run. Setup, validation, and publication failures remain
+  attached to the affected input.
+- Searchable copies, Smaller copies, and Review copies are built-in presets, with one saved custom
+  configuration for a workflow you repeat. Presets populate the existing controls and never run
+  until you confirm the folder.
+
+## Comparisons stay honest under pressure
+
+- Compare With… now shows determinate page-pair progress and cooperative cancellation. Dismissing
+  the panel or changing the offset cancels the obsolete run, and late callbacks cannot replace a
+  newer result.
+- Results preserve actual workspace page numbers and source identities, disclose pages excluded by
+  an offset, and distinguish changed, one-sided, incomplete, and unavailable analysis.
+- A failed visual render or text extraction is no longer presented as an unchanged page. A known
+  change in the other channel can still be shown with the missing channel disclosed.
+
+## Redaction removes supported content
+
+True redaction now removes supported text, form XObjects, vector paths, images, and annotations
+from the affected page bytes, then rebuilds and re-reads the result to verify that marked content
+does not survive. Pages with unsupported pending edits or ambiguous form-field intersections fail
+closed instead of producing a plausible partial result. Redaction remains beta and does not claim
+to scrub independent metadata, bookmark, structure-tree, comment, or attachment copies.
+
+## Compatibility and privacy
+
+Document processing remains local. Orifold requires macOS 14 Sonoma or newer and ships as a
+universal Apple Silicon + Intel app. Public builds remain ad-hoc signed and are not Apple-notarized
+unless the release signing secrets are configured.
+
+## Verification contract
+
+- The local Swift release gate executed 1,338 tests, skipped 33 documented environment-gated
+  cases, and reported 0 failures in the captured rerun.
+- Swift build, universal Xcode Release build, strict packaged-app signature verification, shell
+  syntax, localization JSON validation, Graphify refresh, and the 77-page docs build passed.
+- Native comparison smoke coverage exercised progress, cancellation UI, changed-page navigation,
+  actual page numbers, and offset disclosure on synthetic PDFs.
+
+Full release record: [`docs/release-v0.12.0.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.12.0.md).
