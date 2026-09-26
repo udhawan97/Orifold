@@ -372,6 +372,8 @@
         }
       }
     },
+    "compare.cancelled": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Comparison cancelled."}},"es":{"stringUnit":{"state":"translated","value":"Comparación cancelada."}},"fr":{"stringUnit":{"state":"translated","value":"Comparaison annulée."}},"hi":{"stringUnit":{"state":"translated","value":"तुलना रद्द कर दी गई।"}},"ja":{"stringUnit":{"state":"translated","value":"比較をキャンセルしました。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"比较已取消。"}}}},
+    "compare.failed": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Comparison failed."}},"es":{"stringUnit":{"state":"translated","value":"La comparación falló."}},"fr":{"stringUnit":{"state":"translated","value":"La comparaison a échoué."}},"hi":{"stringUnit":{"state":"translated","value":"तुलना विफल रही।"}},"ja":{"stringUnit":{"state":"translated","value":"比較に失敗しました。"}},"zh-Hans":{"stringUnit":{"state":"translated","value":"比较失败。"}}}},
     "compare.highlight.toggle": {
       "extractionState": "manual",
       "localizations": {
