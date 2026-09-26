@@ -16,18 +16,26 @@ import Callout from '../../../components/Callout.astro';
 2. Choose **File → Compare With…** or **More → Compare With…**.
 3. Pick the other PDF.
 
-The comparison workspace pairs pages side by side. Changed regions are highlighted on both
-pages, and word-level additions and removals are counted. Use the changed-pages strip to jump
-between differences.
+The comparison workspace pairs pages side by side. It shows determinate progress while it
+renders and analyzes each pair; choose **Cancel** to stop after the active pair finishes.
+Changed regions are highlighted on both pages, and word-level additions and removals are
+counted. Use the changed-pages strip to jump between differences.
+
+Orifold labels a pair **Analysis incomplete** when a visual render or text layer could not be
+analyzed. If one available channel proves a change, the pair still appears as changed and the
+missing channel is disclosed below it. A blank but valid text layer remains valid evidence.
 
 ## Align drafts whose pages shifted
 
 Use the page offset control when a cover sheet or inserted section moved every later page. The
-offset changes page pairing without changing either document. Extra pages on either side remain
-visible as one-sided differences.
+offset changes page pairing without changing either document and starts a fresh comparison.
+Extra pages on either side remain visible as one-sided differences. A positive offset excludes
+leading pages from the picked PDF; Orifold reports how many were outside the comparison rather
+than implying that the entire file matched. Page headings keep each file's actual page number.
 
 <Callout variant="note">
 	Comparison renders and diffs on your Mac. It respects displayed crop boxes and rotations and
 	reads text from preserved source bytes. Password-protected comparison files are declined rather
-	than guessed at or partially compared.
+	than guessed at or partially compared. Cancellation is cooperative between page pairs, so an
+	active page rasterization can finish before the panel stops.
 </Callout>

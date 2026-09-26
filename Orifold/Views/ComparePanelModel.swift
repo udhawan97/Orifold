@@ -25,9 +25,10 @@ final class ComparePanelModel {
         PDFComparisonService.Request,
         Int,
         Callbacks
-    ) throws -> [PDFComparisonService.PagePair]
+    ) throws -> PDFComparisonService.RunResult
 
     private(set) var pairs: [PDFComparisonService.PagePair] = []
+    private(set) var runResult: PDFComparisonService.RunResult?
     private(set) var runState: RunState = .running(progress: 0)
     var currentIndex = 0
     var showsHighlights = true
@@ -35,10 +36,12 @@ final class ComparePanelModel {
 
     private let request: PDFComparisonRequest
     private let runner: Runner
-    private let leftDocument: PDFDocument?
+    private let leftDocuments: [PDFDocument?]
     private let rightDocument: PDFDocument?
     private var runToken = UUID()
     private var cancellation: OperationCancellationToken?
+    private var restartTask: Task<Void, Never>?
+    private var restartToken = UUID()
 
     init(
         request: PDFComparisonRequest,
@@ -53,7 +56,7 @@ final class ComparePanelModel {
     ) {
         self.request = request
         self.runner = runner
-        leftDocument = request.engineRequest.leftDocuments.first.flatMap { PDFDocument(data: $0) }
+        leftDocuments = request.engineRequest.leftDocuments.map { PDFDocument(data: $0) }
         rightDocument = PDFDocument(data: request.engineRequest.rightData)
     }
 
@@ -67,10 +70,21 @@ final class ComparePanelModel {
     }
 
     var changedPairs: [PDFComparisonService.PagePair] {
-        pairs.filter { $0.change != .unchanged }
+        pairs.filter {
+            $0.change == .changed || $0.change == .leftOnly || $0.change == .rightOnly
+        }
+    }
+
+    var incompletePairCount: Int {
+        pairs.filter { $0.change == .incomplete }.count
     }
 
     func run() async {
+        cancelPendingRestart()
+        await performRun()
+    }
+
+    private func performRun() async {
         guard !Task.isCancelled else { return }
         cancelCurrentRun(transitionToCancelled: false)
         let token = UUID()
@@ -78,6 +92,7 @@ final class ComparePanelModel {
         let cancellation = OperationCancellationToken()
         self.cancellation = cancellation
         pairs = []
+        runResult = nil
         runState = .running(progress: 0)
         let result = await executeRun(token: token, cancellation: cancellation)
         guard runToken == token else { return }
@@ -87,45 +102,65 @@ final class ComparePanelModel {
             return
         }
         switch result {
-        case .success(let pairs):
-            self.pairs = pairs
+        case .success(let result):
+            runResult = result
+            pairs = result.pairs
             if currentIndex >= pairs.count {
                 currentIndex = max(0, pairs.count - 1)
             }
-            runState = .completed
+            switch result.status {
+            case .completed:
+                runState = .completed
+            case .cancelled:
+                runState = .cancelled
+            case .failed:
+                runState = .failed
+            }
         case .failure:
             pairs = []
+            runResult = nil
             runState = .failed
         }
     }
 
     func setOffset(_ newOffset: Int) {
         guard newOffset != rightOffset else { return }
+        cancelPendingRestart()
         cancelCurrentRun(transitionToCancelled: false)
         rightOffset = newOffset
-        Task { [weak self] in await self?.run() }
+        let token = UUID()
+        restartToken = token
+        restartTask = Task { [weak self] in
+            guard !Task.isCancelled else { return }
+            await self?.performPendingRestart(token: token)
+        }
     }
 
     func cancel() {
+        cancelPendingRestart()
         cancelCurrentRun(transitionToCancelled: true)
     }
 
-    func leftImage(at index: Int) -> NSImage? {
-        guard index < request.engineRequest.leftVisualPages.count else { return nil }
-        let locator = request.engineRequest.leftVisualPages[index]
-        guard let page = leftDocument?.page(at: locator.pageIndex) else { return nil }
-        return pageImage(page, highlight: highlightResult(at: index))
+    func leftImage(for pair: PDFComparisonService.PagePair) -> NSImage? {
+        guard let left = pair.left,
+              request.engineRequest.leftPages.indices.contains(left.index),
+              let locator = request.engineRequest.leftPages[left.index].visualPage,
+              leftDocuments.indices.contains(locator.documentIndex),
+              let page = leftDocuments[locator.documentIndex]?.page(at: locator.pageIndex) else {
+            return nil
+        }
+        return pageImage(page, highlight: highlightResult(for: pair))
     }
 
-    func rightImage(at index: Int) -> NSImage? {
-        let rightIndex = index + rightOffset
-        guard rightIndex >= 0, let page = rightDocument?.page(at: rightIndex) else { return nil }
-        return pageImage(page, highlight: highlightResult(at: index))
+    func rightImage(for pair: PDFComparisonService.PagePair) -> NSImage? {
+        guard let right = pair.right,
+              let page = rightDocument?.page(at: right.index) else { return nil }
+        return pageImage(page, highlight: highlightResult(for: pair))
     }
 
-    private func highlightResult(at index: Int) -> PDFVisualDiff.Result? {
-        guard showsHighlights, pairs.indices.contains(index) else { return nil }
-        return pairs[index].visual
+    private func highlightResult(for pair: PDFComparisonService.PagePair) -> PDFVisualDiff.Result? {
+        guard showsHighlights else { return nil }
+        return pair.visual.value
     }
 
     private func acceptProgress(_ progress: Double, token: UUID) {
@@ -136,7 +171,7 @@ final class ComparePanelModel {
     private func executeRun(
         token: UUID,
         cancellation: OperationCancellationToken
-    ) async -> Result<[PDFComparisonService.PagePair], Error> {
+    ) async -> Result<PDFComparisonService.RunResult, Error> {
         let runner = self.runner
         let engineRequest = request.engineRequest
         let offset = rightOffset
@@ -147,7 +182,7 @@ final class ComparePanelModel {
                 self?.acceptProgress(progress, token: token)
             }
         }
-        let result: Result<[PDFComparisonService.PagePair], Error> = await Task.detached(
+        let result: Result<PDFComparisonService.RunResult, Error> = await Task.detached(
             priority: .userInitiated
         ) {
             do {
@@ -177,9 +212,22 @@ final class ComparePanelModel {
         runToken = UUID()
         if transitionToCancelled, isComparing {
             pairs = []
+            runResult = nil
             currentIndex = 0
             runState = .cancelled
         }
+    }
+
+    private func performPendingRestart(token: UUID) async {
+        guard restartToken == token, !Task.isCancelled else { return }
+        restartTask = nil
+        await performRun()
+    }
+
+    private func cancelPendingRestart() {
+        restartTask?.cancel()
+        restartTask = nil
+        restartToken = UUID()
     }
 
     /// A display thumbnail, with the changed regions composited in when highlighting is on.

@@ -39,6 +39,8 @@ struct ComparePanelView: View {
                 stateMessage("compare.failed")
             } else if let pair = model.currentPair {
                 pairView(pair)
+            } else if model.runResult?.isComplete == false {
+                stateMessage("compare.scope.incomplete")
             } else {
                 Spacer()
                 HStack {
@@ -72,14 +74,20 @@ struct ComparePanelView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 16) {
                 pane(
-                    title: request.leftTitle,
-                    image: model.leftImage(at: pair.id),
-                    missingKey: "compare.page.rightOnly"
+                    title: pageTitle(request.leftTitle, number: pair.left?.number),
+                    image: model.leftImage(for: pair),
+                    missingKey: Self.panePlaceholderKey(
+                        pageExists: pair.left != nil,
+                        absentKey: "compare.page.rightOnly"
+                    )
                 )
                 pane(
-                    title: request.rightTitle,
-                    image: model.rightImage(at: pair.id),
-                    missingKey: "compare.page.leftOnly"
+                    title: pageTitle(request.rightTitle, number: pair.right?.number),
+                    image: model.rightImage(for: pair),
+                    missingKey: Self.panePlaceholderKey(
+                        pageExists: pair.right != nil,
+                        absentKey: "compare.page.leftOnly"
+                    )
                 )
             }
             .frame(maxHeight: .infinity)
@@ -87,7 +95,28 @@ struct ComparePanelView: View {
             Text(statusText(for: pair))
                 .font(.caption)
                 .foregroundStyle(pair.change == .unchanged ? .secondary : .primary)
+            if pair.visual.isUnavailable {
+                unavailableChannel("compare.channel.visualUnavailable")
+            }
+            if pair.text.isUnavailable {
+                unavailableChannel("compare.channel.textUnavailable")
+            }
         }
+    }
+
+    private func pageTitle(_ title: String, number: Int?) -> String {
+        guard let number else { return title }
+        return L10n.format("compare.page.title", title, number, locale: locale)
+    }
+
+    static func panePlaceholderKey(pageExists: Bool, absentKey: String) -> String {
+        pageExists ? "compare.page.previewUnavailable" : absentKey
+    }
+
+    private func unavailableChannel(_ key: String) -> some View {
+        Label(L10n.string(forKey: key, locale: locale), systemImage: "exclamationmark.triangle")
+            .font(.caption)
+            .foregroundStyle(.secondary)
     }
 
     private func pane(title: String, image: NSImage?, missingKey: String) -> some View {
@@ -119,12 +148,14 @@ struct ComparePanelView: View {
         switch pair.change {
         case .unchanged:
             return L10n.string("compare.page.unchanged", locale: locale)
+        case .incomplete:
+            return L10n.string("compare.page.incomplete", locale: locale)
         case .leftOnly:
             return L10n.string("compare.page.leftOnly", locale: locale)
         case .rightOnly:
             return L10n.string("compare.page.rightOnly", locale: locale)
         case .changed:
-            if let text = pair.text, text.hasChanges {
+            if let text = pair.text.value, text.hasChanges {
                 if text.comparedExhaustively {
                     return L10n.format(
                         "compare.text.summary", text.insertedWords, text.deletedWords, locale: locale
@@ -138,6 +169,22 @@ struct ComparePanelView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if let result = model.runResult, result.hasUnavailableChannels {
+                Text(L10n.string("compare.scope.incomplete", locale: locale))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let excludedCount = model.runResult?.coverage.excludedRightPageNumbers.count,
+               excludedCount > 0 {
+                Text(L10n.format("compare.scope.excludedRight", excludedCount, locale: locale))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if model.incompletePairCount > 0 {
+                Text(L10n.format("compare.incompletePages", model.incompletePairCount, locale: locale))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if !model.isComparing, !model.changedPairs.isEmpty {
                 HStack(spacing: 6) {
                     Text(L10n.format("compare.changedPages", model.changedPairs.count, locale: locale))
@@ -146,7 +193,7 @@ struct ComparePanelView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 4) {
                             ForEach(model.changedPairs) { pair in
-                                Button("\(pair.id + 1)") {
+                                Button("\(pair.left?.number ?? pair.right?.number ?? pair.id + 1)") {
                                     model.currentIndex = pair.id
                                 }
                                 .buttonStyle(.bordered)

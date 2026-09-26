@@ -1496,16 +1496,51 @@ private extension String {
 }
 
 extension PDFTextAnalysisEngine {
-    /// Reading-order text of `pageIndex` in `data`, PDFium-backed — never PDFKit's
-    /// page-string extraction, which varies across SDK versions. This is the engine home of
-    /// the reading-order sort that `FindReplaceBodyTextTests.pageText(fromData:)`
-    /// established; that helper now delegates here, and the compare feature's text diff
-    /// reads both documents through it.
+    enum ReadingOrderTextResult: Equatable, Sendable {
+        case available(String)
+        case unavailable
+    }
+
+    /// Explicit comparison extraction result. A valid blank page is available with an empty
+    /// string; a page that neither PDFium nor the existing PDFKit fallback can extract is
+    /// unavailable and must not be treated as unchanged.
+    static func readingOrderTextResult(data: Data, pageIndex: Int) -> ReadingOrderTextResult {
+        guard let page = PDFDocument(data: data)?.page(at: pageIndex) else { return .unavailable }
+        let engine = PDFTextAnalysisEngine()
+        if let pdfium = engine.analyzeWithPDFium(
+            data: data,
+            pageIndex: pageIndex,
+            pageRefID: UUID(),
+            sourcePage: page,
+            inspection: nil
+        ) {
+            if !pdfium.blocks.isEmpty {
+                return .available(readingOrderText(from: pdfium.blocks))
+            }
+            let fallback = engine.analyzeWithPDFKit(page: page, pageRefID: UUID())
+            if !fallback.blocks.isEmpty {
+                return .available(readingOrderText(from: fallback.blocks))
+            }
+            let pageString = page.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return pageString.isEmpty ? .available("") : .unavailable
+        }
+
+        let fallback = engine.analyzeWithPDFKit(page: page, pageRefID: UUID())
+        guard !fallback.blocks.isEmpty else { return .unavailable }
+        return .available(readingOrderText(from: fallback.blocks))
+    }
+
+    /// Compatibility wrapper for callers that still expect a string. Comparison uses the
+    /// explicit result above so extraction failure cannot look like a valid empty text layer.
     static func readingOrderText(data: Data, pageIndex: Int) -> String {
-        guard let page = PDFDocument(data: data)?.page(at: pageIndex) else { return "" }
-        let ordered = PDFTextAnalysisEngine()
-            .analyze(data: data, pageIndex: pageIndex, pageRefID: UUID(), fallbackPage: page)
-            .blocks
+        guard case .available(let text) = readingOrderTextResult(data: data, pageIndex: pageIndex) else {
+            return ""
+        }
+        return text
+    }
+
+    private static func readingOrderText(from blocks: [EditableTextBlock]) -> String {
+        let ordered = blocks
             .sorted { lhs, rhs in
                 let ly = lhs.bounds.standardized.midY, ry = rhs.bounds.standardized.midY
                 if abs(ly - ry) > max(lhs.bounds.height, rhs.bounds.height) { return ly > ry }

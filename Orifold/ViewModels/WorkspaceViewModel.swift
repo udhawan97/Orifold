@@ -10238,38 +10238,30 @@ final class WorkspaceViewModel {
             return
         }
 
-        guard let combinedData = PDFSerializer.data(from: combinedPDF),
-              let memberData = try? currentPDFDataForExport() else {
-            exportError = ExportError(message: L10n.string("compare.error.unavailable"))
-            return
+        let combinedData = PDFSerializer.data(from: combinedPDF)
+        let memberData = (try? currentPDFDataForExport()) ?? [:]
+        let sourcePages = document.workspace.pageOrder.enumerated().map { index, ref in
+            PDFComparisonService.WorkspacePageSource(
+                id: ref.id,
+                number: index + 1,
+                memberID: ref.memberDocId,
+                sourcePageIndex: ref.sourcePageIndex,
+                combinedPageIndex: combinedPageIndex(forWorkspacePageNumber: index + 1)
+            )
         }
-        var leftDocuments: [Data] = [combinedData]
-        var documentIndexByMember: [UUID: Int] = [:]
-        var visualPages: [PDFComparisonService.PageLocator] = []
-        var textPages: [PDFComparisonService.PageLocator] = []
-        for (index, ref) in document.workspace.pageOrder.enumerated() {
-            guard let combinedIndex = combinedPageIndex(forWorkspacePageNumber: index + 1),
-                  let memberBytes = memberData[ref.memberDocId] else { continue }
-            let documentIndex: Int
-            if let existing = documentIndexByMember[ref.memberDocId] {
-                documentIndex = existing
-            } else {
-                leftDocuments.append(memberBytes)
-                documentIndex = leftDocuments.count - 1
-                documentIndexByMember[ref.memberDocId] = documentIndex
-            }
-            visualPages.append(PDFComparisonService.PageLocator(documentIndex: 0, pageIndex: combinedIndex))
-            textPages.append(PDFComparisonService.PageLocator(documentIndex: documentIndex, pageIndex: ref.sourcePageIndex))
-        }
-        guard !visualPages.isEmpty else {
+        let prepared = PDFComparisonService.prepareLeftSide(
+            pages: sourcePages,
+            combinedData: combinedData,
+            memberData: memberData
+        )
+        guard !prepared.pages.isEmpty else {
             exportError = ExportError(message: L10n.string("compare.error.unavailable"))
             return
         }
         compareRequest = PDFComparisonRequest(
             engineRequest: PDFComparisonService.Request(
-                leftDocuments: leftDocuments,
-                leftVisualPages: visualPages,
-                leftTextPages: textPages,
+                leftDocuments: prepared.documents,
+                leftPages: prepared.pages,
                 rightData: rightData
             ),
             leftTitle: document.workspace.title,

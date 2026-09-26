@@ -1,4 +1,3 @@
-import CoreGraphics
 import Foundation
 import PDFKit
 
@@ -7,113 +6,209 @@ import PDFKit
 /// from `Task.detached` and hand it only `Sendable` inputs (bytes and indices, never
 /// `PDFDocument`s).
 enum PDFComparisonService {
-    /// A page addressed as (document index into `Request.leftDocuments`, page index).
-    struct PageLocator: Equatable, Sendable {
-        var documentIndex: Int
-        var pageIndex: Int
-    }
-
-    struct Request: Sendable {
-        /// Byte sources for the left side. Index 0 is the serialized combined document (what
-        /// the user sees — rotations and crops applied); later entries are the members' live
-        /// preserved bytes, which the *text* diff reads so PDFKit re-serialization can't
-        /// manufacture text differences.
-        var leftDocuments: [Data]
-        /// One entry per workspace page: where its visual render comes from.
-        var leftVisualPages: [PageLocator]
-        /// One entry per workspace page: where its faithful text comes from.
-        var leftTextPages: [PageLocator]
-        /// The other draft, as picked by the user.
-        var rightData: Data
-    }
-
-    enum PairChange: Equatable, Sendable {
-        case unchanged
-        case changed
-        case leftOnly
-        case rightOnly
-    }
-
-    struct PagePair: Identifiable, Equatable, Sendable {
-        /// Pair index — page `id + 1` on the left, page `id + 1 + rightOffset` on the right.
-        let id: Int
-        var change: PairChange
-        var visual: PDFVisualDiff.Result?
-        var text: PDFTextDiff.Result?
-    }
-
-    static let compareDPI: CGFloat = 150
-
     /// Runs the whole comparison. `rightOffset` shifts which right-side page each left page
-    /// pairs with (index pairing; no automatic alignment in v1). Cancellation returns the
-    /// pairs computed so far.
+    /// pairs with (index pairing; no automatic alignment). Cancellation is cooperative
+    /// between planned pairs and returns a terminal status with the pairs completed so far.
     static func compare(
         _ request: Request,
         rightOffset: Int = 0,
         progress: @escaping @Sendable (Double) -> Void = { _ in },
-        isCancelled: @escaping @Sendable () -> Bool = { false }
-    ) -> [PagePair] {
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        analyzers: Analyzers = .live
+    ) -> RunResult {
         let leftDocuments = request.leftDocuments.map { PDFDocument(data: $0) }
-        guard let rightDocument = PDFDocument(data: request.rightData) else { return [] }
+        guard let rightDocument = PDFDocument(data: request.rightData), !rightDocument.isLocked else {
+            return RunResult(
+                status: .failed,
+                pairs: [],
+                coverage: coverage(
+                    leftCount: request.leftPages.count,
+                    rightCount: 0,
+                    rightOffset: rightOffset
+                )
+            )
+        }
 
-        let leftCount = request.leftVisualPages.count
+        let leftCount = request.leftPages.count
         let rightCount = rightDocument.pageCount
-        let pairCount = max(leftCount, max(0, rightCount - rightOffset))
-        guard pairCount > 0 else { return [] }
+        let plans = pairPlans(leftCount: leftCount, rightCount: rightCount, rightOffset: rightOffset)
+        let runCoverage = coverage(leftCount: leftCount, rightCount: rightCount, rightOffset: rightOffset)
+        let context = PairContext(
+            request: request,
+            leftDocuments: leftDocuments,
+            rightDocument: rightDocument,
+            analyzers: analyzers
+        )
+        guard !plans.isEmpty else {
+            return RunResult(status: .completed, pairs: [], coverage: runCoverage)
+        }
 
         var pairs: [PagePair] = []
-        for index in 0..<pairCount {
-            if isCancelled() { break }
-            let rightIndex = index + rightOffset
-            let hasLeft = index < leftCount
-            let hasRight = rightIndex >= 0 && rightIndex < rightCount
-
-            if !hasLeft || !hasRight {
-                pairs.append(PagePair(
-                    id: index,
-                    change: hasLeft ? .leftOnly : .rightOnly,
-                    visual: nil,
-                    text: nil
-                ))
-                progress(Double(index + 1) / Double(pairCount))
-                continue
+        pairs.reserveCapacity(plans.count)
+        for (sequenceIndex, plan) in plans.enumerated() {
+            if isCancelled() {
+                return RunResult(status: .cancelled, pairs: pairs, coverage: runCoverage)
             }
-
-            var visual: PDFVisualDiff.Result?
-            let locator = request.leftVisualPages[index]
-            if locator.documentIndex < leftDocuments.count,
-               let leftPage = leftDocuments[locator.documentIndex]?.page(at: locator.pageIndex),
-               let rightPage = rightDocument.page(at: rightIndex),
-               let leftImage = PDFOCRService.rasterizedImage(for: leftPage, dpi: compareDPI),
-               let rightImage = PDFOCRService.rasterizedImage(for: rightPage, dpi: compareDPI) {
-                visual = PDFVisualDiff.diff(leftImage, rightImage)
+            pairs.append(comparePair(id: sequenceIndex, plan: plan, context: context))
+            progress(Double(sequenceIndex + 1) / Double(plans.count))
+            if isCancelled() {
+                return RunResult(status: .cancelled, pairs: pairs, coverage: runCoverage)
             }
-
-            var text: PDFTextDiff.Result?
-            if index < request.leftTextPages.count,
-               case let textLocator = request.leftTextPages[index],
-               textLocator.documentIndex < request.leftDocuments.count {
-                let leftText = PDFTextAnalysisEngine.readingOrderText(
-                    data: request.leftDocuments[textLocator.documentIndex],
-                    pageIndex: textLocator.pageIndex
-                )
-                let rightText = PDFTextAnalysisEngine.readingOrderText(
-                    data: request.rightData,
-                    pageIndex: rightIndex
-                )
-                text = PDFTextDiff.diff(old: rightText, new: leftText)
-            }
-
-            let changed = (visual?.hasChanges ?? false) || (text?.hasChanges ?? false)
-            pairs.append(PagePair(
-                id: index,
-                change: changed ? .changed : .unchanged,
-                visual: visual,
-                text: text
-            ))
-            progress(Double(index + 1) / Double(pairCount))
         }
-        return pairs
+        return RunResult(status: .completed, pairs: pairs, coverage: runCoverage)
+    }
+
+    private struct PairPlan {
+        var alignmentIndex: Int
+        var leftIndex: Int?
+        var rightIndex: Int?
+    }
+
+    private struct PairContext {
+        var request: Request
+        var leftDocuments: [PDFDocument?]
+        var rightDocument: PDFDocument
+        var analyzers: Analyzers
+    }
+
+    private static func pairPlans(
+        leftCount: Int,
+        rightCount: Int,
+        rightOffset: Int
+    ) -> [PairPlan] {
+        let slotCount = max(leftCount, max(0, rightCount - rightOffset))
+        guard slotCount > 0 else { return [] }
+        return (0..<slotCount).compactMap { alignmentIndex in
+            let rightIndex = alignmentIndex + rightOffset
+            let left = alignmentIndex < leftCount ? alignmentIndex : nil
+            let right = rightIndex >= 0 && rightIndex < rightCount ? rightIndex : nil
+            guard left != nil || right != nil else { return nil }
+            return PairPlan(alignmentIndex: alignmentIndex, leftIndex: left, rightIndex: right)
+        }
+    }
+
+    private static func coverage(
+        leftCount: Int,
+        rightCount: Int,
+        rightOffset: Int
+    ) -> Coverage {
+        let excludedCount = min(max(rightOffset, 0), rightCount)
+        return Coverage(
+            leftPageCount: leftCount,
+            rightPageCount: rightCount,
+            excludedRightPageNumbers: excludedCount > 0 ? Array(1...excludedCount) : []
+        )
+    }
+
+    private static func comparePair(
+        id: Int,
+        plan: PairPlan,
+        context: PairContext
+    ) -> PagePair {
+        let leftIdentity = plan.leftIndex.map { index in
+            let page = context.request.leftPages[index]
+            return PageIdentity(
+                index: index,
+                number: page.workspacePageNumber,
+                workspacePageID: page.workspacePageID
+            )
+        }
+        let rightIdentity = plan.rightIndex.map {
+            PageIdentity(index: $0, number: $0 + 1, workspacePageID: nil)
+        }
+        guard let leftIndex = plan.leftIndex else {
+            return oneSidedPair(id: id, plan: plan, left: nil, right: rightIdentity)
+        }
+        guard let rightIndex = plan.rightIndex else {
+            return oneSidedPair(id: id, plan: plan, left: leftIdentity, right: nil)
+        }
+
+        let leftPage = context.request.leftPages[leftIndex]
+        let visual = visualResult(
+            leftPage: leftPage,
+            rightIndex: rightIndex,
+            leftDocuments: context.leftDocuments,
+            rightDocument: context.rightDocument,
+            analyzer: context.analyzers.visual
+        )
+        let text = textResult(
+            leftPage: leftPage,
+            rightIndex: rightIndex,
+            request: context.request,
+            analyzer: context.analyzers.text
+        )
+        return PagePair(
+            id: id,
+            alignmentIndex: plan.alignmentIndex,
+            left: leftIdentity,
+            right: rightIdentity,
+            change: classify(visual: visual, text: text),
+            visual: visual,
+            text: text
+        )
+    }
+
+    private static func oneSidedPair(
+        id: Int,
+        plan: PairPlan,
+        left: PageIdentity?,
+        right: PageIdentity?
+    ) -> PagePair {
+        PagePair(
+            id: id,
+            alignmentIndex: plan.alignmentIndex,
+            left: left,
+            right: right,
+            change: left == nil ? .rightOnly : .leftOnly,
+            visual: .notApplicable,
+            text: .notApplicable
+        )
+    }
+
+    private static func classify(
+        visual: ChannelResult<PDFVisualDiff.Result>,
+        text: ChannelResult<PDFTextDiff.Result>
+    ) -> PairChange {
+        if (visual.value?.hasChanges ?? false) || (text.value?.hasChanges ?? false) {
+            return .changed
+        }
+        return visual.value != nil && text.value != nil ? .unchanged : .incomplete
+    }
+
+    private static func visualResult(
+        leftPage: LeftPage,
+        rightIndex: Int,
+        leftDocuments: [PDFDocument?],
+        rightDocument: PDFDocument,
+        analyzer: (PDFPage, PDFPage) -> PDFVisualDiff.Result?
+    ) -> ChannelResult<PDFVisualDiff.Result> {
+        guard let locator = leftPage.visualPage,
+              leftDocuments.indices.contains(locator.documentIndex),
+              let leftDocument = leftDocuments[locator.documentIndex],
+              let leftPDFPage = leftDocument.page(at: locator.pageIndex),
+              let rightPDFPage = rightDocument.page(at: rightIndex),
+              let result = analyzer(leftPDFPage, rightPDFPage) else {
+            return .unavailable
+        }
+        return .available(result)
+    }
+
+    private static func textResult(
+        leftPage: LeftPage,
+        rightIndex: Int,
+        request: Request,
+        analyzer: (Data, Int) -> PDFTextAnalysisEngine.ReadingOrderTextResult
+    ) -> ChannelResult<PDFTextDiff.Result> {
+        guard let locator = leftPage.textPage,
+              request.leftDocuments.indices.contains(locator.documentIndex),
+              case .available(let leftText) = analyzer(
+                request.leftDocuments[locator.documentIndex],
+                locator.pageIndex
+              ),
+              case .available(let rightText) = analyzer(request.rightData, rightIndex) else {
+            return .unavailable
+        }
+        return .available(PDFTextDiff.diff(old: rightText, new: leftText))
     }
 }
 
