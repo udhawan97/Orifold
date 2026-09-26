@@ -39,6 +39,12 @@ The file entitlements mean Orifold can only read and write files **you** explici
 
 There is no analytics pipeline in Orifold, and no server to send data to even if there were. Usage isn't measured, tracked, or reported.
 
+Small app preferences, such as the selected language, appearance, and optional batch-fold preset,
+are kept locally in the app's own `UserDefaults` domain. The batch preset contains only operation
+toggles and a compression level; it never stores document paths, document text, passwords, or
+custom watermark wording. Orifold declares this app-only preferences use in its bundled privacy
+manifest and does not send those values off-device.
+
 ## Verify it yourself
 
 Orifold is open source. Read the code, watch network activity while using the app, and check the entitlements file directly in the repository. With automatic update checks disabled, expect no document-workflow traffic unless you explicitly download an update, request a timestamp candidate, or let macOS fetch a translation language model.

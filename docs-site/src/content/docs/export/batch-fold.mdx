@@ -20,6 +20,17 @@ import Card from '../../../components/Card.astro';
 3. Pick the folder containing the PDFs.
 4. Start the fold and follow the per-file progress. You can cancel between files.
 
+Choose a preset to populate the same controls in one step:
+
+- **Searchable copies** turns on OCR.
+- **Smaller copies** uses balanced compression.
+- **Review copies** adds the standard localized **Draft** watermark and balanced compression.
+
+Presets never start a job. You can adjust every populated control before choosing a folder.
+Orifold can remember one **My preset** configuration; saving it stores only the OCR toggle,
+compression level, and standard-watermark choice. You can replace or delete it from the same
+sheet. Custom watermark wording applies to the current run only and is never saved.
+
 Orifold applies selected work in the order **OCR → watermark → compress**, then validates each
 PDF before saving it. When the run ends, a results sheet keeps one row for every PDF Orifold
 planned to process: completed, failed, cancelled while processing, or not started. One unreadable

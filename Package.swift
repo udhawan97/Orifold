@@ -33,6 +33,7 @@ let package = Package(
             resources: [
                 .process("Resources/Assets.xcassets"),
                 .process("Resources/Localizable.xcstrings"),
+                .copy("Resources/PrivacyInfo.xcprivacy"),
                 .copy("Resources/CERTIFICATE_GUIDE.md"),
                 .copy("Resources/THIRD-PARTY-NOTICES.md"),
                 .copy("Resources/SampleDocument.pdf"),

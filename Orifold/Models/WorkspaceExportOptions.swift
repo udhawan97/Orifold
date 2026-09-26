@@ -44,7 +44,7 @@ enum PDFSanitizationError: Error, Equatable {
     }
 }
 
-enum PDFCompressionPreset: String, CaseIterable, Identifiable, Equatable {
+enum PDFCompressionPreset: String, CaseIterable, Identifiable, Equatable, Codable, Sendable {
     case balanced
     case small
 

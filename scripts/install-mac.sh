@@ -642,6 +642,10 @@ build_from_source() {
     write_info_plist
     build_icon
     cp "$PROJECT_ROOT/Orifold/Resources/CERTIFICATE_GUIDE.md" "$STAGED_APP/Contents/Resources/CERTIFICATE_GUIDE.md"
+    local privacy_manifest="$STAGED_APP/Contents/Resources/PrivacyInfo.xcprivacy"
+    cp "$PROJECT_ROOT/Orifold/Resources/PrivacyInfo.xcprivacy" "$privacy_manifest"
+    /usr/bin/plutil -lint "$privacy_manifest" >>"$LOG_FILE" 2>&1 \
+        || fail "The packaged privacy manifest is invalid."
     cp "$PROJECT_ROOT/Orifold/Resources/Orifold.entitlements" "$STAGED_APP/Contents/Resources/Orifold.entitlements"
     /usr/bin/xattr -cr "$STAGED_APP" 2>/dev/null || true
     verify_required_frameworks "$STAGED_APP"
