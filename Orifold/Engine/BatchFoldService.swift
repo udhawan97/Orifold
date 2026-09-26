@@ -31,6 +31,8 @@ enum BatchFoldService {
     enum FileResult: Equatable, Sendable {
         case folded(outputURL: URL)
         case failed(message: String)
+        case cancelled
+        case notStarted
     }
 
     struct FileOutcome: Equatable, Sendable {
@@ -39,15 +41,43 @@ enum BatchFoldService {
     }
 
     struct RunResult: Sendable {
-        var outcomes: [FileOutcome] = []
+        var inputFolder: URL
+        var outcomes: [FileOutcome]
         var outputDirectory: URL?
+        var setupFailureMessage: String?
         var wasCancelled = false
+        var scanWasTruncated: Bool
+        var scanFailureCount: Int
+
+        init(
+            inputFolder: URL,
+            files: [URL],
+            scanWasTruncated: Bool = false,
+            scanFailureCount: Int = 0
+        ) {
+            self.inputFolder = inputFolder
+            outcomes = files.map { FileOutcome(sourceURL: $0, result: .notStarted) }
+            self.scanWasTruncated = scanWasTruncated
+            self.scanFailureCount = scanFailureCount
+        }
 
         var foldedCount: Int {
             outcomes.filter { if case .folded = $0.result { return true } else { return false } }.count
         }
 
-        var failedCount: Int { outcomes.count - foldedCount }
+        var failedCount: Int {
+            outcomes.filter { if case .failed = $0.result { return true } else { return false } }.count
+        }
+
+        var cancelledCount: Int {
+            outcomes.filter { if case .cancelled = $0.result { return true } else { return false } }.count
+        }
+
+        var notStartedCount: Int {
+            outcomes.filter { if case .notStarted = $0.result { return true } else { return false } }.count
+        }
+
+        var notProcessedCount: Int { cancelledCount + notStartedCount }
 
         var firstFailureMessage: String? {
             for outcome in outcomes {
@@ -59,12 +89,15 @@ enum BatchFoldService {
 
     enum BatchFoldError: LocalizedError, Equatable {
         case unreadablePDF
+        case lockedPDF
         case outputUnsound
 
         var errorDescription: String? {
             switch self {
             case .unreadablePDF:
                 return L10n.string("error.batchFold.unreadable")
+            case .lockedPDF:
+                return L10n.string("error.batchFold.locked")
             case .outputUnsound:
                 return L10n.string("error.batchFold.outputUnsound")
             }
@@ -118,6 +151,9 @@ enum BatchFoldService {
         isCancelled: @escaping @Sendable () -> Bool = { false },
         recognitionProvider: PDFOCRService.RecognitionProvider? = nil
     ) async throws -> Data {
+        if let sourceDocument = PDFDocument(data: data), sourceDocument.isLocked {
+            throw BatchFoldError.lockedPDF
+        }
         var current = data
         let stageCount = Double(max(enabledStageCount(options), 1))
         // Immutable per-stage base offsets, because the engines' progress callbacks are
@@ -213,29 +249,48 @@ enum BatchFoldService {
         inputFolder: URL,
         files: [URL],
         options: Options,
+        scanWasTruncated: Bool = false,
+        scanFailureCount: Int = 0,
         progress: @escaping @Sendable (Double, String) -> Void,
         isCancelled: @escaping @Sendable () -> Bool,
-        recognitionProvider: PDFOCRService.RecognitionProvider? = nil
+        recognitionProvider: PDFOCRService.RecognitionProvider? = nil,
+        beforeOutputCommit: (@Sendable (URL) throws -> Void)? = nil
     ) async -> RunResult {
         await Task.detached(priority: .userInitiated) {
-            var result = RunResult()
+            var result = RunResult(
+                inputFolder: inputFolder,
+                files: files,
+                scanWasTruncated: scanWasTruncated,
+                scanFailureCount: scanFailureCount
+            )
             let isSecurityScoped = inputFolder.startAccessingSecurityScopedResource()
             defer { if isSecurityScoped { inputFolder.stopAccessingSecurityScopedResource() } }
 
-            let outputDirectory = inputFolder.appendingPathComponent(outputFolderName, isDirectory: true)
-            do {
-                try FileManager.default.createDirectory(
-                    at: outputDirectory,
-                    withIntermediateDirectories: true
-                )
-            } catch {
+            guard let authorizedDirectory = BoundedLocalFileDirectory(authorizedRoot: inputFolder) else {
+                result.setupFailureMessage = L10n.string("batchFold.error.outputFolder")
                 return result
             }
-            result.outputDirectory = outputDirectory
+            let outputDirectory: ExportOutputDirectory
+            do {
+                outputDirectory = try ExportOutputDirectory(
+                    parentURL: inputFolder,
+                    parentDirectory: authorizedDirectory,
+                    directoryName: outputFolderName
+                )
+                result.outputDirectory = outputDirectory.url
+            } catch {
+                result.setupFailureMessage = error.localizedDescription
+                return result
+            }
 
-            var existingNames = Set(
-                (try? FileManager.default.contentsOfDirectory(atPath: outputDirectory.path)) ?? []
-            )
+            let initialNames: Set<String>
+            do {
+                initialNames = try outputDirectory.existingNames()
+            } catch {
+                result.setupFailureMessage = error.localizedDescription
+                return result
+            }
+            var existingNames = initialNames
             let totalCount = Double(max(files.count, 1))
 
             for (index, sourceURL) in files.enumerated() {
@@ -245,10 +300,13 @@ enum BatchFoldService {
                 }
                 progress(Double(index) / totalCount, sourceURL.lastPathComponent)
                 do {
-                    guard let data = BoundedLocalFileReader.readFile(
+                    let data = try BoundedLocalFileReader.readFileReportingFailure(
                         at: sourceURL,
+                        within: inputFolder,
+                        using: authorizedDirectory,
                         maxBytes: Int(DocumentImportConverter.maxImportBytes)
-                    ), !data.isEmpty else {
+                    )
+                    guard !data.isEmpty else {
                         throw BatchFoldError.unreadablePDF
                     }
                     let folded = try await fold(
@@ -264,29 +322,67 @@ enum BatchFoldService {
                         isCancelled: isCancelled,
                         recognitionProvider: recognitionProvider
                     )
-                    let name = outputName(for: sourceURL, existingNames: existingNames)
-                    let outputURL = outputDirectory.appendingPathComponent(name)
-                    try ExportFileWriter.write(folded, to: outputURL)
-                    try ExportFileWriter.verify(at: outputURL)
-                    existingNames.insert(name)
-                    result.outcomes.append(
-                        FileOutcome(sourceURL: sourceURL, result: .folded(outputURL: outputURL))
+                    try checkCancellation(isCancelled)
+                    let outputURL = try publish(
+                        folded,
+                        from: sourceURL,
+                        into: outputDirectory,
+                        existingNames: &existingNames,
+                        beforeOutputCommit: beforeOutputCommit
                     )
+                    result.outcomes[index].result = .folded(outputURL: outputURL)
+                    if isCancelled() {
+                        result.wasCancelled = true
+                        break
+                    }
                 } catch is CancellationError {
+                    result.outcomes[index].result = .cancelled
                     result.wasCancelled = true
                     break
                 } catch {
-                    result.outcomes.append(
-                        FileOutcome(sourceURL: sourceURL, result: .failed(message: error.localizedDescription))
-                    )
+                    result.outcomes[index].result = .failed(message: error.localizedDescription)
                 }
             }
+            result.outputDirectory = outputDirectory.currentURL
             progress(1, "")
             return result
         }.value
     }
 
     // MARK: - Helpers
+
+    private static let maximumPublicationAttempts = 100
+
+    private static func publish(
+        _ data: Data,
+        from sourceURL: URL,
+        into outputDirectory: ExportOutputDirectory,
+        existingNames: inout Set<String>,
+        beforeOutputCommit: (@Sendable (URL) throws -> Void)?
+    ) throws -> URL {
+        for _ in 0..<maximumPublicationAttempts {
+            let name = outputName(for: sourceURL, existingNames: existingNames)
+            let outputURL = outputDirectory.url.appendingPathComponent(name)
+            do {
+                try ExportFileWriter.createNew(
+                    data,
+                    named: name,
+                    in: outputDirectory,
+                    validate: { bytes in
+                        guard QPDFService.isStructurallySound(bytes) else {
+                            throw BatchFoldError.outputUnsound
+                        }
+                    },
+                    beforeCommit: { try beforeOutputCommit?(outputURL) }
+                )
+                existingNames.insert(name)
+                return outputDirectory.currentURL.appendingPathComponent(name)
+            } catch ExportWriteError.destinationExists {
+                existingNames.insert(name)
+            }
+        }
+        throw ExportWriteError.destinationExists
+    }
 
     private static func enabledStageCount(_ options: Options) -> Int {
         var count = 0

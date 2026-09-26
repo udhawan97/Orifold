@@ -168,7 +168,10 @@ final class BatchFoldServiceTests: XCTestCase {
         XCTAssertFalse(result.wasCancelled)
         let outputDirectory = try XCTUnwrap(result.outputDirectory)
         XCTAssertEqual(outputDirectory.lastPathComponent, BatchFoldService.outputFolderName)
-        XCTAssertEqual(outputDirectory.deletingLastPathComponent().path, folder.path)
+        XCTAssertEqual(
+            outputDirectory.deletingLastPathComponent().resolvingSymlinksInPath(),
+            folder.resolvingSymlinksInPath()
+        )
         let written = try FileManager.default.contentsOfDirectory(atPath: outputDirectory.path).sorted()
         XCTAssertEqual(written, ["a-folded.pdf", "c-folded.pdf"])
         if case .failed = result.outcomes[1].result {} else {
@@ -203,6 +206,270 @@ final class BatchFoldServiceTests: XCTestCase {
         XCTAssertEqual(written, ["a-folded-2.pdf", "a-folded.pdf"])
     }
 
+    func testRunDisambiguatesAnExistingNameThatDiffersOnlyByCase() async throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("a.pdf")
+        try whitePDFData(pages: 1).write(to: source)
+        let outputDirectory = folder.appendingPathComponent(BatchFoldService.outputFolderName)
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        let earlier = outputDirectory.appendingPathComponent("A-FOLDED.PDF")
+        try Data("earlier run".utf8).write(to: earlier)
+
+        let result = await BatchFoldService.run(
+            inputFolder: folder,
+            files: [source],
+            options: BatchFoldService.Options(watermarkText: "DRAFT"),
+            progress: { _, _ in },
+            isCancelled: { false }
+        )
+
+        XCTAssertEqual(result.foldedCount, 1)
+        XCTAssertEqual(try Data(contentsOf: earlier), Data("earlier run".utf8))
+        XCTAssertEqual(result.outcomes[0].outputURL?.lastPathComponent, "a-folded-2.pdf")
+    }
+
+    func testCreateNewRefusesDestinationCreatedAtCommitWithoutChangingItsBytes() throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let outputDirectory = try ExportOutputDirectory(parentURL: folder, directoryName: "Output")
+        let target = outputDirectory.url.appendingPathComponent("result.pdf")
+        let existing = Data("another writer got here first".utf8)
+
+        XCTAssertThrowsError(try ExportFileWriter.createNew(
+            Data("new bytes".utf8),
+            named: target.lastPathComponent,
+            in: outputDirectory,
+            beforeCommit: { try existing.write(to: target, options: .withoutOverwriting) }
+        )) { error in
+            XCTAssertEqual(error as? ExportWriteError, .destinationExists)
+        }
+
+        XCTAssertEqual(try Data(contentsOf: target), existing)
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: outputDirectory.url.path)
+        XCTAssertEqual(leftovers, ["result.pdf"])
+    }
+
+    func testCreateNewValidationFailurePublishesNothingAndCleansTheStagedFile() throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let outputDirectory = try ExportOutputDirectory(parentURL: folder, directoryName: "Output")
+        let target = outputDirectory.url.appendingPathComponent("rejected.pdf")
+
+        XCTAssertThrowsError(try ExportFileWriter.createNew(
+            Data("invalid bytes".utf8),
+            named: target.lastPathComponent,
+            in: outputDirectory,
+            validate: { _ in throw FixtureFailure.rejected }
+        ))
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.path))
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: outputDirectory.url.path).isEmpty)
+    }
+
+    func testCreateNewPublicationFailureCleansOnlyItsStagedFile() throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let outputDirectory = try ExportOutputDirectory(parentURL: folder, directoryName: "Output")
+
+        XCTAssertThrowsError(try ExportFileWriter.createNew(
+            Data("valid staged bytes".utf8),
+            named: "result.pdf",
+            in: outputDirectory,
+            commitForTesting: { throw POSIXError(.EACCES) }
+        )) { error in
+            XCTAssertEqual((error as? POSIXError)?.code, .EACCES)
+        }
+
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: outputDirectory.url.path).isEmpty)
+    }
+
+    func testCreateNewDoesNotDeleteAStagedPathReplacedByAnotherWriter() throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let outputDirectory = try ExportOutputDirectory(parentURL: folder, directoryName: "Output")
+        let replacement = Data("replacement owned by another writer".utf8)
+
+        XCTAssertThrowsError(try ExportFileWriter.createNew(
+            Data("our staged bytes".utf8),
+            named: "result.pdf",
+            in: outputDirectory,
+            beforeCommit: {
+                let names = try FileManager.default.contentsOfDirectory(
+                    atPath: outputDirectory.url.path
+                )
+                let stagedName = try XCTUnwrap(names.first { $0.hasPrefix(".Orifold-export-") })
+                let stagedURL = outputDirectory.url.appendingPathComponent(stagedName)
+                try FileManager.default.removeItem(at: stagedURL)
+                try replacement.write(to: stagedURL, options: .withoutOverwriting)
+            }
+        )) { error in
+            XCTAssertEqual(error as? ExportWriteError, .fileNotFound)
+        }
+
+        let remainingName = try XCTUnwrap(
+            FileManager.default.contentsOfDirectory(atPath: outputDirectory.url.path).first
+        )
+        XCTAssertTrue(remainingName.hasPrefix(".Orifold-export-"))
+        XCTAssertEqual(
+            try Data(contentsOf: outputDirectory.url.appendingPathComponent(remainingName)),
+            replacement
+        )
+    }
+
+    func testCreateNewDoesNotDeleteATargetReplacedAfterCommit() throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let outputDirectory = try ExportOutputDirectory(parentURL: folder, directoryName: "Output")
+        let target = outputDirectory.url.appendingPathComponent("result.pdf")
+        let replacement = Data("replacement after commit".utf8)
+
+        XCTAssertThrowsError(try ExportFileWriter.createNew(
+            Data("our published bytes".utf8),
+            named: target.lastPathComponent,
+            in: outputDirectory,
+            afterCommitForTesting: {
+                try FileManager.default.removeItem(at: target)
+                try replacement.write(to: target, options: .withoutOverwriting)
+            }
+        )) { error in
+            XCTAssertEqual(error as? ExportWriteError, .fileNotFound)
+        }
+
+        XCTAssertEqual(try Data(contentsOf: target), replacement)
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: outputDirectory.url.path),
+            [target.lastPathComponent]
+        )
+    }
+
+    func testRunRejectsPreexistingFoldedSymlinkWithoutWritingItsTarget() async throws {
+        let folder = try makeTempFolder()
+        let outside = try makeTempFolder()
+        defer {
+            try? FileManager.default.removeItem(at: folder)
+            try? FileManager.default.removeItem(at: outside)
+        }
+        let source = folder.appendingPathComponent("a.pdf")
+        try whitePDFData(pages: 1).write(to: source)
+        try FileManager.default.createSymbolicLink(
+            at: folder.appendingPathComponent(BatchFoldService.outputFolderName),
+            withDestinationURL: outside
+        )
+
+        let result = await BatchFoldService.run(
+            inputFolder: folder,
+            files: [source],
+            options: BatchFoldService.Options(watermarkText: "DRAFT"),
+            progress: { _, _ in },
+            isCancelled: { false }
+        )
+
+        XCTAssertNil(result.outputDirectory)
+        XCTAssertNotNil(result.setupFailureMessage)
+        XCTAssertEqual(result.notStartedCount, 1)
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: outside.path).isEmpty)
+    }
+
+    func testRunFailsClosedWhenFoldedDirectoryIsReplacedBeforeCommit() async throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("a.pdf")
+        try whitePDFData(pages: 1).write(to: source)
+        let swap = OneShotDirectorySwap()
+
+        let result = await BatchFoldService.run(
+            inputFolder: folder,
+            files: [source],
+            options: BatchFoldService.Options(watermarkText: "DRAFT"),
+            progress: { _, _ in },
+            isCancelled: { false },
+            beforeOutputCommit: { try swap.replaceDirectory(containing: $0) }
+        )
+
+        XCTAssertEqual(result.failedCount, 1)
+        guard case .failed(let message) = result.outcomes[0].result else {
+            return XCTFail("the directory replacement should fail the current input")
+        }
+        XCTAssertEqual(message, ExportWriteError.outputDirectoryChanged.localizedDescription)
+        for name in [BatchFoldService.outputFolderName, OneShotDirectorySwap.movedName] {
+            let directory = folder.appendingPathComponent(name)
+            XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
+        }
+    }
+
+    func testRunKeepsReadingTheOriginalRootWhenItsPathIsReplacedBetweenInputs() async throws {
+        let folder = try makeTempFolder()
+        let movedFolder = folder.deletingLastPathComponent()
+            .appendingPathComponent("\(folder.lastPathComponent)-moved", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: folder)
+            try? FileManager.default.removeItem(at: movedFolder)
+        }
+        let files = try ["a.pdf", "b.pdf"].map { name in
+            let url = folder.appendingPathComponent(name)
+            try whitePDFData(pages: 1).write(to: url)
+            return url
+        }
+        let swap = OneShotRootSwap(movedFolder: movedFolder)
+
+        let result = await BatchFoldService.run(
+            inputFolder: folder,
+            files: files,
+            options: BatchFoldService.Options(watermarkText: "DRAFT"),
+            progress: { _, _ in },
+            isCancelled: { false },
+            beforeOutputCommit: { try swap.replaceRoot(containing: $0) }
+        )
+
+        XCTAssertEqual(result.foldedCount, 2)
+        XCTAssertEqual(result.failedCount, 0)
+        let actualOutputDirectory = try XCTUnwrap(result.outputDirectory).resolvingSymlinksInPath()
+        XCTAssertEqual(
+            actualOutputDirectory,
+            movedFolder.appendingPathComponent(BatchFoldService.outputFolderName).resolvingSymlinksInPath()
+        )
+        XCTAssertTrue(result.outcomes.compactMap(\.outputURL).allSatisfy {
+            FileManager.default.fileExists(atPath: $0.path)
+        })
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: folder.appendingPathComponent(BatchFoldService.outputFolderName).path
+            )
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: folder.appendingPathComponent("b.pdf")),
+            OneShotRootSwap.redirectedBytes
+        )
+    }
+
+    func testRunRetriesANameCreatedAtCommitAndPreservesTheCompetingFile() async throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("a.pdf")
+        try whitePDFData(pages: 1).write(to: source)
+        let collision = OneShotCommitCollision()
+
+        var options = BatchFoldService.Options()
+        options.watermarkText = "DRAFT"
+        let result = await BatchFoldService.run(
+            inputFolder: folder,
+            files: [source],
+            options: options,
+            progress: { _, _ in },
+            isCancelled: { false },
+            beforeOutputCommit: { try collision.createFile(at: $0) }
+        )
+
+        XCTAssertEqual(result.foldedCount, 1)
+        let outputDirectory = try XCTUnwrap(result.outputDirectory)
+        let firstName = outputDirectory.appendingPathComponent("a-folded.pdf")
+        XCTAssertEqual(try Data(contentsOf: firstName), OneShotCommitCollision.marker)
+        let outputURL = try XCTUnwrap(result.outcomes.first?.outputURL)
+        XCTAssertEqual(outputURL.lastPathComponent, "a-folded-2.pdf")
+        XCTAssertTrue(QPDFService.isStructurallySound(try Data(contentsOf: outputURL)))
+    }
+
     func testRunStopsBetweenFilesWhenCancelled() async throws {
         let folder = try makeTempFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -232,7 +499,160 @@ final class BatchFoldServiceTests: XCTestCase {
 
         XCTAssertTrue(result.wasCancelled)
         XCTAssertEqual(result.foldedCount, 1)
-        XCTAssertLessThan(result.outcomes.count, files.count)
+        XCTAssertEqual(result.outcomes.count, files.count)
+        XCTAssertEqual(result.failedCount, 0)
+        XCTAssertEqual(result.cancelledCount, 0)
+        XCTAssertEqual(result.notStartedCount, 2)
+    }
+
+    func testRunCancelledBeforeFirstInputLeavesTheCompleteLedgerNotStarted() async throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let files = try ["a.pdf", "b.pdf"].map { name in
+            let url = folder.appendingPathComponent(name)
+            try whitePDFData(pages: 1).write(to: url)
+            return url
+        }
+
+        let result = await BatchFoldService.run(
+            inputFolder: folder,
+            files: files,
+            options: BatchFoldService.Options(watermarkText: "DRAFT"),
+            progress: { _, _ in },
+            isCancelled: { true }
+        )
+
+        XCTAssertTrue(result.wasCancelled)
+        XCTAssertEqual(result.foldedCount, 0)
+        XCTAssertEqual(result.cancelledCount, 0)
+        XCTAssertEqual(result.notStartedCount, 2)
+    }
+
+    func testRunMarksTheInterruptedFileAndLeavesLaterFilesNotStarted() async throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let files = try ["a.pdf", "b.pdf"].map { name in
+            let url = folder.appendingPathComponent(name)
+            try whitePDFData(pages: 1).write(to: url)
+            return url
+        }
+        var options = BatchFoldService.Options()
+        options.watermarkText = "DRAFT"
+        let cancellation = CancelOnSecondCheck()
+
+        let result = await BatchFoldService.run(
+            inputFolder: folder,
+            files: files,
+            options: options,
+            progress: { _, _ in },
+            isCancelled: { cancellation.isCancelled }
+        )
+
+        XCTAssertTrue(result.wasCancelled)
+        XCTAssertEqual(result.foldedCount, 0)
+        XCTAssertEqual(result.cancelledCount, 1)
+        XCTAssertEqual(result.notStartedCount, 1)
+        if case .cancelled = result.outcomes[0].result {} else {
+            XCTFail("the interrupted input should be distinct from inputs never started")
+        }
+        if case .notStarted = result.outcomes[1].result {} else {
+            XCTFail("later inputs should remain not started")
+        }
+    }
+
+    func testRunReportsLockedPDFAsFailedWithoutCreatingAnOutput() async throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("locked.pdf")
+        let encrypted = try PDFEncryptionService.encryptedData(
+            from: whitePDFData(pages: 1),
+            options: PDFEncryptionOptions(
+                userPassword: "reader-pass",
+                ownerPassword: "owner-pass",
+                allowsPrinting: true,
+                allowsCopying: false
+            )
+        )
+        try encrypted.write(to: source)
+
+        let result = await BatchFoldService.run(
+            inputFolder: folder,
+            files: [source],
+            options: BatchFoldService.Options(watermarkText: "DRAFT"),
+            progress: { _, _ in },
+            isCancelled: { false }
+        )
+
+        XCTAssertEqual(result.failedCount, 1)
+        XCTAssertEqual(result.notStartedCount, 0)
+        guard case .failed(let message) = result.outcomes[0].result else {
+            return XCTFail("the locked input should be reported as a failure")
+        }
+        XCTAssertEqual(message, BatchFoldService.BatchFoldError.lockedPDF.localizedDescription)
+        let outputDirectory = try XCTUnwrap(result.outputDirectory)
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: outputDirectory.path).isEmpty)
+    }
+
+    func testRunRejectsOversizedInputWithoutReadingOrPublishingIt() async throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("oversized.pdf")
+        XCTAssertTrue(FileManager.default.createFile(atPath: source.path, contents: Data()))
+        let handle = try FileHandle(forWritingTo: source)
+        try handle.truncate(atOffset: UInt64(DocumentImportConverter.maxImportBytes + 1))
+        try handle.close()
+
+        let result = await BatchFoldService.run(
+            inputFolder: folder,
+            files: [source],
+            options: BatchFoldService.Options(watermarkText: "DRAFT"),
+            progress: { _, _ in },
+            isCancelled: { false }
+        )
+
+        XCTAssertEqual(result.failedCount, 1)
+        XCTAssertEqual(result.notStartedCount, 0)
+        guard case .failed(let message) = result.outcomes[0].result else {
+            return XCTFail("the oversized input should be reported as a failure")
+        }
+        XCTAssertEqual(
+            message,
+            DocumentImportConverter.userMessage(
+                for: DocumentImportConverter.ConversionError.fileTooLarge(
+                    DocumentImportConverter.maxImportBytes + 1
+                )
+            )
+        )
+        let outputDirectory = try XCTUnwrap(result.outputDirectory)
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: outputDirectory.path).isEmpty)
+    }
+
+    func testRunKeepsEveryInputNotStartedWhenOutputFolderSetupFails() async throws {
+        let root = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let inputFolder = root.appendingPathComponent("not-a-folder")
+        try Data("plain file".utf8).write(to: inputFolder)
+        let sources = [
+            inputFolder.appendingPathComponent("a.pdf"),
+            inputFolder.appendingPathComponent("b.pdf")
+        ]
+
+        let result = await BatchFoldService.run(
+            inputFolder: inputFolder,
+            files: sources,
+            options: BatchFoldService.Options(watermarkText: "DRAFT"),
+            scanWasTruncated: true,
+            scanFailureCount: 1,
+            progress: { _, _ in },
+            isCancelled: { false }
+        )
+
+        XCTAssertNil(result.outputDirectory)
+        XCTAssertNotNil(result.setupFailureMessage)
+        XCTAssertEqual(result.notStartedCount, 2)
+        XCTAssertEqual(result.failedCount, 0)
+        XCTAssertTrue(result.scanWasTruncated)
+        XCTAssertEqual(result.scanFailureCount, 1)
     }
 
     // MARK: - Fixtures
@@ -294,4 +714,86 @@ final class BatchFoldServiceTests: XCTestCase {
         guard sampled > 0 else { return 0 }
         return Double(inked) / Double(sampled)
     }
+}
+
+private extension BatchFoldService.FileOutcome {
+    var outputURL: URL? {
+        if case .folded(let outputURL) = result { return outputURL }
+        return nil
+    }
+}
+
+private final class OneShotCommitCollision: @unchecked Sendable {
+    static let marker = Data("competing output".utf8)
+    private let lock = NSLock()
+    private var hasCreatedFile = false
+
+    func createFile(at url: URL) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !hasCreatedFile else { return }
+        hasCreatedFile = true
+        try Self.marker.write(to: url, options: .withoutOverwriting)
+    }
+}
+
+private final class OneShotDirectorySwap: @unchecked Sendable {
+    static let movedName = "Folded-before-swap"
+    private let lock = NSLock()
+    private var hasReplacedDirectory = false
+
+    func replaceDirectory(containing outputURL: URL) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !hasReplacedDirectory else { return }
+        hasReplacedDirectory = true
+
+        let directory = outputURL.deletingLastPathComponent()
+        let movedDirectory = directory.deletingLastPathComponent()
+            .appendingPathComponent(Self.movedName, isDirectory: true)
+        try FileManager.default.moveItem(at: directory, to: movedDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+    }
+}
+
+private final class OneShotRootSwap: @unchecked Sendable {
+    static let redirectedBytes = Data("redirected replacement input".utf8)
+    private let lock = NSLock()
+    private let movedFolder: URL
+    private var hasReplacedRoot = false
+
+    init(movedFolder: URL) {
+        self.movedFolder = movedFolder
+    }
+
+    func replaceRoot(containing outputURL: URL) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !hasReplacedRoot else { return }
+        hasReplacedRoot = true
+
+        let root = outputURL.deletingLastPathComponent().deletingLastPathComponent()
+        try FileManager.default.moveItem(at: root, to: movedFolder)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        try Self.redirectedBytes.write(
+            to: root.appendingPathComponent("b.pdf"),
+            options: .withoutOverwriting
+        )
+    }
+}
+
+private final class CancelOnSecondCheck: @unchecked Sendable {
+    private let lock = NSLock()
+    private var checkCount = 0
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        checkCount += 1
+        return checkCount >= 2
+    }
+}
+
+private enum FixtureFailure: Error {
+    case rejected
 }

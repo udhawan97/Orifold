@@ -28,6 +28,33 @@ final class BoundedLocalFileReaderTests: XCTestCase {
         XCTAssertEqual(BoundedLocalFileReader.readFile(at: url, maxBytes: expected.count), expected)
     }
 
+    func testReadsNestedFileThroughAuthorizedRoot() throws {
+        let nested = directory.appendingPathComponent("Nested", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        let url = nested.appendingPathComponent("small.pdf")
+        let expected = Data("authorized descendant".utf8)
+        XCTAssertTrue(FileManager.default.createFile(atPath: url.path, contents: expected))
+
+        XCTAssertEqual(
+            BoundedLocalFileReader.readFile(
+                at: url,
+                within: directory,
+                maxBytes: expected.count
+            ),
+            expected
+        )
+    }
+
+    func testAuthorizedRootRejectsSiblingFile() throws {
+        let sibling = directory.deletingLastPathComponent().appendingPathComponent("outside.pdf")
+        defer { try? FileManager.default.removeItem(at: sibling) }
+        XCTAssertTrue(FileManager.default.createFile(atPath: sibling.path, contents: Data("outside".utf8)))
+
+        XCTAssertNil(
+            BoundedLocalFileReader.readFile(at: sibling, within: directory, maxBytes: 1_024)
+        )
+    }
+
     func testRejectsSparseFileOverLimitBeforeAllocation() throws {
         let url = directory.appendingPathComponent("oversized.pdf")
         XCTAssertTrue(FileManager.default.createFile(atPath: url.path, contents: Data([0])))

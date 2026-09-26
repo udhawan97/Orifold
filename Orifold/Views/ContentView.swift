@@ -445,6 +445,13 @@ struct ContentView: View {
                 .environmentObject(languageManager)
                 .environment(\.locale, languageManager.effectiveLocale)
         }
+        .sheet(isPresented: $viewModel.isShowingBatchFoldResult) {
+            if let result = viewModel.batchFoldResult {
+                BatchFoldResultSheet(result: result)
+                    .environmentObject(languageManager)
+                    .environment(\.locale, languageManager.effectiveLocale)
+            }
+        }
         .sheet(item: $viewModel.compareRequest) { request in
             ComparePanelView(request: request)
                 .environmentObject(languageManager)

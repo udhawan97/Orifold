@@ -454,6 +454,11 @@ final class WorkspaceViewModel {
     var isShowingSplitExport = false
     /// Drives the "Fold a Folder…" options sheet; set from the File menu.
     var isShowingBatchFold = false
+    /// The latest folder-fold report stays in memory until another run replaces it or the
+    /// workspace window closes. `isShowingBatchFoldResult` controls presentation separately so
+    /// dismissing the sheet does not discard the report.
+    var batchFoldResult: BatchFoldService.RunResult?
+    var isShowingBatchFoldResult = false
     var blankPageReview: BlankPageReview?
     var isDetectingBlankPages = false
     var blankPageDetectionFoundNothing = false
@@ -10289,6 +10294,9 @@ final class WorkspaceViewModel {
         panel.prompt = L10n.string("batchFold.panel.choose")
         guard panel.runModal() == .OK, let folder = panel.url else { return }
 
+        batchFoldResult = nil
+        isShowingBatchFoldResult = false
+
         operationProgress.start(
             title: L10n.string("batchFold.progress.title"),
             detail: L10n.string("batchFold.progress.scanning")
@@ -10305,7 +10313,12 @@ final class WorkspaceViewModel {
                 await MainActor.run {
                     guard self.activeBatchFoldID == operationID else { return }
                     self.finishBatchFold()
-                    self.exportError = ExportError(message: L10n.string("batchFold.error.noPDFs"))
+                    self.presentBatchFoldResult(BatchFoldService.RunResult(
+                        inputFolder: folder,
+                        files: [],
+                        scanWasTruncated: scan.wasTruncated,
+                        scanFailureCount: scan.failedRootCount
+                    ))
                 }
                 return
             }
@@ -10314,6 +10327,8 @@ final class WorkspaceViewModel {
                 inputFolder: folder,
                 files: pdfs,
                 options: options,
+                scanWasTruncated: scan.wasTruncated,
+                scanFailureCount: scan.failedRootCount,
                 progress: { fraction, fileName in
                     guard progressThrottle.shouldEmit(fraction) else { return }
                     Task { @MainActor [weak self] in
@@ -10340,24 +10355,12 @@ final class WorkspaceViewModel {
     }
 
     private func presentBatchFoldResult(_ result: BatchFoldService.RunResult) {
-        guard let outputDirectory = result.outputDirectory else {
-            exportError = ExportError(message: L10n.string("batchFold.error.outputFolder"))
-            return
+        batchFoldResult = result
+        isShowingBatchFoldResult = true
+        if result.foldedCount > 0 { PetBuddyHook.trigger(.export) }
+        if result.setupFailureMessage != nil || result.failedCount > 0 {
+            PetBuddyHook.trigger(.warning)
         }
-        if result.wasCancelled {
-            editingStatus = .warning(L10n.format("batchFold.cancelled", result.foldedCount))
-            return
-        }
-        guard result.foldedCount > 0 else {
-            let firstMessage = result.firstFailureMessage ?? ""
-            exportError = ExportError(message: L10n.format("batchFold.error.allFailed", firstMessage))
-            return
-        }
-        let detail = result.failedCount > 0
-            ? L10n.format("batchFold.success.withFailures", result.foldedCount, result.failedCount)
-            : L10n.format("batchFold.success.allFolded", result.foldedCount)
-        exportSuccess = ExportSuccess(url: outputDirectory, detail: detail)
-        PetBuddyHook.trigger(.export)
     }
 
     /// Top-level bookmarks positioned in the concatenated workspace page list — the same

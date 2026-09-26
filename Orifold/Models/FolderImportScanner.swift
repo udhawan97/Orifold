@@ -5,6 +5,7 @@ struct FolderScanResult {
     var supportedURLs: [URL]
     var unsupportedCount: Int
     var wasTruncated: Bool
+    var failedRootCount: Int = 0
 
     var isEmpty: Bool { supportedURLs.isEmpty && unsupportedCount == 0 }
 }
@@ -31,21 +32,31 @@ enum FolderImportScanner {
         var unsupportedCount = 0
         var scannedCount = 0
         var wasTruncated = false
+        var failedRootCount = 0
 
         rootLoop: for root in folders {
             let isSecurityScoped = root.startAccessingSecurityScopedResource()
             defer { if isSecurityScoped { root.stopAccessingSecurityScopedResource() } }
 
+            var rootHadReadFailure = false
             guard let enumerator = fileManager.enumerator(
                 at: root,
                 includingPropertiesForKeys: resourceKeys,
-                options: [.skipsHiddenFiles, .skipsPackageDescendants]
-            ) else { continue }
+                options: [.skipsHiddenFiles, .skipsPackageDescendants],
+                errorHandler: { _, _ in
+                    rootHadReadFailure = true
+                    return true
+                }
+            ) else {
+                failedRootCount += 1
+                continue
+            }
 
             for case let url as URL in enumerator {
                 scannedCount += 1
                 if scannedCount > maxScannedEntries {
                     wasTruncated = true
+                    if rootHadReadFailure { failedRootCount += 1 }
                     break rootLoop
                 }
 
@@ -61,6 +72,7 @@ enum FolderImportScanner {
                     unsupportedCount += 1
                 }
             }
+            if rootHadReadFailure { failedRootCount += 1 }
         }
 
         supported.sort { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
@@ -68,7 +80,8 @@ enum FolderImportScanner {
         return FolderScanResult(
             supportedURLs: supported,
             unsupportedCount: unsupportedCount,
-            wasTruncated: wasTruncated
+            wasTruncated: wasTruncated,
+            failedRootCount: failedRootCount
         )
     }
 }

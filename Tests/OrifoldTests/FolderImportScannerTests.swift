@@ -111,6 +111,17 @@ final class FolderImportScannerTests: XCTestCase {
         XCTAssertFalse(result.wasTruncated)
     }
 
+    func testUnreadableRootIsReportedInsteadOfLookingLikeAnEmptyFolder() async throws {
+        let root = makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let regularFile = try write("not-a-folder.txt", in: root)
+
+        let result = await FolderImportScanner.scan(folders: [regularFile])
+
+        XCTAssertTrue(result.supportedURLs.isEmpty)
+        XCTAssertEqual(result.failedRootCount, 1)
+    }
+
     func testScanTruncatesOnceEntryCapIsExceeded() async throws {
         let root = makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -123,5 +134,26 @@ final class FolderImportScannerTests: XCTestCase {
 
         let result = await FolderImportScanner.scan(folders: [root])
         XCTAssertTrue(result.wasTruncated)
+    }
+
+    func testScanKeepsEarlierRootFailureWhenALaterRootIsTruncated() async throws {
+        let unreadableRoot = makeTempDirectory()
+        let largeRoot = makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: unreadableRoot)
+            try? FileManager.default.removeItem(at: largeRoot)
+        }
+        let regularFile = try write("not-a-folder.txt", in: unreadableRoot)
+        for index in 0...FolderImportScanner.maxScannedEntries {
+            FileManager.default.createFile(
+                atPath: largeRoot.appendingPathComponent("file-\(index).txt").path,
+                contents: Data()
+            )
+        }
+
+        let result = await FolderImportScanner.scan(folders: [regularFile, largeRoot])
+
+        XCTAssertTrue(result.wasTruncated)
+        XCTAssertEqual(result.failedRootCount, 1)
     }
 }
