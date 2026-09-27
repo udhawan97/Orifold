@@ -127,6 +127,24 @@ final class RedactionEngineTests: XCTestCase {
         XCTAssertTrue(try streamsCarry("KEEPME", in: redacted), "the rest of the page keeps real text")
     }
 
+    func testPartlyCoveredCompoundPageScalePathSurvivesUnderBox() throws {
+        // Both rectangles are one PATH object. Its page-size bounds make the existing heuristic
+        // preserve the whole object, including the blue artwork that intersects the mark.
+        let source = try vectorFixture(path: "0.95 0.95 0.9 rg 0 0 612 792 re f 0 0 1 rg 100 300 200 40 re f")
+        let region = CGRect(x: 90, y: 290, width: 110, height: 60)
+        XCTAssertEqual(try pathCount(source), 1, "fixture must be one compound path object")
+
+        let redacted = try RedactionEngine.redact(source, regions: [0: [region]])
+
+        XCTAssertEqual(
+            try pathCount(redacted),
+            2,
+            "the compound source path survives with the burned-in box, so deleting the box can reveal its marked artwork"
+        )
+        XCTAssertEqual(try imageStreamCount(redacted), 0, "the page was not rasterized")
+        XCTAssertTrue(try streamsCarry("KEEPME", in: redacted), "unrelated text stays real text")
+    }
+
     // MARK: - Images
 
     private let imageRect = CGRect(x: 100, y: 300, width: 200, height: 200)
