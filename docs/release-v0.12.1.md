@@ -44,8 +44,9 @@ zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --output /tmp/Orifold-0.12.1
 
 ## Redaction fails closed around ambiguous content
 
-- A mark that overlaps a placed signature or stored page decoration is refused before
-  serialization or byte mutation. Move or remove the editable item, then apply redaction.
+- A mark that overlaps a placed signature, or a marked page that contains a stored page
+  decoration, is refused before serialization or byte mutation. Move or remove the editable item,
+  then apply redaction.
 - Complex page-scale vector paths and shadings that cannot be safely split are refused before
   mutation. Simple page-wide backgrounds can remain under the black box without rasterizing the
   whole page, and the confirmation and result copy disclose that boundary in all six languages.
