@@ -155,6 +155,14 @@ enum RedactionEngine {
                   rects.contains(where: { $0.intersects(bounds) }) else { continue }
             let whollyInside = rects.contains { $0.contains(bounds) }
             let type = poe_GetType(object)
+            let isVectorArt = type == POEObjType.path || type == POEObjType.shading
+            let pageArea = snapshot.box.width * snapshot.box.height
+            if isVectorArt && !whollyInside && bounds.width * bounds.height >= pageArea * pageScaleFraction {
+                // The preflight above already refused ambiguous compound artwork. A simple
+                // page-scale background or frame stays beneath the burned-in box so unrelated
+                // page content does not become a full-page image.
+                continue
+            }
             if type == POEObjType.image && !whollyInside && blackOutPixels(of: object, under: rects) {
                 continue
             }
