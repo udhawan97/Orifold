@@ -8,8 +8,9 @@ import Foundation
 //      every region painted black, then walk the top-level objects. Text and form XObjects
 //      that touch a region are removed; the parts of them outside the region come back as an
 //      image patch cut from that snapshot (PDFium can only delete whole text objects). Image
-//      pixels under a region are zeroed. Vector art is treated like text, except a page-scale
-//      fill (≥ half the page — a background or frame), which stays under the black box.
+//      pixels under a region are zeroed. Smaller vector art is treated like text. A partly
+//      covered compound page-scale path or shading is refused because it may be an object whose
+//      marked artwork cannot be removed without rasterizing unrelated page content.
 //      Intersecting annotations go too. A black box is burned in per region.
 //   2. Verify — reload the saved bytes; any character box inside a region is a failure.
 //
@@ -71,6 +72,7 @@ enum RedactionEngine {
     enum Failure: Error, Equatable {
         case unreadableDocument
         case formFieldInRegion(pageIndex: Int)
+        case pageScaleVectorInRegion(pageIndex: Int)
         case writeFailed
         case verificationFailed(pageIndex: Int)
     }
@@ -139,6 +141,12 @@ enum RedactionEngine {
         let doomedAnnotations = try intersectingAnnotations(on: page, pageIndex: pageIndex, rects: rects)
         let snapshot = try PageSnapshot(page: page, blackingOut: rects)
         defer { snapshot.destroy() }
+        try refusePartlyCoveredPageScaleVectors(
+            on: page,
+            pageIndex: pageIndex,
+            rects: rects,
+            pageBox: snapshot.box
+        )
 
         var patches: [OpaquePointer] = []
         for index in stride(from: poe_CountObjects(page) - 1, through: 0, by: -1) {
@@ -147,14 +155,6 @@ enum RedactionEngine {
                   rects.contains(where: { $0.intersects(bounds) }) else { continue }
             let whollyInside = rects.contains { $0.contains(bounds) }
             let type = poe_GetType(object)
-            let isVectorArt = type == POEObjType.path || type == POEObjType.shading
-            let pageArea = snapshot.box.width * snapshot.box.height
-            if isVectorArt && !whollyInside && bounds.width * bounds.height >= pageArea * pageScaleFraction {
-                // A page-scale fill (background, frame) stays under the burned-in box: patching
-                // it would rasterize the whole page. Smaller vector art — outlined text, a vector
-                // signature — is removed and patched like text.
-                continue
-            }
             if type == POEObjType.image && !whollyInside && blackOutPixels(of: object, under: rects) {
                 continue
             }
@@ -176,6 +176,37 @@ enum RedactionEngine {
         }
         poeTouchPathColorsForGenerateContent(page)
         guard poe_GenerateContent(page) != 0 else { throw Failure.writeFailed }
+    }
+
+    /// PDFium exposes only one bounds rectangle for a compound path. If a non-trivial path or
+    /// shading has page-scale bounds, leaving it would preserve marked artwork, while replacing
+    /// it with a snapshot would rasterize substantial harmless content. Simple page-size fills
+    /// remain safe to cover. Refuse ambiguous compound artwork before removing any object.
+    private static func refusePartlyCoveredPageScaleVectors(
+        on page: OpaquePointer,
+        pageIndex: Int,
+        rects: [CGRect],
+        pageBox: CGRect
+    ) throws {
+        let pageArea = pageBox.width * pageBox.height
+        for index in 0..<max(0, poe_CountObjects(page)) {
+            guard let object = poe_GetObject(page, index),
+                  let bounds = objectBounds(object),
+                  rects.contains(where: { $0.intersects(bounds) }),
+                  !rects.contains(where: { $0.contains(bounds) }) else { continue }
+            let type = poe_GetType(object)
+            guard type == POEObjType.path || type == POEObjType.shading else { continue }
+            if type == POEObjType.path {
+                var fillMode: Int32 = 0
+                var stroke: Int32 = 0
+                guard poe_PathGetDrawMode(object, &fillMode, &stroke) != 0,
+                      fillMode != 0 || stroke != 0,
+                      poe_PathCountSegments(object) > 5 else { continue }
+            }
+            if bounds.width * bounds.height >= pageArea * pageScaleFraction {
+                throw Failure.pageScaleVectorInRegion(pageIndex: pageIndex)
+            }
+        }
     }
 
     /// Indices of annotations touching a region. A form-field widget refuses the whole

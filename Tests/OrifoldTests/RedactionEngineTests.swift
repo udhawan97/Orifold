@@ -117,32 +117,29 @@ final class RedactionEngineTests: XCTestCase {
         XCTAssertLessThan(visibleHalf.redComponent, 0.2)
     }
 
-    func testPageScaleBackgroundIsCoveredNotRasterized() throws {
+    func testSimplePageScaleBackgroundIsCoveredNotRasterized() throws {
         let source = try vectorFixture(path: "0.95 0.95 0.9 rg 0 0 612 792 re f")
 
         let redacted = try RedactionEngine.redact(source, regions: [0: [secretRegion]])
 
-        XCTAssertEqual(try pathCount(redacted), 2, "a page-wide fill stays (plus the box); no full-page patch")
-        XCTAssertEqual(try imageStreamCount(redacted), 0)
-        XCTAssertTrue(try streamsCarry("KEEPME", in: redacted), "the rest of the page keeps real text")
+        XCTAssertEqual(try pathCount(redacted), 2, "a simple page-wide fill stays under the box")
+        XCTAssertEqual(try imageStreamCount(redacted), 0, "the page was not rasterized")
+        XCTAssertTrue(try streamsCarry("KEEPME", in: redacted), "unrelated text stays real text")
     }
 
-    func testPartlyCoveredCompoundPageScalePathSurvivesUnderBox() throws {
-        // Both rectangles are one PATH object. Its page-size bounds make the existing heuristic
-        // preserve the whole object, including the blue artwork that intersects the mark.
-        let source = try vectorFixture(path: "0.95 0.95 0.9 rg 0 0 612 792 re f 0 0 1 rg 100 300 200 40 re f")
+    func testPartlyCoveredCompoundPageScalePathIsRefusedBeforeMutation() throws {
+        // Both rectangles are one PATH object. Its page-size bounds cannot distinguish the
+        // harmless background from the blue artwork that intersects the mark.
+        let source = try vectorFixture(path: "0 0 1 rg 0 0 612 792 re 100 300 200 40 re f")
         let region = CGRect(x: 90, y: 290, width: 110, height: 60)
         XCTAssertEqual(try pathCount(source), 1, "fixture must be one compound path object")
 
-        let redacted = try RedactionEngine.redact(source, regions: [0: [region]])
-
-        XCTAssertEqual(
-            try pathCount(redacted),
-            2,
-            "the compound source path survives with the burned-in box, so deleting the box can reveal its marked artwork"
-        )
-        XCTAssertEqual(try imageStreamCount(redacted), 0, "the page was not rasterized")
-        XCTAssertTrue(try streamsCarry("KEEPME", in: redacted), "unrelated text stays real text")
+        XCTAssertThrowsError(try RedactionEngine.redact(source, regions: [0: [region]])) { error in
+            XCTAssertEqual(error as? RedactionEngine.Failure, .pageScaleVectorInRegion(pageIndex: 0))
+        }
+        XCTAssertEqual(try pathCount(source), 1, "refusal preserves the compound path")
+        XCTAssertEqual(try imageStreamCount(source), 0, "refusal does not rasterize the page")
+        XCTAssertTrue(try streamsCarry("KEEPME", in: source), "unrelated text stays real text")
     }
 
     // MARK: - Images
