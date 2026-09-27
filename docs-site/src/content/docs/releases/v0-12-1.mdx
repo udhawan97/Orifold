@@ -25,8 +25,9 @@ their page geometry during preparation.
 
 ## Redaction refuses unsafe boundaries
 
-A mark that overlaps a placed signature, or a marked page that contains a stored page decoration,
-is refused before byte mutation because the editable source could otherwise be drawn again on save or export. Complex
+A mark that overlaps a placed signature or stored positioned decoration is refused before byte mutation. A stored
+page-wide decoration without reliable bounds blocks redaction anywhere on that page because the editable source could
+otherwise be drawn again on save or export. Complex
 page-scale vector paths and shadings that cannot be safely split are also refused; simple
 page-wide backgrounds can remain under a black box without rasterizing the whole page. The
 decision and result copy explains that boundary in all six languages.
