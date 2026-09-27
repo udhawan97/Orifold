@@ -23,7 +23,7 @@
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-2b4566?style=flat-square&logo=apple&logoColor=white">
   <img alt="Universal — Apple Silicon + Intel" src="https://img.shields.io/badge/universal-Apple_Silicon_%2B_Intel-2b4566?style=flat-square">
-  <img alt="version v0.12.0" src="https://img.shields.io/badge/version-v0.12.0-46536b?style=flat-square">
+  <img alt="version v0.12.1" src="https://img.shields.io/badge/version-v0.12.1-46536b?style=flat-square">
   <img alt="Local document processing" src="https://img.shields.io/badge/privacy-local_processing-3f6b52?style=flat-square">
   <img alt="6 languages" src="https://img.shields.io/badge/i18n-6_languages-46536b?style=flat-square">
   <img alt="Apache 2.0 License" src="https://img.shields.io/badge/license-Apache_2.0-46536b?style=flat-square">
@@ -58,11 +58,12 @@
 > are yet to come. [Feedback welcome](https://github.com/udhawan97/Orifold/issues).
 
 > [!TIP]
-> **New in v0.12.0:** folder folds now leave a complete, session-only result ledger and never
-> replace an existing output; reusable presets make common OCR, compression, and review copies
-> one click away; and Compare With… reports progress, cancellation, page identity, exclusions,
-> and unavailable analysis honestly. True redaction also removes supported page content for real
-> and verifies the result before export.
+> **New in v0.12.1:** Compare With… now sees the stamps, watermarks, page numbers, and other
+> decorations visible in the working draft. Redaction refuses placed signatures, decorations,
+> form fields, and ambiguous page-scale vector art that it cannot rewrite safely; it also keeps
+> page labels, attachments, and unaffected annotations intact. Sidebar previews refresh after
+> document changes, queued password prompts continue correctly, and document/page rows gain
+> keyboard selection plus VoiceOver move actions.
 
 ## The fold
 
@@ -97,7 +98,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | 🏷️ | **Stamp & label** — watermarks, page numbers, Bates labels, hanko seals, barcodes, QR codes, and vector PDF overlays | Packets and exhibits that look intentional |
 | 🗜️ | **Compress** — downsample oversized images, then losslessly re-pack the structure | Attachments that stop bouncing off email size limits |
 | 📚 | **Fold the whole stack** — batch compress, OCR, or watermark every PDF in a folder | A stack of documents processed in one pass, originals untouched |
-| 🔁 | **Compare drafts** — the workspace side by side against another PDF, with changed-region highlights and word-level counts | Spot exactly what changed between two versions |
+| 🔁 | **Compare drafts** — the visible workspace, including active stamps and watermarks, side by side against another PDF, with changed-region highlights and word-level counts | Spot exactly what changed between two versions |
 | ⬛ | **Redact** — mark text, images, and annotations, then remove them from the file for real, verified before it lands *(beta)* | Secrets that actually leave the document instead of hiding under a box |
 | 🧼 | **Sanitize** — strip auto-run actions, embedded JavaScript, hidden metadata | A file that carries nothing you didn't mean to send |
 | 🔒 | **Protect & export** — real AES-256 password; split, scale, or export to DOCX, Markdown, HTML, PNG, JPEG | The format the next person needs, locked when it matters |
@@ -115,7 +116,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, common images, and CBZ comic archives converted to PDF in natural page order; up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
 | **Organize** | Reorder documents and pages, rotate, crop page boxes, review detected blank pages before removal, edit outlines, add section banners, and navigate from the sidebar |
 | **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control (from the top of the page or from the current selection), password unlock prompts, Reader Mode, Document Comfort presets, and—on macOS 15+—read-only Apple on-device translation for a selection or current page |
-| **Compare** | Side-by-side compare of the workspace against another PDF: index page pairing with a manual offset, changed-region highlights, word-level insert/delete counts, and a changed-pages overview |
+| **Compare** | Side-by-side compare of the visible workspace—including active stamps, page numbers, watermarks, hanko, images, and PDF overlays—against another PDF: index page pairing with a manual offset, changed-region highlights, word-level insert/delete counts, and a changed-pages overview |
 | **Batch folding** | Compress, OCR, or watermark every PDF in a folder in one pass — results land in a `Folded` subfolder with per-file progress, cancellation, and per-file failure isolation |
 | **Recently viewed** | An empty-state shelf of the last files you opened, with locally cached thumbnails — nothing about it leaves the machine |
 | **Annotate** | Highlight, notes, ink, underline, strikeout, text boxes, and in-place visual replacement of detected PDF text with continuous spell-check and metric-compatible fallback fonts; original text can remain discoverable through search, copy/paste, extraction, or assistive technology |
@@ -127,7 +128,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 | **Metadata & attachments** | Edit PDF title, author, subject, and keywords; list, add, extract, or remove embedded files from the Inspector with undo support |
 | **Structure & archival** | Inspect the current page's tagged reading-order tree and alt-text coverage; check encryption, embedded fonts, XMP, output intent, tagging, and active-content signals before long-term storage |
 | **Compression** | Downsample oversized images, then a lossless qpdf object-stream pass repacks the structure; post-compression validation confirms the result |
-| **Redaction** *(beta)* | Mark regions with the Redact tool, then apply: text, form XObjects, vector shapes, and annotations under each mark are deleted from every stored copy of the page, image pixels are zeroed in place, black boxes are burned in, and the result is re-read to prove no text survives inside a mark; pages with pending text/object edits and marks over form fields are refused rather than half-redacted |
+| **Redaction** *(beta)* | Mark regions with the Redact tool, then apply: supported text, form XObjects, vector shapes, images, and annotations are removed and the result is re-read before commit; marks that overlap form fields, placed signatures, enabled decorations, pending edits, or ambiguous complex page-scale vector art are refused before mutation |
 | **Sanitize** | Optional export pass strips catalog auto-run actions, embedded JavaScript, embedded files, and (opt-in) document metadata |
 | **Protection** | Real AES-256 (PDF 2.0 / R6) password protection with permission checks and post-export verification |
 | **Export** | PDF, DOCX, Markdown, plain text, HTML, PNG pages, JPEG pages, comment-summary Markdown, or print; split PDFs every N pages, by ranges, or at top-level bookmarks; scale to A4 or US Letter; impose as booklet, 2-up, or 4-up; and structurally validate every PDF before it reaches disk |
@@ -321,13 +322,13 @@ xcodebuild test  -quiet -project Orifold.xcodeproj -scheme Orifold -destination 
 
 # Build the same release zip GitHub Releases ships, then the universal DMG
 ORIFOLD_UNIVERSAL=1 ./scripts/install-mac.sh --package-only --package /tmp/Orifold.zip
-zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.12.0
+zsh scripts/make-dmg.sh --from-zip /tmp/Orifold.zip --version 0.12.1
 
 # Install from the current source checkout without opening the app
 ./scripts/install-mac.sh --no-open
 ```
 
-App metadata: `CFBundleShortVersionString` `0.12.0`, `CFBundleVersion` `28`.
+App metadata: `CFBundleShortVersionString` `0.12.1`, `CFBundleVersion` `29`.
 </details>
 
 <details>

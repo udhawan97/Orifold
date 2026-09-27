@@ -1,0 +1,53 @@
+---
+title: "v0.12.1 — Trust what you see"
+description: Orifold v0.12.1 compares visible workspace decorations, refuses unsafe redaction boundaries, and strengthens sidebar accessibility.
+keywords: [release notes, v0.12.1, PDF comparison, redaction, accessibility, local-first]
+---
+
+import Badge from '../../../components/Badge.astro';
+import Callout from '../../../components/Callout.astro';
+
+<Badge variant="new" />
+
+*Released September 26, 2026*
+
+<Callout variant="note" label="Beta">
+	Orifold is in beta, on the road to 1.0.
+</Callout>
+
+## Comparisons include the working draft
+
+Compare With… now includes enabled watermarks, page numbers, Bates labels, stamps, hanko,
+images, and under/over PDF overlays in the workspace's visual evidence. Text counts still read the
+original member PDF bytes, so visual ink does not invent a wording change. If Orifold cannot
+prepare the decorated visual, that channel is marked unavailable. Cropped and rotated pages retain
+their page geometry during preparation.
+
+## Redaction refuses unsafe boundaries
+
+A mark that overlaps a placed signature or enabled page decoration is refused before byte
+mutation, because the editable source could otherwise be drawn again on save or export. Complex
+page-scale vector paths and shadings that cannot be safely split are also refused; simple
+page-wide backgrounds can remain under a black box without rasterizing the whole page. The
+decision and result copy explains that boundary in all six languages.
+
+Redaction now preserves page labels, embedded attachments, and unaffected annotations through
+apply, undo, and redo.
+
+## Sidebar and import flows keep their place
+
+- Thumbnails refresh after document-byte changes while stable row identity and selection remain.
+- Cancelling one encrypted-file prompt advances to the next queued file.
+- Sidebar document and page rows accept Return for selection and expose VoiceOver Select,
+  Move Up, and Move Down actions.
+
+An early output-directory binding failure also now has one descriptor owner, closing both local
+descriptors while publishing nothing.
+
+## Compatibility and privacy
+
+Document processing remains local. Orifold requires macOS 14 Sonoma or newer and ships as a
+universal Apple Silicon + Intel app. Public builds remain ad-hoc signed and are not Apple-notarized
+unless release signing secrets are configured.
+
+Full release record: [`docs/release-v0.12.1.md`](https://github.com/udhawan97/Orifold/blob/main/docs/release-v0.12.1.md).

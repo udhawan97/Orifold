@@ -34,8 +34,9 @@ Before Orifold changes anything, it re-reads the result and checks that no text 
 <Callout variant="danger" label="Read before you share">
 	- **Neighbouring words may become pixels.** A PDF often stores a whole line as one piece of text. Orifold keeps the words next to your mark visible, but they become part of an image and stop being searchable or selectable. Running [OCR](/Orifold/edit/ocr/) makes them searchable again.
 	- **Metadata, bookmarks, and accessibility tags aren't changed.** If a redacted word also appears in the document title or a bookmark, remove it there too, and turn on [Sanitize for sharing](/Orifold/export/sanitize/) when you export.
-	- **Page-wide shapes stay.** A background or frame covering at least half the page stays in the file, hidden under the black box, so the whole page doesn't turn into an image. Smaller shapes under a mark, like outlined text or a drawn signature, are removed, and any part outside the mark comes back as an image.
+	- **Simple page-wide backgrounds may stay.** A simple background or frame covering at least half the page can remain hidden under the black box, so the whole page doesn't turn into an image. If a complex page-scale path or shading crosses a mark, Orifold refuses the redaction before changing anything because it cannot safely remove only the covered part.
 	- **Form fields can't be redacted in place.** A field's answer is stored outside the page, so Orifold refuses and asks you to clear or remove the field first.
+	- **Placed signatures and page decorations must be moved or removed first.** Their editable source lives separately from the PDF page and could otherwise be drawn again on save or export, so an overlapping mark is refused before mutation.
 	- **Pages with text or object edits are refused** until you undo those edits, so an edit can't write the removed text back.
 </Callout>
 

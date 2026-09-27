@@ -270,6 +270,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 </style>
 
 <script>
+	type PagefindData = {
+		url: string;
+		excerpt?: string;
+		meta?: { title?: string };
+	};
+	type PagefindResult = { data: () => Promise<PagefindData> };
+	type PagefindModule = {
+		options?: (options: { excerptLength: number }) => Promise<void>;
+		debouncedSearch: (
+			term: string,
+			options: Record<string, never>,
+			debounce: number
+		) => Promise<{ results: PagefindResult[] } | null>;
+	};
+
 	class OfSearch extends HTMLElement {
 		connectedCallback() {
 			// Guard against double-initialisation on client-side navigation.
@@ -277,13 +292,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 			this.dataset.ofsInit = '1';
 
 			const base = this.dataset.base || '';
-			const toggle = this.querySelector('.ofs__toggle');
-			const input = this.querySelector('.ofs__input');
-			const closeBtn = this.querySelector('.ofs__close');
-			const panel = this.querySelector('.ofs__panel');
+			const toggle = this.querySelector<HTMLButtonElement>('.ofs__toggle');
+			const input = this.querySelector<HTMLInputElement>('.ofs__input');
+			const closeBtn = this.querySelector<HTMLButtonElement>('.ofs__close');
+			const panel = this.querySelector<HTMLElement>('.ofs__panel');
 			if (!(toggle && input && panel && closeBtn)) return;
 
-			let pfPromise = null;
+			let pfPromise: Promise<PagefindModule | null> | null = null;
 			let activeIndex = -1;
 			let seq = 0; // bumped on every query AND every dismiss, so late/in-flight runs supersede
 
@@ -297,7 +312,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 				requestAnimationFrame(() => input.focus());
 			};
 
-			const close = (returnFocus) => {
+			const close = (returnFocus: boolean) => {
 				if (!this.classList.contains('is-open')) return;
 				this.classList.remove('is-open');
 				toggle.setAttribute('aria-expanded', 'false');
@@ -331,7 +346,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 				const url = `${base}/pagefind/pagefind.js`;
 				pfPromise = (async () => {
 					try {
-						const mod = await import(/* @vite-ignore */ url);
+						const mod = (await import(/* @vite-ignore */ url)) as PagefindModule;
 						await mod.options?.({ excerptLength: 22 });
 						return mod;
 					} catch {
@@ -341,19 +356,24 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 				return pfPromise;
 			}
 
-			const esc = (s) =>
-				String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+			const entities: Record<string, string> = {
+				'&': '&amp;',
+				'<': '&lt;',
+				'>': '&gt;',
+				'"': '&quot;',
+			};
+			const esc = (s: unknown) => String(s).replace(/[&<>"]/g, (c) => entities[c] ?? c);
 
 			// Pagefind records URLs relative to the indexed output; make sure the
 			// site base is present and the trailing index.html is trimmed.
-			const fixUrl = (u) => {
+			const fixUrl = (u: string) => {
 				if (!u) return u;
 				u = u.replace(/index\.html$/, '').replace(/\.html$/, '/');
 				if (base && u.startsWith('/') && !u.startsWith(base + '/') && u !== base) u = base + u;
 				return u;
 			};
 
-			const status = (msg) => {
+			const status = (msg: string) => {
 				showPanel();
 				// a bare <p> isn't valid inside role="listbox"; flip the panel to a live
 				// status region for messages, and back to listbox when options render.
@@ -362,7 +382,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 				activeIndex = -1;
 			};
 
-			const render = (results, term) => {
+			const render = (results: PagefindData[], term: string) => {
 				if (!results.length) {
 					status(`No results for “${term}”.`);
 					return;
@@ -385,7 +405,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 				activeIndex = -1;
 			};
 
-			async function run(term) {
+			async function run(term: string) {
 				const mine = ++seq;
 				const mod = await loadPagefind();
 				if (mine !== seq) return;
@@ -410,8 +430,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 			});
 
 			// ── keyboard within the field: arrow nav + Esc ──
-			const rows = () => Array.from(panel.querySelectorAll('.ofs__result'));
-			const setActive = (i) => {
+			const rows = () => Array.from(panel.querySelectorAll<HTMLAnchorElement>('.ofs__result'));
+			const setActive = (i: number) => {
 				const els = rows();
 				if (!els.length) return;
 				activeIndex = (i + els.length) % els.length;
@@ -464,7 +484,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 			// ── dismiss on outside click ──
 			document.addEventListener('pointerdown', (e) => {
-				if (this.classList.contains('is-open') && !this.contains(e.target)) close(false);
+				const target = e.target instanceof Node ? e.target : null;
+				if (this.classList.contains('is-open') && !this.contains(target)) close(false);
 			});
 
 			// ── global ⌘K / Ctrl+K ──

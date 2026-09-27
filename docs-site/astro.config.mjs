@@ -156,8 +156,12 @@ export default defineConfig({
 					label: 'Release Notes',
 					items: [
 						{ label: "What's new", slug: 'releases' },
+						{ label: 'v0.12.1', slug: 'releases/v0-12-1' },
+						{ label: 'v0.12.0', slug: 'releases/v0-12-0' },
+						{ label: 'v0.11.1', slug: 'releases/v0-11-1' },
 						{ label: 'v0.11.0', slug: 'releases/v0-11-0' },
 						{ label: 'v0.10.2', slug: 'releases/v0-10-2' },
+						{ label: 'v0.8.1', slug: 'releases/v0-8-1' },
 						{ label: 'v0.7', slug: 'releases/v7' },
 						{ label: 'v0.6', slug: 'releases/v6' },
 						{ label: 'v0.5', slug: 'releases/v5' },

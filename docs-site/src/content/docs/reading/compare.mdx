@@ -21,6 +21,12 @@ renders and analyzes each pair; choose **Cancel** to stop after the active pair 
 Changed regions are highlighted on both pages, and word-level additions and removals are
 counted. Use the changed-pages strip to jump between differences.
 
+The workspace side is prepared from what is currently visible. Enabled watermarks, page
+numbers, Bates labels, stamps, hanko, images, and under/over PDF overlays all enter the visual
+comparison. Text counts still come from the preserved member PDF bytes, so a visual decoration
+does not invent a wording change. If Orifold cannot prepare the decorated visual evidence, it
+marks that channel unavailable instead of comparing an undecorated substitute.
+
 Orifold labels a pair **Analysis incomplete** when a visual render or text layer could not be
 analyzed. If one available channel proves a change, the pair still appears as changed and the
 missing channel is disclosed below it. A blank but valid text layer remains valid evidence.
@@ -35,7 +41,7 @@ than implying that the entire file matched. Page headings keep each file's actua
 
 <Callout variant="note">
 	Comparison renders and diffs on your Mac. It respects displayed crop boxes and rotations and
-	reads text from preserved source bytes. Password-protected comparison files are declined rather
+	reads text from preserved member bytes. Password-protected comparison files are declined rather
 	than guessed at or partially compared. Cancellation is cooperative between page pairs, so an
 	active page rasterization can finish before the panel stops.
 </Callout>
