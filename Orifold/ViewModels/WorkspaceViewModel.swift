@@ -9564,6 +9564,8 @@ final class WorkspaceViewModel {
         ) else {
             if case .formFieldInRegion = firstFailure {
                 showEditMessage(L10n.string("status.redaction.formField"), isError: true)
+            } else if case .pageScaleVectorInRegion = firstFailure {
+                showEditMessage(L10n.string("status.redaction.pageScaleVector"), isError: true)
             }
             return false
         }

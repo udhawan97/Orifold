@@ -68,7 +68,7 @@ enum PDFDecorationExportBaker {
                 pageBounds: mediaBox, in: context
             )
             context.saveGState()
-            page.draw(with: .mediaBox, to: context)
+            drawPageBackground(page, mediaBox: mediaBox, in: context)
             context.restoreGState()
 
             drawDecorations(active, pageIndex: pageIndex, pageOrder: pageOrder, pageBounds: mediaBox, in: context)
@@ -81,11 +81,52 @@ enum PDFDecorationExportBaker {
               bakedDocument.pageCount == document.pageCount else {
             throw BakeError.invalidPDF
         }
+        try copyPageGeometry(from: document, to: bakedDocument)
         try copyAnnotations(from: document, to: bakedDocument)
         guard let bakedData = PDFSerializer.data(from: bakedDocument) else {
             throw BakeError.invalidPDF
         }
         return bakedData
+    }
+
+    /// `PDFPage.draw(with:to:)` applies `/Rotate` while drawing. The decoration geometry is in
+    /// the page's raw coordinate space, so drawing the rotated page directly would put the two
+    /// lanes in different coordinate systems and can clip non-square 90°/270° pages. Draw a
+    /// rotation-neutral background, then restore the original `/Rotate` on the output page.
+    private static func drawPageBackground(
+        _ page: PDFPage,
+        mediaBox: CGRect,
+        in context: CGContext
+    ) {
+        if let pageRef = page.pageRef {
+            let rotation = ((page.rotation % 360) + 360) % 360
+            if rotation != 0 {
+                context.concatenate(pageRef.getDrawingTransform(
+                    .mediaBox,
+                    rect: mediaBox,
+                    rotate: Int32(-rotation),
+                    preserveAspectRatio: true
+                ))
+            }
+            context.drawPDFPage(pageRef)
+        } else if let unrotated = page.copy() as? PDFPage {
+            unrotated.rotation = 0
+            unrotated.draw(with: .mediaBox, to: context)
+        }
+    }
+
+    private static func copyPageGeometry(from source: PDFDocument, to destination: PDFDocument) throws {
+        guard source.pageCount == destination.pageCount else { throw BakeError.invalidPDF }
+        for pageIndex in 0..<source.pageCount {
+            guard let sourcePage = source.page(at: pageIndex),
+                  let destinationPage = destination.page(at: pageIndex) else {
+                throw BakeError.invalidPDF
+            }
+            for box in [PDFDisplayBox.mediaBox, .cropBox, .bleedBox, .trimBox, .artBox] {
+                destinationPage.setBounds(sourcePage.bounds(for: box), for: box)
+            }
+            destinationPage.rotation = sourcePage.rotation
+        }
     }
 
     private static func validate(_ active: [PageDecoration], pageOrder: [PageRef]) throws {

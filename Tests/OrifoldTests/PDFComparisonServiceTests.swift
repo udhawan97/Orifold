@@ -304,6 +304,7 @@ final class PDFComparisonServiceTests: XCTestCase {
         XCTAssertEqual(prepared.pages[0].textPage, .init(documentIndex: 1, pageIndex: 0))
         let bakedPage = try XCTUnwrap(PDFDocument(data: decorated)?.page(at: 0))
         XCTAssertEqual(bakedPage.bounds(for: .cropBox), sourcePage.bounds(for: .cropBox))
+        XCTAssertEqual(bakedPage.rotation, sourcePage.rotation)
         XCTAssertNotEqual(decorated, combined)
     }
 

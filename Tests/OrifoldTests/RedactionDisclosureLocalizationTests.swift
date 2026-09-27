@@ -1,7 +1,7 @@
 import XCTest
 
 final class RedactionDisclosureLocalizationTests: XCTestCase {
-    func testDecisionPointCopyDisclosesRetainedPageScaleVectorArtworkInEveryLocale() throws {
+    func testDecisionPointCopyDisclosesPageScaleVectorPolicyInEveryLocale() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -9,7 +9,12 @@ final class RedactionDisclosureLocalizationTests: XCTestCase {
         let data = try Data(contentsOf: root.appendingPathComponent("Orifold/Resources/Localizable.xcstrings"))
         let catalog = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let strings = try XCTUnwrap(catalog["strings"] as? [String: Any])
-        let keys = ["annotationTool.redact.helpText", "redaction.confirm.message", "status.redaction.applied"]
+        let keys = [
+            "annotationTool.redact.helpText",
+            "redaction.confirm.message",
+            "status.redaction.applied",
+            "status.redaction.pageScaleVector",
+        ]
         let localeMarkers = [
             "en": "vector",
             "es": "vectorial",
