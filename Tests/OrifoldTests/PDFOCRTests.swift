@@ -818,16 +818,24 @@ final class PDFOCRTests: XCTestCase {
         let viewModel = WorkspaceViewModel(document: document)
         installDeterministicOCR(on: viewModel, text: "FOLD TOKEN 9631")
         let undoManager = UndoManager()
+        // OCR completion and a later page rotation are separate AppKit events in the app.
+        // Model those boundaries explicitly so the test never lets event-based grouping
+        // coalesce both registrations into one undo operation on a busy CI run loop.
+        undoManager.groupsByEvent = false
         viewModel.undoManager = undoManager
 
+        undoManager.beginUndoGrouping()
         viewModel.makeSearchable()
         for _ in 0..<240 where viewModel.isMakingSearchable {
             try await Task.sleep(nanoseconds: 25_000_000)
         }
+        undoManager.endUndoGrouping()
         let report = try XCTUnwrap(viewModel.lastOCRQualityReport)
         let pageRef = try XCTUnwrap(document.workspace.pageOrder.first)
 
+        undoManager.beginUndoGrouping()
         viewModel.rotatePage(pageRef, by: 90)
+        undoManager.endUndoGrouping()
         XCTAssertNil(viewModel.lastOCRQualityReport)
 
         undoManager.undo()
