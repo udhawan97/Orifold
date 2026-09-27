@@ -229,6 +229,27 @@ final class ImportStressTests: XCTestCase {
     }
 
     @MainActor
+    func testCancellingOnePasswordPromptKeepsTheNextQueuedPromptPresented() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Orifold-locked-cancel-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let lockedA = try writeEncryptedSinglePagePDF(named: "locked-a.pdf", password: "first", in: directory)
+        let lockedB = try writeEncryptedSinglePagePDF(named: "locked-b.pdf", password: "second", in: directory)
+        let viewModel = WorkspaceViewModel(document: WorkspaceDocument(), processingEngine: PDFKitProcessingEngineFallback())
+
+        viewModel.importFiles(urls: [lockedA, lockedB])
+        try await waitForLocalImportToFinish(in: viewModel)
+        XCTAssertEqual(viewModel.pendingPasswordURL, lockedA)
+
+        viewModel.cancelPendingPasswordImport()
+
+        XCTAssertEqual(viewModel.pendingPasswordURL, lockedB)
+        XCTAssertNotNil(viewModel.pendingPasswordPDF)
+        XCTAssertTrue(viewModel.isShowingPasswordPrompt)
+    }
+
+    @MainActor
     func testPasswordProtectedImportPreservesTargetedInsertionAfterUnlock() async throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("Orifold-locked-target-\(UUID().uuidString)", isDirectory: true)
