@@ -418,7 +418,7 @@ struct MemberDocRow: View {
         }
     }
 
-    private var cardRow: some View {
+    private var cardRowBase: some View {
         HStack(spacing: .dsSM) {
             chevronButton
             miniThumbnailView
@@ -455,6 +455,10 @@ struct MemberDocRow: View {
                     .padding(.vertical, 4)
             }
         }
+    }
+
+    private var cardRowInteraction: some View {
+        cardRowBase
         .contentShape(Rectangle())
         .onTapGesture {
             guard !isRenaming else { return }
@@ -490,6 +494,10 @@ struct MemberDocRow: View {
             viewModel.selectDocument(member)
             return .handled
         }
+    }
+
+    private var cardRow: some View {
+        cardRowInteraction
         .background {
             GeometryReader { geo in
                 Color.clear
