@@ -102,6 +102,28 @@ final class RedactionWorkflowTests: XCTestCase {
         XCTAssertFalse(text(try liveBytes(viewModel, first)).contains("SECRET"))
     }
 
+    func testIntersectingDisabledDecorationIsRefusedBeforeMutation() throws {
+        let viewModel = try makeViewModel()
+        let ref = try pageRef(viewModel, 0)
+        let disabled = PageDecoration(
+            kind: .stamp,
+            isEnabled: false,
+            text: "COULD REAPPEAR",
+            pageRefID: ref.id,
+            rect: secretRegion
+        )
+        viewModel.document.workspace.decorations = [disabled]
+        let before = try liveBytes(viewModel, ref)
+
+        viewModel.addRedactionMark(rect: secretRegion, pageRefID: ref.id)
+
+        XCTAssertFalse(viewModel.applyRedactions())
+        XCTAssertEqual(try liveBytes(viewModel, ref), before)
+        XCTAssertEqual(viewModel.document.workspace.decorations, [disabled])
+        XCTAssertEqual(viewModel.pendingRedactions.count, 1)
+        XCTAssertNotEqual(viewModel.undoManager?.undoActionName, L10n.string("undo.applyRedactions"))
+    }
+
     func testRedactionSurvivesObjectReplayFromBaseLanes() throws {
         let viewModel = try makeViewModel()
         let first = try pageRef(viewModel, 0), second = try pageRef(viewModel, 1)
@@ -214,7 +236,32 @@ final class RedactionWorkflowTests: XCTestCase {
         try assertCatalogEvidence(in: try liveBytes(viewModel, ref), attachment: attachment)
         viewModel.undoManager?.redo()
         try assertCatalogEvidence(in: try liveBytes(viewModel, ref), attachment: attachment)
+    }
 
+    func testRedactionPreservesOutlineDestinationThroughApplyUndoRedoAndSavedReopen() throws {
+        let fixture = try OutlineFixtures.outlinedMember(
+            name: "Catalog redaction outline",
+            pageCount: 2,
+            outline: [
+                OutlineFixtureSpec(title: "Redacted page", page: 0),
+                OutlineFixtureSpec(title: "Second page", page: 1)
+            ]
+        )
+        let viewModel = attachUndo(OutlineFixtures.viewModel(members: [fixture]))
+        let ref = try pageRef(viewModel, 0)
+        viewModel.addRedactionMark(
+            rect: CGRect(x: 20, y: 20, width: 30, height: 30),
+            pageRefID: ref.id
+        )
+
+        XCTAssertTrue(viewModel.applyRedactions())
+        try assertSavedOutlineEvidence(in: try liveBytes(viewModel, ref))
+
+        viewModel.undoManager?.undo()
+        try assertSavedOutlineEvidence(in: try liveBytes(viewModel, ref))
+
+        viewModel.undoManager?.redo()
+        try assertSavedOutlineEvidence(in: try liveBytes(viewModel, ref))
     }
 
     func testMarkUndoRemovesMark() throws {
@@ -310,6 +357,17 @@ final class RedactionWorkflowTests: XCTestCase {
         let pdf = try XCTUnwrap(PDFDocument(data: data))
         XCTAssertEqual(pdf.page(at: 0)?.label, "i")
         XCTAssertFalse(pdf.page(at: 0)?.annotations.filter { $0.contents == "Keep this note" }.isEmpty ?? true)
+    }
+
+    private func assertSavedOutlineEvidence(in data: Data) throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("orifold-redaction-outline-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try data.write(to: url, options: .atomic)
+        let reopened = try XCTUnwrap(PDFDocument(data: Data(contentsOf: url)))
+        let nodes = PDFOutlineReader.nodes(in: reopened)
+        XCTAssertEqual(nodes.map(\.title), ["Redacted page", "Second page"])
+        XCTAssertEqual(nodes.map(\.localPageIndex), [0, 1])
     }
 
     private func move(_ object: DetectedObject, ref: PageRef) -> ObjectEditOperation {

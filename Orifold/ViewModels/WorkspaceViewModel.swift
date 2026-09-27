@@ -9632,13 +9632,15 @@ final class WorkspaceViewModel {
             return true
         }
 
-        return document.workspace.decorations.lazy.filter(\.isEnabled).contains { decoration in
+        return document.workspace.decorations.contains { decoration in
             let targetPageIDs = decoration.pageRefID.map { [$0] } ?? Array(marksByRef.keys)
             return targetPageIDs.contains { pageRefID in
                 guard let marks = marksByRef[pageRefID] else { return false }
                 guard let rect = decoration.rect?.standardized else {
-                    // Watermarks, page/Bates numbers, and whole-page PDF overlays do not expose
-                    // one reliable workspace rect. Conservative refusal is the safe boundary.
+                    // Enabled or disabled watermarks, page/Bates numbers, and whole-page PDF
+                    // overlays remain persisted export inputs but expose no reliable workspace
+                    // rect. Conservative refusal prevents a later re-enable from restoring
+                    // content over a redacted page.
                     return true
                 }
                 return marks.contains { $0.rect.intersects(rect) }

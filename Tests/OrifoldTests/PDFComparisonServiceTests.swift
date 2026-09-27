@@ -302,10 +302,28 @@ final class PDFComparisonServiceTests: XCTestCase {
         XCTAssertEqual(prepared.documents[1], source, "text evidence must retain original member bytes")
         XCTAssertEqual(prepared.pages[0].visualPage, .init(documentIndex: 0, pageIndex: 0))
         XCTAssertEqual(prepared.pages[0].textPage, .init(documentIndex: 1, pageIndex: 0))
-        let bakedPage = try XCTUnwrap(PDFDocument(data: decorated)?.page(at: 0))
+        let bakedDocument = try XCTUnwrap(PDFDocument(data: decorated))
+        let bakedPage = try XCTUnwrap(bakedDocument.page(at: 0))
         XCTAssertEqual(bakedPage.bounds(for: .cropBox), sourcePage.bounds(for: .cropBox))
         XCTAssertEqual(bakedPage.rotation, sourcePage.rotation)
         XCTAssertNotEqual(decorated, combined)
+
+        let originalPixels = try renderedPage(sourcePage)
+        let bakedPixels = try renderedPage(bakedPage)
+        let pixelDifference = PDFVisualDiff.diff(originalPixels, bakedPixels, grid: 64, threshold: 0.04)
+        XCTAssertTrue(pixelDifference.hasChanges, "the decoration must alter rendered pixels")
+
+        let comparison = PDFComparisonService.compare(PDFComparisonService.Request(
+            leftDocuments: prepared.documents,
+            leftPages: prepared.pages,
+            rightData: combined
+        ))
+        XCTAssertEqual(comparison.pairs.first?.change, .changed)
+        XCTAssertEqual(comparison.pairs.first?.visual.value?.hasChanges, true)
+        XCTAssertNotNil(
+            comparison.pairs.first?.text.value,
+            "the original source bytes must remain available as the text-evidence lane"
+        )
     }
 
     func testInvalidDecorationMakesVisualEvidencePreparationFail() throws {
@@ -385,6 +403,12 @@ private extension PDFComparisonServiceTests {
             pdf.insert(page, at: index)
         }
         return try XCTUnwrap(pdf.dataRepresentation())
+    }
+
+    private func renderedPage(_ page: PDFPage) throws -> CGImage {
+        let image = page.thumbnail(of: CGSize(width: 768, height: 768), for: .cropBox)
+        var rect = CGRect(origin: .zero, size: image.size)
+        return try XCTUnwrap(image.cgImage(forProposedRect: &rect, context: nil, hints: nil))
     }
 
     private func makeImageOnlyPDFData(color: NSColor) throws -> Data {
