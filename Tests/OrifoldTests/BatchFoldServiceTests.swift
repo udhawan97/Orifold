@@ -250,6 +250,30 @@ final class BatchFoldServiceTests: XCTestCase {
         XCTAssertEqual(leftovers, ["result.pdf"])
     }
 
+    func testOutputDirectoryBindingFailureClosesInitializerOwnedDescriptors() throws {
+        let folder = try makeTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let parentDirectory = try XCTUnwrap(BoundedLocalFileDirectory(authorizedRoot: folder))
+        let output = folder.appendingPathComponent("Output")
+        let moved = folder.appendingPathComponent("Moved")
+        let descriptorCountBefore = try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count
+
+        XCTAssertThrowsError(try ExportOutputDirectory(
+            parentURL: folder,
+            parentDirectory: parentDirectory,
+            directoryName: output.lastPathComponent,
+            beforeBindingVerification: {
+                try FileManager.default.moveItem(at: output, to: moved)
+                try FileManager.default.createDirectory(at: output, withIntermediateDirectories: false)
+            }
+        )) { error in
+            XCTAssertEqual(error as? ExportWriteError, .outputDirectoryChanged)
+        }
+
+        let descriptorCountAfter = try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count
+        XCTAssertEqual(descriptorCountAfter, descriptorCountBefore, "both local descriptors close on early failure")
+    }
+
     func testCreateNewValidationFailurePublishesNothingAndCleansTheStagedFile() throws {
         let folder = try makeTempFolder()
         defer { try? FileManager.default.removeItem(at: folder) }

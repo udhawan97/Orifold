@@ -46,7 +46,8 @@ final class ExportOutputDirectory {
     init(
         parentURL: URL,
         parentDirectory: BoundedLocalFileDirectory,
-        directoryName: String
+        directoryName: String,
+        beforeBindingVerification: (() throws -> Void)? = nil
     ) throws {
         guard parentURL.isFileURL,
               parentURL.path.hasPrefix("/"),
@@ -58,14 +59,16 @@ final class ExportOutputDirectory {
         }
 
         let openedParent = try parentDirectory.duplicateDescriptor()
+        var ownsOpenedParent = true
+        defer {
+            if ownsOpenedParent { Darwin.close(openedParent) }
+        }
 
         let createResult = directoryName.withCString {
             Darwin.mkdirat(openedParent, $0, mode_t(0o755))
         }
         if createResult != 0, errno != EEXIST {
-            let error = currentPOSIXError()
-            Darwin.close(openedParent)
-            throw error
+            throw currentPOSIXError()
         }
 
         let openedDirectory = directoryName.withCString {
@@ -76,23 +79,25 @@ final class ExportOutputDirectory {
             )
         }
         guard openedDirectory >= 0 else {
-            let error = currentPOSIXError()
-            Darwin.close(openedParent)
-            throw error
+            throw currentPOSIXError()
+        }
+        var ownsOpenedDirectory = true
+        defer {
+            if ownsOpenedDirectory { Darwin.close(openedDirectory) }
         }
 
+        try beforeBindingVerification?()
+        try Self.verifyBinding(
+            descriptor: openedDirectory,
+            parentDescriptor: openedParent,
+            directoryName: directoryName
+        )
         parentDescriptor = openedParent
         descriptor = openedDirectory
         self.directoryName = directoryName
         url = parentURL.appendingPathComponent(directoryName, isDirectory: true)
-
-        do {
-            try verifyBinding()
-        } catch {
-            Darwin.close(openedDirectory)
-            Darwin.close(openedParent)
-            throw error
-        }
+        ownsOpenedDirectory = false
+        ownsOpenedParent = false
     }
 
     deinit {
@@ -130,6 +135,18 @@ final class ExportOutputDirectory {
     }
 
     fileprivate func verifyBinding() throws {
+        try Self.verifyBinding(
+            descriptor: descriptor,
+            parentDescriptor: parentDescriptor,
+            directoryName: directoryName
+        )
+    }
+
+    private static func verifyBinding(
+        descriptor: Int32,
+        parentDescriptor: Int32,
+        directoryName: String
+    ) throws {
         var openedMetadata = stat()
         var namedMetadata = stat()
         guard Darwin.fstat(descriptor, &openedMetadata) == 0 else { throw currentPOSIXError() }
