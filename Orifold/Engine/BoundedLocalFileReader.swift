@@ -9,7 +9,12 @@ struct BoundedLocalFileAsset {
 
 struct BoundedLocalFileSource {
     let data: Data
-    let directory: BoundedLocalFileDirectory
+    let directory: BoundedLocalFileDirectory?
+}
+
+struct BoundedLocalFileIdentity: Equatable {
+    let device: dev_t
+    let inode: ino_t
 }
 
 /// Reads one regular local file through a descriptor anchored to its canonical parent.
@@ -90,29 +95,76 @@ enum BoundedLocalFileReader {
 
     static func bindFile(at fileURL: URL, maxBytes: Int) -> BoundedLocalFileSource? {
         guard fileURL.isFileURL, fileURL.path.hasPrefix("/"), maxBytes >= 0 else { return nil }
-        var canonicalBuffer = [CChar](repeating: 0, count: Int(PATH_MAX))
-        guard fileURL.path.withCString({ Darwin.realpath($0, &canonicalBuffer) }) != nil else {
-            return nil
-        }
-        let canonicalPath = String(cString: canonicalBuffer)
-        let path = canonicalPath as NSString
-        let filename = path.lastPathComponent
-        let parentPath = path.deletingLastPathComponent
+        let filename = fileURL.lastPathComponent
         guard !filename.isEmpty,
               filename != ".",
               filename != "..",
-              !filename.utf8.contains(0),
-              // Open the canonical parent directly so a sandbox extension for a selected
-              // file (or the app container) is honored. Walking down from `/` asks the
-              // sandbox for unrelated ancestor-directory access and makes otherwise readable
-              // files fail before the retained descriptor can be acquired.
-              let directory = BoundedLocalFileDirectory(
-                  authorizedRoot: URL(fileURLWithPath: parentPath, isDirectory: true)
-              ),
-              let source = directory.readAsset(pathComponents: [filename], maxBytes: maxBytes) else {
-            return nil
+              !filename.utf8.contains(0) else { return nil }
+
+        // Open the selected file itself first. This is the capability macOS grants to a
+        // sandboxed open-panel URL; walking from `/` asks for unrelated ancestor access.
+        // The descriptor fixes the selected object before any parent pathname is consulted.
+        let descriptor = Darwin.open(
+            fileURL.path,
+            O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
+        )
+        guard descriptor >= 0 else { return nil }
+        defer { Darwin.close(descriptor) }
+
+        var metadata = stat()
+        guard Darwin.fstat(descriptor, &metadata) == 0,
+              (metadata.st_mode & S_IFMT) == S_IFREG,
+              metadata.st_size >= 0,
+              metadata.st_size <= maxBytes else { return nil }
+        let identity = BoundedLocalFileIdentity(
+            device: metadata.st_dev,
+            inode: metadata.st_ino
+        )
+
+        // Relative HTML assets are allowed only when a retained parent descriptor can open
+        // the exact same selected file. The identity check closes the realpath/open race:
+        // replacing an intermediate directory cannot redirect the resource root to a
+        // different document. File-only grants still import safely with relative assets off.
+        if let directory = BoundedLocalFileDirectory(
+            authorizedRoot: fileURL.deletingLastPathComponent()
+        ), let source = directory.readAsset(
+            pathComponents: [filename],
+            maxBytes: maxBytes,
+            matching: identity
+        ) {
+            return BoundedLocalFileSource(data: source.data, directory: directory)
         }
-        return BoundedLocalFileSource(data: source.data, directory: directory)
+
+        guard let data = try? readAll(
+            from: descriptor,
+            expectedSize: Int(metadata.st_size),
+            maxBytes: maxBytes
+        ) else { return nil }
+        return BoundedLocalFileSource(data: data, directory: nil)
+    }
+
+    fileprivate static func readAll(
+        from descriptor: Int32,
+        expectedSize: Int,
+        maxBytes: Int
+    ) throws -> Data {
+        var data = Data()
+        data.reserveCapacity(expectedSize)
+        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
+        while true {
+            let bytesRead = buffer.withUnsafeMutableBytes { bytes in
+                Darwin.read(descriptor, bytes.baseAddress, bytes.count)
+            }
+            if bytesRead == 0 { return data }
+            if bytesRead < 0 {
+                if errno == EINTR { continue }
+                throw ReadError.unavailable
+            }
+            guard bytesRead <= maxBytes - data.count else {
+                throw ReadError.tooLarge(actualBytes: Int64(data.count) + Int64(bytesRead))
+            }
+            data.append(buffer, count: bytesRead)
+        }
     }
 }
 
@@ -194,13 +246,22 @@ final class BoundedLocalFileDirectory {
         return descriptor
     }
 
-    func readAsset(pathComponents: [String], maxBytes: Int) -> BoundedLocalFileAsset? {
-        try? readAssetReportingFailure(pathComponents: pathComponents, maxBytes: maxBytes)
+    func readAsset(
+        pathComponents: [String],
+        maxBytes: Int,
+        matching expectedIdentity: BoundedLocalFileIdentity? = nil
+    ) -> BoundedLocalFileAsset? {
+        try? readAssetReportingFailure(
+            pathComponents: pathComponents,
+            maxBytes: maxBytes,
+            matching: expectedIdentity
+        )
     }
 
     func readAssetReportingFailure(
         pathComponents: [String],
-        maxBytes: Int
+        maxBytes: Int,
+        matching expectedIdentity: BoundedLocalFileIdentity? = nil
     ) throws -> BoundedLocalFileAsset {
         guard !pathComponents.isEmpty, maxBytes >= 0 else {
             throw BoundedLocalFileReader.ReadError.unavailable
@@ -235,10 +296,17 @@ final class BoundedLocalFileDirectory {
               metadata.st_size >= 0 else {
             throw BoundedLocalFileReader.ReadError.unavailable
         }
+        if let expectedIdentity,
+           expectedIdentity != BoundedLocalFileIdentity(
+               device: metadata.st_dev,
+               inode: metadata.st_ino
+           ) {
+            throw BoundedLocalFileReader.ReadError.unavailable
+        }
         guard metadata.st_size <= maxBytes else {
             throw BoundedLocalFileReader.ReadError.tooLarge(actualBytes: metadata.st_size)
         }
-        let data = try readAll(
+        let data = try BoundedLocalFileReader.readAll(
             from: currentDescriptor,
             expectedSize: Int(metadata.st_size),
             maxBytes: maxBytes
@@ -250,25 +318,4 @@ final class BoundedLocalFileDirectory {
         )
     }
 
-    private func readAll(from descriptor: Int32, expectedSize: Int, maxBytes: Int) throws -> Data {
-        var data = Data()
-        data.reserveCapacity(expectedSize)
-        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
-        while true {
-            let bytesRead = buffer.withUnsafeMutableBytes { bytes in
-                Darwin.read(descriptor, bytes.baseAddress, bytes.count)
-            }
-            if bytesRead == 0 { return data }
-            if bytesRead < 0 {
-                if errno == EINTR { continue }
-                throw BoundedLocalFileReader.ReadError.unavailable
-            }
-            guard bytesRead <= maxBytes - data.count else {
-                throw BoundedLocalFileReader.ReadError.tooLarge(
-                    actualBytes: Int64(data.count) + Int64(bytesRead)
-                )
-            }
-            data.append(buffer, count: bytesRead)
-        }
-    }
 }

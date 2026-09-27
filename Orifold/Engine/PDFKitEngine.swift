@@ -2278,7 +2278,7 @@ struct HTMLImportResourcePolicy {
 
     private let sourceDirectory: BoundedLocalFileDirectory?
 
-    private init(sourceDirectory: BoundedLocalFileDirectory) {
+    private init(sourceDirectory: BoundedLocalFileDirectory?) {
         self.sourceDirectory = sourceDirectory
     }
 

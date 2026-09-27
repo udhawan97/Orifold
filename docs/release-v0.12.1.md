@@ -76,7 +76,7 @@ unless the release signing secrets are configured.
 
 ## Verification contract
 
-- The local Swift release gate executed 1,352 tests, with environment-gated skips reported
+- The local Swift release gate executed 1,354 tests, with environment-gated skips reported
   separately, and the release workflow repeats the full suite on the tagged commit.
 - Focused redaction, comparison, decoration, localization, password-queue, sidebar-reorder, and
   output-publication regressions passed before integration.
