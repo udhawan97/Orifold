@@ -102,7 +102,13 @@ enum BoundedLocalFileReader {
               filename != ".",
               filename != "..",
               !filename.utf8.contains(0),
-              let directory = BoundedLocalFileDirectory(canonicalRootPath: parentPath),
+              // Open the canonical parent directly so a sandbox extension for a selected
+              // file (or the app container) is honored. Walking down from `/` asks the
+              // sandbox for unrelated ancestor-directory access and makes otherwise readable
+              // files fail before the retained descriptor can be acquired.
+              let directory = BoundedLocalFileDirectory(
+                  authorizedRoot: URL(fileURLWithPath: parentPath, isDirectory: true)
+              ),
               let source = directory.readAsset(pathComponents: [filename], maxBytes: maxBytes) else {
             return nil
         }
