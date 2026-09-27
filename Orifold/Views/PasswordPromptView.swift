@@ -39,7 +39,9 @@ struct PasswordPromptView: View {
             HStack {
                 Button(L10n.string("passwordPrompt.cancel.button")) {
                     viewModel.cancelPendingPasswordImport()
-                    dismiss()
+                    if viewModel.pendingPasswordPDF == nil {
+                        dismiss()
+                    }
                 }
                     .keyboardShortcut(.cancelAction)
                 Button(L10n.string("passwordPrompt.unlock.button")) { attemptUnlock() }

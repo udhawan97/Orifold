@@ -466,14 +466,29 @@ struct MemberDocRow: View {
         .accessibilityElement(children: isRenaming ? .contain : .combine)
         .accessibilityLabel(isRenaming ? "" : combinedAccessibilityLabel)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityAction {
+            guard !isRenaming else { return }
+            viewModel.selectDocument(member)
+        }
         .accessibilityAction(named: Text(verbatim: L10n.string(isExpanded ? "sidebar.doc.collapse.accessibilityLabel" : "sidebar.doc.expand.accessibilityLabel", locale: locale))) {
             toggleExpanded()
+        }
+        .accessibilityAction(named: Text(verbatim: L10n.string("toc.moveUp", locale: locale))) {
+            moveDocument(by: -1)
+        }
+        .accessibilityAction(named: Text(verbatim: L10n.string("toc.moveDown", locale: locale))) {
+            moveDocument(by: 1)
         }
         .accessibilityAction(named: Text(verbatim: L10n.string("sidebar.doc.menu.rename", locale: locale))) { beginRename() }
         .accessibilityAction(named: Text(verbatim: L10n.format("sidebar.export", member.displayName, locale: locale))) { exportDocument() }
         .accessibilityAction(named: Text(verbatim: L10n.string("sidebar.removeDocument.contextMenu", locale: locale))) {
             guard viewModel.canRemoveDocuments else { return }
             viewModel.removeDocument(member)
+        }
+        .focusable(!isRenaming)
+        .onKeyPress(.return) {
+            viewModel.selectDocument(member)
+            return .handled
         }
         .background {
             GeometryReader { geo in
@@ -561,8 +576,8 @@ struct MemberDocRow: View {
 
             typeChip.offset(x: layoutDirection == .rightToLeft ? 2 : -2, y: 2)
         }
-        .task(id: member.id) {
-            guard miniThumbnail == nil, let pdf = sourcePDF, let page = pdf.page(at: 0) else { return }
+        .task(id: SidebarThumbnailCacheKey(id: member.id, contentRevision: viewModel.structureRevision)) {
+            guard let pdf = sourcePDF, let page = pdf.page(at: 0) else { return }
             miniThumbnail = page.thumbnail(
                 of: CGSize(width: Self.miniThumbSize.width * 2, height: Self.miniThumbSize.height * 2),
                 for: .mediaBox
@@ -580,6 +595,13 @@ struct MemberDocRow: View {
             .padding(.horizontal, 3)
             .padding(.vertical, 1)
             .background(type.tint, in: RoundedRectangle(cornerRadius: 2, style: .continuous))
+    }
+
+    private func moveDocument(by offset: Int) {
+        guard let index = viewModel.memberDocuments.firstIndex(where: { $0.id == member.id }) else { return }
+        guard viewModel.memberDocuments.indices.contains(index + offset) else { return }
+        let destination = offset < 0 ? index - 1 : index + 2
+        viewModel.moveDocument(from: IndexSet(integer: index), to: destination)
     }
 
     private var chevronButton: some View {
@@ -869,6 +891,23 @@ struct ThumbnailCell: View {
             let flags = NSApp.currentEvent?.modifierFlags ?? []
             viewModel.selectPage(pageRef, extendingSelection: flags.contains(.command) || flags.contains(.shift))
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(L10n.format("sidebar.pageLabel.short", pageNumber, locale: locale))
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityAction {
+            viewModel.selectPage(pageRef)
+        }
+        .accessibilityAction(named: Text(verbatim: L10n.string("toc.moveUp", locale: locale))) {
+            movePage(by: -1)
+        }
+        .accessibilityAction(named: Text(verbatim: L10n.string("toc.moveDown", locale: locale))) {
+            movePage(by: 1)
+        }
+        .focusable()
+        .onKeyPress(.return) {
+            viewModel.selectPage(pageRef)
+            return .handled
+        }
         .background {
             GeometryReader { geo in
                 Color.clear
@@ -907,8 +946,7 @@ struct ThumbnailCell: View {
                 onImport: { _ in false }
             )
         )
-        .task(id: pageNumber) {
-            guard thumbnail == nil else { return }
+        .task(id: SidebarThumbnailCacheKey(id: pageRef.id, contentRevision: viewModel.structureRevision)) {
             thumbnail = page.thumbnail(of: Self.thumbSize, for: .mediaBox)
         }
         .confirmationDialog(
@@ -938,6 +976,21 @@ struct ThumbnailCell: View {
             importFilesWithBatchLimit(urls: panel.urls, into: viewModel, insertingAfter: ref.id)
         }
     }
+
+    private func movePage(by offset: Int) {
+        guard let index = viewModel.document.workspace.documents
+            .first(where: { $0.id == pageRef.memberDocId })?
+            .pageRefs.firstIndex(of: pageRef.id),
+              let member = viewModel.document.workspace.documents.first(where: { $0.id == pageRef.memberDocId }),
+              member.pageRefs.indices.contains(index + offset) else { return }
+        let destination = offset < 0 ? index - 1 : index + 2
+        _ = viewModel.movePage(pageRef, toIndex: destination)
+    }
+}
+
+struct SidebarThumbnailCacheKey: Hashable {
+    let id: UUID
+    let contentRevision: Int
 }
 
 // MARK: - Reorder drag/drop
