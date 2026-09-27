@@ -135,6 +135,22 @@ extension PDFComparisonService {
 
     static let compareDPI: CGFloat = 150
 
+    /// Produces the left visual lane from the same active decorations that save/export uses.
+    /// Text evidence deliberately continues to address the original member bytes. Throwing
+    /// makes preparation failure explicit: the caller supplies no combined document, so every
+    /// affected visual channel reports `.unavailable` instead of silently comparing stale ink.
+    static func visualEvidenceData(
+        combinedData: Data,
+        decorations: [PageDecoration],
+        pageOrder: [PageRef]
+    ) throws -> Data {
+        try PDFDecorationExportBaker.bake(
+            decorations: decorations,
+            pageOrder: pageOrder,
+            into: combinedData
+        )
+    }
+
     /// Builds the left-side byte table without dropping workspace pages. A missing combined
     /// index disables only that page's visual channel; missing member bytes disable only its
     /// text channel.

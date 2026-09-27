@@ -266,6 +266,58 @@ final class PDFComparisonServiceTests: XCTestCase {
         XCTAssertTrue(prepared.pages.allSatisfy { $0.visualPage == nil })
     }
 
+    func testVisualEvidenceBakesDecorationWhileTextSourceRemainsOriginalBytes() throws {
+        let source = try makePDFData(pageTexts: ["Original text"])
+        let sourceDocument = try XCTUnwrap(PDFDocument(data: source))
+        let sourcePage = try XCTUnwrap(sourceDocument.page(at: 0))
+        sourcePage.setBounds(CGRect(x: 18, y: 24, width: 540, height: 700), for: .cropBox)
+        sourcePage.rotation = 90
+        let combined = try XCTUnwrap(PDFSerializer.data(from: sourceDocument))
+        let memberID = UUID()
+        let ref = PageRef(memberDocId: memberID, sourcePageIndex: 0)
+        let decorated = try PDFComparisonService.visualEvidenceData(
+            combinedData: combined,
+            decorations: [PageDecoration(
+                kind: .stamp,
+                text: "VISIBLE CHANGE",
+                pageRefID: ref.id,
+                rect: CGRect(x: 80, y: 120, width: 220, height: 70)
+            )],
+            pageOrder: [ref]
+        )
+        let prepared = PDFComparisonService.prepareLeftSide(
+            pages: [PDFComparisonService.WorkspacePageSource(
+                id: ref.id,
+                number: 1,
+                memberID: memberID,
+                sourcePageIndex: 0,
+                combinedPageIndex: 0
+            )],
+            combinedData: decorated,
+            memberData: [memberID: source]
+        )
+
+        XCTAssertEqual(prepared.documents.count, 2)
+        XCTAssertEqual(prepared.documents[0], decorated)
+        XCTAssertEqual(prepared.documents[1], source, "text evidence must retain original member bytes")
+        XCTAssertEqual(prepared.pages[0].visualPage, .init(documentIndex: 0, pageIndex: 0))
+        XCTAssertEqual(prepared.pages[0].textPage, .init(documentIndex: 1, pageIndex: 0))
+        let bakedPage = try XCTUnwrap(PDFDocument(data: decorated)?.page(at: 0))
+        XCTAssertEqual(bakedPage.bounds(for: .cropBox), sourcePage.bounds(for: .cropBox))
+        XCTAssertNotEqual(decorated, combined)
+    }
+
+    func testInvalidDecorationMakesVisualEvidencePreparationFail() throws {
+        let source = try makePDFData(pageTexts: ["Original text"])
+        let memberID = UUID()
+        let ref = PageRef(memberDocId: memberID, sourcePageIndex: 0)
+        XCTAssertThrowsError(try PDFComparisonService.visualEvidenceData(
+            combinedData: source,
+            decorations: [PageDecoration(kind: .watermark, text: "")],
+            pageOrder: [ref]
+        ))
+    }
+
 }
 
 private extension PDFComparisonServiceTests {

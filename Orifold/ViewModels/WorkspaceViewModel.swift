@@ -9481,6 +9481,10 @@ final class WorkspaceViewModel {
             showEditMessage(L10n.format("status.redaction.editConflict", conflict + 1), isError: true)
             return false
         }
+        if redactionHasWorkspaceContentConflict(marksByRef: marksByRef) {
+            showEditMessage(L10n.string("status.redaction.workspaceContentConflict"), isError: true)
+            return false
+        }
 
         struct MemberRedaction {
             var regionsByLocalIndex: [Int: [CGRect]] = [:]
@@ -9497,9 +9501,19 @@ final class WorkspaceViewModel {
             if liveDataByMemberID[ref.memberDocId] == nil {
                 guard let previousLive = document.memberPDFData[ref.memberDocId],
                       let serializedLive = PDFSerializer.data(from: lookup.pdf),
-                      let liveData = Self.preservingAttachments(from: previousLive, in: serializedLive) else {
+                      let interactiveData = QPDFService.replacingInteractiveState(
+                        in: previousLive,
+                        from: serializedLive
+                      ) else {
                     return false
                 }
+                let rotations = Dictionary(uniqueKeysWithValues: (0..<lookup.pdf.pageCount).compactMap { pageIndex in
+                    lookup.pdf.page(at: pageIndex).map { (pageIndex, $0.rotation) }
+                })
+                guard let liveData = QPDFService.settingPageRotations(
+                    interactiveData,
+                    rotationsByPageIndex: rotations
+                ) else { return false }
                 previousLiveByMemberID[ref.memberDocId] = previousLive
                 previousLoadedByMemberID[ref.memberDocId] = serializedLive
                 liveDataByMemberID[ref.memberDocId] = liveData
@@ -9527,7 +9541,15 @@ final class WorkspaceViewModel {
                 ),
                 transform: { data in
                     do {
-                        return try RedactionEngine.redact(data, regions: redaction.regionsByLocalIndex)
+                        let redacted = try RedactionEngine.redact(
+                            data,
+                            regions: redaction.regionsByLocalIndex
+                        )
+                        return Self.preservingCatalogAfterRedaction(
+                            redacted,
+                            original: data,
+                            pageIndices: redaction.regionsByLocalIndex.keys
+                        )
                     } catch {
                         if firstFailure == nil { firstFailure = error as? RedactionEngine.Failure }
                         return nil
@@ -9564,6 +9586,62 @@ final class WorkspaceViewModel {
         editingStatus = .success(L10n.format("status.redaction.applied", redactedMarks.count))
         warnIfEditingWouldInvalidateSignatures()
         return true
+    }
+
+    /// PDFium's save-copy output can omit catalog-level structures unrelated to page content.
+    /// Graft each changed page's generated content and the redacted annotation state onto the
+    /// original object graph so labels, outlines, attachments, page identity, and other catalog
+    /// references stay anchored to their existing objects.
+    private static func preservingCatalogAfterRedaction(
+        _ redacted: Data,
+        original: Data,
+        pageIndices: Dictionary<Int, [CGRect]>.Keys
+    ) -> Data? {
+        guard let redactedPDF = PDFDocument(data: redacted) else { return nil }
+        var result = original
+        for pageIndex in pageIndices.sorted() {
+            guard let page = redactedPDF.page(at: pageIndex) else { return nil }
+            let singlePage = PDFDocument()
+            singlePage.insert(page, at: 0)
+            guard let pageData = PDFSerializer.data(from: singlePage),
+                  let replaced = QPDFService.replacingPageContent(
+                    in: result,
+                    pageIndex: pageIndex,
+                    with: pageData
+                  ) else { return nil }
+            result = replaced
+        }
+        guard let interactive = QPDFService.replacingInteractiveState(in: result, from: redacted)
+        else { return nil }
+        return preservingAttachments(from: original, in: interactive)
+    }
+
+    /// Workspace signatures and decorations are independent export inputs. Redacting only the
+    /// member bytes would let intersecting content be baked over the black region on the next
+    /// save/export, and editable workspace metadata would retain its source. Refuse before any
+    /// serialization or byte mutation until those stores have a deliberately designed rewrite.
+    private func redactionHasWorkspaceContentConflict(
+        marksByRef: [UUID: [RedactionMark]]
+    ) -> Bool {
+        if document.workspace.signatures.contains(where: { placement in
+            guard let marks = marksByRef[placement.pageRefId] else { return false }
+            return marks.contains { $0.rect.intersects(placement.rect.standardized) }
+        }) {
+            return true
+        }
+
+        return document.workspace.decorations.lazy.filter(\.isEnabled).contains { decoration in
+            let targetPageIDs = decoration.pageRefID.map { [$0] } ?? Array(marksByRef.keys)
+            return targetPageIDs.contains { pageRefID in
+                guard let marks = marksByRef[pageRefID] else { return false }
+                guard let rect = decoration.rect?.standardized else {
+                    // Watermarks, page/Bates numbers, and whole-page PDF overlays do not expose
+                    // one reliable workspace rect. Conservative refusal is the safe boundary.
+                    return true
+                }
+                return marks.contains { $0.rect.intersects(rect) }
+            }
+        }
     }
 
     // MARK: - Page operations (all keyed by PageRef.id, all undoable)
@@ -10238,7 +10316,13 @@ final class WorkspaceViewModel {
             return
         }
 
-        let combinedData = PDFSerializer.data(from: combinedPDF)
+        let combinedData = PDFSerializer.data(from: combinedPDF).flatMap { data in
+            try? PDFComparisonService.visualEvidenceData(
+                combinedData: data,
+                decorations: document.workspace.decorations,
+                pageOrder: document.workspace.pageOrder
+            )
+        }
         let memberData = (try? currentPDFDataForExport()) ?? [:]
         let sourcePages = document.workspace.pageOrder.enumerated().map { index, ref in
             PDFComparisonService.WorkspacePageSource(

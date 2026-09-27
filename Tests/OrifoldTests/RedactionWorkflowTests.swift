@@ -51,6 +51,57 @@ final class RedactionWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.pendingRedactions.count, 1, "refusal keeps the marks for a retry")
     }
 
+    func testIntersectingWorkspaceSignatureIsRefusedBeforeMutation() throws {
+        let viewModel = try makeViewModel()
+        let ref = try pageRef(viewModel, 0)
+        let before = try liveBytes(viewModel, ref)
+        viewModel.document.workspace.signatures = [SignaturePlacement(
+            pageRefId: ref.id,
+            imageData: Data([0x89, 0x50, 0x4e, 0x47]),
+            rect: secretRegion
+        )]
+
+        viewModel.addRedactionMark(rect: secretRegion, pageRefID: ref.id)
+
+        XCTAssertFalse(viewModel.applyRedactions())
+        XCTAssertEqual(try liveBytes(viewModel, ref), before)
+        XCTAssertEqual(viewModel.document.workspace.signatures.count, 1)
+        XCTAssertEqual(viewModel.pendingRedactions.count, 1)
+        XCTAssertNotEqual(viewModel.undoManager?.undoActionName, L10n.string("undo.applyRedactions"))
+    }
+
+    func testIntersectingEnabledDecorationIsRefusedButUnrelatedDecorationIsPreserved() throws {
+        let viewModel = try makeViewModel()
+        let first = try pageRef(viewModel, 0)
+        let second = try pageRef(viewModel, 1)
+        let conflicting = PageDecoration(
+            kind: .stamp,
+            text: "CONFIDENTIAL",
+            pageRefID: first.id,
+            rect: secretRegion
+        )
+        let unrelated = PageDecoration(
+            kind: .stamp,
+            text: "KEEP",
+            pageRefID: second.id,
+            rect: CGRect(x: 20, y: 20, width: 80, height: 30)
+        )
+        viewModel.document.workspace.decorations = [conflicting, unrelated]
+        let before = try liveBytes(viewModel, first)
+
+        viewModel.addRedactionMark(rect: secretRegion, pageRefID: first.id)
+        XCTAssertFalse(viewModel.applyRedactions())
+
+        XCTAssertEqual(try liveBytes(viewModel, first), before)
+        XCTAssertEqual(viewModel.document.workspace.decorations, [conflicting, unrelated])
+        XCTAssertEqual(viewModel.pendingRedactions.count, 1)
+
+        viewModel.document.workspace.decorations = [unrelated]
+        XCTAssertTrue(viewModel.applyRedactions())
+        XCTAssertEqual(viewModel.document.workspace.decorations, [unrelated])
+        XCTAssertFalse(text(try liveBytes(viewModel, first)).contains("SECRET"))
+    }
+
     func testRedactionSurvivesObjectReplayFromBaseLanes() throws {
         let viewModel = try makeViewModel()
         let first = try pageRef(viewModel, 0), second = try pageRef(viewModel, 1)
@@ -114,6 +165,56 @@ final class RedactionWorkflowTests: XCTestCase {
         for bytes in reopened.memberPDFData.values {
             XCTAssertFalse(text(bytes).contains("SECRET"), "embedded workspace state must not keep the secret")
         }
+    }
+
+    func testRedactionPreservesCatalogAttachmentAndUnaffectedAnnotationThroughUndoRedo() throws {
+        let fixtureURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/page-labels.pdf")
+        let attachment = Data("redaction catalog proof".utf8)
+        let labeled = try Data(contentsOf: fixtureURL)
+        let labeledPDF = try XCTUnwrap(PDFDocument(data: labeled))
+        let note = PDFAnnotation(
+            bounds: CGRect(x: 300, y: 300, width: 24, height: 24),
+            forType: .text,
+            withProperties: nil
+        )
+        note.contents = "Keep this note"
+        labeledPDF.page(at: 0)?.addAnnotation(note)
+        let serializedInteractive = try XCTUnwrap(PDFSerializer.data(from: labeledPDF))
+        let interactive = try XCTUnwrap(QPDFService.replacingInteractiveState(
+            in: labeled,
+            from: serializedInteractive
+        ))
+        let source = try AttachmentsService.add(
+            attachment,
+            name: "redaction-proof.txt",
+            mimeType: "text/plain",
+            to: interactive
+        )
+        let sourcePDF = try XCTUnwrap(PDFDocument(data: source))
+        let document = WorkspaceDocument()
+        var member = MemberDocument(displayName: "Catalog redaction", sourcePDFRef: "catalog-redaction.pdf")
+        let refs = (0..<sourcePDF.pageCount).map {
+            PageRef(memberDocId: member.id, sourcePageIndex: $0)
+        }
+        member.pageRefs = refs.map(\.id)
+        document.workspace.documents = [member]
+        document.workspace.pageOrder = refs
+        document.memberPDFData[member.id] = source
+        let viewModel = attachUndo(WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine()))
+        let ref = try pageRef(viewModel, 0)
+        let mark = CGRect(x: 20, y: 20, width: 30, height: 30)
+
+        viewModel.addRedactionMark(rect: mark, pageRefID: ref.id)
+        XCTAssertTrue(viewModel.applyRedactions())
+        try assertCatalogEvidence(in: try liveBytes(viewModel, ref), attachment: attachment)
+
+        viewModel.undoManager?.undo()
+        try assertCatalogEvidence(in: try liveBytes(viewModel, ref), attachment: attachment)
+        viewModel.undoManager?.redo()
+        try assertCatalogEvidence(in: try liveBytes(viewModel, ref), attachment: attachment)
+
     }
 
     func testMarkUndoRemovesMark() throws {
@@ -201,6 +302,14 @@ final class RedactionWorkflowTests: XCTestCase {
     private func text(_ data: Data) -> String {
         guard let count = PDFDocument(data: data)?.pageCount else { return "" }
         return (0..<count).map { PDFTextAnalysisEngine.readingOrderText(data: data, pageIndex: $0) }.joined(separator: "\n")
+    }
+
+    private func assertCatalogEvidence(in data: Data, attachment: Data) throws {
+        XCTAssertTrue(QPDFService.hasPageLabels(data))
+        XCTAssertEqual(try AttachmentsService.extract("redaction-proof.txt", from: data), attachment)
+        let pdf = try XCTUnwrap(PDFDocument(data: data))
+        XCTAssertEqual(pdf.page(at: 0)?.label, "i")
+        XCTAssertFalse(pdf.page(at: 0)?.annotations.filter { $0.contents == "Keep this note" }.isEmpty ?? true)
     }
 
     private func move(_ object: DetectedObject, ref: PageRef) -> ObjectEditOperation {
