@@ -43,6 +43,26 @@ enum BoundedLocalFileReader {
         bindFile(at: fileURL, maxBytes: maxBytes)?.data
     }
 
+    /// Reads only the selected file, preserving failure details without acquiring an asset
+    /// root. Open-panel file-only grants work because no ancestor descriptor is required.
+    static func readSelectedFileReportingFailure(at fileURL: URL, maxBytes: Int) throws -> Data {
+        guard fileURL.isFileURL, fileURL.path.hasPrefix("/"),
+              !fileURL.path.utf8.contains(0), maxBytes >= 0 else {
+            throw ReadError.unavailable
+        }
+        let descriptor = Darwin.open(fileURL.path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+        guard descriptor >= 0 else { throw ReadError.unavailable }
+        defer { Darwin.close(descriptor) }
+        var metadata = stat()
+        guard Darwin.fstat(descriptor, &metadata) == 0,
+              (metadata.st_mode & S_IFMT) == S_IFREG,
+              metadata.st_size >= 0 else { throw ReadError.unavailable }
+        guard metadata.st_size <= maxBytes else {
+            throw ReadError.tooLarge(actualBytes: metadata.st_size)
+        }
+        return try readAll(from: descriptor, expectedSize: Int(metadata.st_size), maxBytes: maxBytes)
+    }
+
     /// Reads a descendant through the exact user-authorized root descriptor.
     ///
     /// Sandboxed folder workflows receive access to the selected folder, not to `/`. Opening
@@ -101,9 +121,22 @@ enum BoundedLocalFileReader {
               filename != "..",
               !filename.utf8.contains(0) else { return nil }
 
+        // Bind the resource parent's identity before selecting the file descriptor. A hard
+        // link can preserve the child inode across a parent swap, so child identity alone
+        // cannot establish which sibling assets belonged to this selection.
+        var parentMetadata = stat()
+        let parentURL = fileURL.deletingLastPathComponent()
+        let parentIdentity: BoundedLocalFileIdentity?
+        if Darwin.fstatat(AT_FDCWD, parentURL.path, &parentMetadata, 0) == 0,
+           (parentMetadata.st_mode & S_IFMT) == S_IFDIR {
+            parentIdentity = BoundedLocalFileIdentity(device: parentMetadata.st_dev, inode: parentMetadata.st_ino)
+        } else {
+            parentIdentity = nil
+        }
+
         // Open the selected file itself first. This is the capability macOS grants to a
         // sandboxed open-panel URL; walking from `/` asks for unrelated ancestor access.
-        // The descriptor fixes the selected object before any parent pathname is consulted.
+        // The descriptor fixes the selected object before an asset root is acquired.
         let descriptor = Darwin.open(
             fileURL.path,
             O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
@@ -121,13 +154,13 @@ enum BoundedLocalFileReader {
             inode: metadata.st_ino
         )
 
-        // Relative HTML assets are allowed only when a retained parent descriptor can open
-        // the exact same selected file. The identity check closes the realpath/open race:
-        // replacing an intermediate directory cannot redirect the resource root to a
-        // different document. File-only grants still import safely with relative assets off.
-        if let directory = BoundedLocalFileDirectory(
-            authorizedRoot: fileURL.deletingLastPathComponent()
-        ), let source = directory.readAsset(
+        // Both the retained parent and its selected child must match the acquisition
+        // identities. File-only grants still import through the selected descriptor, with
+        // relative assets disabled whenever the parent's identity cannot be established.
+        if let parentIdentity,
+           let directory = BoundedLocalFileDirectory(authorizedRoot: parentURL),
+           directory.matchesRootIdentity(parentIdentity),
+           let source = directory.readAsset(
             pathComponents: [filename],
             maxBytes: maxBytes,
             matching: identity
@@ -235,6 +268,12 @@ final class BoundedLocalFileDirectory {
 
     deinit {
         Darwin.close(rootDescriptor)
+    }
+
+    func matchesRootIdentity(_ expected: BoundedLocalFileIdentity) -> Bool {
+        var metadata = stat()
+        guard Darwin.fstat(rootDescriptor, &metadata) == 0 else { return false }
+        return expected == BoundedLocalFileIdentity(device: metadata.st_dev, inode: metadata.st_ino)
     }
 
     func duplicateDescriptor() throws -> Int32 {

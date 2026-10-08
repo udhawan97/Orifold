@@ -15,6 +15,14 @@ enum PageDecorationPDFPlacement: String, Codable, CaseIterable, Hashable {
 }
 
 struct PageDecoration: Codable, Identifiable, Equatable {
+    /// The persisted starting value has the same domain as the inspector's stepper.
+    /// Later pages may legitimately continue beyond six digits.
+    static let batesStartNumberRange = 0...999_999
+
+    enum ValidationError: Error {
+        case invalidBatesStartNumber
+    }
+
     enum Kind: String, Codable {
         case watermark
         case pageNumber
@@ -93,7 +101,15 @@ struct PageDecoration: Codable, Identifiable, Equatable {
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
         text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
         prefix = try container.decodeIfPresent(String.self, forKey: .prefix) ?? "DEF"
-        startNumber = try container.decodeIfPresent(Int.self, forKey: .startNumber) ?? 100
+        do {
+            startNumber = try container.decodeIfPresent(Int.self, forKey: .startNumber) ?? 100
+        } catch {
+            if kind == .bates { throw ValidationError.invalidBatesStartNumber }
+            throw error
+        }
+        if kind == .bates, !Self.batesStartNumberRange.contains(startNumber) {
+            throw ValidationError.invalidBatesStartNumber
+        }
         pageRefID = try container.decodeIfPresent(UUID.self, forKey: .pageRefID)
         rect = try container.decodeIfPresent(CGRect.self, forKey: .rect)
         fontSize = try container.decodeIfPresent(CGFloat.self, forKey: .fontSize) ?? 12
@@ -115,6 +131,14 @@ struct PageDecoration: Codable, Identifiable, Equatable {
 }
 
 extension PageDecoration {
+    /// Used by both canvas and export. Invalid state must never wrap, clamp, or invent an
+    /// identifier; export validates before drawing, while the canvas displays no identifier.
+    func batesNumber(at pageIndex: Int) -> Int? {
+        guard Self.batesStartNumberRange.contains(startNumber), pageIndex >= 0 else { return nil }
+        let (number, overflow) = startNumber.addingReportingOverflow(pageIndex)
+        return overflow ? nil : number
+    }
+
     /// Seals are the free-floating, rect-anchored decorations a user drops onto a page and
     /// can then select, drag, resize, or delete — text stamps, hanko, and placed barcode
     /// images alike. The selection/hit-test/move/remove plumbing keys off this rather than

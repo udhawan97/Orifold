@@ -5,7 +5,9 @@ final class RollbackArchiveTests: XCTestCase {
     private var directory: URL!
 
     override func setUpWithError() throws {
-        directory = FileManager.default.temporaryDirectory
+        let temporary = ProcessInfo.processInfo.environment["ORIFOLD_TEST_TEMP_ROOT"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
+        directory = temporary
             .appendingPathComponent("orifold-rollback-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
@@ -34,7 +36,8 @@ final class RollbackArchiveTests: XCTestCase {
         let manifest = try archiver.archive(bundleURL: bundle, version: "0.8.4", build: "11", at: Date(timeIntervalSince1970: 100))
 
         XCTAssertEqual(manifest.version, "0.8.4")
-        XCTAssertEqual(manifest.archiveFileName, "Orifold-0.8.4.zip")
+        XCTAssertTrue(manifest.archiveFileName.hasPrefix("Orifold-"))
+        XCTAssertEqual(URL(fileURLWithPath: manifest.archiveFileName).pathExtension, "zip")
         XCTAssertEqual(manifest.sha256.count, 64)
         XCTAssertEqual(manifest.targetBundlePath, bundle.path)
         XCTAssertNil(manifest.teamIdentifier, "the unsigned fixture must not become a trust anchor")
@@ -73,11 +76,11 @@ final class RollbackArchiveTests: XCTestCase {
         try archiver.archive(bundleURL: bundle, version: "0.8.3", build: "10")
 
         try "two".data(using: .utf8)!.write(to: bundle.appendingPathComponent("marker"))
-        try archiver.archive(bundleURL: bundle, version: "0.8.4", build: "11")
+        let current = try archiver.archive(bundleURL: bundle, version: "0.8.4", build: "11")
 
         let zips = try FileManager.default.contentsOfDirectory(at: rollbackDir, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "zip" }
-        XCTAssertEqual(zips.map(\.lastPathComponent), ["Orifold-0.8.4.zip"], "Only the immediate predecessor is retained")
+        XCTAssertEqual(zips.map(\.lastPathComponent), [current.archiveFileName], "Only the immediate predecessor is retained")
     }
 
     func testArchiveURLRejectsTraversalAndSymlink() throws {

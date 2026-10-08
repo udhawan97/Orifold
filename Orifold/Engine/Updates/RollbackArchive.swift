@@ -1,5 +1,41 @@
 import Foundation
 import Crypto
+import Darwin
+
+// Darwin imports `flock` as the record type on this SDK. Bind the POSIX function with its
+// exact C signature (int flock(int, int)); libSystem supplies the symbol.
+@_silgen_name("flock")
+private func rollbackFlock(_ descriptor: Int32, _ operation: Int32) -> Int32
+
+/// Serializes rollback publication and cleanup across detached tasks and app processes.
+/// The lock file is persistent: unlinking it would permit two unrelated lock descriptors.
+enum RollbackArchiveTransaction {
+    static func withLock<T>(in directory: URL, _ body: () throws -> T) throws -> T {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let lockURL = directory.appendingPathComponent(".rollback-transaction.lock")
+        let descriptor = Darwin.open(lockURL.path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0o600)
+        guard descriptor >= 0 else { throw posixError() }
+        defer { Darwin.close(descriptor) }
+        var metadata = stat()
+        guard Darwin.fstat(descriptor, &metadata) == 0,
+              (metadata.st_mode & S_IFMT) == S_IFREG, metadata.st_uid == Darwin.geteuid(),
+              metadata.st_nlink == 1, (metadata.st_mode & 0o077) == 0 else { throw POSIXError(.EACCES) }
+        while rollbackFlock(descriptor, LOCK_EX) != 0 {
+            guard errno == EINTR else { throw posixError() }
+        }
+        defer { _ = rollbackFlock(descriptor, LOCK_UN) }
+        var current = stat()
+        guard Darwin.lstat(lockURL.path, &current) == 0,
+              current.st_dev == metadata.st_dev, current.st_ino == metadata.st_ino else {
+            throw POSIXError(.ESTALE)
+        }
+        return try body()
+    }
+
+    private static func posixError() -> POSIXError {
+        POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+    }
+}
 
 /// Describes the single archived previous-version bundle kept for rollback.
 ///
@@ -65,32 +101,38 @@ struct RollbackArchiver {
     /// earlier archive so only the immediate predecessor is retained.
     @discardableResult
     func archive(bundleURL: URL, version: String, build: String, at date: Date = Date()) throws -> RollbackManifest {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let archiveName = "Orifold-\(version).zip"
-        let archiveURL = directory.appendingPathComponent(archiveName)
-        try? FileManager.default.removeItem(at: archiveURL)
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-        process.arguments = ["-c", "-k", "--keepParent", bundleURL.path, archiveURL.path]
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw ArchiveError.dittoFailed(process.terminationStatus) }
-
-        let publisher = UpdatePublisherIdentity.current(for: bundleURL)
-        let manifest = RollbackManifest(
-            version: version,
-            build: build,
-            sha256: try Self.sha256(of: archiveURL),
-            archivedAt: date,
-            archiveFileName: archiveName,
-            targetBundlePath: bundleURL.path,
-            bundleIdentifier: publisher?.bundleIdentifier,
-            teamIdentifier: publisher?.teamIdentifier
-        )
-        try writeManifest(manifest)
-        pruneArchivesExcept(keeping: archiveName)
-        return manifest
+        try RollbackArchiveTransaction.withLock(in: directory) {
+            // A staging ZIP is neither visible to the cleaner nor a committed `.zip`.
+            // Unique committed names also preserve an earlier archive of the same version.
+            let archiveName = "Orifold-\(UUID().uuidString).zip"
+            let archiveURL = directory.appendingPathComponent(archiveName)
+            let stagingURL = directory.appendingPathComponent(".Orifold-\(UUID().uuidString).partial")
+            var committed = false
+            defer {
+                try? FileManager.default.removeItem(at: stagingURL)
+                if !committed { try? FileManager.default.removeItem(at: archiveURL) }
+            }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+            process.arguments = ["-c", "-k", "--keepParent", bundleURL.path, stagingURL.path]
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { throw ArchiveError.dittoFailed(process.terminationStatus) }
+            try Self.syncArchive(at: stagingURL)
+            let digest = try Self.sha256(of: stagingURL)
+            try FileManager.default.moveItem(at: stagingURL, to: archiveURL)
+            let publisher = UpdatePublisherIdentity.current(for: bundleURL)
+            let manifest = RollbackManifest(
+                version: version, build: build, sha256: digest, archivedAt: date,
+                archiveFileName: archiveName, targetBundlePath: bundleURL.path,
+                bundleIdentifier: publisher?.bundleIdentifier, teamIdentifier: publisher?.teamIdentifier
+            )
+            // No fallible cleanup removes the previous committed archive before this point.
+            try persistManifest(manifest)
+            committed = true
+            pruneArchivesExcept(keeping: archiveName)
+            return manifest
+        }
     }
 
     /// The stored manifest, if a rollback archive currently exists.
@@ -128,11 +170,30 @@ struct RollbackArchiver {
     }
 
     func writeManifest(_ manifest: RollbackManifest) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try RollbackArchiveTransaction.withLock(in: directory) {
+            try persistManifest(manifest)
+        }
+    }
+
+    private func persistManifest(_ manifest: RollbackManifest) throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(manifest).write(to: manifestURL, options: .atomic)
+    }
+
+    private static func syncArchive(at url: URL) throws {
+        let descriptor = Darwin.open(url.path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+        guard descriptor >= 0 else { throw ArchiveError.archiveMissing }
+        defer { Darwin.close(descriptor) }
+        var metadata = stat()
+        guard Darwin.fstat(descriptor, &metadata) == 0,
+              (metadata.st_mode & S_IFMT) == S_IFREG, metadata.st_size > 0 else {
+            throw ArchiveError.archiveMissing
+        }
+        guard Darwin.fsync(descriptor) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
     }
 
     private func pruneArchivesExcept(keeping name: String) {

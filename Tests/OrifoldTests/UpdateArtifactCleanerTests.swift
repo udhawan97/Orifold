@@ -7,7 +7,9 @@ final class UpdateArtifactCleanerTests: XCTestCase {
     private var rollbackDir: URL!
 
     override func setUpWithError() throws {
-        root = FileManager.default.temporaryDirectory
+        let temporary = ProcessInfo.processInfo.environment["ORIFOLD_TEST_TEMP_ROOT"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
+        root = temporary
             .appendingPathComponent("orifold-cleaner-\(UUID().uuidString)", isDirectory: true)
         // Named exactly as the cleaner's guard requires.
         cacheDir = root.appendingPathComponent("UpdaterCache", isDirectory: true)

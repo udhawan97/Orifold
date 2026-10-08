@@ -7,7 +7,7 @@
 <p align="center"><em>One sheet, folded into flight.</em></p>
 
 <p align="center">
-  A calm, local-first PDF workspace for macOS. Drop in up to 50 messy files —<br>
+  A calm, local-first PDF workspace for macOS. Drop in up to 50 messy files per import —<br>
   merge, edit, OCR, sign, compress, and protect them — and fold the whole pile<br>
   into one clean, searchable, password-protected document. Your documents never leave your Mac.
 </p>
@@ -79,7 +79,7 @@ into a single clean document. Document processing stays on your Mac.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-banner-dark.svg">
-    <img src="docs/assets/hero-banner-light.svg" alt="50 messy files go in — up to 50 files per workspace, 0 files ever uploaded — one polished, searchable, password-protected PDF comes out" width="880">
+    <img src="docs/assets/hero-banner-light.svg" alt="50 messy files go in — up to 50 files per import batch, 0 files ever uploaded — one polished, searchable, password-protected PDF comes out" width="880">
   </picture>
 </p>
 
@@ -113,7 +113,7 @@ Document processing below runs on your Mac. No document content is uploaded.
 
 | Area | What you can do |
 | --- | --- |
-| **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, common images, and CBZ comic archives converted to PDF in natural page order; up to 50 files per workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
+| **Import** | PDFs, Word, HTML, Markdown, text, CSV, JSON, XML, common images, and CBZ comic archives converted to PDF in natural page order; up to 50 files per import batch — use Add Files again after completion to add more to the same workspace; corrupt PDFs are repaired via qpdf recovery when the native reader gives up |
 | **Organize** | Reorder documents and pages, rotate, crop page boxes, review detected blank pages before removal, edit outlines, add section banners, and navigate from the sidebar |
 | **Read & search** | Native PDF canvas, nested bookmark/heading Contents, workspace-wide search, read aloud with follow-along highlighting and speed control (from the top of the page or from the current selection), password unlock prompts, Reader Mode, Document Comfort presets, and—on macOS 15+—read-only Apple on-device translation for a selection or current page |
 | **Compare** | Side-by-side compare of the visible workspace—including active stamps, page numbers, watermarks, hanko, images, and PDF overlays—against another PDF: index page pairing with a manual offset, changed-region highlights, word-level insert/delete counts, and a changed-pages overview |
@@ -255,8 +255,8 @@ metadata stripped before flat PDF export.
 | | |
 | --- | --- |
 | **Language** | Swift 5.9+, 100% SwiftUI interface |
-| **Codebase** | 164 Swift source files in the app, ~64,000 lines |
-| **Tests** | 1,354 tests in the current release suite |
+| **Codebase** | 166 Swift source files in the app, ~64,000 lines |
+| **Tests** | 1,394 tests in the current development suite |
 | **PDF engines** | PDFKit (display/composition) · PDFium (versioned shared page inspection, structural object editing, image compression, text geometry) · qpdf (repair, AES-256, sanitize, structural validation) · Vision (OCR) · Apple Translation (on-device reading aid on macOS 15+) |
 | **Architecture** | Unidirectional flow: views → one observable view model → protocol-seamed local engines → staged export pipeline |
 | **Distribution** | GitHub Actions builds a universal (Apple Silicon + Intel) app and packages a signed-capable DMG (`scripts/make-dmg.sh`) plus the release zip and a checksummed `manifest.json`; installer, Homebrew cask, and uninstaller ship from this repo |

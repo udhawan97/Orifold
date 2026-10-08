@@ -1047,7 +1047,7 @@ final class WorkspaceViewModel {
                 .filter { unreadableMemberIDs.contains($0.id) }
                 .map(\.displayName)
                 .joined(separator: ", ")
-            NSLog("[Orifold] Warning: dropping unreadable member document(s) from the workspace structure: %@", names)
+            ImportLog.recordUnreadableSavedMembers(count: unreadableMemberIDs.count)
             document.workspace.documents.removeAll { unreadableMemberIDs.contains($0.id) }
             document.workspace.pageOrder.removeAll { unreadableMemberIDs.contains($0.memberDocId) }
             importError = ImportError(
@@ -5988,6 +5988,107 @@ final class WorkspaceViewModel {
         editingStatus = .warning(L10n.string(forKey: key))
     }
 
+    /// Keyboard placement uses the same page mapping, mutation gates and undo as a click.
+    @discardableResult
+    func placeArmedPlacementOnCurrentPage() -> Bool {
+        guard let placement = armedPlacement,
+              let index = combinedPageIndex(forWorkspacePageNumber: currentPageNumber),
+              let page = combinedPDF.page(at: index),
+              pageRef(for: page, in: combinedPDF) != nil,
+              hasUsablePlacementCropBox(page) else { return false }
+        let crop = page.bounds(for: .cropBox)
+        let center = CGPoint(x: crop.midX, y: crop.midY)
+        let promptStatus = armedPlacementPromptKey.flatMap { key in
+            editingStatus.flatMap { status in
+                status.severity == .warning && status.message == L10n.string(forKey: key) ? status : nil
+            }
+        }
+        let placed: Bool
+        switch placement {
+        case .signature(let data, _, _):
+            if let annotation = placeSignature(imageData: data, at: center, on: page) {
+                updateSignaturePlacement(for: annotation, to: annotation.bounds)
+                placed = true
+            } else {
+                placed = false
+            }
+        case .stamp:
+            placed = placeStamp(at: center, on: page) != nil
+        case .hanko:
+            placed = placeHanko(at: center, on: page) != nil
+        case .barcode:
+            placed = placeBarcode(at: center, on: page) != nil
+        }
+        if placed, let promptStatus, editingStatus == promptStatus {
+            editingStatus = nil
+        }
+        return placed
+    }
+
+    var selectedPlacementBounds: CGRect? {
+        if let annotation = selectedAnnotation,
+           let placement = signaturePlacement(for: annotation),
+           let page = annotation.page,
+           pageRef(for: page, in: combinedPDF)?.id == placement.pageRefId,
+           hasUsablePlacementCropBox(page),
+           isUsablePlacementBounds(annotation.bounds) {
+            return annotation.bounds
+        }
+        guard let id = selectedStampDecorationID,
+              let decoration = stampDecoration(id: id), decoration.isEnabled,
+              let pageRefID = decoration.pageRefID,
+              let page = placementPage(for: pageRefID), hasUsablePlacementCropBox(page),
+              let bounds = decoration.rect, isUsablePlacementBounds(bounds) else { return nil }
+        return bounds
+    }
+
+    @discardableResult
+    func applySelectedPlacementBounds(_ proposedBounds: CGRect) -> Bool {
+        guard isUsablePlacementBounds(proposedBounds) else { return false }
+        if let annotation = selectedAnnotation,
+           let placement = signaturePlacement(for: annotation),
+           let page = annotation.page,
+           pageRef(for: page, in: combinedPDF)?.id == placement.pageRefId,
+           hasUsablePlacementCropBox(page) {
+            let oldBounds = annotation.bounds
+            let bounds = constrainedSignatureBounds(proposedBounds, on: page)
+            guard !oldBounds.isApproximatelyEqual(to: bounds) ||
+                  !placement.rect.isApproximatelyEqual(to: bounds),
+                  canPerformMutatingAction() else { return false }
+            updateSignaturePlacement(for: annotation, to: proposedBounds, registerUndoFrom: oldBounds)
+            return true
+        }
+        guard let id = selectedStampDecorationID,
+              let decoration = stampDecoration(id: id), decoration.isEnabled,
+              let pageRefID = decoration.pageRefID,
+              let page = placementPage(for: pageRefID), hasUsablePlacementCropBox(page),
+              let oldBounds = decoration.rect,
+              !oldBounds.isApproximatelyEqual(to: constrainedSignatureBounds(proposedBounds, on: page)),
+              canPerformMutatingAction() else { return false }
+        updateStampDecoration(id: id, on: page, to: proposedBounds, registerUndoFrom: oldBounds)
+        return true
+    }
+
+    private func placementPage(for pageRefID: UUID) -> PDFPage? {
+        guard let workspaceIndex = document.workspace.pageOrder.firstIndex(where: { $0.id == pageRefID }),
+              let index = combinedPageIndex(forWorkspacePageNumber: workspaceIndex + 1),
+              let page = combinedPDF.page(at: index),
+              pageRef(for: page, in: combinedPDF)?.id == pageRefID else { return nil }
+        return page
+    }
+
+    private func isUsablePlacementBounds(_ bounds: CGRect) -> Bool {
+        bounds.origin.x.isFinite && bounds.origin.y.isFinite &&
+        bounds.size.width.isFinite && bounds.size.height.isFinite &&
+        bounds.size.width > 0 && bounds.size.height > 0
+    }
+
+    private func hasUsablePlacementCropBox(_ page: PDFPage) -> Bool {
+        let crop = page.bounds(for: .cropBox)
+        return isUsablePlacementBounds(crop) && crop.maxX.isFinite && crop.maxY.isFinite &&
+            crop.midX.isFinite && crop.midY.isFinite
+    }
+
     /// Disarms only a signature. Leaving the `.signature` tool must not disarm a
     /// stamp the user armed separately, so this stays case-scoped rather than
     /// clearing the slot outright.
@@ -8189,10 +8290,7 @@ final class WorkspaceViewModel {
         panel.prompt = L10n.string("savePanel.export.prompt")
         guard panel.runModal() == .OK, let folderURL = panel.url else { return false }
 
-        // Render every page into memory up front so a mid-export render
-        // failure is caught before anything on disk is touched -- neither
-        // the temp-folder path nor the sandbox fallback ever has to unwind a
-        // partially-written or partially-deleted destination folder.
+        // Catch rendering failures before disk publication begins.
         var renderedPages: [(filename: String, data: Data)] = []
         for pageIndex in 0..<exportDoc.pageCount {
             guard let page = exportDoc.page(at: pageIndex),
@@ -8206,61 +8304,16 @@ final class WorkspaceViewModel {
             renderedPages.append((filename, data))
         }
 
-        func writePages(into folder: URL) throws {
-            for page in renderedPages {
-                try page.data.write(to: folder.appendingPathComponent(page.filename))
-            }
-        }
-
-        let fileManager = FileManager.default
-        let parentURL = folderURL.deletingLastPathComponent()
-        let tempFolderURL = parentURL.appendingPathComponent(".Orifold-image-export-\(UUID().uuidString)", isDirectory: true)
         do {
-            // Some sandboxed destinations only grant write access to the exact
-            // path the user picked in NSSavePanel, not sibling paths in the
-            // same folder -- if the temp-folder dance can't even get started,
-            // fall back to writing folderURL directly.
-            var wroteTemp = true
-            do {
-                try fileManager.createDirectory(at: tempFolderURL, withIntermediateDirectories: true)
-                try writePages(into: tempFolderURL)
-            } catch {
-                try? fileManager.removeItem(at: tempFolderURL)
-                wroteTemp = false
+            try SecurityScopedAccess.withAccess(to: folderURL) { destination in
+                try ImageFolderPublisher.publish(
+                    renderedPages.map { ImageFolderPublisher.Page(filename: $0.filename, data: $0.data) },
+                    to: destination
+                )
             }
-
-            if wroteTemp {
-                if fileManager.fileExists(atPath: folderURL.path) {
-                    let replacement = try fileManager.replaceItemAt(
-                        folderURL,
-                        withItemAt: tempFolderURL,
-                        backupItemName: nil,
-                        options: [.usingNewMetadataOnly]
-                    )
-                    guard replacement != nil else {
-                        throw ExportFailure("Could not replace the selected folder.")
-                    }
-                } else {
-                    try fileManager.moveItem(at: tempFolderURL, to: folderURL)
-                }
-            } else {
-                // Fully replace any existing folder at this path rather than
-                // writing into it -- otherwise leftover pages from a prior,
-                // larger export would survive alongside the new ones. Safe to
-                // delete-then-write here because every page was already
-                // rendered successfully above.
-                if fileManager.fileExists(atPath: folderURL.path) {
-                    try fileManager.removeItem(at: folderURL)
-                }
-                try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
-                try writePages(into: folderURL)
-            }
-
-            try verifyExportedFile(at: folderURL)
             finalizeSuccessfulExport(url: folderURL, format: format)
             return true
         } catch {
-            try? fileManager.removeItem(at: tempFolderURL)
             if let writeError = error as? ExportWriteError {
                 exportError = ExportError(message: writeError.userMessage)
             } else {
@@ -10302,7 +10355,17 @@ final class WorkspaceViewModel {
     func prepareCompare(withOtherFileAt url: URL) {
         let rightData: Data
         do {
-            rightData = try SecurityScopedAccess.withAccess(to: url) { try Data(contentsOf: $0) }
+            rightData = try SecurityScopedAccess.withAccess(to: url) {
+                try BoundedLocalFileReader.readSelectedFileReportingFailure(
+                    at: $0,
+                    maxBytes: Int(DocumentImportConverter.maxImportBytes)
+                )
+            }
+        } catch BoundedLocalFileReader.ReadError.tooLarge(let actualBytes) {
+            exportError = ExportError(message: DocumentImportConverter.userMessage(
+                for: DocumentImportConverter.ConversionError.fileTooLarge(actualBytes)
+            ))
+            return
         } catch {
             exportError = ExportError(message: L10n.string("compare.error.unreadable"))
             return

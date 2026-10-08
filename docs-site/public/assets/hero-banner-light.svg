@@ -1,6 +1,6 @@
 <svg viewBox="0 0 1080 536" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="heroTitle heroDesc">
   <title id="heroTitle">Orifold — 50 messy files in, 1 polished PDF out</title>
-  <desc id="heroDesc">Fifty messy files flow into the Orifold app — merge, OCR, sign, compress, encrypt — inside a local-only boundary where nothing leaves your Mac, and one polished, searchable, password-protected PDF comes out. Up to 50 files per workspace, 0 files ever uploaded, 12+ PDF tools in one app, $0 forever.</desc>
+  <desc id="heroDesc">Fifty messy files flow into the Orifold app — merge, OCR, sign, compress, encrypt — inside a local-only boundary where nothing leaves your Mac, and one polished, searchable, password-protected PDF comes out. Up to 50 files per import batch, 0 files ever uploaded, 12+ PDF tools in one app, $0 forever.</desc>
   <defs>
     <linearGradient id="hPanel" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0A1628"/>
@@ -234,7 +234,7 @@
   <g text-anchor="middle">
     <g class="rise r1">
       <text x="158" y="436" class="stat" fill="#38BDF8">50</text>
-      <text x="158" y="458" class="lbl">files per workspace</text>
+      <text x="158" y="458" class="lbl">files per import batch</text>
     </g>
     <g class="rise r2">
       <text x="412" y="436" class="stat" fill="#2DD4BF">0</text>

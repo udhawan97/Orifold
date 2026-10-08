@@ -29,6 +29,10 @@ enum ImportLogEvent: String {
 enum ImportLog {
     private static let logger = Logger(subsystem: "com.ud.Orifold", category: "import")
 
+    static func recordUnreadableSavedMembers(count: Int) {
+        logger.warning("savedMemberUnreadable count=\(count, privacy: .public)")
+    }
+
     /// One record per import attempt (success or failure). `fileExtension` only —
     /// never the filename stem or directory path.
     static func recordAttempt(

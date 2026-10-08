@@ -1,9 +1,9 @@
 {
 	"version": "v0.12.1",
-	"tests": 1354,
-	"files": 326,
-	"loc": "102,000",
+	"tests": 1394,
+	"files": 334,
+	"loc": "104,000",
 	"languages": 6,
-	"maxFilesPerWorkspace": 50,
+	"maxFilesPerImport": 50,
 	"entitlements": 4
 }

@@ -165,7 +165,11 @@ enum PDFDecorationExportBaker {
                       decoration.pageRefID.map(pageRefIDs.contains) ?? true else {
                     throw BakeError.invalidDecoration
                 }
-            case .pageNumber, .bates:
+            case .bates:
+                guard decoration.batesNumber(at: max(0, pageOrder.count - 1)) != nil else {
+                    throw BakeError.invalidDecoration
+                }
+            case .pageNumber:
                 break
             }
         }
@@ -201,7 +205,10 @@ enum PDFDecorationExportBaker {
             // translation.
             return L10n.format("decoration.pageNumber.format", pageIndex + 1, pageCount)
         case .bates:
-            return "\(decoration.prefix)-\(String(format: "%06d", decoration.startNumber + pageIndex))"
+            guard let number = decoration.batesNumber(at: pageIndex) else { return "" }
+            let digits = String(number)
+            let padding = String(repeating: "0", count: max(0, 6 - digits.count))
+            return "\(decoration.prefix)-\(padding)\(digits)"
         }
     }
 

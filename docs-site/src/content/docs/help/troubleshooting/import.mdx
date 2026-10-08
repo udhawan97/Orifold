@@ -1,6 +1,6 @@
 ---
 title: Import & file problems
-description: Fixes for corrupt PDFs, CBZ comics, the 50-file limit, unsupported formats, and password loops.
+description: Fixes for corrupt PDFs, CBZ comics, the 50-file import batch limit, unsupported formats, and password loops.
 keywords: [import problem, wont import, corrupt pdf, cbz, comic archive, file limit, password loop]
 ---
 
@@ -8,9 +8,11 @@ keywords: [import problem, wont import, corrupt pdf, cbz, comic archive, file li
 
 Orifold attempts a qpdf recovery pass automatically for damaged PDFs. If recovery still fails, the file's internal structure may be too badly damaged to repair — try opening it in another app first to see if it opens at all.
 
-## I've hit the 50-file limit
+## I've hit the 50-file import batch limit
 
-A single workspace holds up to 50 files. Export what you have as one PDF, then start a second workspace for the remaining files, and combine the two exports if needed.
+Orifold accepts up to 50 files per import batch. Wait for the current import to finish, then use **Add Files** again to select the remaining files and add them to the same workspace.
+
+If a folder contains more than 50 supported files, Orifold offers to import the first 50. Select the remaining files in later batches; importing the same folder again can add duplicates. Very large folder scans can also be truncated, with a warning that some files were skipped. Choose smaller subfolders or select the skipped files with **Add Files**.
 
 ## An imported file doesn't show any content
 

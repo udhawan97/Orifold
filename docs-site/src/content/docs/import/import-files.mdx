@@ -1,6 +1,6 @@
 ---
 title: Import files
-description: Bring PDFs, Word documents, CBZ comics, images, scans, and more into an Orifold workspace — up to 50 files at once.
+description: Bring PDFs, Word documents, CBZ comics, images, scans, and more into an Orifold workspace — up to 50 files per import batch.
 keywords: [import, open files, drag and drop, supported formats, corrupt pdf, cbz, comic book archive]
 ---
 
@@ -18,7 +18,7 @@ import Figure from '../../../components/Figure.astro';
 
 1. Drag files onto the empty-state screen or an open workspace, **or**
 2. Use **Add Files** (<Kbd>⇧⌘O</Kbd>) and select one or more files, **or**
-3. Use **Add Folder to Workspace…** to bring in every supported file in a folder at once.
+3. Use **Add Folder to Workspace…** to scan a folder for supported files, with up to 50 imported per batch.
 
 <Figure src="/Orifold/assets/screenshots/import-files-overview.png" alt="Files mid-drag over the empty-state screen: the drop zone is highlighted blue and reads 'Release to import files', with a demo PDF hovering above it." caption="Dropping files onto the empty-state screen — release to import." />
 
@@ -37,8 +37,10 @@ For a bounded, predictable conversion, a CBZ can contain up to **1,000 image pag
 </Callout>
 
 <Callout variant="note">
-	A workspace holds up to **50 files**. Importing a folder adds its supported files up to that limit. If you're consistently hitting it, split the job into two workspaces and export each separately.
+	Each import batch accepts up to **50 files**. Wait for it to finish, then use **Add Files** again to select the remaining files and add them to the same workspace. For a folder with more than 50 supported files, Orifold offers to import the first 50; select the remaining files in later batches rather than importing the same folder again.
 </Callout>
+
+Folder scanning also has a safety bound for very large directory trees. If the scan is truncated, Orifold warns that some files were skipped. Choose a smaller subfolder or select those files with **Add Files**; a folder import does not guarantee that every file in a very large tree was scanned.
 
 When a folder import finishes, Orifold summarizes how many files it imported — and VoiceOver announces the same number. The count is the number that actually landed in the workspace, not the number it set out to try, so skipped or unsupported files are never counted in.
 

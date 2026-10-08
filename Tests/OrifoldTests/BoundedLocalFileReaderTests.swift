@@ -8,7 +8,9 @@ final class BoundedLocalFileReaderTests: XCTestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        directory = FileManager.default.temporaryDirectory
+        let temporary = ProcessInfo.processInfo.environment["ORIFOLD_TEST_TEMP_ROOT"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
+        directory = temporary
             .appendingPathComponent("orifold-bounded-reader-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
@@ -46,7 +48,7 @@ final class BoundedLocalFileReaderTests: XCTestCase {
     }
 
     func testAuthorizedRootRejectsSiblingFile() throws {
-        let sibling = directory.deletingLastPathComponent().appendingPathComponent("outside.pdf")
+        let sibling = directory.deletingLastPathComponent().appendingPathComponent("outside-\(UUID().uuidString).pdf")
         defer { try? FileManager.default.removeItem(at: sibling) }
         XCTAssertTrue(FileManager.default.createFile(atPath: sibling.path, contents: Data("outside".utf8)))
 
@@ -107,5 +109,20 @@ final class BoundedLocalFileReaderTests: XCTestCase {
             maxBytes: 1_024,
             matching: identity
         ))
+    }
+
+    func testRetainedRootRejectsDifferentParentEvenWhenSelectedFileIsSameInode() throws {
+        let original = directory.appendingPathComponent("original", isDirectory: true)
+        let replacement = directory.appendingPathComponent("replacement", isDirectory: true)
+        try FileManager.default.createDirectory(at: original, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: replacement, withIntermediateDirectories: true)
+        let selected = original.appendingPathComponent("document.html")
+        try Data("same selected file".utf8).write(to: selected)
+        XCTAssertEqual(Darwin.link(selected.path, replacement.appendingPathComponent("document.html").path), 0)
+        var metadata = stat()
+        XCTAssertEqual(Darwin.fstatat(AT_FDCWD, original.path, &metadata, 0), 0)
+        let originalIdentity = BoundedLocalFileIdentity(device: metadata.st_dev, inode: metadata.st_ino)
+        let retained = try XCTUnwrap(BoundedLocalFileDirectory(authorizedRoot: replacement))
+        XCTAssertFalse(retained.matchesRootIdentity(originalIdentity))
     }
 }

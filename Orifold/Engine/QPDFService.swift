@@ -1,4 +1,5 @@
 import CQPDF
+import Darwin
 import Foundation
 
 /// Thin Swift wrapper around qpdf's C API (`Packages/QPDFBinary`), used as a
@@ -224,7 +225,9 @@ enum QPDFService {
                       hasErrors(qpdf_check_pdf(source)) == false,
                       pageIndex >= 0,
                       pageIndex < qpdf_get_num_pages(destination),
-                      qpdf_get_num_pages(source) == 1 else { return nil }
+                      qpdf_get_num_pages(source) == 1,
+                      !hasErrors(qpdf_push_inherited_attributes_to_page(destination)),
+                      !hasErrors(qpdf_push_inherited_attributes_to_page(source)) else { return nil }
 
                 let destinationPage = qpdf_get_page_n(destination, numericCast(pageIndex))
                 let sourcePage = qpdf_get_page_n(source, 0)
@@ -240,9 +243,53 @@ enum QPDFService {
                         removeKey(destination, from: destinationPage, key: key)
                     }
                 }
-                return write(destination) { _ in }
+                return writeRemovingUnreferencedPageResources(destination)
             }
         }
+    }
+
+    /// Materializing inheritance removes ancestor resource dictionaries. The job's page
+    /// content analysis then removes unused entries from each page's effective resources,
+    /// including shared dictionaries and nested forms, while retaining resources used by
+    /// unaffected pages. Otherwise a catalog graft can retain pixels removed from content.
+    /// Preserve the existing catalog/page objects. The job applies this option while
+    /// reading its input, so the split-stage memory writer alone cannot perform the prune.
+    private static func writeRemovingUnreferencedPageResources(_ qpdf: qpdf_data) -> Data? {
+        guard let source = write(qpdf, configure: { _ in }) else { return nil }
+        let root = ProcessInfo.processInfo.environment["TMPDIR"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
+        var template = root.appendingPathComponent("Orifold-resource-cleanup-XXXXXX").path.utf8CString
+        guard let path = template.withUnsafeMutableBufferPointer({ buffer -> String? in
+            guard let base = buffer.baseAddress, let created = mkdtemp(base) else { return nil }
+            return String(cString: created)
+        }) else { return nil }
+        let directory = URL(fileURLWithPath: path, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let input = directory.appendingPathComponent("input.pdf")
+        let output = directory.appendingPathComponent("output.pdf")
+        let configuration: [String: Any] = [
+            "inputFile": input.path, "outputFile": output.path,
+            "removeUnreferencedResources": "yes",
+            // Resource pruning is a page-selection operation. Select every original page
+            // exactly once, in order, from the main input so catalog destinations stay bound.
+            "pages": [["file": ".", "range": "1-z"]]
+        ]
+        guard FileManager.default.createFile(atPath: input.path, contents: source, attributes: [.posixPermissions: 0o600]),
+              FileManager.default.createFile(atPath: output.path, contents: Data(), attributes: [.posixPermissions: 0o600]),
+              let json = try? JSONSerialization.data(withJSONObject: configuration),
+              let config = String(data: json, encoding: .utf8) else { return nil }
+        var ownedJob = qpdfjob_init()
+        var ownedLogger = qpdflogger_create()
+        defer { qpdfjob_cleanup(&ownedJob); qpdflogger_cleanup(&ownedLogger) }
+        guard let job = ownedJob, let logger = ownedLogger else { return nil }
+        qpdflogger_set_info(logger, qpdf_log_dest_discard, nil, nil)
+        qpdflogger_set_warn(logger, qpdf_log_dest_discard, nil, nil)
+        qpdflogger_set_error(logger, qpdf_log_dest_discard, nil, nil)
+        qpdfjob_set_logger(job, logger)
+        guard config.withCString({ qpdfjob_initialize_from_json(job, $0) }) == 0,
+              qpdfjob_run(job) == 0, let result = try? Data(contentsOf: output),
+              !result.isEmpty, isStructurallySound(result) else { return nil }
+        return result
     }
 
     /// Structural diagnostic for the annotation/form graft: every terminal field in

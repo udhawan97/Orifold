@@ -256,7 +256,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
         guard !pdf.isLocked else {
             throw DocumentImportConverter.ConversionError.passwordProtected
         }
-        let (metadata, didStripAnnotations) = Self.metadata(from: pdf)
+        let (metadata, didStripAnnotations) = try Self.metadata(from: pdf)
         if let editableWorkspace = metadata.editableWorkspace,
            !metadata.editableMemberPDFData.isEmpty {
             // External-modification guard: if this machine recorded a fingerprint for this
@@ -678,7 +678,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
     /// true the in-memory `pdf` no longer matches its on-disk bytes, so the caller must
     /// re-serialize the cleaned document rather than persist the (stale) original bytes,
     /// otherwise the stripped comment notes resurface as duplicate PDF sticky notes.
-    private static func metadata(from pdf: PDFDocument) -> (metadata: OrifoldMetadata, didStripAnnotations: Bool) {
+    private static func metadata(from pdf: PDFDocument) throws -> (metadata: OrifoldMetadata, didStripAnnotations: Bool) {
         var metadata = OrifoldMetadata()
         var didStripAnnotations = false
         for pageIndex in 0..<pdf.pageCount {
@@ -696,9 +696,16 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 }
                 if metadata.comments.isEmpty,
                    metadata.sourcePayloads.isEmpty,
-                   let data = rawValue.data(using: .utf8),
-                   let decoded = try? JSONDecoder().decode(OrifoldMetadata.self, from: data) {
-                    metadata = decoded
+                   let data = rawValue.data(using: .utf8) {
+                    do {
+                        metadata = try JSONDecoder().decode(OrifoldMetadata.self, from: data)
+                    } catch PageDecoration.ValidationError.invalidBatesStartNumber {
+                        // Reject explicitly rather than silently importing a flat document
+                        // and dropping editable state. The selected file's bytes are untouched.
+                        throw CocoaError(.fileReadCorruptFile)
+                    } catch {
+                        // Retain the existing fallback for unrelated legacy metadata errors.
+                    }
                 }
                 page.removeAnnotation(annotation)
                 didStripAnnotations = true

@@ -50,7 +50,7 @@ Two separate systems. Draw / Type / Initials produce a *visual* mark on the anno
 
 ## How does import/export work?
 
-Import repairs and normalizes via qpdf, then loads into the workspace (up to 50 files, folders included). Export is a staged pipeline: flatten → bake decorations → compress → sanitize → encrypt → **structural validation gates the write**.
+Import repairs and normalizes via qpdf, then loads into the workspace (up to 50 files per import batch, folders included). After completion, Add Files can add another batch to the same workspace. Very large folder scans can be truncated and report skipped files. Export is a staged pipeline: flatten → bake decorations → compress → sanitize → encrypt → **structural validation gates the write**.
 
 <Details summary="What happens if a stage fails">
 The final qpdf structural check is a gate, not a formality: an artifact that doesn't pass never reaches disk, and the export surfaces an error rather than writing a corrupt file. Optional stages (compress, sanitize, encrypt) are skipped cleanly when not requested.

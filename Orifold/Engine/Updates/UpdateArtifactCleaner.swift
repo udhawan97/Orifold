@@ -67,13 +67,20 @@ struct UpdateArtifactCleaner {
     // MARK: - Rollback archives
 
     private func pruneRollbackArchives(into report: inout Report) {
-        guard isCleanerOwned(rollbackDirectory) else { return }
-        let keepName = RollbackArchiver(directory: rollbackDirectory).loadManifest()?.archiveFileName
-        for child in directChildren(of: rollbackDirectory) {
-            guard child.pathExtension == "zip" else { continue }   // leave the manifest json in place
-            if isProtected(child) { report.skippedProtected.append(child.lastPathComponent); continue }
-            if let keepName, child.lastPathComponent == keepName { continue }
-            remove(child, into: &report)
+        guard isCleanerOwned(rollbackDirectory),
+              FileManager.default.fileExists(atPath: rollbackDirectory.path) else { return }
+        do {
+            try RollbackArchiveTransaction.withLock(in: rollbackDirectory) {
+                let keepName = RollbackArchiver(directory: rollbackDirectory).loadManifest()?.archiveFileName
+                for child in directChildren(of: rollbackDirectory) {
+                    guard child.pathExtension == "zip" else { continue } // staging `.partial` files are never pruned
+                    if isProtected(child) { report.skippedProtected.append(child.lastPathComponent); continue }
+                    if let keepName, child.lastPathComponent == keepName { continue }
+                    remove(child, into: &report)
+                }
+            }
+        } catch {
+            // No valid lock means no safe rollback snapshot. Leave recovery evidence intact.
         }
     }
 

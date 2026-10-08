@@ -18,6 +18,9 @@ struct ReadingCanvas: View {
     var body: some View {
         VStack(spacing: 0) {
             ZoomPageBar(viewModel: viewModel)
+            if viewModel.selectedPlacementBounds != nil {
+                PlacementGeometryControls(viewModel: viewModel)
+            }
             ZStack(alignment: .top) {
                 PDFViewRepresentable(viewModel: viewModel)
                 ScanBar(viewModel: viewModel)
@@ -33,38 +36,40 @@ struct ReadingCanvas: View {
                     .allowsHitTesting(viewModel.hasFormNotice)
                     .accessibilityHidden(!viewModel.hasFormNotice)
                     .animation(shouldReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.hasFormNotice)
-                if let promptKey = viewModel.armedPlacementPromptKey {
-                    SignaturePlacementBanner(
-                        promptKey: promptKey,
-                        iconName: viewModel.hasPendingSignaturePlacement ? "signature" : "seal"
-                    ) {
-                        viewModel.cancelArmedPlacement()
-                    }
-                    .padding(.top, viewModel.canvasBannerInset + .dsMD)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-                if let status = viewModel.editingStatus {
-                    EditingStatusBanner(status: status) {
-                        viewModel.editingStatus = nil
-                    }
-                    .padding(.top, viewModel.canvasBannerInset + (viewModel.hasArmedPlacement ? 48 : 0) + .dsMD)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .task(id: status.id) {
-                        // While a placement is armed the status text IS the instruction —
-                        // auto-dismissing it would take the only cue away mid-task.
-                        guard !viewModel.hasArmedPlacement else { return }
-                        let autoDismissDelay: Duration?
-                        switch status.severity {
-                        case .success, .info: autoDismissDelay = .seconds(1.75)
-                        case .warning: autoDismissDelay = .seconds(4)
-                        case .error: autoDismissDelay = nil
+                VStack(spacing: .dsSM) {
+                    if let promptKey = viewModel.armedPlacementPromptKey {
+                        SignaturePlacementBanner(
+                            promptKey: promptKey,
+                            iconName: viewModel.hasPendingSignaturePlacement ? "signature" : "seal",
+                            place: { _ = viewModel.placeArmedPlacementOnCurrentPage() }
+                        ) {
+                            viewModel.cancelArmedPlacement()
                         }
-                        guard let autoDismissDelay else { return }
-                        try? await Task.sleep(for: autoDismissDelay)
-                        guard !Task.isCancelled, viewModel.editingStatus?.id == status.id else { return }
-                        viewModel.editingStatus = nil
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                    if let status = viewModel.editingStatus {
+                        EditingStatusBanner(status: status) {
+                            viewModel.editingStatus = nil
+                        }
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .task(id: status.id) {
+                            // While a placement is armed the status text IS the instruction —
+                            // auto-dismissing it would take the only cue away mid-task.
+                            guard !viewModel.hasArmedPlacement else { return }
+                            let autoDismissDelay: Duration?
+                            switch status.severity {
+                            case .success, .info: autoDismissDelay = .seconds(1.75)
+                            case .warning: autoDismissDelay = .seconds(4)
+                            case .error: autoDismissDelay = nil
+                            }
+                            guard let autoDismissDelay else { return }
+                            try? await Task.sleep(for: autoDismissDelay)
+                            guard !Task.isCancelled, viewModel.editingStatus?.id == status.id else { return }
+                            viewModel.editingStatus = nil
+                        }
                     }
                 }
+                .padding(.top, viewModel.canvasBannerInset + .dsMD)
                 if !viewModel.pendingRedactions.isEmpty {
                     RedactionBar(viewModel: viewModel)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -161,6 +166,7 @@ private struct ReadAloudCapsule: View {
 private struct SignaturePlacementBanner: View {
     var promptKey: String
     var iconName: String
+    var place: () -> Void
     var cancel: () -> Void
     // Read so SwiftUI re-invokes `body` when the app language changes; without a
     // read of `\.locale`, this banner's `L10n.string` text would stay in the
@@ -169,16 +175,15 @@ private struct SignaturePlacementBanner: View {
 
     var body: some View {
         let _ = locale
-        HStack(spacing: .dsSM) {
-            Image(systemName: iconName)
-                .foregroundStyle(Color.dsSignatureAccent)
-            Text(L10n.string(forKey: promptKey, locale: locale))
+        VStack(alignment: .leading, spacing: .dsSM) {
+            Label(L10n.string(forKey: promptKey, locale: locale), systemImage: iconName)
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextPrimary)
-            Button(L10n.string("readingCanvas.signaturePlacement.cancel.button"), action: cancel)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help(L10n.string("readingCanvas.signaturePlacement.cancel.help"))
+                .fixedSize(horizontal: false, vertical: true)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: .dsSM) { placementButtons }
+                VStack(alignment: .leading, spacing: .dsSM) { placementButtons }
+            }
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsSM)
@@ -187,6 +192,18 @@ private struct SignaturePlacementBanner: View {
             RoundedRectangle(cornerRadius: .dsRadiusSm, style: .continuous)
                 .strokeBorder(Color.dsSeparator, lineWidth: 1)
         }
+    }
+
+    @ViewBuilder
+    private var placementButtons: some View {
+        Button(L10n.string("placement.placeCurrentPage", locale: locale), action: place)
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .focusable()
+        Button(L10n.string("readingCanvas.signaturePlacement.cancel.button", locale: locale), action: cancel)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help(L10n.string("readingCanvas.signaturePlacement.cancel.help", locale: locale))
     }
 }
 

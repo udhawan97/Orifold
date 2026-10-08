@@ -8,8 +8,12 @@ import XCTest
 @testable import Orifold
 
 final class HTMLImportSecurityTests: XCTestCase {
+    private var temporaryDirectory: URL {
+        ProcessInfo.processInfo.environment["ORIFOLD_TEST_TEMP_ROOT"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
+    }
     func testResourcePolicyConfinesRelativeAssetsToCanonicalSourceRoot() throws {
-        let scratch = FileManager.default.temporaryDirectory
+        let scratch = temporaryDirectory
             .appendingPathComponent("orifold-html-policy-\(UUID().uuidString)", isDirectory: true)
         let root = scratch.appendingPathComponent("source", isDirectory: true)
         let outside = scratch.appendingPathComponent("outside.txt")
@@ -43,7 +47,7 @@ final class HTMLImportSecurityTests: XCTestCase {
     }
 
     func testDescriptorRelativeReadsNeverFollowAFileSwappedToOutsideSymlink() throws {
-        let scratch = FileManager.default.temporaryDirectory
+        let scratch = temporaryDirectory
             .appendingPathComponent("orifold-html-swap-\(UUID().uuidString)", isDirectory: true)
         let root = scratch.appendingPathComponent("source", isDirectory: true)
         let target = root.appendingPathComponent("asset.txt")
@@ -87,7 +91,7 @@ final class HTMLImportSecurityTests: XCTestCase {
     }
 
     func testRetainedRootAndIntermediateDescriptorsSurvivePathSwapsWithoutEscape() throws {
-        let scratch = FileManager.default.temporaryDirectory
+        let scratch = temporaryDirectory
             .appendingPathComponent("orifold-html-root-swap-\(UUID().uuidString)", isDirectory: true)
         let source = scratch.appendingPathComponent("source", isDirectory: true)
         let heldSource = scratch.appendingPathComponent("source-held", isDirectory: true)
@@ -131,7 +135,7 @@ final class HTMLImportSecurityTests: XCTestCase {
     }
 
     func testMainDocumentAndAssetsRemainBoundToOneRetainedSourceRoot() throws {
-        let scratch = FileManager.default.temporaryDirectory
+        let scratch = temporaryDirectory
             .appendingPathComponent("orifold-html-bound-source-\(UUID().uuidString)", isDirectory: true)
         let source = scratch.appendingPathComponent("source", isDirectory: true)
         let heldSource = scratch.appendingPathComponent("source-held", isDirectory: true)
@@ -161,7 +165,7 @@ final class HTMLImportSecurityTests: XCTestCase {
     }
 
     func testDescriptorRelativeReadsRejectFIFOsWithoutBlocking() throws {
-        let scratch = FileManager.default.temporaryDirectory
+        let scratch = temporaryDirectory
             .appendingPathComponent("orifold-html-fifo-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: scratch) }
@@ -355,7 +359,7 @@ final class HTMLImportSecurityTests: XCTestCase {
 
     @MainActor
     func testReferenceDocumentDirectOpenPreservesInlineRootAndDataCSS() throws {
-        let scratch = FileManager.default.temporaryDirectory
+        let scratch = temporaryDirectory
             .appendingPathComponent("orifold-html-direct-assets-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: scratch) }
@@ -416,7 +420,7 @@ final class HTMLImportSecurityTests: XCTestCase {
 
     @MainActor
     func testHTMLImportRendersAuthorizedRootScopedAndDataStylesheets() async throws {
-        let scratch = FileManager.default.temporaryDirectory
+        let scratch = temporaryDirectory
             .appendingPathComponent("orifold-html-assets-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: scratch) }

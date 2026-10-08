@@ -55,7 +55,9 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
     override func setUpWithError() throws {
         suite = "orifold-orch-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
-        tmp = FileManager.default.temporaryDirectory.appendingPathComponent(suite, isDirectory: true)
+        let temporary = ProcessInfo.processInfo.environment["ORIFOLD_TEST_TEMP_ROOT"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
+        tmp = temporary.appendingPathComponent(suite, isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
     }
 
