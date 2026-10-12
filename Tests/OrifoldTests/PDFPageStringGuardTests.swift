@@ -72,10 +72,6 @@ final class PDFPageStringGuardTests: XCTestCase {
         #"OrifoldTests.swift: let pageTextAfterRedo = viewModel.loadedPDFs.first?.1.page(at: 0)?.string ?? """#,
         #"OrifoldTests.swift: let pageTextAfterSecondUndo = viewModel.loadedPDFs.first?.1.page(at: 0)?.string ?? """#,
         #"OrifoldTests.swift: let textSelection = try XCTUnwrap(hostedPage.selection(for: (hostedPage.string! as NSString).range(of: "Untouched transparent text")))"#,
-        #"PDFOCRTests.swift: XCTAssertTrue(outputPDF.page(at: 0)?.string?.contains("New scan text") == true)"#,
-        #"PDFOCRTests.swift: XCTAssertTrue(outputPDF.page(at: 1)?.string?.contains("Existing searchable text") == true)"#,
-        #"PDFOCRTests.swift: XCTAssertTrue(outputPage.string?.contains("Searchable invoice phrase") == true)"#,
-        #"PDFOCRTests.swift: let outputString = try XCTUnwrap(outputPDF.page(at: 0)?.string)"#,
         #"SourceDocumentRoundTripTests.swift: let exportedString = try XCTUnwrap(exportedPage.string, sample.format.rawValue)"#,
         #"StressFixtureLifecycleTests.swift: let pdfkit = strip(page.attributedString?.string ?? page.string ?? "")"#,
         #"UserFlowRegressionRound2Tests.swift: XCTAssertFalse(exportedPDF.page(at: 0)?.string?.contains("First doc") ?? false, "the removed document's content must not appear in the export")"#

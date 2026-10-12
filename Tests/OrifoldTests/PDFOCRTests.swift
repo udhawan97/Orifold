@@ -44,7 +44,7 @@ final class PDFOCRTests: XCTestCase {
         let outputPDF = try XCTUnwrap(PDFDocument(data: outputData))
         let outputPage = try XCTUnwrap(outputPDF.page(at: 0))
         XCTAssertEqual(result.recognizedPageCount, 1)
-        XCTAssertTrue(outputPage.string?.contains("Searchable invoice phrase") == true)
+        XCTAssertTrue(stableOCRText(in: outputData).contains("Searchable invoice phrase"))
         XCTAssertFalse(outputPDF.findString("invoice phrase", withOptions: .caseInsensitive).isEmpty)
         XCTAssertNoThrow(try PDFiumProcessingEngine().validatePDF(data: outputData))
 
@@ -245,7 +245,7 @@ final class PDFOCRTests: XCTestCase {
 
         let outputData = try XCTUnwrap(result.dataByMemberID[member.id])
         let outputPDF = try XCTUnwrap(PDFDocument(data: outputData))
-        let outputString = try XCTUnwrap(outputPDF.page(at: 0)?.string)
+        let outputString = stableOCRText(in: outputData)
         XCTAssertTrue(outputString.contains("Reliable text"))
         XCTAssertFalse(outputString.contains("Unreliable text"))
         XCTAssertEqual(result.qualityReport.recognizedLineCount, 1)
@@ -515,8 +515,8 @@ final class PDFOCRTests: XCTestCase {
         let outputPDF = try XCTUnwrap(PDFDocument(data: outputData))
         XCTAssertEqual(outputPDF.pageCount, 2)
         XCTAssertEqual(requestedPages, [1])
-        XCTAssertTrue(outputPDF.page(at: 0)?.string?.contains("New scan text") == true)
-        XCTAssertTrue(outputPDF.page(at: 1)?.string?.contains("Existing searchable text") == true)
+        XCTAssertTrue(stableOCRText(in: outputData, pageIndex: 0).contains("New scan text"))
+        XCTAssertTrue(stableOCRText(in: outputData, pageIndex: 1).contains("Existing searchable text"))
         XCTAssertNoThrow(try PDFiumProcessingEngine().validatePDF(data: outputData))
     }
 
