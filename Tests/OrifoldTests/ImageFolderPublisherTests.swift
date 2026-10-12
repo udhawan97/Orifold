@@ -16,6 +16,9 @@ final class ImageFolderPublisherTests: XCTestCase {
             .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
         root = temporary.appendingPathComponent("orifold-image-publication-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        // macOS temporaryDirectory can use /var while enumeration and sandbox rules
+        // resolve it to /private/var. Use one canonical path for both fixtures.
+        root = root.resolvingSymlinksInPath()
     }
 
     override func tearDownWithError() throws {
