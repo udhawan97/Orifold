@@ -16,9 +16,11 @@ final class ImageFolderPublisherTests: XCTestCase {
             .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
         root = temporary.appendingPathComponent("orifold-image-publication-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        // macOS temporaryDirectory can use /var while enumeration and sandbox rules
-        // resolve it to /private/var. Use one canonical path for both fixtures.
-        root = root.resolvingSymlinksInPath()
+        // Use the filesystem's canonical spelling for sandbox rules. Foundation's
+        // resolvingSymlinksInPath may shorten /private/var back to the /var alias.
+        let canonicalPath = try XCTUnwrap(Darwin.realpath(root.path, nil))
+        defer { free(canonicalPath) }
+        root = URL(fileURLWithPath: String(cString: canonicalPath), isDirectory: true)
     }
 
     override func tearDownWithError() throws {
@@ -183,9 +185,14 @@ final class ImageFolderPublisherTests: XCTestCase {
 
     private func tree(at folder: URL) throws -> [String: Data] {
         var result: [String: Data] = [:]
-        let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey]))
-        for case let file as URL in enumerator where try file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
-            result[String(file.path.dropFirst(folder.path.count + 1))] = try Data(contentsOf: file)
+        // Path enumeration supplies relative names directly, avoiding mismatched
+        // /var and /private/var spellings in URL enumeration results.
+        let enumerator = try XCTUnwrap(FileManager.default.enumerator(atPath: folder.path))
+        for case let relativePath as String in enumerator {
+            let file = folder.appendingPathComponent(relativePath)
+            if try file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
+                result[relativePath] = try Data(contentsOf: file)
+            }
         }
         return result
     }
