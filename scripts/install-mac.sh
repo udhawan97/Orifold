@@ -43,6 +43,7 @@ LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
 LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
 RELEASE_API="https://api.github.com/repos/$REPO/releases/latest"
 INSTALL_TRANSACTION_DIR=""
+INSTALL_TRANSACTION_TARGET=""
 INSTALL_TRANSACTION_ACTIVE=0
 INSTALL_HAD_PREVIOUS=0
 
@@ -97,12 +98,12 @@ fail() {
 cleanup() {
     if [[ $INSTALL_TRANSACTION_ACTIVE -eq 1 ]]; then
         if [[ -d "$INSTALL_TRANSACTION_DIR/previous.app" ]]; then
-            if ! /bin/rm -rf "$INSTALLED_APP" || ! /bin/mv "$INSTALL_TRANSACTION_DIR/previous.app" "$INSTALLED_APP"; then
+            if ! /bin/rm -rf "$INSTALL_TRANSACTION_TARGET" || ! /bin/mv "$INSTALL_TRANSACTION_DIR/previous.app" "$INSTALL_TRANSACTION_TARGET"; then
                 printf "Could not restore the previous app. It is preserved at %s/previous.app\n" "$INSTALL_TRANSACTION_DIR" >&2
                 return 1
             fi
         elif [[ $INSTALL_HAD_PREVIOUS -eq 0 && ! -d "$INSTALL_TRANSACTION_DIR/new.app" ]]; then
-            /bin/rm -rf "$INSTALLED_APP"
+            /bin/rm -rf "$INSTALL_TRANSACTION_TARGET"
         fi
         INSTALL_TRANSACTION_ACTIVE=0
     fi
@@ -113,6 +114,32 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
+
+begin_install_transaction() {
+    INSTALL_TRANSACTION_TARGET="$1"
+    [[ ! -L "$INSTALL_TRANSACTION_TARGET" && ( ! -e "$INSTALL_TRANSACTION_TARGET" || -d "$INSTALL_TRANSACTION_TARGET" ) ]] \
+        || fail "The install target must be an app directory, not a symlink or other file."
+    INSTALL_HAD_PREVIOUS=0
+    INSTALL_TRANSACTION_DIR="$(/usr/bin/mktemp -d "$(dirname "$INSTALL_TRANSACTION_TARGET")/.orifold-update.XXXXXX")" \
+        || fail "Could not create update staging beside the installed app."
+}
+
+swap_transaction_app() {
+    [[ ! -e "$INSTALL_TRANSACTION_TARGET" && ! -L "$INSTALL_TRANSACTION_TARGET" ]] || INSTALL_HAD_PREVIOUS=1
+    INSTALL_TRANSACTION_ACTIVE=1
+    if [[ $INSTALL_HAD_PREVIOUS -eq 1 ]]; then
+        /bin/mv "$INSTALL_TRANSACTION_TARGET" "$INSTALL_TRANSACTION_DIR/previous.app" \
+            || fail "Could not move the previous app aside."
+    fi
+    /bin/mv "$INSTALL_TRANSACTION_DIR/new.app" "$INSTALL_TRANSACTION_TARGET" \
+        || fail "Could not put the new app in place; restoring the previous app."
+}
+
+finish_install_transaction() {
+    INSTALL_TRANSACTION_ACTIVE=0
+    /bin/rm -rf "$INSTALL_TRANSACTION_DIR"
+    INSTALL_TRANSACTION_DIR=""
+}
 
 # Restore a previously-archived Orifold.app from a zip, without building. Mirrors the in-app
 # restore path (stage-then-swap + verify + relaunch) for use from Terminal — the recovery route
@@ -133,8 +160,9 @@ do_restore() {
     [[ -w "$(dirname "$target")" ]] || fail "No permission to restore into $(dirname "$target")."
 
     print_step "Restoring $APP_NAME from $zip_path"
-    local work found staged backup
-    work="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/orifold-restore.XXXXXX")" || fail "Could not create a temp directory."
+    local work found
+    work="$STAGE_ROOT/restore"
+    /bin/mkdir -p "$work" || fail "Could not create a temp directory."
 
     /usr/bin/ditto -x -k "$zip_path" "$work" >>"$LOG_FILE" 2>&1 || { /bin/rm -rf "$work"; fail "Could not read the restore archive."; }
     local found_count
@@ -155,28 +183,16 @@ do_restore() {
     /usr/sbin/spctl --assess --type execute "$found" >>"$LOG_FILE" 2>&1 \
         || { /bin/rm -rf "$work"; fail "The archived app is not accepted by Gatekeeper."; }
 
-    staged="${target}.restore-staging-$$"
-    backup="${target}.replaced-$$"
-    /bin/rm -rf "$staged"
-    /usr/bin/ditto --norsrc "$found" "$staged" >>"$LOG_FILE" 2>&1 \
-        || { /bin/rm -rf "$work" "$staged"; fail "Could not stage the restored app."; }
+    begin_install_transaction "$target"
+    /usr/bin/ditto --norsrc "$found" "$INSTALL_TRANSACTION_DIR/new.app" >>"$LOG_FILE" 2>&1 \
+        || fail "Could not stage the restored app."
     /bin/rm -rf "$work"
-
-    if [[ -d "$target" ]]; then
-        /bin/rm -rf "$backup"
-        /bin/mv "$target" "$backup" || { /bin/rm -rf "$staged"; fail "Could not move the current app aside."; }
-    fi
-    if ! /bin/mv "$staged" "$target"; then
-        [[ -d "$backup" ]] && /bin/mv "$backup" "$target"
-        fail "Could not move the restored app into place."
-    fi
+    swap_transaction_app
     /usr/bin/xattr -cr "$target" 2>/dev/null || true
     if ! codesign --verify --deep --strict "$target" >>"$LOG_FILE" 2>&1; then
-        /bin/rm -rf "$target"
-        [[ -d "$backup" ]] && /bin/mv "$backup" "$target"
         fail "The restored app failed verification."
     fi
-    /bin/rm -rf "$backup"
+    finish_install_transaction
 
     print_note "Restored $APP_NAME to $target"
     if [[ $OPEN_AFTER_INSTALL -eq 1 ]]; then
@@ -435,12 +451,9 @@ remove_stray_app_copies() {
 replace_staged_app() {
     [[ -d "$STAGED_APP" ]] || fail "No staged app bundle was prepared."
 
-    [[ ! -L "$INSTALLED_APP" && ( ! -e "$INSTALLED_APP" || -d "$INSTALLED_APP" ) ]] \
-        || fail "The install target must be an app directory, not a symlink or other file."
     # Prepare and verify on the destination volume before touching the installed app.
     /bin/mkdir -p "$INSTALL_DIR" || fail "Could not create the Applications folder."
-    INSTALL_TRANSACTION_DIR="$(/usr/bin/mktemp -d "$INSTALL_DIR/.orifold-update.XXXXXX")" \
-        || fail "Could not create update staging beside the installed app."
+    begin_install_transaction "$INSTALLED_APP"
     /usr/bin/ditto --norsrc "$STAGED_APP" "$INSTALL_TRANSACTION_DIR/new.app" \
         || fail "Could not stage the new app; the previous app was preserved."
     /usr/bin/xattr -cr "$INSTALL_TRANSACTION_DIR/new.app" 2>/dev/null || true
@@ -448,18 +461,9 @@ replace_staged_app() {
     stop_running_app "$INSTALLED_APP" || fail "Update cancelled; the previous app was preserved."
 
     print_step "Installing app at $INSTALLED_APP"
-    [[ ! -e "$INSTALLED_APP" && ! -L "$INSTALLED_APP" ]] || INSTALL_HAD_PREVIOUS=1
-    INSTALL_TRANSACTION_ACTIVE=1
-    if [[ $INSTALL_HAD_PREVIOUS -eq 1 ]]; then
-        /bin/mv "$INSTALLED_APP" "$INSTALL_TRANSACTION_DIR/previous.app" \
-            || fail "Could not move the previous app aside."
-    fi
-    /bin/mv "$INSTALL_TRANSACTION_DIR/new.app" "$INSTALLED_APP" \
-        || fail "Could not put the new app in place; restoring the previous app."
+    swap_transaction_app
     verify_app_bundle "$INSTALLED_APP"
-    INSTALL_TRANSACTION_ACTIVE=0
-    /bin/rm -rf "$INSTALL_TRANSACTION_DIR"
-    INSTALL_TRANSACTION_DIR=""
+    finish_install_transaction
 
     # A usable replacement now exists. Cancelled quits leave duplicate copies intact.
     remove_stray_app_copies

@@ -1491,8 +1491,16 @@ final class WorkspaceViewModel {
         guard canPerformMutatingAction() else { return false }
         guard pdf.unlock(withPassword: password) else { return false }
         let pending = pendingPasswordImports.first
-        smokeValidatePDFData(pdf.dataRepresentation(), password: password)
-        attachPDF(pdf, from: url, sourcePayload: nil, importPosition: pending?.position)
+        guard let serialized = PDFSerializer.data(from: pdf),
+              let plainData = QPDFService.decrypted(serialized, password: password),
+              let plainPDF = PDFDocument(data: plainData),
+              !plainPDF.isEncrypted, !plainPDF.isLocked,
+              plainPDF.pageCount > 0, plainPDF.pageCount == pdf.pageCount else {
+            importError = ImportError(fileName: url.lastPathComponent, message: L10n.string("error.import.preparePDFForSaving"))
+            return false
+        }
+        guard attachPDF(plainPDF, from: url, sourcePayload: nil, importPosition: pending?.position,
+                        originalPDFData: plainData) != nil else { return false }
         removeCurrentPasswordImport()
         rebuild()
         pending?.position?.batch.resolvePendingPassword()
@@ -1811,6 +1819,12 @@ final class WorkspaceViewModel {
     }
 
     private struct OrderSnapshot: @unchecked Sendable {
+        var modifiedAt: Date
+        var selectedPageRefID: UUID?
+        var selectedPageRefIDs: Set<UUID>
+        var selectedStampDecorationID: UUID?
+        var commentRevision: Int
+        var decorationStateVersion: Int
         var documents: [MemberDocument]
         var pageOrder: [PageRef]
         var comments: [WorkspaceComment]
@@ -1892,6 +1906,12 @@ final class WorkspaceViewModel {
     private func captureOrderSnapshot() -> OrderSnapshot {
         let memberTimeline = captureMemberTimelineSnapshot()
         return OrderSnapshot(
+            modifiedAt: document.workspace.modifiedAt,
+            selectedPageRefID: selectedPageRefID,
+            selectedPageRefIDs: selectedPageRefIDs,
+            selectedStampDecorationID: selectedStampDecorationID,
+            commentRevision: commentRevision,
+            decorationStateVersion: decorationStateVersion,
             documents: document.workspace.documents,
             pageOrder: document.workspace.pageOrder,
             comments: document.workspace.comments,
@@ -1911,16 +1931,18 @@ final class WorkspaceViewModel {
         )
     }
 
-    private func restore(_ snapshot: OrderSnapshot) {
+    private func restore(_ snapshot: OrderSnapshot, registersInverse: Bool = true) {
         // Register the inverse so the restore itself is redoable — undo closures that
         // register nothing leave NSUndoManager's redo stack empty, which silently made
         // every order-snapshot operation (page delete/move/duplicate, document reorder,
         // OCR, form reset) un-redoable after its undo.
-        let inverse = captureOrderSnapshot()
-        registerIsolatedUndo {
-            undoManager?.registerUndo(withTarget: self) { vm in
-                guard vm.canPerformUndoMutation() else { return }
-                vm.restore(inverse)
+        if registersInverse {
+            let inverse = captureOrderSnapshot()
+            registerIsolatedUndo {
+                undoManager?.registerUndo(withTarget: self) { vm in
+                    guard vm.canPerformUndoMutation() else { return }
+                    vm.restore(inverse)
+                }
             }
         }
         document.workspace.documents = snapshot.documents
@@ -1945,6 +1967,14 @@ final class WorkspaceViewModel {
         }
         textAnalysisCache.removeAll()
         objectAnalysisCache.removeAll()
+        if !registersInverse {
+            document.workspace.modifiedAt = snapshot.modifiedAt
+            selectedPageRefID = snapshot.selectedPageRefID
+            selectedPageRefIDs = snapshot.selectedPageRefIDs
+            selectedStampDecorationID = snapshot.selectedStampDecorationID
+            commentRevision = snapshot.commentRevision
+            decorationStateVersion = snapshot.decorationStateVersion
+        }
         objectSelection = snapshot.objectSelection
         applyPageRotations(snapshot.pageRotations)
         rebuild()
@@ -5279,12 +5309,14 @@ final class WorkspaceViewModel {
     /// reorder. The new base is assembled from the OLD pristine pages in the member's NEW ref
     /// order, so committed text/object operations remain re-editable instead of becoming baked
     /// background. Page refs are then normalized to the new base's local indexes.
-    private func realignCanonicalReplayBaseAfterStructuralChange(memberID: UUID) {
-        guard let memberIndex = document.workspace.documents.firstIndex(where: { $0.id == memberID }),
-              let canonicalData = originalMemberPDFData[memberID]
+    private func realignCanonicalReplayBaseAfterStructuralChange(memberID: UUID) -> Bool {
+        guard let memberIndex = document.workspace.documents.firstIndex(where: { $0.id == memberID }) else {
+            return true
+        }
+        guard let canonicalData = originalMemberPDFData[memberID]
                 ?? objectBaseData[memberID]
                 ?? document.memberPDFData[memberID],
-              let canonicalPDF = PDFDocument(data: canonicalData) else { return }
+              let canonicalPDF = PDFDocument(data: canonicalData) else { return false }
 
         let member = document.workspace.documents[memberIndex]
         let realigned = PDFDocument()
@@ -5292,10 +5324,13 @@ final class WorkspaceViewModel {
             guard let ref = workspacePageRef(refID),
                   ref.sourcePageIndex >= 0,
                   let page = canonicalPDF.page(at: ref.sourcePageIndex),
-                  let copy = page.copy() as? PDFPage else { return }
+                  let copy = page.copy() as? PDFPage else { return false }
             realigned.insert(copy, at: realigned.pageCount)
         }
-        guard let realignedData = PDFSerializer.data(from: realigned) else { return }
+        guard let serialized = PDFSerializer.data(from: realigned),
+              let realignedData = QPDFService.preservingCanonicalMetadataAndAttachments(
+                in: serialized, from: canonicalData
+              ) else { return false }
 
         invalidatePageInspection(for: memberID)
         originalMemberPDFData[memberID] = realignedData
@@ -5309,6 +5344,7 @@ final class WorkspaceViewModel {
             textAnalysisCache.removeValue(forKey: refID)
             objectAnalysisCache.removeValue(forKey: refID)
         }
+        return true
     }
 
     struct CommittedEditReplayError: LocalizedError {
@@ -9899,7 +9935,11 @@ final class WorkspaceViewModel {
             loadedPDFs[lookup.loadedIndex].0 = document.workspace.documents[lookup.documentIndex]
             // Deleting a page shifts every later page's local index within this member; a frozen
             // object-edit base still has the old indices, so it must move to the post-delete bytes.
-            realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId)
+            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId) else {
+                restore(snapshot, registersInverse: false)
+                showEditWarning(.serializationFailed)
+                return
+            }
         }
         rebuild()
 
@@ -9955,7 +9995,11 @@ final class WorkspaceViewModel {
         // frozen object-edit base still has the old indices, so it must move to the post-delete
         // bytes (members dropped entirely above already had their base removed).
         for memberID in Set(orderedRefs.map(\.memberDocId)) {
-            realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID)
+            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID) else {
+                restore(snapshot, registersInverse: false)
+                showEditWarning(.serializationFailed)
+                return
+            }
         }
         rebuild()
         undoManager?.registerUndo(withTarget: self) { vm in
@@ -10043,7 +10087,11 @@ final class WorkspaceViewModel {
         // Inserting a page shifts every later local index. Rebuild the canonical base in the new
         // ref order; both operation lanes were cloned above, so source and duplicate stay editable.
         for memberID in Set(orderedRefs.map(\.memberDocId)) {
-            realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID)
+            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID) else {
+                restore(snapshot, registersInverse: false)
+                showEditWarning(.serializationFailed)
+                return
+            }
         }
         rebuild()
         markWorkspaceModified()
@@ -10554,7 +10602,11 @@ final class WorkspaceViewModel {
         // always reflects the CURRENT page order. Reordering without refreezing would apply a
         // later object edit's ops (indexed by the new order) against the old order baked into
         // the frozen bytes — silently editing the wrong page.
-        realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId)
+        guard realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId) else {
+            restore(snapshot, registersInverse: false)
+            showEditWarning(.serializationFailed)
+            return false
+        }
         rebuild()
 
         undoManager?.registerUndo(withTarget: self) { vm in

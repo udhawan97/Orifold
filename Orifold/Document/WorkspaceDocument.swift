@@ -276,6 +276,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
             if externallyModified {
                 externalModificationDetected = true
             } else {
+                // Consumers require unambiguous member identities; never coalesce restored records.
+                guard Set(editableWorkspace.documents.map(\.id)).count == editableWorkspace.documents.count else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
                 workspace = editableWorkspace
                 memberPDFData = metadata.editableMemberPDFData
                 sourcePayloads = metadata.sourcePayloads

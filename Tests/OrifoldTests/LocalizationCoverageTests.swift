@@ -50,6 +50,40 @@ final class LocalizationCoverageTests: XCTestCase {
         XCTAssertTrue(missingEnglish.isEmpty, "Keys missing an English source value: \(missingEnglish)")
     }
 
+    func testCertificateTrustCaveatResolvesInEveryAppLanguageWithoutEnglishFallback() throws {
+        let catalog = try loadCatalog()
+        let key = "signaturePalette.certificateTrust.caveat"
+        let entry = try XCTUnwrap(catalog.strings[key])
+        let english = try XCTUnwrap(entry.localizations["en"]?.stringUnit?.value)
+
+        for language in ["en"] + Self.supportedLanguages {
+            let expected = try XCTUnwrap(entry.localizations[language]?.stringUnit?.value)
+            let actual = CertificateGuideResource.shortPopoverCopy(locale: Locale(identifier: language))
+            XCTAssertEqual(actual, expected, "Caveat did not resolve in \(language)")
+            XCTAssertFalse(actual.contains(key), "Raw key leaked in \(language)")
+            if language != "en" {
+                XCTAssertNotEqual(actual, english, "English fallback in \(language)")
+            }
+            for marker in ["Orifold", "Adobe Acrobat/Reader", "AATL", ".p12"] {
+                XCTAssertTrue(actual.contains(marker), "Trust caveat lost \(marker) in \(language)")
+            }
+        }
+    }
+
+    func testExpandedCertificateHelpDisclosesEnglishInEveryAppLanguage() {
+        let englishMarkers = [
+            "en": "English", "es": "inglés", "fr": "anglais",
+            "hi": "अंग्रेज़ी", "ja": "英語", "zh-Hans": "英文",
+        ]
+        for (language, marker) in englishMarkers {
+            for key in ["signaturePalette.certificateTrust.howToGetOne", "signaturePalette.certificateGuide.title"] {
+                let text = L10n.string(forKey: key, locale: Locale(identifier: language))
+                XCTAssertTrue(text.contains(marker), "\(key) does not disclose English in \(language)")
+                XCTAssertFalse(text.contains(key), "Raw key leaked in \(language)")
+            }
+        }
+    }
+
     /// Interpolated-format-string keys (literal Swift source containing `\(`)
     /// can't carry hand-authored translations — Xcode's build-time extraction
     /// would need to derive the real %@ format key. These are a documented,
