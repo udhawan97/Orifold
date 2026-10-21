@@ -6,6 +6,7 @@ interface Props {
 }
 const { src, alt, caption } = Astro.props;
 const isPlaceholder = !src;
+const historical = Boolean(src && /\/(?:first-workspace-empty-state|the-orifold-window-annotated|annotate-markup-tools|night-mode-comparison|reader-mode-toggle|language-switcher|edit-text-workflow|export-save-confirmation|combine-reorder-pages|reorder-rotate-delete-pages|import-files-overview|recently-viewed-shelf)\.png$/.test(src));
 ---
 
 <figure class="of-figure">
@@ -18,5 +19,7 @@ const isPlaceholder = !src;
 			<img src={src} alt={alt} loading="lazy" />
 		)
 	}
-	{caption && <figcaption>{caption}</figcaption>}
+	{(caption || historical) && <figcaption>{caption}{historical && <small class="capture-provenance">Historical capture (v0.8.1 source build); current controls may differ.</small>}</figcaption>}
 </figure>
+
+<style>.capture-provenance { display: block; margin-top: .5em; }</style>

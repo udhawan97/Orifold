@@ -95,9 +95,10 @@ static methods, called synchronously under the lock.
   binding sites derive from it. Never hand-type `.keyboardShortcut("b", modifiers: .command)`.
 - **New file type** — `project.yml` `CFBundleDocumentTypes` + `UTType` in `WorkspaceDocument` +
   `SourceDocumentPayload` mapping + a `DocumentImportConverter` branch.
-- **Version bump** — `project.yml`, `README.md` (3 spots), `docs-site/src/data/stats.json`,
-  `docs-site/src/lib/release.ts`.
-- **Test/file/line counts** — `README.md` (3 spots) + `docs-site/src/data/stats.json`, which
+- **Version bump** — `project.yml`, generated project/Info.plist, release notes, and
+  `docs-site/src/data/stats.json`. README and download metadata use verified latest-release links;
+  the offline fallback must omit unknown version/date/size facts.
+- **Test/file/line counts** — `docs-site/src/data/stats.json`, which
   feeds the docs site. Regenerate per `docs-site/AGENTS.md`; nothing enforces them and the two
   have silently desynced before. Counts in *this* file stay approximate so they can't rot.
 - **Undo/redo menu** — read `viewModel.undoManager` (not `@Environment(\.undoManager)`, nil in

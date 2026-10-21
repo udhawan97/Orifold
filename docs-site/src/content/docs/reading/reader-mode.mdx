@@ -1,6 +1,6 @@
 ---
 title: Reader Mode
-description: Lock out text editing and signing so you can read or study a document without accidentally changing it.
+description: Reduce accidental text edits and signing while reading; Reader Mode is not a document lock.
 keywords: [reader mode, distraction free, focus mode, study tools]
 ---
 
@@ -15,11 +15,17 @@ import Figure from '../../../components/Figure.astro';
 
 1. Click **More** (⋯) in the toolbar, then **Reader Mode**, or press <kbd>⌘⇧R</kbd>.
 
-<Figure src="/Orifold/assets/screenshots/reader-mode-toggle.png" alt="Reader Mode on: a Reader pill appears above the page next to a banner explaining that text editing and signing are hidden while study tools stay available." caption="Reader Mode locks editing and signing; study tools like notes and comments stay one tap away." />
+<Figure src="/Orifold/assets/screenshots/reader-mode-toggle.png" alt="Reader Mode on: a Reader pill appears above the page next to a banner explaining that text editing and signing are hidden while study tools stay available." caption="Reader Mode locks text editing and signing; study tools like notes and comments stay one tap away." />
 
 <Callout variant="note">
-	Reader Mode doesn't hide the sidebar or toolbar — it locks out text editing and signing specifically, so you can't accidentally change a document you're just reading. A **Reader** pill appears above the page as a reminder, with quick access to comments and Document Comfort.
+	Reader Mode doesn't hide the sidebar or toolbar — it locks out text editing and signing specifically, to reduce accidental changes from those tools. PDF form widgets have a separate boundary; Reader Mode is not a document lock. A **Reader** pill appears above the page as a reminder, with quick access to comments and Document Comfort.
 </Callout>
+
+## Form and saving boundary
+
+Interactive PDF form widgets may still change while Reader Mode is active. Reader Mode
+form-answer serialization remains under investigation. Keep the original and [verify every
+answer after reopening a saved copy](/Orifold/fill-sign/forms/#current-limits).
 
 ## What you should see
 

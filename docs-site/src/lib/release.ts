@@ -1,128 +1,72 @@
-/**
- * Build-time GitHub release metadata — the canonical, no-JS source of truth for
- * the landing page's version chip, download button, and footer.
- *
- * Runs once during `astro build`. Never hardcode a version in copy; read it from
- * here. A tiny runtime enhancer (see the landing page) may later refresh these
- * values in the browser, but it is only ever allowed to *confirm or upgrade* —
- * the values baked here are always a correct, shippable fallback.
- *
- * Fallback ladder (see WEBSITE_PLAN.md §5.5):
- *   1. dmg asset present on latest release  → real url + size, dmg button.
- *   2. latest release exists but no dmg yet  → zip button + `dmgMissing` warning.
- *      The stable dmg URL is still returned optimistically.
- *   3. API unreachable / rate-limited         → LAST_KNOWN_GOOD fallback values.
- */
-
-import site from '../data/site.json';
-
-export interface ReleaseAsset {
-	name: string;
-	url: string;
-	size: number | null;
-}
+/** Build-time release facts. Offline builds keep usable links without inventing a version. */
+import site from '../data/site.json' with { type: 'json' };
 
 export interface ReleaseInfo {
-	/** Display version, `v`/`release-` stripped, e.g. "0.8.1". */
-	version: string;
-	/** Raw tag as published, e.g. "release-v0.8.1". */
-	tag: string;
-	/** ISO date the release was published, or null. */
+	version: string | null;
+	tag: string | null;
 	publishedAt: string | null;
-	/** Stable, never-changing download URL for the dmg. Always safe to link. */
 	dmgUrl: string;
-	/** Human-readable dmg size ("14 MB") if known from the API, else null. */
 	dmgSize: string | null;
-	/** True when the latest release has no dmg asset yet (zip-only era). */
-	dmgMissing: boolean;
-	/** Stable zip URL — one-line installer / cask reference / manual fallback. */
 	zipUrl: string;
-	/** URL of the release page itself. */
 	releaseUrl: string;
-	/** URL that always lists every release. */
 	allReleasesUrl: string;
+	downloadUrl: string;
+	downloadKind: 'dmg' | 'zip' | 'release';
+	metadataAvailable: boolean;
+	zipAvailable: boolean;
 }
 
-/** Bump this whenever a release ships, so the offline build stays truthful. */
-const LAST_KNOWN_GOOD = {
-	tag: 'v0.11.0',
-	version: '0.11.0',
-	publishedAt: '2026-08-30T05:01:33Z',
-} as const;
+const releases = 'https://github.com/' + site.repo + '/releases';
+const stableUrl = (asset: string) => releases + '/latest/download/' + asset;
+const taggedUrl = (tag: string, asset: string) => releases + '/download/' + encodeURIComponent(tag) + '/' + encodeURIComponent(asset);
 
-const REPO = site.repo;
-const DMG = site.dmgAsset;
-const ZIP = site.zipAsset;
-
-const stableUrl = (asset: string) => `https://github.com/${REPO}/releases/latest/download/${asset}`;
-
-/** Strip a `release-`/`v` prefix and return the dotted version. */
 export function normalizeTag(tag: string): string {
 	return tag.replace(/^release-/, '').replace(/^v/, '');
 }
 
-function humanSize(bytes: number | null): string | null {
-	if (!bytes || bytes <= 0) return null;
-	const mb = bytes / (1024 * 1024);
-	return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
-}
-
-function fallback(reason: string): ReleaseInfo {
-	if (reason) console.warn(`[release.ts] ${reason} — using LAST_KNOWN_GOOD (${LAST_KNOWN_GOOD.tag}).`);
+function fallback(): ReleaseInfo {
 	return {
-		version: LAST_KNOWN_GOOD.version,
-		tag: LAST_KNOWN_GOOD.tag,
-		publishedAt: LAST_KNOWN_GOOD.publishedAt,
-		dmgUrl: stableUrl(DMG),
-		dmgSize: null,
-		dmgMissing: false,
-		zipUrl: stableUrl(ZIP),
-		releaseUrl: `https://github.com/${REPO}/releases/tag/${LAST_KNOWN_GOOD.tag}`,
-		allReleasesUrl: `https://github.com/${REPO}/releases`,
+		version: null, tag: null, publishedAt: null,
+		dmgUrl: stableUrl(site.dmgAsset), dmgSize: null,
+		zipUrl: stableUrl(site.zipAsset), releaseUrl: releases + '/latest',
+		allReleasesUrl: releases, downloadUrl: stableUrl(site.dmgAsset),
+		downloadKind: 'dmg', metadataAvailable: false, zipAvailable: true,
 	};
 }
 
-/**
- * Fetch the latest non-prerelease, non-draft release at build time.
- * `releases/latest` already excludes prereleases (so the rolling `Orifold-latest`
- * dev channel can never hijack it — see WEBSITE_PLAN.md §5.1).
- */
+/** Prefer stable aliases; pin a versioned-only asset to its actual release tag. */
 export async function getRelease(): Promise<ReleaseInfo> {
-	const token = process.env.GITHUB_TOKEN;
 	const headers: Record<string, string> = {
-		Accept: 'application/vnd.github+json',
-		'User-Agent': 'orifold-docs-site-build',
+		Accept: 'application/vnd.github+json', 'User-Agent': 'orifold-docs-site-build',
 	};
-	if (token) headers.Authorization = `Bearer ${token}`;
-
-	let data: any;
+	if (process.env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
 	try {
-		const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers });
-		if (!res.ok) return fallback(`releases/latest returned ${res.status}`);
-		data = await res.json();
-	} catch (err) {
-		return fallback(`fetch failed (${err instanceof Error ? err.message : 'unknown'})`);
+		const response = await fetch('https://api.github.com/repos/' + site.repo + '/releases/latest', {
+			headers, signal: AbortSignal.timeout(8000),
+		});
+		if (!response.ok) return fallback();
+		const data = await response.json();
+		if (typeof data.tag_name !== 'string' || !/^\d+\.\d+\.\d+$/.test(normalizeTag(data.tag_name))
+			|| data.draft || data.prerelease) return fallback();
+		const tag = data.tag_name;
+		const assets: { name: string; size?: number }[] = Array.isArray(data.assets) ? data.assets : [];
+		const alias = assets.find((asset) => asset?.name === site.dmgAsset);
+		const versioned = assets.find((asset) => asset?.name === 'Orifold-' + normalizeTag(tag) + '-macOS-universal.dmg');
+		const dmg = alias ?? versioned;
+		const zip = assets.find((asset) => asset?.name === site.zipAsset);
+		const releaseUrl = releases + '/tag/' + encodeURIComponent(tag);
+		const dmgUrl = alias ? stableUrl(site.dmgAsset) : dmg ? taggedUrl(tag, dmg.name) : stableUrl(site.dmgAsset);
+		const zipUrl = stableUrl(site.zipAsset);
+		const bytes = dmg?.size;
+		return {
+			version: normalizeTag(tag), tag,
+			publishedAt: typeof data.published_at === 'string' ? data.published_at : null,
+			dmgUrl, dmgSize: typeof bytes === 'number' && bytes > 0 ? Math.round(bytes / 1024 / 1024) + ' MB' : null,
+			zipUrl, releaseUrl, allReleasesUrl: releases,
+			downloadUrl: dmg ? dmgUrl : zip ? zipUrl : releaseUrl,
+			downloadKind: dmg ? 'dmg' : zip ? 'zip' : 'release', metadataAvailable: true, zipAvailable: Boolean(zip),
+		};
+	} catch {
+		return fallback();
 	}
-
-	const tag: string = data.tag_name ?? LAST_KNOWN_GOOD.tag;
-	const assets: any[] = Array.isArray(data.assets) ? data.assets : [];
-
-	// Prefer the versioned universal dmg so the browser saves the descriptive
-	// filename; fall back to the stable Orifold.dmg alias. Both live on the same
-	// never-changing releases/latest/download/<name> path, so the URL is safe.
-	const versionedDmg = assets.find((a) => /^Orifold-\d+\.\d+\.\d+-macOS-universal\.dmg$/.test(a.name));
-	const stableDmg = assets.find((a) => a.name === DMG);
-	const dmg = versionedDmg ?? stableDmg;
-
-	return {
-		version: normalizeTag(tag),
-		tag,
-		publishedAt: data.published_at ?? null,
-		dmgUrl: stableUrl(dmg?.name ?? DMG),
-		dmgSize: humanSize(dmg?.size ?? null),
-		dmgMissing: !dmg,
-		zipUrl: stableUrl(ZIP),
-		releaseUrl: data.html_url ?? `https://github.com/${REPO}/releases/tag/${tag}`,
-		allReleasesUrl: `https://github.com/${REPO}/releases`,
-	};
 }
