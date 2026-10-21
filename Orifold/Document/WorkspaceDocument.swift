@@ -276,7 +276,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             if externallyModified {
                 externalModificationDetected = true
             } else {
-                try Self.validateRestoredIdentities(in: editableWorkspace)
+                try Self.validateRestoredState(in: editableWorkspace, memberPDFData: metadata.editableMemberPDFData)
                 workspace = editableWorkspace
                 memberPDFData = metadata.editableMemberPDFData
                 sourcePayloads = metadata.sourcePayloads
@@ -322,10 +322,11 @@ final class WorkspaceDocument: ReferenceFileDocument {
         }
     }
 
-    /// A page identity must occur once in the workspace and belong to exactly one member.
-    /// Reject ambiguous metadata rather than repairing it and retargeting saved edits.
-    private static func validateRestoredIdentities(in workspace: Workspace) throws {
-        guard Set(workspace.documents.map(\.id)).count == workspace.documents.count else {
+    /// Reject ambiguous identities or live layouts rather than repairing saved state.
+    /// sourcePageIndex refers to pristine bytes and may differ from the live position.
+    private static func validateRestoredState(in workspace: Workspace, memberPDFData: [UUID: Data]) throws {
+        guard Set(workspace.documents.map(\.id)).count == workspace.documents.count,
+              workspace.documents.flatMap(\.pageRefs) == workspace.pageOrder.map(\.id) else {
             throw CocoaError(.fileReadCorruptFile)
         }
         var pagesByID: [UUID: PageRef] = [:]
@@ -336,6 +337,11 @@ final class WorkspaceDocument: ReferenceFileDocument {
         }
         var ownedPageIDs = Set<UUID>()
         for member in workspace.documents {
+            guard let data = memberPDFData[member.id],
+                  let pdf = PDFDocument(data: data), !pdf.isLocked,
+                  pdf.pageCount == member.pageRefs.count else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
             for pageID in member.pageRefs {
                 guard let page = pagesByID[pageID],
                       page.memberDocId == member.id,

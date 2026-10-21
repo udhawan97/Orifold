@@ -221,6 +221,234 @@ final class StructuralCatalogPreservationTests: XCTestCase {
         XCTAssertNil(QPDFService.selectingPages(Data("invalid".utf8), pageIndices: [0]))
     }
 
+    func testCrossMemberMovePreparesCanonicalLayoutsCatalogsUndoAndEditableReopen() throws {
+        for sourcePageCount in [1, 2] {
+            let vm = try crossMemberModel(sourcePageCount: sourcePageCount)
+            let initialRefs = vm.document.workspace.pageOrder
+            let sourceID = initialRefs[0].memberDocId
+            let targetRef = initialRefs[sourcePageCount]
+            let initialBytes = vm.document.memberPDFData
+            let undo = try XCTUnwrap(retainedUndo)
+            undo.beginUndoGrouping()
+            XCTAssertTrue(vm.movePage(initialRefs[0], after: targetRef))
+            undo.endUndoGrouping()
+
+            func assertMoved(_ model: WorkspaceViewModel) throws {
+                let prepared = try model.currentPDFDataForOCR()
+                let target = try XCTUnwrap(prepared[targetRef.memberDocId])
+                XCTAssertEqual(PDFDocument(data: target)?.pageCount, 4)
+                for (index, token) in ["Target page 0", "Source page 0", "Target page 1", "Target page 2"].enumerated() {
+                    XCTAssertTrue(PDFTextAnalysisEngine.readingOrderText(data: target, pageIndex: index).contains(token))
+                }
+                for member in model.document.workspace.documents {
+                    let role = member.id == sourceID ? "Source" : "Target"
+                    let bytes = try XCTUnwrap(model.document.memberPDFData[member.id])
+                    XCTAssertEqual(try PDFMetadataService.read(from: bytes).title, role)
+                    XCTAssertEqual(try AttachmentsService.extract("\(role).txt", from: bytes), Data(role.utf8))
+                }
+                if sourcePageCount == 2 {
+                    XCTAssertTrue(PDFTextAnalysisEngine.readingOrderText(data: try XCTUnwrap(prepared[sourceID]), pageIndex: 0).contains("Source page 1"))
+                } else {
+                    XCTAssertNil(prepared[sourceID])
+                }
+            }
+            try assertMoved(vm)
+            undo.undo()
+            XCTAssertEqual(vm.document.memberPDFData, initialBytes, "undo restores exact canonical bytes")
+            XCTAssertEqual(vm.document.workspace.pageOrder.map(\.id), initialRefs.map(\.id))
+            undo.redo()
+            try assertMoved(vm)
+            let saved = try vm.document.savedFileWrapper(from: vm.document.snapshot(contentType: .pdf))
+            let reopened = try WorkspaceDocument(testingFile: saved, contentType: .pdf,
+                fingerprintStore: WorkspaceFingerprintStore(directory: try directory()))
+            try assertMoved(WorkspaceViewModel(document: reopened, processingEngine: PDFiumProcessingEngine()))
+        }
+    }
+
+    func testCrossMemberMoveCanImmediatelyRedactOrCleanTheMovedPage() async throws {
+        for consumer in ["redaction", "cleanup"] {
+            let vm = try crossMemberModel(sourcePageCount: 2)
+            let refs = vm.document.workspace.pageOrder
+            XCTAssertTrue(vm.movePage(refs[0], after: refs[2]))
+            let moved = try XCTUnwrap(vm.workspacePageRef(refs[0].id))
+            let neighborBefore = PDFTextAnalysisEngine.readingOrderText(
+                data: try XCTUnwrap(vm.document.memberPDFData[moved.memberDocId]), pageIndex: 0)
+            if consumer == "redaction" {
+                vm.addRedactionMark(rect: CGRect(x: 0, y: 0, width: 612, height: 792), pageRefID: moved.id)
+                XCTAssertTrue(vm.applyRedactions())
+            } else {
+                let succeeded = await vm.applyScanCleanup(pageRefIDs: [moved.id],
+                    options: ScanCleanupOptions(deskew: false, binarize: true, despeckle: false))
+                XCTAssertTrue(succeeded)
+            }
+            let bytes = try XCTUnwrap(vm.document.memberPDFData[moved.memberDocId])
+            XCTAssertFalse(PDFTextAnalysisEngine.readingOrderText(data: bytes, pageIndex: 1).contains("Source page 0"))
+            XCTAssertEqual(PDFTextAnalysisEngine.readingOrderText(data: bytes, pageIndex: 0), neighborBefore)
+            XCTAssertEqual(try AttachmentsService.extract("Target.txt", from: bytes), Data("Target".utf8))
+            XCTAssertNoThrow(try vm.currentPDFDataForOCR())
+        }
+    }
+
+    func testCrossMemberPreparationFailurePreservesBothMembersAndUndoBeforeRetry() throws {
+        let vm = try crossMemberModel(sourcePageCount: 2)
+        let refs = vm.document.workspace.pageOrder
+        let targetID = refs[2].memberDocId
+        let targetBytes = try XCTUnwrap(vm.document.memberPDFData[targetID])
+        vm.document.memberPDFData[targetID] = Data("invalid target".utf8)
+        let beforeBytes = vm.document.memberPDFData
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let beforeWorkspace = try encoder.encode(vm.document.workspace)
+        XCTAssertFalse(vm.movePage(refs[0], after: refs[2]))
+        XCTAssertEqual(try encoder.encode(vm.document.workspace), beforeWorkspace)
+        XCTAssertEqual(vm.document.memberPDFData, beforeBytes)
+        XCTAssertEqual(vm.loadedPDFs.map { $0.1.pageCount }, [2, 3])
+        XCTAssertFalse(try XCTUnwrap(retainedUndo).canUndo)
+        vm.document.memberPDFData[targetID] = targetBytes
+        XCTAssertTrue(vm.movePage(refs[0], after: refs[2]))
+        XCTAssertNoThrow(try vm.currentPDFDataForOCR())
+    }
+
+    func testCrossMemberMoveRefusesFormsInEitherMemberWithoutChangingStateOrUndo() throws {
+        final class UndoProbe { var value = 1 }
+        for scenario in ["moved-field", "remaining-source-field", "target-field", "empty-acroform", "loaded-widget", "displayed-widget"] {
+            for history in ["undo", "redo"] {
+                let sourceData = try ["moved-field", "remaining-source-field", "empty-acroform"].contains(scenario)
+                    ? formFixture(pageCount: 2, fieldPage: scenario == "moved-field" ? 0 : scenario == "remaining-source-field" ? 1 : nil)
+                    : nil
+                let targetData = try scenario == "target-field" ? formFixture(pageCount: 3, fieldPage: 2) : nil
+                let vm = try crossMemberModel(sourcePageCount: 2, sourceData: sourceData, targetData: targetData)
+                let refs = vm.document.workspace.pageOrder
+                if scenario == "loaded-widget" || scenario == "displayed-widget" {
+                    let page = try XCTUnwrap(scenario == "loaded-widget" ? vm.loadedPDFs.first?.1.page(at: 0) : vm.combinedPDF.page(at: 1))
+                    let widget = PDFAnnotation(bounds: CGRect(x: 40, y: 350, width: 120, height: 30), forType: .widget, withProperties: nil)
+                    widget.widgetFieldType = .text
+                    widget.fieldName = "Unsaved new field"
+                    widget.widgetStringValue = "Unsaved native answer"
+                    page.addAnnotation(widget)
+                    XCTAssertEqual(QPDFService.hasAcroForm(try XCTUnwrap(vm.document.memberPDFData[refs[0].memberDocId])), false)
+                } else {
+                    for index in 0..<vm.combinedPDF.pageCount {
+                        for widget in vm.combinedPDF.page(at: index)?.annotations.filter(\.isPDFWidget) ?? [] {
+                            widget.widgetStringValue = "Unsaved reader answer"
+                        }
+                    }
+                }
+                vm.selectedPageRefID = refs[1].id
+                vm.selectedPageRefIDs = [refs[0].id, refs[1].id]
+                let decoration = PageDecoration(kind: .hanko, text: "Fictional", pageRefID: refs[0].id,
+                    rect: CGRect(x: 90, y: 300, width: 100, height: 60))
+                vm.document.workspace.decorations = [decoration]
+                vm.selectedStampDecorationID = decoration.id
+                vm.markAnnotationsModified(warnAboutSignatureInvalidation: false)
+                let undo = try XCTUnwrap(retainedUndo)
+                undo.groupsByEvent = false
+                let probe = UndoProbe()
+                undo.beginUndoGrouping()
+                undo.registerUndo(withTarget: probe) { probe in
+                    probe.value = 0
+                    undo.registerUndo(withTarget: probe) { $0.value = 1 }
+                }
+                undo.setActionName("Existing fictional edit")
+                undo.endUndoGrouping()
+                if history == "redo" { undo.undo() }
+
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = .sortedKeys
+                let beforeWorkspace = try encoder.encode(vm.document.workspace)
+                let beforeBytes = vm.document.memberPDFData
+                let beforeSourcePayloads = try encoder.encode(vm.document.sourcePayloads)
+                let beforePristine = vm.document.currentOriginalPDFDataProvider?()
+                let loadedObjects = vm.loadedPDFs.map { ObjectIdentifier($0.1) }
+                let displayedObject = ObjectIdentifier(vm.combinedPDF)
+                // PDFKit generates a new trailer ID on each serialization. Canonical bytes
+                // must stay exact; loaded page identities prove refusal never detaches them.
+                let beforePages = vm.loadedPDFs.map { pageObjects(in: $0.1) }
+                let beforeLoadedWidgets = vm.loadedPDFs.map { widgetValues(in: $0.1) }
+                let beforeDisplayedWidgets = widgetValues(in: vm.combinedPDF)
+                let beforeRevisions = [vm.commentRevision, vm.decorationStateVersion]
+                let beforeDirty = vm.hasUnsavedChanges
+                let beforeUndo = [undo.canUndo, undo.canRedo]
+                let beforeUndoNames = [undo.undoActionName, undo.redoActionName]
+                XCTAssertFalse(vm.movePage(refs[0], after: refs[2]), "\(scenario)/\(history)")
+                XCTAssertEqual(try encoder.encode(vm.document.workspace), beforeWorkspace)
+                XCTAssertEqual(vm.document.memberPDFData, beforeBytes)
+                XCTAssertEqual(try encoder.encode(vm.document.sourcePayloads), beforeSourcePayloads)
+                XCTAssertEqual(vm.document.currentOriginalPDFDataProvider?(), beforePristine)
+                XCTAssertEqual(vm.loadedPDFs.map { ObjectIdentifier($0.1) }, loadedObjects)
+                XCTAssertEqual(ObjectIdentifier(vm.combinedPDF), displayedObject)
+                XCTAssertEqual(vm.loadedPDFs.map { pageObjects(in: $0.1) }, beforePages)
+                XCTAssertEqual(vm.loadedPDFs.map { widgetValues(in: $0.1) }, beforeLoadedWidgets)
+                XCTAssertEqual(widgetValues(in: vm.combinedPDF), beforeDisplayedWidgets)
+                XCTAssertEqual(vm.selectedPageRefID, refs[1].id)
+                XCTAssertEqual(vm.selectedPageRefIDs, [refs[0].id, refs[1].id])
+                XCTAssertEqual(vm.selectedStampDecorationID, decoration.id)
+                XCTAssertEqual([vm.commentRevision, vm.decorationStateVersion], beforeRevisions)
+                XCTAssertEqual(vm.hasUnsavedChanges, beforeDirty)
+                XCTAssertEqual([undo.canUndo, undo.canRedo], beforeUndo)
+                XCTAssertEqual([undo.undoActionName, undo.redoActionName], beforeUndoNames)
+                XCTAssertEqual(vm.editingStatus?.message, PDFTextEditWarning.serializationFailed.message)
+                if history == "undo" { undo.undo(); XCTAssertEqual(probe.value, 0) }
+                else { undo.redo(); XCTAssertEqual(probe.value, 1) }
+            }
+        }
+    }
+
+    func testAcroFormPresenceIsStructuralAndUnreadableInputFailsClosed() throws {
+        XCTAssertEqual(QPDFService.hasAcroForm(try formFixture(pageCount: 2, fieldPage: nil)), true)
+        XCTAssertEqual(QPDFService.hasAcroForm(try formFixture(pageCount: 2, fieldPage: 1)), true)
+        XCTAssertEqual(QPDFService.hasAcroForm(try fixture(prefix: "Text /AcroForm is not a catalog key")), false)
+        XCTAssertNil(QPDFService.hasAcroForm(Data("invalid".utf8)))
+    }
+
+    private func widgetValues(in pdf: PDFDocument) -> [[String]] {
+        (0..<pdf.pageCount).flatMap { index in
+            (pdf.page(at: index)?.annotations.filter(\.isPDFWidget) ?? []).map {
+                [$0.fieldName ?? "nil", $0.widgetStringValue ?? "nil", String(describing: $0.buttonWidgetState)]
+            }
+        }
+    }
+
+    private func pageObjects(in pdf: PDFDocument) -> [ObjectIdentifier] {
+        (0..<pdf.pageCount).compactMap { pdf.page(at: $0) }.map(ObjectIdentifier.init)
+    }
+
+    private func formFixture(pageCount: Int, fieldPage: Int?) throws -> Data {
+        let fieldID = 3 + pageCount
+        let fields = fieldPage == nil ? "" : "\(fieldID) 0 R"
+        var objects = ["1 0 obj<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[\(fields)]/NeedAppearances true>>>>endobj",
+            "2 0 obj<</Type/Pages/Kids[\((0..<pageCount).map { "\(3 + $0) 0 R" }.joined(separator: " "))]/Count \(pageCount)>>endobj"]
+        for index in 0..<pageCount {
+            let annots = fieldPage == index ? "/Annots[\(fieldID) 0 R]" : ""
+            objects.append("\(3 + index) 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]\(annots)>>endobj")
+        }
+        if let fieldPage {
+            objects.append("\(fieldID) 0 obj<</Type/Annot/Subtype/Widget/FT/Tx/T(Existing field)/V(Initial answer)/Rect[40 350 220 380]/P \(3 + fieldPage) 0 R>>endobj")
+        }
+        return try XCTUnwrap(QPDFService.repaired(Data(("%PDF-1.4\n" + objects.joined(separator: "\n")
+            + "\ntrailer<</Root 1 0 R/Size \(fieldID + 1)>>\n%%EOF").utf8)))
+    }
+
+    private func crossMemberModel(sourcePageCount: Int, sourceData: Data? = nil, targetData: Data? = nil) throws -> WorkspaceViewModel {
+        let document = WorkspaceDocument()
+        for (role, count) in [("Source", sourcePageCount), ("Target", 3)] {
+            let data = try PDFMetadataService.write(PDFDocumentMetadata(title: role),
+                to: (role == "Source" ? sourceData : targetData) ?? fixture(prefix: role, pageCount: count))
+            var member = MemberDocument(displayName: role, sourcePDFRef: "\(role).pdf")
+            let refs = (0..<count).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+            member.pageRefs = refs.map(\.id)
+            document.workspace.documents.append(member)
+            document.workspace.pageOrder.append(contentsOf: refs)
+            document.memberPDFData[member.id] = try AttachmentsService.add(Data(role.utf8),
+                name: "\(role).txt", mimeType: "text/plain", to: data)
+        }
+        let vm = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+        let undo = UndoManager()
+        retainedUndo = undo
+        vm.undoManager = undo
+        return vm
+    }
+
     private func assertCatalog(_ data: Data, file: StaticString = #filePath, line: UInt = #line) throws {
         XCTAssertEqual(try PDFMetadataService.read(from: data), metadata, file: file, line: line)
         XCTAssertEqual(try AttachmentsService.extract("fictional.txt", from: data), payload, file: file, line: line)
@@ -260,17 +488,17 @@ final class StructuralCatalogPreservationTests: XCTestCase {
         return url
     }
 
-    private func fixture() throws -> Data {
+    private func fixture(prefix: String = "Fictional", pageCount: Int = 3) throws -> Data {
         let data = NSMutableData()
         var box = CGRect(x: 0, y: 0, width: 612, height: 792)
         let ctx = try XCTUnwrap(CGContext(consumer: XCTUnwrap(CGDataConsumer(data: data as CFMutableData)), mediaBox: &box, nil))
-        for index in 0..<3 {
+        for index in 0..<pageCount {
             ctx.beginPDFPage(nil)
             ctx.setFillColor(CGColor(gray: 1, alpha: 1)); ctx.fill(box)
             ctx.setFillColor(NSColor.systemBlue.cgColor)
             ctx.fill(CGRect(x: 100, y: 200, width: 120, height: 60))
             ctx.textPosition = CGPoint(x: 72, y: 700)
-            CTLineDraw(CTLineCreateWithAttributedString(NSAttributedString(string: "Fictional page \(index)",
+            CTLineDraw(CTLineCreateWithAttributedString(NSAttributedString(string: "\(prefix) page \(index)",
                 attributes: [.font: NSFont(name: "Helvetica", size: 14)!, .foregroundColor: NSColor.black])), ctx)
             ctx.endPDFPage()
         }

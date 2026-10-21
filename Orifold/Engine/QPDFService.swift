@@ -149,6 +149,38 @@ enum QPDFService {
         } ?? false
     }
 
+    /// A missing result is unreadable input, not proof that moving its pages is form-safe.
+    static func hasAcroForm(_ data: Data) -> Bool? {
+        withQPDF(data, description: "acroform-presence") { qpdf in
+            guard !hasErrors(qpdf_check_pdf(qpdf)) else { return nil }
+            return hasKey(qpdf, qpdf_get_root(qpdf), "/AcroForm")
+        }
+    }
+
+    /// Carries labels across a same-order PDFKit serialization without replacing its outline.
+    /// Page selection must adjust the number tree before this same-layout bridge is used.
+    static func preservingPageLabels(in destinationData: Data, from sourceData: Data) -> Data? {
+        withQPDF(destinationData, description: "page-labels-destination") { destination in
+            withQPDF(sourceData, description: "page-labels-source") { source in
+                guard !hasErrors(qpdf_check_pdf(destination)), !hasErrors(qpdf_check_pdf(source)),
+                      qpdf_get_num_pages(source) > 0,
+                      qpdf_get_num_pages(source) == qpdf_get_num_pages(destination) else { return nil }
+                let sourceRoot = qpdf_get_root(source)
+                let destinationRoot = qpdf_get_root(destination)
+                if hasKey(source, sourceRoot, "/PageLabels") {
+                    let labels = indirectObject(qpdf_oh_get_key(source, sourceRoot, "/PageLabels"), in: source)
+                    let copied = qpdf_oh_copy_foreign_object(destination, source, labels)
+                    replaceKey(destination, in: destinationRoot, key: "/PageLabels", value: copied)
+                } else if hasKey(destination, destinationRoot, "/PageLabels") {
+                    removeKey(destination, from: destinationRoot, key: "/PageLabels")
+                } else {
+                    return destinationData
+                }
+                return write(destination) { _ in }
+            }
+        }
+    }
+
     /// Carries the canonical Info dictionary and embedded-file tree across page realignment.
     /// Other catalog state and every destination page remain untouched.
     static func preservingCanonicalMetadataAndAttachments(in destinationData: Data, from sourceData: Data) -> Data? {

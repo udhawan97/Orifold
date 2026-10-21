@@ -6,6 +6,20 @@ extension QPDFService {
     /// Selects pages in the source object graph, including repeated indexes for duplication.
     /// qpdf's page-selection job also carries catalog state and adjusts page labels/forms.
     static func selectingPages(_ data: Data, pageIndices: [Int]) -> Data? {
+        selectingPages(data, pageIndices: pageIndices, insertion: nil)
+    }
+
+    static func insertingPage(from sourceData: Data, pageIndex: Int, into data: Data, at index: Int) -> Data? {
+        guard let pageCount = withQPDF(data, description: "insert-page-count", { Int(qpdf_get_num_pages($0)) }),
+              index >= 0, index <= pageCount,
+              let sourcePageCount = withQPDF(sourceData, description: "insert-page-source", { Int(qpdf_get_num_pages($0)) }),
+              pageIndex >= 0, pageIndex < sourcePageCount else { return nil }
+        return selectingPages(data, pageIndices: Array(0..<pageCount),
+                              insertion: (sourceData, pageIndex, index))
+    }
+
+    private static func selectingPages(_ data: Data, pageIndices: [Int],
+                                       insertion: (data: Data, pageIndex: Int, index: Int)?) -> Data? {
         guard !pageIndices.isEmpty,
               let pageCount = withQPDF(data, description: "select-pages", { qpdf -> Int? in
                   guard !hasErrors(qpdf_check_pdf(qpdf)) else { return nil }
@@ -23,9 +37,22 @@ extension QPDFService {
         defer { try? FileManager.default.removeItem(at: directory) }
         let input = directory.appendingPathComponent("input.pdf")
         let output = directory.appendingPathComponent("output.pdf")
+        let source = directory.appendingPathComponent("source.pdf")
+        func selection(_ indexes: [Int]) -> [String: String] {
+            ["file": ".", "range": indexes.map { String($0 + 1) }.joined(separator: ",")]
+        }
+        var pages = [selection(pageIndices)]
+        if let insertion {
+            guard FileManager.default.createFile(atPath: source.path, contents: insertion.data,
+                                                attributes: [.posixPermissions: 0o600]) else { return nil }
+            pages = []
+            if insertion.index > 0 { pages.append(selection(Array(pageIndices[..<insertion.index]))) }
+            pages.append(["file": source.path, "range": String(insertion.pageIndex + 1)])
+            if insertion.index < pageIndices.count { pages.append(selection(Array(pageIndices[insertion.index...]))) }
+        }
         let configuration: [String: Any] = [
             "inputFile": input.path, "outputFile": output.path,
-            "pages": [["file": ".", "range": pageIndices.map { String($0 + 1) }.joined(separator: ",")]]
+            "pages": pages
         ]
         guard FileManager.default.createFile(atPath: input.path, contents: data, attributes: [.posixPermissions: 0o600]),
               FileManager.default.createFile(atPath: output.path, contents: Data(), attributes: [.posixPermissions: 0o600]),
@@ -44,7 +71,7 @@ extension QPDFService {
         guard exitCode == 0 || exitCode == 3,
               let result = try? Data(contentsOf: output),
               isStructurallySound(result),
-              withQPDF(result, description: "selected-pages-count", { Int(qpdf_get_num_pages($0)) }) == pageIndices.count else {
+              withQPDF(result, description: "selected-pages-count", { Int(qpdf_get_num_pages($0)) }) == pageIndices.count + (insertion == nil ? 0 : 1) else {
             return nil
         }
         return result

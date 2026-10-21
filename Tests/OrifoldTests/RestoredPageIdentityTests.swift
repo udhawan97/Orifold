@@ -5,6 +5,13 @@ import XCTest
 @MainActor
 final class RestoredPageIdentityTests: XCTestCase {
     private enum Malformation: CaseIterable {
+        case swappedGlobalOrder
+        case swappedMemberOrder
+        case tooFewMemberPages
+        case tooManyMemberPages
+        case missingMemberPayload
+        case unreadableMemberPayload
+        case lockedMemberPayload
         case duplicatePageID
         case duplicateMemberPageID
         case missingMemberPageID
@@ -38,22 +45,44 @@ final class RestoredPageIdentityTests: XCTestCase {
 
     func testFingerprintMismatchStillLoadsFlatVisibleContentDespiteAmbiguousPageIdentities() throws {
         for legacy in [false, true] {
+            for malformation in Malformation.allCases {
+                let directory = try disposableDirectory()
+                defer { try? FileManager.default.removeItem(at: directory) }
+                let fixture = try editableFixture(legacy: legacy, malformation: malformation)
+                let url = directory.appendingPathComponent("externally-modified.pdf")
+                try fixture.file.write(to: url)
+                let store = WorkspaceFingerprintStore(directory: directory)
+                store.record(data: Data("different prior bytes".utf8), for: fixture.fingerprintID)
+                let document = try WorkspaceDocument(testingFile: FileWrapper(url: url, options: []),
+                                                     contentType: .pdf, fingerprintStore: store)
+                XCTAssertTrue(document.externalModificationDetected)
+                XCTAssertNotEqual(document.workspace.id, fixture.workspace.id)
+                XCTAssertEqual(document.workspace.documents.count, 1)
+                XCTAssertEqual(document.workspace.pageOrder.count, 1)
+                XCTAssertEqual(document.workspace.documents[0].pageRefs, document.workspace.pageOrder.map(\.id))
+                let data = try XCTUnwrap(document.memberPDFData[document.workspace.documents[0].id])
+                XCTAssertEqual(try XCTUnwrap(PDFDocument(data: data)).pageCount, 1)
+                XCTAssertEqual(try Data(contentsOf: url), fixture.file)
+            }
+        }
+    }
+
+    func testAbsentEditableMemberBytesKeepTheExistingFlatImportFallback() throws {
+        for legacy in [false, true] {
             let directory = try disposableDirectory()
             defer { try? FileManager.default.removeItem(at: directory) }
-            let fixture = try editableFixture(legacy: legacy, malformation: .duplicatePageID)
-            let url = directory.appendingPathComponent("externally-modified.pdf")
+            let fixture = try editableFixture(legacy: legacy, omitAllMemberPayloads: true)
+            let url = directory.appendingPathComponent("no-editable-members.pdf")
             try fixture.file.write(to: url)
-            let store = WorkspaceFingerprintStore(directory: directory)
-            store.record(data: Data("different prior bytes".utf8), for: fixture.fingerprintID)
             let document = try WorkspaceDocument(testingFile: FileWrapper(url: url, options: []),
-                                                 contentType: .pdf, fingerprintStore: store)
-            XCTAssertTrue(document.externalModificationDetected)
+                contentType: .pdf, fingerprintStore: WorkspaceFingerprintStore(directory: directory))
+            XCTAssertFalse(document.externalModificationDetected)
             XCTAssertNotEqual(document.workspace.id, fixture.workspace.id)
             XCTAssertEqual(document.workspace.documents.count, 1)
             XCTAssertEqual(document.workspace.pageOrder.count, 1)
             XCTAssertEqual(document.workspace.documents[0].pageRefs, document.workspace.pageOrder.map(\.id))
-            let data = try XCTUnwrap(document.memberPDFData[document.workspace.documents[0].id])
-            XCTAssertEqual(try XCTUnwrap(PDFDocument(data: data)).pageCount, 1)
+            let bytes = try XCTUnwrap(document.memberPDFData[document.workspace.documents[0].id])
+            XCTAssertEqual(PDFDocument(data: bytes)?.pageCount, 1)
             XCTAssertEqual(try Data(contentsOf: url), fixture.file)
         }
     }
@@ -76,6 +105,15 @@ final class RestoredPageIdentityTests: XCTestCase {
                 XCTAssertEqual(document.workspace.pageOrder.map(\.sourcePageIndex), fixture.workspace.pageOrder.map(\.sourcePageIndex))
                 XCTAssertEqual(document.workspace.documents.map(\.pageRefs), fixture.workspace.documents.map(\.pageRefs))
                 XCTAssertEqual(document.memberPDFData, fixture.members)
+
+                let saved = try document.savedFileWrapper(from: document.snapshot(contentType: .pdf))
+                let reopened = try WorkspaceDocument(testingFile: saved, contentType: .pdf, fingerprintStore: store)
+                XCTAssertFalse(reopened.externalModificationDetected)
+                XCTAssertEqual(reopened.workspace.id, fixture.workspace.id)
+                XCTAssertEqual(reopened.workspace.pageOrder.map(\.id), document.workspace.pageOrder.map(\.id))
+                XCTAssertEqual(reopened.workspace.pageOrder.map(\.memberDocId), document.workspace.pageOrder.map(\.memberDocId))
+                XCTAssertEqual(reopened.workspace.pageOrder.map(\.sourcePageIndex), document.workspace.pageOrder.map(\.sourcePageIndex))
+                XCTAssertEqual(reopened.memberPDFData, fixture.members)
             }
         }
     }
@@ -94,7 +132,8 @@ final class RestoredPageIdentityTests: XCTestCase {
         return try XCTUnwrap(PDFSerializer.data(from: pdf))
     }
 
-    private func editableFixture(legacy: Bool, malformation: Malformation? = nil) throws ->
+    private func editableFixture(legacy: Bool, malformation: Malformation? = nil,
+                                 omitAllMemberPayloads: Bool = false) throws ->
         (file: Data, workspace: Workspace, fingerprintID: UUID, members: [UUID: Data]) {
         var first = MemberDocument(displayName: "First", sourcePDFRef: "first.pdf")
         var second = MemberDocument(displayName: "Second", sourcePDFRef: "second.pdf")
@@ -108,6 +147,13 @@ final class RestoredPageIdentityTests: XCTestCase {
         workspace.documents = [first, second]
         workspace.pageOrder = [firstPage, secondPage, thirdPage]
         switch malformation {
+        case .swappedGlobalOrder:
+            workspace.pageOrder = [thirdPage, firstPage, secondPage]
+        case .swappedMemberOrder:
+            workspace.documents[0].pageRefs.reverse()
+        case .tooFewMemberPages, .tooManyMemberPages, .missingMemberPayload,
+             .unreadableMemberPayload, .lockedMemberPayload:
+            break
         case .duplicatePageID:
             workspace.pageOrder.append(firstPage)
         case .duplicateMemberPageID:
@@ -123,7 +169,17 @@ final class RestoredPageIdentityTests: XCTestCase {
         case nil:
             break
         }
-        let members = [first.id: try blankPDF(pageCount: 2), second.id: try blankPDF(pageCount: 1)]
+        let firstPageCount = malformation == .tooFewMemberPages ? 1 : (malformation == .tooManyMemberPages ? 3 : 2)
+        var members = [first.id: try blankPDF(pageCount: firstPageCount), second.id: try blankPDF(pageCount: 1)]
+        if malformation == .missingMemberPayload { members.removeValue(forKey: first.id) }
+        if malformation == .unreadableMemberPayload { members[first.id] = Data("unreadable fictional PDF".utf8) }
+        if malformation == .lockedMemberPayload {
+            let encrypted = try PDFEncryptionService.encryptedData(from: XCTUnwrap(members[first.id]),
+                options: PDFEncryptionOptions(userPassword: "fictional-user", ownerPassword: "fictional-owner"))
+            XCTAssertTrue(try XCTUnwrap(PDFDocument(data: encrypted)).isLocked)
+            members[first.id] = encrypted
+        }
+        if omitAllMemberPayloads { members.removeAll() }
         var workspaceJSON = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(workspace)) as? [String: Any])
         if legacy {
             workspaceJSON.removeValue(forKey: "schemaVersion")

@@ -171,6 +171,66 @@ final class InteractiveCompressedExportTests: XCTestCase {
         }
     }
 
+    func testReduceFileSizeCommandAndLegacyAdapterPreserveExactAttachments() async throws {
+        let vm = try model()
+        let attachment = try directory().appendingPathComponent("keep.txt")
+        let payload = Data("fictional exact reduction attachment\0".utf8)
+        try payload.write(to: attachment)
+        XCTAssertTrue(vm.addAttachment(attachment))
+        let source = try vm.dataForPDFExport()
+        let legacy = try await vm.reducedData(from: source, preset: .balanced, encryption: nil,
+            cancellation: OperationCancellationToken(), operationID: UUID())
+        XCTAssertEqual(try AttachmentsService.list(in: legacy.data).map(\.name), ["keep.txt"])
+        XCTAssertEqual(try AttachmentsService.extract("keep.txt", from: legacy.data), payload)
+        // A preserving compression adapter must not duplicate an already-retained attachment.
+        let regrafted = try WorkspaceViewModel.reinjectingAttachments(AttachmentsService.capture(in: source), into: source)
+        XCTAssertEqual(try AttachmentsService.list(in: regrafted).map(\.name), ["keep.txt"])
+        let destination = try directory().appendingPathComponent("reduced.pdf")
+        vm.reduceFileSize(destination: destination)
+        try await waitForCompletion(vm)
+        XCTAssertNil(vm.exportError?.message)
+        XCTAssertEqual(vm.exportSuccess?.url, destination)
+        let published = try Data(contentsOf: destination)
+        XCTAssertEqual(try AttachmentsService.list(in: published).map(\.name), ["keep.txt"])
+        XCTAssertEqual(try AttachmentsService.extract("keep.txt", from: published), payload)
+        XCTAssertTrue(QPDFService.isStructurallySound(published))
+    }
+
+    func testReduceFileSizeCancellationAndPublicationFailurePreserveDestination() async throws {
+        for cancels in [true, false] {
+            let vm = try model()
+            let folder = try directory()
+            let destination = folder.appendingPathComponent("existing.pdf")
+            let original = Data("original reduction destination".utf8)
+            try original.write(to: destination)
+            if !cancels { try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: folder.path) }
+            defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path) }
+            vm.reduceFileSize(destination: destination)
+            if cancels { vm.cancelActiveOperation() }
+            try await waitForCompletion(vm)
+            XCTAssertNil(vm.exportSuccess)
+            if cancels {
+                XCTAssertNil(vm.exportError)
+                XCTAssertEqual(vm.editingStatus?.message, PDFCompressionError.cancelled.errorDescription)
+            } else {
+                XCTAssertTrue(try XCTUnwrap(vm.exportError?.message).contains(POSIXError(.EACCES).localizedDescription))
+            }
+            XCTAssertEqual(try Data(contentsOf: destination), original)
+            XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["existing.pdf"])
+        }
+    }
+
+    func testLegacyReductionKeepsInvalidPDFError() async throws {
+        let vm = try model()
+        do {
+            _ = try await vm.reducedData(from: Data("invalid PDF".utf8), preset: .balanced,
+                encryption: nil, cancellation: OperationCancellationToken(), operationID: UUID())
+            XCTFail("Invalid bytes must not produce output")
+        } catch {
+            XCTAssertEqual(error as? PDFCompressionError, .invalidPDF)
+        }
+    }
+
     private func protection() -> PDFEncryptionOptions {
         PDFEncryptionOptions(userPassword: "Fixture User 002", ownerPassword: "Fixture Owner 002",
             allowsPrinting: false, allowsCopying: false)

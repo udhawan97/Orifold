@@ -327,3 +327,11 @@ extension Notification.Name {
     static let orifoldRequestDiscardClose = Notification.Name("orifoldRequestDiscardClose")
     static let orifoldRequestTranslation = Notification.Name("orifoldRequestTranslation")
 }
+
+extension NotificationCenter {
+    /// Capture the document target before a menu or panel changes window focus.
+    func postWorkspaceCommand(_ name: Notification.Name, to workspace: WorkspaceViewModel?) {
+        guard let workspace else { return }
+        post(name: name, object: workspace)
+    }
+}

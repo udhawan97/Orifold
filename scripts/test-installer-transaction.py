@@ -146,6 +146,8 @@ replace_staged_app
         print(f"PASS {scenario}: bundle bytes and duplicate preservation")
     print(f"Passed {len(scenarios)} installer transaction scenarios (synthetic bundles; no native launch claim).")
     test_restore(root, source)
+    subprocess.run([sys.executable, str(Path(__file__).with_name("test-uninstaller-cancellation.py")),
+                    str(root / "uninstall")], check=True)
     # The real --restore dispatch must be able to call the shared quit helper.
     assert source.index("\nstop_running_app() {") < source.index('if [[ -n "${RESTORE_ZIP:-}" ]]')
 
