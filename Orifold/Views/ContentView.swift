@@ -54,7 +54,7 @@ private struct ExportSuccessPanel: View {
                         .symbolRenderingMode(.hierarchical)
                         .accessibilityHidden(true)
 
-                    Text(L10n.string("contentView.exportSuccess.pdfSaved.title"))
+                    Text(L10n.string("contentView.exportSuccess.title"))
                         .font(.dsTitle())
                         .foregroundStyle(Color.dsTextPrimary)
                 }
@@ -148,7 +148,7 @@ private struct ExportSuccessPanel: View {
             .onExitCommand { onDone() }
             .onAppear { doneButtonFocused = true }
             .accessibilityElement(children: .contain)
-            .accessibilityLabel(Text(L10n.string("contentView.exportSuccess.pdfSaved.title")))
+            .accessibilityLabel(Text(L10n.string("contentView.exportSuccess.title")))
         }
     }
 }
@@ -524,7 +524,7 @@ struct ContentView: View {
             Text(err.message)
         }
         .modifier(ExportSuccessOverlay(viewModel: viewModel))
-        .onReceive(NotificationCenter.default.publisher(for: .orifoldShowShortcuts)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .orifoldShowShortcuts, object: viewModel)) { _ in
             isShowingShortcutsCheatSheet.toggle()
         }
         .sheet(isPresented: $viewModel.isShowingPasswordPrompt) {
@@ -2160,7 +2160,7 @@ private struct AnnotationToolPicker: View {
         }
         viewModel.currentTool = tool
         if tool == .comment {
-            NotificationCenter.default.post(name: .orifoldCreateCommentFromSelection, object: nil)
+            NotificationCenter.default.postWorkspaceCommand(.orifoldCreateCommentFromSelection, to: viewModel)
         }
     }
 
@@ -3196,7 +3196,7 @@ private struct ToolbarOverflowPresentations: ViewModifier {
             }
             // The File-menu "Revert & Close Without Saving" command posts this rather than
             // acting directly, so it routes through the same confirmation as the More-menu row.
-            .onReceive(NotificationCenter.default.publisher(for: .orifoldRequestDiscardClose)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .orifoldRequestDiscardClose, object: viewModel)) { _ in
                 isConfirmingDiscardClose = true
             }
             .onChange(of: viewModel.memberDocuments.isEmpty) { _, isEmpty in
@@ -3206,14 +3206,14 @@ private struct ToolbarOverflowPresentations: ViewModifier {
             // shortcuts now live as real View-menu commands (ViewToggleCommandButtons), which
             // reach back here through these notifications — menu-bar-discoverable, not invisible
             // responder-chain buttons.
-            .onReceive(NotificationCenter.default.publisher(for: .orifoldToggleReaderMode)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .orifoldToggleReaderMode, object: viewModel)) { _ in
                 onToggleReaderMode()
             }
-            .onReceive(NotificationCenter.default.publisher(for: .orifoldToggleTableOfContents)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .orifoldToggleTableOfContents, object: viewModel)) { _ in
                 guard !viewModel.memberDocuments.isEmpty else { return }
                 showTOC.toggle()
             }
-            .onReceive(NotificationCenter.default.publisher(for: .orifoldRequestTranslation)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .orifoldRequestTranslation, object: viewModel)) { _ in
                 translationRequest = viewModel.translationRequestText
             }
     }

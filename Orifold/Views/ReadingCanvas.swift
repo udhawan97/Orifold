@@ -704,31 +704,31 @@ struct PDFViewRepresentable: NSViewRepresentable {
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.printDocument(_:)),
-            name: .orifoldPrint, object: nil)
+            name: .orifoldPrint, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.printNUpDocument(_:)),
-            name: .orifoldPrintNUp, object: nil)
+            name: .orifoldPrintNUp, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.createCommentFromSelection(_:)),
-            name: .orifoldCreateCommentFromSelection, object: nil)
+            name: .orifoldCreateCommentFromSelection, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.zoomIn(_:)),
-            name: .orifoldZoomIn, object: nil)
+            name: .orifoldZoomIn, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.zoomOut(_:)),
-            name: .orifoldZoomOut, object: nil)
+            name: .orifoldZoomOut, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.zoomFit(_:)),
-            name: .orifoldZoomFit, object: nil)
+            name: .orifoldZoomFit, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.zoomActualSize(_:)),
-            name: .orifoldZoomActualSize, object: nil)
+            name: .orifoldZoomActualSize, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.pageChanged(_:)),

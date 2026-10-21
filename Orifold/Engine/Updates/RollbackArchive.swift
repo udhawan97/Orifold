@@ -72,6 +72,13 @@ struct RollbackArchiver {
         case dittoFailed(Int32)
         case archiveMissing
         case hashMismatch
+        case invalidPreparation
+    }
+
+    private struct Preparation: Codable {
+        var sessionID: UUID
+        var toVersion: String
+        var manifest: RollbackManifest
     }
 
     let directory: URL
@@ -101,7 +108,23 @@ struct RollbackArchiver {
     /// earlier archive so only the immediate predecessor is retained.
     @discardableResult
     func archive(bundleURL: URL, version: String, build: String, at date: Date = Date()) throws -> RollbackManifest {
+        try createArchive(bundleURL: bundleURL, version: version, build: build, at: date, preparation: nil)
+    }
+
+    /// The helper needs a rescue copy before the swap, but that copy is not the previous
+    /// installed version until the target has launched successfully.
+    func prepare(bundleURL: URL, version: String, build: String, sessionID: UUID, toVersion: String) throws -> RollbackManifest {
+        try createArchive(bundleURL: bundleURL, version: version, build: build, at: Date(),
+                          preparation: (sessionID, toVersion))
+    }
+
+    private func createArchive(bundleURL: URL, version: String, build: String, at date: Date,
+                               preparation: (sessionID: UUID, toVersion: String)?) throws -> RollbackManifest {
         try RollbackArchiveTransaction.withLock(in: directory) {
+            if let preparation,
+               (try? preparationURL(preparation.sessionID).resourceValues(forKeys: [.isSymbolicLinkKey])) != nil {
+                throw ArchiveError.invalidPreparation
+            }
             // A staging ZIP is neither visible to the cleaner nor a committed `.zip`.
             // Unique committed names also preserve an earlier archive of the same version.
             let archiveName = "Orifold-\(UUID().uuidString).zip"
@@ -128,11 +151,74 @@ struct RollbackArchiver {
                 bundleIdentifier: publisher?.bundleIdentifier, teamIdentifier: publisher?.teamIdentifier
             )
             // No fallible cleanup removes the previous committed archive before this point.
-            try persistManifest(manifest)
+            if let preparation {
+                let pending = Preparation(sessionID: preparation.sessionID, toVersion: preparation.toVersion, manifest: manifest)
+                try write(pending, to: preparationURL(preparation.sessionID))
+            } else {
+                try persistManifest(manifest)
+            }
             committed = true
-            pruneArchivesExcept(keeping: archiveName)
+            pruneUnreferencedArchives()
             return manifest
         }
+    }
+
+    /// Only the preparation owned by the attempt that reached its target may become current.
+    /// Keep its existing ZIP path stable: the standalone restore helper already names it.
+    @discardableResult
+    func commitPreparation(for attempt: InstallAttempt) throws -> Bool {
+        return try RollbackArchiveTransaction.withLock(in: directory) {
+            guard let sessionID = attempt.sessionID,
+                  FileManager.default.fileExists(atPath: preparationURL(sessionID).path) else {
+                // Older updaters already committed the predecessor before writing even UUID
+                // attempt markers; the same check makes a completed promotion retry-safe.
+                guard let committed = loadManifest(),
+                      UpdateLaunchCoordinator.versionsMatch(committed.version, attempt.fromVersion) else { return false }
+                try verify(committed)
+                return true
+            }
+            let url = preparationURL(sessionID)
+            let pending = try readPreparation(at: url)
+            guard pending.sessionID == sessionID,
+                  UpdateLaunchCoordinator.versionsMatch(pending.toVersion, attempt.toVersion),
+                  UpdateLaunchCoordinator.versionsMatch(pending.manifest.version, attempt.fromVersion) else {
+                throw ArchiveError.invalidPreparation
+            }
+            try verify(pending.manifest)
+            try persistManifest(pending.manifest)
+            try FileManager.default.removeItem(at: url)
+            pruneUnreferencedArchives()
+            return true
+        }
+    }
+
+    /// Safe only before a helper launches, or after the current process revokes its handoff.
+    /// Uncertain external outcomes keep their rescue copy until explicitly resolved.
+    func discardPreparation(sessionID: UUID) throws {
+        try RollbackArchiveTransaction.withLock(in: directory) {
+            let url = preparationURL(sessionID)
+            guard FileManager.default.fileExists(atPath: url.path) else { return }
+            let pending = try readPreparation(at: url)
+            guard pending.sessionID == sessionID else { throw ArchiveError.invalidPreparation }
+            try FileManager.default.removeItem(at: url)
+            pruneUnreferencedArchives()
+        }
+    }
+
+    /// Called while holding the publication lock. Unknown state means no safe deletion set.
+    func retainedArchiveNames() -> Set<String>? {
+        guard let current = loadManifest(), archiveURL(for: current) != nil,
+              let entries = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return nil }
+        var names: Set<String> = [current.archiveFileName]
+        for url in entries where url.lastPathComponent.hasPrefix(".rollback-pending-") {
+            // These are direct children of directory; FileManager may canonicalize its
+            // /var alias or relative base, so identify the pending record by filename.
+            guard let pending = try? readPreparation(at: url),
+                  url.lastPathComponent == preparationURL(pending.sessionID).lastPathComponent,
+                  archiveURL(for: pending.manifest) != nil else { return nil }
+            names.insert(pending.manifest.archiveFileName)
+        }
+        return names
     }
 
     /// The stored manifest, if a rollback archive currently exists.
@@ -176,10 +262,26 @@ struct RollbackArchiver {
     }
 
     private func persistManifest(_ manifest: RollbackManifest) throws {
+        try write(manifest, to: manifestURL)
+    }
+
+    private func preparationURL(_ sessionID: UUID) -> URL {
+        directory.appendingPathComponent(".rollback-pending-\(sessionID.uuidString).json")
+    }
+
+    private func readPreparation(at url: URL) throws -> Preparation {
+        let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true else { throw ArchiveError.invalidPreparation }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(Preparation.self, from: Data(contentsOf: url))
+    }
+
+    private func write<T: Encodable>(_ value: T, to url: URL) throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(manifest).write(to: manifestURL, options: .atomic)
+        try encoder.encode(value).write(to: url, options: .atomic)
     }
 
     private static func syncArchive(at url: URL) throws {
@@ -196,10 +298,11 @@ struct RollbackArchiver {
         }
     }
 
-    private func pruneArchivesExcept(keeping name: String) {
+    private func pruneUnreferencedArchives() {
+        guard let names = retainedArchiveNames() else { return }
         let fm = FileManager.default
         guard let entries = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
-        for url in entries where url.pathExtension == "zip" && url.lastPathComponent != name {
+        for url in entries where url.pathExtension == "zip" && !names.contains(url.lastPathComponent) {
             try? fm.removeItem(at: url)
         }
     }

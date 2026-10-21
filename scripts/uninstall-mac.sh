@@ -81,25 +81,23 @@ remove_glob_paths() {
 }
 
 stop_running_app() {
-    local process_name="$1"
-    if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
-        print_step "Closing $process_name"
-        /usr/bin/osascript -e "tell application \"$process_name\" to quit" >/dev/null 2>&1 || true
-        for _ in {1..20}; do
-            /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || break
-            /bin/sleep 0.25
-        done
-        if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
-            /usr/bin/pkill -x "$process_name" >/dev/null 2>&1 || true
-            for _ in {1..20}; do
-                /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || break
-                /bin/sleep 0.25
-            done
-        fi
-        if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
-            /usr/bin/pkill -9 -x "$process_name" >/dev/null 2>&1 || true
-        fi
-    fi
+    local app_path="$1"
+    [[ -d "$app_path" && ! -L "$app_path" ]] || return 0
+    # A cancelled document review must stop removal; never escalate to process termination.
+    /usr/bin/osascript - "$app_path" >/dev/null 2>&1 <<'QUIT_APP' || return 1
+on run argv
+    set appPath to item 1 of argv
+    if application appPath is running then
+        tell application appPath to quit
+        repeat 20 times
+            if not (application appPath is running) then return
+            delay 0.25
+        end repeat
+        error "Orifold is still running. Finish saving and quit it before uninstalling."
+    end if
+end run
+QUIT_APP
+    return 0
 }
 
 while [[ $# -gt 0 ]]; do
@@ -127,9 +125,14 @@ done
 printf "%s Uninstaller\n" "$APP_NAME"
 printf "=================\n"
 
-stop_running_app "$APP_NAME"
-for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
-    stop_running_app "$legacy_app_name"
+for app_name in "$APP_NAME" "${LEGACY_APP_NAMES[@]}"; do
+    for app_directory in "${INSTALLED_APP:h}" "${SYSTEM_INSTALLED_APP:h}"; do
+        app_path="$app_directory/$app_name.app"
+        if ! stop_running_app "$app_path"; then
+            printf "\nUninstall cancelled: quit %s before uninstalling. Nothing was removed.\n" "$app_path" >&2
+            exit 1
+        fi
+    done
 done
 
 print_step "Removing installed app and commands"

@@ -141,6 +141,32 @@ finish_install_transaction() {
     INSTALL_TRANSACTION_DIR=""
 }
 
+stop_running_app() {
+    local app_path="$1"
+    local process_name="${app_path:t:r}"
+    [[ -d "$app_path" ]] || return 0
+    if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
+        print_step "Closing $app_path"
+        # A cancelled Save/Don't Save/Cancel prompt is an installer cancellation.
+        # Address this bundle only and never terminate another copy by process name.
+        /usr/bin/osascript - "$app_path" >/dev/null 2>&1 <<'QUIT_APP' || return 1
+on run argv
+    set appPath to item 1 of argv
+    if application appPath is running then
+        tell application appPath to quit
+    end if
+end run
+QUIT_APP
+        for _ in {1..20}; do
+            /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || return 0
+            /bin/sleep 0.25
+        done
+        print_note "$process_name is still running. Finish saving and quit it before updating."
+        return 1
+    fi
+    return 0
+}
+
 # Restore a previously-archived Orifold.app from a zip, without building. Mirrors the in-app
 # restore path (stage-then-swap + verify + relaunch) for use from Terminal — the recovery route
 # when the app itself won't launch. Any failure after the swap begins puts the old bundle back.
@@ -187,6 +213,7 @@ do_restore() {
     /usr/bin/ditto --norsrc "$found" "$INSTALL_TRANSACTION_DIR/new.app" >>"$LOG_FILE" 2>&1 \
         || fail "Could not stage the restored app."
     /bin/rm -rf "$work"
+    stop_running_app "$target" || fail "Restore cancelled; the previous app was preserved."
     swap_transaction_app
     /usr/bin/xattr -cr "$target" 2>/dev/null || true
     if ! codesign --verify --deep --strict "$target" >>"$LOG_FILE" 2>&1; then
@@ -382,32 +409,6 @@ capture_launch_diagnostics() {
         --predicate "process == '$APP_NAME' OR eventMessage CONTAINS[c] '$APP_NAME' OR eventMessage CONTAINS[c] 'PDFium'" \
         --last 2m \
         --style compact >>"$LOG_FILE" 2>&1 || true
-}
-
-stop_running_app() {
-    local app_path="$1"
-    local process_name="${app_path:t:r}"
-    [[ -d "$app_path" ]] || return 0
-    if /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1; then
-        print_step "Closing $app_path"
-        # A cancelled Save/Don't Save/Cancel prompt is an installer cancellation.
-        # Address this bundle only and never terminate another copy by process name.
-        /usr/bin/osascript - "$app_path" >/dev/null 2>&1 <<'QUIT_APP' || return 1
-on run argv
-    set appPath to item 1 of argv
-    if application appPath is running then
-        tell application appPath to quit
-    end if
-end run
-QUIT_APP
-        for _ in {1..20}; do
-            /usr/bin/pgrep -x "$process_name" >/dev/null 2>&1 || return 0
-            /bin/sleep 0.25
-        done
-        print_note "$process_name is still running. Finish saving and quit it before updating."
-        return 1
-    fi
-    return 0
 }
 
 remove_build_cache_path() {

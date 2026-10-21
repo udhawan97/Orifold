@@ -163,6 +163,204 @@ final class UpdateInstallOrchestrationTests: XCTestCase {
         XCTAssertNil(markers.readAttempt(), "a non-started install must not leave an attempt marker")
     }
 
+    func testFailedHelperLaunchPreservesCommittedPreviousVersion() async throws {
+        try await assertPreviousRollbackSurvivesAbort("helper")
+    }
+
+    func testCancelledQuitPreservesCommittedPreviousVersion() async throws {
+        try await assertPreviousRollbackSurvivesAbort("quit")
+    }
+
+    func testFailedAttemptWritePreservesCommittedPreviousVersion() async throws {
+        try await assertPreviousRollbackSurvivesAbort("marker")
+    }
+
+    func testDirtyDocumentAfterPreparationPreservesCommittedPreviousVersion() async throws {
+        try await assertPreviousRollbackSurvivesAbort("dirty")
+    }
+
+    private func seedPreviousRollback() throws -> RollbackManifest {
+        let bundle = tmp.appendingPathComponent("Orifold.app")
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        try Data("previous version A".utf8).write(to: bundle.appendingPathComponent("marker"))
+        let archiver = RollbackArchiver(directory: tmp.appendingPathComponent("Rollback"))
+        var previous = try archiver.archive(bundleURL: bundle, version: "0.8.5", build: "11", at: Date(timeIntervalSince1970: 100))
+        previous.bundleIdentifier = UpdatePublisherIdentity.expectedBundleIdentifier
+        previous.teamIdentifier = "TEAM123456"
+        try archiver.writeManifest(previous)
+        return previous
+    }
+
+    private func assertPreviousRollbackSurvivesAbort(_ failure: String) async throws {
+        let previous = try seedPreviousRollback()
+        let archiver = RollbackArchiver(directory: tmp.appendingPathComponent("Rollback"))
+        let previousURL = try XCTUnwrap(archiver.archiveURL(for: previous))
+        let previousBytes = try Data(contentsOf: previousURL)
+        let previousManifest = try Data(contentsOf: tmp.appendingPathComponent("Rollback/rollback-manifest.json"))
+        let spy = SpyHandOff()
+        spy.launchResult = failure != "helper"
+        spy.terminationAccepted = failure != "quit"
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let history = UpdateHistoryStore(directory: tmp)
+        var snapshots = 0
+        let (controller, _, _) = try await readyController(
+            spy: spy, history: history, markers: markers,
+            openDocumentsSnapshot: {
+                snapshots += 1
+                return failure == "dirty" && snapshots > 1
+                    ? [.init(displayName: "Changed.pdf", hasUnsavedChanges: true)] : []
+            })
+        XCTAssertTrue(controller.canRestorePreviousVersion)
+        if failure == "marker" {
+            try FileManager.default.createDirectory(at: tmp.appendingPathComponent("install-attempt.json"), withIntermediateDirectories: false)
+        }
+        let installed = await controller.installAndRelaunch(reopenDocuments: [])
+        XCTAssertFalse(installed)
+        XCTAssertEqual(archiver.loadManifest(), previous)
+        XCTAssertEqual(try Data(contentsOf: previousURL), previousBytes)
+        XCTAssertEqual(try Data(contentsOf: tmp.appendingPathComponent("Rollback/rollback-manifest.json")), previousManifest)
+        XCTAssertTrue(controller.canRestorePreviousVersion)
+        let zips = try FileManager.default.contentsOfDirectory(at: archiver.directory, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "zip" }
+        XCTAssertEqual(zips.map(\.lastPathComponent), [previous.archiveFileName], "aborted preparation must not leave another committed or pending rescue")
+    }
+
+    func testHealthyTargetLaunchPromotesRescueAndPreservesHelperArchivePath() async throws {
+        let previous = try seedPreviousRollback()
+        let archiver = RollbackArchiver(directory: tmp.appendingPathComponent("Rollback"))
+        let previousURL = try XCTUnwrap(archiver.archiveURL(for: previous))
+        let spy = SpyHandOff()
+        let history = UpdateHistoryStore(directory: tmp)
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let (controller, _, _) = try await readyController(spy: spy, history: history, markers: markers)
+        let installed = await controller.installAndRelaunch(reopenDocuments: [])
+        XCTAssertTrue(installed)
+        let attempt = try XCTUnwrap(markers.readAttempt())
+        let helperPath = try XCTUnwrap(spy.launchedInputs?.rollbackZipPath)
+        let rescueURL = URL(fileURLWithPath: helperPath)
+        let rescueBytes = try Data(contentsOf: rescueURL)
+        let cleaner = UpdateArtifactCleaner(updaterCacheDirectory: tmp.appendingPathComponent("UpdaterCache"), rollbackDirectory: archiver.directory)
+        cleaner.clean()
+        XCTAssertEqual(archiver.loadManifest(), previous, "preparation cannot publish the still-running version")
+        XCTAssertEqual(try Data(contentsOf: rescueURL), rescueBytes, "cleanup must retain the launched helper's exact rescue")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: previousURL.path))
+
+        let rejected = await UpdateLaunchCoordinator.confirmHealthyInstall(
+            in: history, currentVersion: "0.8.6", attempt: attempt, markers: markers, archiver: archiver)
+        XCTAssertFalse(rejected)
+        XCTAssertEqual(archiver.loadManifest(), previous)
+        XCTAssertNotNil(markers.readAttempt())
+        XCTAssertFalse(try XCTUnwrap(history.latest).launchVerified)
+
+        let confirmed = await UpdateLaunchCoordinator.confirmHealthyInstall(
+            in: history, currentVersion: "0.9.0", attempt: attempt, markers: markers, archiver: archiver)
+        XCTAssertTrue(confirmed)
+        let promoted = try XCTUnwrap(archiver.loadManifest())
+        XCTAssertEqual(promoted.version, "0.8.6")
+        XCTAssertEqual(archiver.archiveURL(for: promoted)?.path, helperPath)
+        XCTAssertEqual(try Data(contentsOf: rescueURL), rescueBytes)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: previousURL.path))
+        XCTAssertNil(markers.readAttempt())
+        XCTAssertTrue(try XCTUnwrap(history.latest).launchVerified)
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(at: archiver.directory, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix(".rollback-pending-") }.isEmpty)
+        let repeated = await UpdateLaunchCoordinator.confirmHealthyInstall(
+            in: history, currentVersion: "0.9.0", attempt: attempt, markers: markers, archiver: archiver)
+        XCTAssertTrue(repeated, "an already-promoted predecessor is an idempotent success")
+        XCTAssertEqual(try Data(contentsOf: rescueURL), rescueBytes)
+    }
+
+    func testLegacyCommittedPredecessorAcceptsUUIDAndSessionlessAttempts() async throws {
+        let previous = try seedPreviousRollback()
+        let archiver = RollbackArchiver(directory: tmp.appendingPathComponent("Rollback"))
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        for sessionID in [UUID(), nil] {
+            let attempt = InstallAttempt(sessionID: sessionID, fromVersion: previous.version, toVersion: "0.9.0",
+                dmgPath: "fictional.dmg", dmgSHA256: "", startedAt: Date(timeIntervalSince1970: 100))
+            try markers.writeAttempt(attempt)
+            let history = UpdateHistoryStore(directory: tmp)
+            history.record(UpdateHistoryRecord(fromVersion: previous.version, fromBuild: "11", toVersion: "0.9.0",
+                toBuild: "13", installedAt: Date(timeIntervalSince1970: 100)))
+            let confirmed = await UpdateLaunchCoordinator.confirmHealthyInstall(
+                in: history, currentVersion: "0.9.0", attempt: attempt, markers: markers, archiver: archiver)
+            XCTAssertTrue(confirmed)
+            XCTAssertNil(markers.readAttempt())
+            XCTAssertTrue(try XCTUnwrap(history.latest).launchVerified)
+            XCTAssertEqual(archiver.loadManifest(), previous)
+            XCTAssertNoThrow(try archiver.verify(previous))
+        }
+    }
+
+    func testMissingPreparationDoesNotConfirmAnUnrelatedCommittedRollback() async throws {
+        let previous = try seedPreviousRollback()
+        let archiver = RollbackArchiver(directory: tmp.appendingPathComponent("Rollback"))
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let attempt = InstallAttempt(sessionID: UUID(), fromVersion: "0.8.6", toVersion: "0.9.0",
+            dmgPath: "fictional.dmg", dmgSHA256: "", startedAt: Date(timeIntervalSince1970: 100))
+        try markers.writeAttempt(attempt)
+        let history = UpdateHistoryStore(directory: tmp)
+        history.record(UpdateHistoryRecord(fromVersion: "0.8.6", fromBuild: "12", toVersion: "0.9.0",
+            toBuild: "13", installedAt: Date(timeIntervalSince1970: 100)))
+        let confirmed = await UpdateLaunchCoordinator.confirmHealthyInstall(
+            in: history, currentVersion: "0.9.0", attempt: attempt, markers: markers, archiver: archiver)
+        XCTAssertFalse(confirmed)
+        XCTAssertEqual(markers.readAttempt(), attempt)
+        XCTAssertFalse(try XCTUnwrap(history.latest).launchVerified)
+        XCTAssertEqual(archiver.loadManifest(), previous)
+        XCTAssertNoThrow(try archiver.verify(previous))
+    }
+
+    func testFailedRescueVerificationRetainsAttemptAndCanRetryPromotion() async throws {
+        let previous = try seedPreviousRollback()
+        let archiver = RollbackArchiver(directory: tmp.appendingPathComponent("Rollback"))
+        let session = UUID()
+        let rescue = try archiver.prepare(bundleURL: tmp.appendingPathComponent("Orifold.app"), version: "0.8.6",
+            build: "12", sessionID: session, toVersion: "0.9.0")
+        let rescueURL = try XCTUnwrap(archiver.archiveURL(for: rescue))
+        let rescueBytes = try Data(contentsOf: rescueURL)
+        let attempt = InstallAttempt(sessionID: session, fromVersion: "0.8.6", toVersion: "0.9.0",
+            dmgPath: "fictional.dmg", dmgSHA256: "", startedAt: Date(timeIntervalSince1970: 100))
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        try markers.writeAttempt(attempt)
+        let history = UpdateHistoryStore(directory: tmp)
+        history.record(UpdateHistoryRecord(fromVersion: "0.8.6", fromBuild: "12", toVersion: "0.9.0",
+            toBuild: "13", installedAt: Date(timeIntervalSince1970: 100)))
+        try Data("corrupted rescue".utf8).write(to: rescueURL)
+        let rejected = await UpdateLaunchCoordinator.confirmHealthyInstall(
+            in: history, currentVersion: "0.9.0", attempt: attempt, markers: markers, archiver: archiver)
+        XCTAssertFalse(rejected)
+        XCTAssertEqual(markers.readAttempt(), attempt)
+        XCTAssertFalse(try XCTUnwrap(history.latest).launchVerified)
+        XCTAssertEqual(archiver.loadManifest(), previous)
+        XCTAssertNoThrow(try archiver.verify(previous))
+        try rescueBytes.write(to: rescueURL)
+        let retried = await UpdateLaunchCoordinator.confirmHealthyInstall(
+            in: history, currentVersion: "0.9.0", attempt: attempt, markers: markers, archiver: archiver)
+        XCTAssertTrue(retried)
+        XCTAssertNil(markers.readAttempt())
+        XCTAssertTrue(try XCTUnwrap(history.latest).launchVerified)
+        XCTAssertEqual(archiver.loadManifest()?.archiveFileName, rescue.archiveFileName)
+    }
+
+    func testUnrevokedHelperKeepsCommittedAndPendingRescueThroughCleanup() async throws {
+        let previous = try seedPreviousRollback()
+        let spy = SpyHandOff()
+        spy.terminationAccepted = false
+        spy.abandonResult = false
+        let markers = UpdateInstallMarkerStore(directory: tmp)
+        let history = UpdateHistoryStore(directory: tmp)
+        let (controller, _, _) = try await readyController(spy: spy, history: history, markers: markers)
+        let installed = await controller.installAndRelaunch(reopenDocuments: [])
+        XCTAssertFalse(installed)
+        let archiver = RollbackArchiver(directory: tmp.appendingPathComponent("Rollback"))
+        let rescue = try XCTUnwrap(spy.launchedInputs?.rollbackZipPath)
+        UpdateArtifactCleaner(updaterCacheDirectory: tmp.appendingPathComponent("UpdaterCache"), rollbackDirectory: archiver.directory).clean()
+        XCTAssertEqual(archiver.loadManifest(), previous)
+        XCTAssertNotNil(archiver.archiveURL(for: previous))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: rescue))
+        XCTAssertNotNil(markers.readAttempt())
+    }
+
     func testInstallStopsBeforeHelperLaunchWhenReopenManifestCannotBeSaved() async throws {
         let spy = SpyHandOff()
         let history = UpdateHistoryStore(directory: tmp)

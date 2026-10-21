@@ -276,10 +276,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             if externallyModified {
                 externalModificationDetected = true
             } else {
-                // Consumers require unambiguous member identities; never coalesce restored records.
-                guard Set(editableWorkspace.documents.map(\.id)).count == editableWorkspace.documents.count else {
-                    throw CocoaError(.fileReadCorruptFile)
-                }
+                try Self.validateRestoredState(in: editableWorkspace, memberPDFData: metadata.editableMemberPDFData)
                 workspace = editableWorkspace
                 memberPDFData = metadata.editableMemberPDFData
                 sourcePayloads = metadata.sourcePayloads
@@ -322,6 +319,39 @@ final class WorkspaceDocument: ReferenceFileDocument {
                   let savedPayload = metadata.sourcePayloads.values.first,
                   savedPayload.renderedPageCount.map({ $0 == pageCount }) ?? true {
             sourcePayloads[member.id] = savedPayload
+        }
+    }
+
+    /// Reject ambiguous identities or live layouts rather than repairing saved state.
+    /// sourcePageIndex refers to pristine bytes and may differ from the live position.
+    private static func validateRestoredState(in workspace: Workspace, memberPDFData: [UUID: Data]) throws {
+        guard Set(workspace.documents.map(\.id)).count == workspace.documents.count,
+              workspace.documents.flatMap(\.pageRefs) == workspace.pageOrder.map(\.id) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        var pagesByID: [UUID: PageRef] = [:]
+        for page in workspace.pageOrder {
+            guard pagesByID.updateValue(page, forKey: page.id) == nil else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+        }
+        var ownedPageIDs = Set<UUID>()
+        for member in workspace.documents {
+            guard let data = memberPDFData[member.id],
+                  let pdf = PDFDocument(data: data), !pdf.isLocked,
+                  pdf.pageCount == member.pageRefs.count else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            for pageID in member.pageRefs {
+                guard let page = pagesByID[pageID],
+                      page.memberDocId == member.id,
+                      ownedPageIDs.insert(pageID).inserted else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+            }
+        }
+        guard ownedPageIDs.count == pagesByID.count else {
+            throw CocoaError(.fileReadCorruptFile)
         }
     }
 

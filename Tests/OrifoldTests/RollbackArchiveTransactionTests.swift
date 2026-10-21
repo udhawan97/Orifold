@@ -99,4 +99,67 @@ final class RollbackArchiveTransactionTests: XCTestCase {
     private func manifest(_ name: String) -> RollbackManifest {
         RollbackManifest(version: "fictional", build: "1", sha256: "fictional", archivedAt: Date(), archiveFileName: name)
     }
+
+    func testMultiplePendingHelpersAndUnknownSidecarsArePreservedDuringCleanup() throws {
+        try checkMultiplePendingHelpersAndUnknownSidecars(rollbackDirectory: rollback)
+    }
+
+    func testMultiplePendingHelpersCleanupThroughRelativeDirectoryURL() throws {
+        // FileManager enumerates absolute URLs even when the caller supplied a relative
+        // directory. The same identity mismatch occurs for macOS /var -> /private/var.
+        let base = URL(fileURLWithPath: root.path, isDirectory: true)
+        let relative = URL(fileURLWithPath: "Rollback", isDirectory: true, relativeTo: base)
+        XCTAssertNotEqual(relative, rollback)
+        XCTAssertEqual(relative.path, rollback.path)
+        try checkMultiplePendingHelpersAndUnknownSidecars(rollbackDirectory: relative)
+    }
+
+    private func checkMultiplePendingHelpersAndUnknownSidecars(rollbackDirectory: URL) throws {
+        let bundle = root.appendingPathComponent("Orifold.app")
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        let marker = bundle.appendingPathComponent("marker")
+        try Data("A".utf8).write(to: marker)
+        let archiver = RollbackArchiver(directory: rollbackDirectory)
+        let current = try archiver.archive(bundleURL: bundle, version: "1", build: "1")
+        try Data("B".utf8).write(to: marker)
+        let firstID = UUID(), secondID = UUID()
+        let first = try archiver.prepare(bundleURL: bundle, version: "2", build: "2", sessionID: firstID, toVersion: "3")
+        let second = try archiver.prepare(bundleURL: bundle, version: "2", build: "2", sessionID: secondID, toVersion: "4")
+        let cleaner = UpdateArtifactCleaner(updaterCacheDirectory: cache, rollbackDirectory: rollbackDirectory)
+        XCTAssertTrue(cleaner.clean().removed.isEmpty)
+        for expected in [current, first, second] { XCTAssertNoThrow(try archiver.verify(expected)) }
+        XCTAssertThrowsError(try archiver.prepare(bundleURL: bundle, version: "2", build: "2", sessionID: firstID, toVersion: "5"))
+        try archiver.discardPreparation(sessionID: UUID())
+        try archiver.discardPreparation(sessionID: firstID)
+        XCTAssertNil(archiver.archiveURL(for: first))
+        XCTAssertNoThrow(try archiver.verify(current))
+        XCTAssertNoThrow(try archiver.verify(second))
+
+        let malformed = rollbackDirectory.appendingPathComponent(".rollback-pending-unknown.json")
+        try Data("{unknown".utf8).write(to: malformed)
+        let orphan = rollbackDirectory.appendingPathComponent("unresolved.zip")
+        try Data("preserve unknown recovery".utf8).write(to: orphan)
+        XCTAssertTrue(cleaner.clean().removed.isEmpty)
+        XCTAssertEqual(try Data(contentsOf: orphan), Data("preserve unknown recovery".utf8))
+    }
+
+    func testPromotionRejectsMismatchedAttemptAndCorruptedRescue() throws {
+        let bundle = root.appendingPathComponent("Orifold.app")
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        try Data("A".utf8).write(to: bundle.appendingPathComponent("marker"))
+        let archiver = RollbackArchiver(directory: rollback)
+        let previous = try archiver.archive(bundleURL: bundle, version: "1", build: "1", at: Date(timeIntervalSince1970: 100))
+        let session = UUID()
+        let rescue = try archiver.prepare(bundleURL: bundle, version: "2", build: "2", sessionID: session, toVersion: "3")
+        var attempt = InstallAttempt(sessionID: session, fromVersion: "2", toVersion: "4", dmgPath: "fictional", dmgSHA256: "", startedAt: Date())
+        XCTAssertThrowsError(try archiver.commitPreparation(for: attempt))
+        XCTAssertEqual(archiver.loadManifest(), previous)
+        attempt.toVersion = "3"
+        let rescueURL = try XCTUnwrap(archiver.archiveURL(for: rescue))
+        try Data("damaged rescue".utf8).write(to: rescueURL)
+        XCTAssertThrowsError(try archiver.commitPreparation(for: attempt))
+        XCTAssertEqual(archiver.loadManifest(), previous)
+        XCTAssertNoThrow(try archiver.verify(previous))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: rescueURL.path))
+    }
 }
