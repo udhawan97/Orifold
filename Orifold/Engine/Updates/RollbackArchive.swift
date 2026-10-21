@@ -211,8 +211,11 @@ struct RollbackArchiver {
               let entries = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return nil }
         var names: Set<String> = [current.archiveFileName]
         for url in entries where url.lastPathComponent.hasPrefix(".rollback-pending-") {
+            // These are direct children of directory; FileManager may canonicalize its
+            // /var alias or relative base, so identify the pending record by filename.
             guard let pending = try? readPreparation(at: url),
-                  url == preparationURL(pending.sessionID), archiveURL(for: pending.manifest) != nil else { return nil }
+                  url.lastPathComponent == preparationURL(pending.sessionID).lastPathComponent,
+                  archiveURL(for: pending.manifest) != nil else { return nil }
             names.insert(pending.manifest.archiveFileName)
         }
         return names
