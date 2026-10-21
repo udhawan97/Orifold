@@ -34,11 +34,14 @@ jobs:
       - name: Install dependencies
         working-directory: docs-site
         run: npm ci
+      - name: Test release metadata and offline fallback
+        working-directory: docs-site
+        run: npm test
       - name: Build
         working-directory: docs-site
         env:
           # Authenticate the build-time releases/latest fetch so the download
-          # button's version/size never fall back to LAST_KNOWN_GOOD on the
+          # button can show verified version/size without rate limits on the
           # shared runner IP's unauthenticated rate limit.
           GITHUB_TOKEN: ${{ github.token }}
         run: npm run build

@@ -1,6 +1,6 @@
 ---
 title: Reorder, rotate & delete pages
-description: Rearrange, rotate, and remove pages across every document in your workspace, safely.
+description: Rearrange, rotate, and remove pages within your workspace, with explicit boundaries for forms and source attachments.
 keywords: [reorder pages, rotate, delete page, rearrange, move pages]
 ---
 
@@ -17,7 +17,7 @@ import Figure from '../../../components/Figure.astro';
 ## Steps
 
 1. Open the sidebar page list.
-2. **Reorder** — drag a page to a new position, even into a different document's section. With
+2. **Reorder** — drag a page to a new position, including into another document’s section when both affected sources are form-free. With
    VoiceOver, use the page or document row's **Move Up** and **Move Down** actions for moves inside
    its current section.
 3. **Rotate** — right-click a page and choose a rotation, or use **Rotate Left / Rotate Right** from the **···** menu's Pages section for the page currently on screen.
@@ -26,7 +26,7 @@ import Figure from '../../../components/Figure.astro';
 <Figure src="/Orifold/assets/gifs/reorder-rotate-delete-pages.png" alt="The ··· menu open, showing the Pages section with Rotate Left, Rotate Right, Duplicate Page, and Delete Page actions for the current page." caption="Rotating or deleting the current page from the ··· menu — right-clicking a page thumbnail in the sidebar offers the same actions." />
 
 <Callout variant="tip">
-	⌘Z is fearless. Page deletes, rotations, and edits all live in undo history — experiment freely.
+	Use ⌘Z to undo supported page operations while reviewing the workspace. Keep your original files and inspect an exported copy before sharing.
 </Callout>
 
 ## What you should see
@@ -44,3 +44,17 @@ touched. Focus a document or page row and press <kbd>Return</kbd> to select it w
 		What <Kbd>⌘Z</Kbd> and <Kbd>⌘Y</Kbd> cover.
 	</Card>
 </CardGrid>
+
+## Preserve source documents
+
+Cross-document moves prepare both affected PDFs before changing the workspace. Form-bearing
+members are refused rather than risking invalid field references. Moves preserve the current
+live page state in supported form-free documents and participate in Undo.
+
+Moving a source’s final page removes that empty source from the workspace. Transfer of its
+embedded attachments and other document-level catalog ownership is not verified. Keep that
+source file, inspect attachments in the resulting workspace and export, and avoid using a
+last-page move as an archival migration.
+
+Cropping now carries the member’s printed page labels through apply, Undo, Redo, and editable
+save/reopen. It changes the visible crop box rather than permanently removing content outside it.

@@ -1,6 +1,6 @@
 ---
 title: Install Orifold
-description: Install Orifold in 30 seconds with a one-line Terminal command, Homebrew, or a direct download.
+description: Install the universal Mac app from a DMG, the prebuilt Terminal installer, or the repository’s Homebrew cask.
 keywords: [install, download, setup, homebrew, unidentified developer, requirements]
 ---
 
@@ -15,7 +15,7 @@ import Badge from '../../../components/Badge.astro';
 
 ## Requirements
 
-macOS 14 Sonoma or newer, on Apple Silicon **or** Intel — Orifold ships as a universal build, so one download works for both. That's the whole list — no Xcode, no GitHub account, no compile step.
+macOS 14 Sonoma or newer, on Apple Silicon **or** Intel — Orifold ships as a universal build, so one download works for both. The prebuilt app needs no Xcode or GitHub account. Source builds require a development toolchain.
 
 ## Steps
 
@@ -29,12 +29,12 @@ macOS 14 Sonoma or newer, on Apple Silicon **or** Intel — Orifold ships as a u
 3. The installer downloads the prebuilt app to `~/Applications/Orifold.app` and adds two helpers to your Desktop: **Orifold.command** (launch + auto-update) and **Uninstall Orifold.command**.
 
 <Callout variant="tip">
-	Never used Terminal before? Paste the line above exactly as written, then press Return. You're now a power user.
+	The installer downloads a prebuilt app and clears its quarantine. Review the script first if desired. The manual DMG route below keeps macOS’s normal first-launch approval flow.
 </Callout>
 
 ### If macOS warns about an unidentified developer
 
-Release builds are ad-hoc signed but not notarized. Right-click the app in Finder and choose **Open** from the security prompt — this only needs to happen once.
+Public builds are ad-hoc signed and not Apple-notarized unless the release says otherwise. Verify the source and checksum, then follow [Apple’s first-launch guidance](https://support.apple.com/en-us/102445) if macOS blocks opening it.
 
 ## Prefer Homebrew?
 
@@ -43,7 +43,7 @@ brew tap udhawan97/orifold https://github.com/udhawan97/Orifold
 brew install --cask udhawan97/orifold/orifold
 ```
 
-This installs the same prebuilt app and clears the download quarantine automatically. The one-line installer is still the friendliest path — it also creates the Desktop launch/update and uninstall helpers.
+This installs the same prebuilt app and clears the download quarantine automatically. The cask is stored in this repository; the explicit `brew tap` URL above is required on a fresh setup. It uses `version :latest` and `sha256 :no_check`, so compare important downloads with the published manifest. The one-line installer also creates the Desktop helpers.
 
 ## Prefer a direct download (DMG)?
 
@@ -53,26 +53,23 @@ Download the disk image — [`Orifold.dmg`](https://github.com/udhawan97/Orifold
 2. Drag **Orifold** into the **Applications** folder.
 3. Open Orifold from Applications.
 
-Because release builds aren't notarized by Apple yet, the first launch takes one step:
-
-- **macOS 14:** right-click Orifold → **Open** → **Open**.
-- **macOS 15:** open Orifold once (it's blocked), then **System Settings → Privacy & Security → Open Anyway**.
+If macOS blocks first launch, first confirm the download came from the official release and matches its checksum. For an unverified-developer alert, [Apple documents the per-app approval flow](https://support.apple.com/en-us/102445). A damaged or malware alert needs investigation; do not assume it is just quarantine.
 
 <Callout variant="tip">
-	Want zero dialogs? The one-line installer and Homebrew cask clear the download quarantine for you. The plain `Orifold.zip` is still published for those paths.
+	The Terminal installer and Homebrew cask clear download quarantine. This changes the first-launch check; it does not establish notarization or guarantee a dialog-free installation. The ZIP remains available for these paths.
 </Callout>
 
 You can verify a download against its published checksum:
 
 ```zsh
-shasum -a 256 ~/Downloads/Orifold-*-macOS-universal.dmg
+shasum -a 256 ~/Downloads/Orifold.dmg
 ```
 
 Compare the result to the checksum in the release's `manifest.json`.
 
 ## What you should see
 
-`Orifold.app` in `~/Applications`, plus **Orifold.command** and **Uninstall Orifold.command** on your Desktop. Double-clicking `Orifold.command` launches the app.
+The Terminal installer places `Orifold.app` in `~/Applications` and creates Desktop helpers. The DMG and Homebrew paths usually place the app in `/Applications` and do not create those helpers.
 
 ## Related
 

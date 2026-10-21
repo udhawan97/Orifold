@@ -335,7 +335,12 @@ final class PageCropTests: XCTestCase {
             return output
         }
         XCTAssertTrue(model.applyPageCrop(margins: margins, to: [ref]))
-        XCTAssertEqual(retryInputs, failedInputs, "failure must retain exact independent inputs for retry")
+        // The live lane is serialized anew, so qpdf refreshes only its second trailer ID.
+        // Pristine and object inputs must remain byte-for-byte identical.
+        XCTAssertEqual(try pdfIgnoringUpdatedDocumentID(XCTUnwrap(retryInputs.first)),
+                       try pdfIgnoringUpdatedDocumentID(XCTUnwrap(failedInputs.first)))
+        XCTAssertEqual(Array(retryInputs.dropFirst()), Array(failedInputs.dropFirst()),
+                       "failure must retain exact pristine and object inputs for retry")
         XCTAssertEqual(outputs.count, 3)
         for output in outputs {
             try assertLabeledCatalog(output)

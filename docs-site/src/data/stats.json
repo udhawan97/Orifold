@@ -1,8 +1,8 @@
 {
-	"version": "v0.12.1",
-	"tests": 1394,
-	"files": 334,
-	"loc": "104,000",
+	"version": "v0.12.2",
+	"tests": 1470,
+	"files": 344,
+	"loc": "107,000",
 	"languages": 6,
 	"maxFilesPerImport": 50,
 	"entitlements": 4

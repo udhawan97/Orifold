@@ -11,6 +11,7 @@
 		00165DD14A7EC1132C268064 /* PDFPageStringGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18D9E19BF30B6B2510C4145C /* PDFPageStringGuardTests.swift */; };
 		00256196C390AB2A5962C9C9 /* EditorNoReflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71C4E6D6322EA63656E3532 /* EditorNoReflowTests.swift */; };
 		0055EC1C209B2139C0E1AB84 /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E2230CE280817EFAC54C5F0 /* LanguageManager.swift */; };
+		013C3058C34E622C8EF38F91 /* PDFByteAssertions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E4689B4175125656D803106 /* PDFByteAssertions.swift */; };
 		015B61465A1F8AE4B705DC6A /* CommentSummaryGatheringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EEA6C361BA58403724D2F93 /* CommentSummaryGatheringTests.swift */; };
 		01E545D2358F23A2EE94CAB1 /* ObjectEditEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111474F391B93B5EBC05CDBA /* ObjectEditEngineTests.swift */; };
 		02F19633F37BA093CBED9F7F /* SampleDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB9BAAB525166CAF4E682516 /* SampleDocumentTests.swift */; };
@@ -593,6 +594,7 @@
 		8CDF7CAC6870F2F0BF882AB9 /* PDFComparisonModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFComparisonModels.swift; sourceTree = "<group>"; };
 		8D87DAC9BBFC4DE71FF459F9 /* LocalizationBundleSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationBundleSelectionTests.swift; sourceTree = "<group>"; };
 		8DB60FC2EF8495E7FEE3EDAB /* CanvasInteractionSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasInteractionSessionTests.swift; sourceTree = "<group>"; };
+		8E4689B4175125656D803106 /* PDFByteAssertions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFByteAssertions.swift; sourceTree = "<group>"; };
 		8E98DA1B1CE8640C68E4E6E2 /* RollbackArchiveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RollbackArchiveTests.swift; sourceTree = "<group>"; };
 		8F03976075DA299EC3D0B99C /* CertificateProfileStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertificateProfileStoreTests.swift; sourceTree = "<group>"; };
 		8F8A6392BF8207F57BDD6C56 /* AFMMetricsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AFMMetricsStoreTests.swift; sourceTree = "<group>"; };
@@ -1299,6 +1301,7 @@
 				C6C69A4C2F25A2075591CC7C /* PageGraphicsIndexTests.swift */,
 				838DBCB095DCD6BF56B32016 /* PageLabelCopyTests.swift */,
 				92F41E56C9C76007B512F39C /* PageReferenceTests.swift */,
+				8E4689B4175125656D803106 /* PDFByteAssertions.swift */,
 				637B66D68380855934644C2D /* PDFComparisonLifecycleTests.swift */,
 				A406F54B8975A33EF4C943BF /* PDFComparisonServiceTests.swift */,
 				EDBD5778ABFDB588951D8FBB /* PDFImportNormalizerTests.swift */,
@@ -1648,6 +1651,7 @@
 				D0C9181DBAAFFBD188215CEF /* OutlineExportPreservationTests.swift in Sources */,
 				6D7560E2A8B70A15FBB31530 /* OutlineFixturePDFBuilder.swift in Sources */,
 				1AF023A42FB55C36AC6E461E /* OutlineFixtures.swift in Sources */,
+				013C3058C34E622C8EF38F91 /* PDFByteAssertions.swift in Sources */,
 				0645DE78D3DBA7E91C1E27AF /* PDFComparisonLifecycleTests.swift in Sources */,
 				F968ABBA7D36916A6FB9782A /* PDFComparisonServiceTests.swift in Sources */,
 				BFC0DAA69396C4E8B9EB56EF /* PDFImportNormalizerTests.swift in Sources */,

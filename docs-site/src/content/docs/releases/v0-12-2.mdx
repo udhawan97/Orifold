@@ -1,0 +1,73 @@
+---
+title: "v0.12.2 — Keep the work intact"
+description: Document-state preservation, staged output and recovery, safer form-free page moves, and an honest documentation refresh.
+keywords: [release notes, v0.12.2, page moves, crop, attachments, recovery]
+---
+
+import Callout from '../../../components/Callout.astro';
+
+<Callout variant="note" label="Beta release notes">
+	Use the [GitHub release](https://github.com/udhawan97/Orifold/releases/tag/v0.12.2) for publication status, artifacts, and checksums. Source notes alone do not establish publication or native acceptance.
+</Callout>
+
+
+A beta maintenance release focused on document-state preservation, output transactions,
+recovery, and clearer public documentation. It includes the reviewed changes since v0.12.1.
+macOS 14+; universal Apple Silicon and Intel. Document processing remains local.
+
+## Document state and page operations
+
+- Cross-document page moves prepare both form-free members before mutation and preserve live
+  page state. Form-bearing inputs now refuse safely rather than risking invalid field references.
+- Cropping preserves printed page labels and keeps live, pristine, and object-edit replay lanes
+  independent through apply, rollback, Undo, Redo, and editable save/reopen.
+- Compression carries embedded attachment payloads across its PDFKit intermediate. Canonical
+  metadata and attachment edits remain available to later save/export transformations.
+- Restored multi-page layout and Bates settings retain their actual selection. Unsupported
+  restored identities are rejected; locked PDFs use the normalized unlocked input bytes.
+
+## Safer output and recovery
+
+- Image-folder exports stage a complete set, preserve prior output during replacement, and
+  cleanly roll back publication failures. Directory ownership and early descriptor failures
+  are handled before publication.
+- Update/restore transactions retain recoverable prior bundles and verify the staged archive,
+  identity, and signature before replacement. Recovery details remain available on failure.
+- Cancellation is checked at output and print handoff boundaries. Cancelling quit stops the
+  uninstaller before app or data removal.
+- HTML/text conversion binds its intended root, comparison constrains input, redaction cleans
+  unreachable resources, and import failures report more specific diagnostics.
+
+## Usability and documentation
+
+- File, folder, drag/drop, and encrypted import flows share the 50-file batch boundary; RTFD
+  packages count as documents. Focused-window commands and accessible placement controls are
+  better aligned with the active document.
+- Certificate caveats are localized, relocated help resolves safely, and OCR assertions use
+  the stable PDFium text path.
+- The README and website now lead with a direct Mac download, a concise workflow, the actual
+  current source-build workspace, privacy boundaries, and visible beta limitations. Release
+  metadata has an honest offline fallback, and historical screenshots retain their provenance.
+- Preservation tests compare independently generated PDFs without treating qpdf’s refreshed
+  trailer ID as content corruption. All other bytes remain part of the comparison.
+
+## Known limits before important paperwork
+
+- **Reader Mode form answers:** serialization remains under investigation. Keep the original,
+  save a copy, and reopen it in another viewer to verify every answer before submitting it.
+  Locking answers is not a substitute for this check.
+- **A source’s final page:** moving it removes that empty source from the workspace. Transfer
+  of its attachments and other document-level catalog ownership is not verified. Keep the
+  source file and inspect the resulting attachments.
+- **Visual text replacement is not redaction:** original text can remain discoverable. The
+  separate beta Redact tool refuses unsupported cases; inspect any result intended for sharing.
+- **Native acceptance:** source/CI checks do not establish complete VoiceOver, printing,
+  installed update/restore, physical-device, or user-workflow acceptance. No production-ready
+  claim is made by this release.
+- **Distribution trust:** public builds are ad-hoc signed and not Apple-notarized unless the
+  specific release says otherwise. Strict signature verification establishes bundle integrity,
+  not Developer ID trust or notarization. Automatic swapping requires eligible trusted builds;
+  development/ad-hoc builds use manual installation.
+
+Use the GitHub release’s attached manifest and SHA-256 files to verify its actual artifacts.
+Do not infer published-asset verification from this source changelog.

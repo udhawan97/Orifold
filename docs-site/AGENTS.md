@@ -21,22 +21,16 @@ post-release rebuild self-heals within 24h.
 
 ## Gotcha
 
-`src/lib/release.ts` (`LAST_KNOWN_GOOD`) and `src/data/stats.json` both hard-code app facts
-and must be refreshed on every release. Nothing fails when they drift.
+`src/lib/release.ts` resolves published metadata at build time. API failure preserves verified
+stable download links but deliberately omits version, date, and file-size claims. Test this
+fallback with `npm test --prefix docs-site`; never reintroduce a guessed latest version.
 
-`LAST_KNOWN_GOOD` is only read when the GitHub API is unreachable or rate-limited at build
-time, so a stale value stays invisible until the day a build actually needs it.
-
-`stats.json` feeds `<Stat name="…" />` and is rendered as-is. Regenerate with:
-
-```bash
-find Orifold Tests -name '*.swift' | wc -l          # files  (excludes Packages/)
-find Orifold Tests -name '*.swift' | xargs cat | wc -l   # loc, rounded to nearest 1,000
-swift test --list-tests | wc -l                      # tests
-```
-
-Note `files`/`loc` span **app + tests**, while README's "Under the hood" table counts the
-app alone — the two are meant to differ, so don't "reconcile" them.
+`src/data/stats.json` describes the source snapshot, not necessarily the latest published
+release. It feeds `<Stat name="…" />`; counts do not imply passing tests. Regenerate source
+file/line counts from `Orifold/` and `Tests/` and discovered methods with `swift test list`.
+Report actual runner execution, skips, failures, and unexpected failures separately.
+Update release notes, `project.yml`, and generated project/Info.plist together. Capture provenance
+belongs in `docs/assets/MEDIA_MANIFEST.md`; older guide imagery must retain its historical label.
 
 ## Reference
 
