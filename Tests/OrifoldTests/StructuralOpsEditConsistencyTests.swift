@@ -55,10 +55,7 @@ final class StructuralOpsEditConsistencyTests: XCTestCase {
     /// reliable on both. Blocks are joined in reading order with spaces so the multi-word
     /// tokens the assertions check for read back contiguously.
     private func pageText(_ viewModel: WorkspaceViewModel, pageIndex: Int) -> String {
-        // Serialize the LIVE loadedPDFs member document, not `document.memberPDFData` —
-        // in-place structural ops (duplicatePages, movePage) mutate the live PDFDocument
-        // but don't necessarily re-serialize memberPDFData, so the latter can lag behind
-        // the true page layout (e.g. missing a just-inserted duplicate).
+        // Inspect the display lane independently from the authoritative bytes/OCR inputs.
         guard let pdf = viewModel.loadedPDFs.first?.1 else { return "" }
         return pageText(fromLivePDF: pdf, pageIndex: pageIndex)
     }
@@ -108,6 +105,146 @@ final class StructuralOpsEditConsistencyTests: XCTestCase {
             textColor: .black,
             alignment: .left
         )
+    }
+
+    func testStructuralChangesImmediatelyPrepareTheCurrentPageContentForOCR() throws {
+        for operation in ["reorder", "delete", "delete-batch", "duplicate"] {
+            let vm = try makeViewModel(from: makePDFData(pageTexts: ["Alpha page", "Beta page", "Gamma page"]))
+            let refs = vm.document.workspace.pageOrder
+            let expected: [String]
+            switch operation {
+            case "reorder":
+                XCTAssertTrue(vm.movePage(refs[0], toIndex: 3))
+                expected = ["Beta", "Gamma", "Alpha"]
+            case "delete":
+                vm.deletePage(refs[0])
+                expected = ["Beta", "Gamma"]
+            case "delete-batch":
+                vm.deletePages([refs[0], refs[1]])
+                expected = ["Gamma"]
+            default:
+                vm.duplicatePages([refs[0]])
+                expected = ["Alpha", "Alpha", "Beta", "Gamma"]
+            }
+            let memberID = try XCTUnwrap(vm.document.workspace.documents.first?.id)
+            let live = try XCTUnwrap(vm.document.memberPDFData[memberID])
+            XCTAssertEqual(PDFDocument(data: live)?.pageCount, expected.count, operation)
+            let prepared = try XCTUnwrap(vm.currentPDFDataForOCR()[memberID])
+            for (index, needle) in expected.enumerated() {
+                XCTAssertTrue(pageText(vm, pageIndex: index).contains(needle), operation)
+                XCTAssertTrue(pageText(fromMemberData: live, pageIndex: index).contains(needle), operation)
+                XCTAssertTrue(pageText(fromMemberData: prepared, pageIndex: index).contains(needle), operation)
+            }
+        }
+    }
+
+    func testReorderKeepsCommittedTextInLiveOCRBytesAndUneditedPristineForReplay() throws {
+        let vm = try makeViewModel(from: makePDFData(pageTexts: ["Alpha original words", "Beta original words"]))
+        XCTAssertTrue(try clickAndEdit(vm, pageIndex: 0, expectPrefixOfClickedText: "Alpha", replacement: "Alpha FIRSTEDIT words"))
+        let first = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+        XCTAssertTrue(vm.movePage(first, toIndex: 2))
+        let memberID = first.memberDocId
+        let prepared = try XCTUnwrap(vm.currentPDFDataForOCR()[memberID])
+        XCTAssertTrue(pageText(fromMemberData: prepared, pageIndex: 0).contains("Beta"))
+        XCTAssertTrue(pageText(fromMemberData: prepared, pageIndex: 1).contains("FIRSTEDIT"))
+        XCTAssertTrue(try clickAndEdit(vm, pageIndex: 1, expectPrefixOfClickedText: "Alpha", replacement: "Alpha SECONDEDIT words"))
+        let live = try XCTUnwrap(vm.document.memberPDFData[memberID])
+        XCTAssertTrue(pageText(fromMemberData: live, pageIndex: 0).contains("Beta"))
+        XCTAssertTrue(pageText(fromMemberData: live, pageIndex: 1).contains("SECONDEDIT"))
+        XCTAssertFalse(pageText(fromMemberData: live, pageIndex: 1).contains("FIRSTEDIT"))
+    }
+
+    @MainActor
+    func testStructuralChangesImmediatelyFollowedByCleanupAndRedactionTargetTheVisiblePage() async throws {
+        for operation in ["reorder", "delete", "duplicate"] {
+            for consumer in ["cleanup", "redaction"] {
+                let vm = try makeViewModel(from: makePDFData(pageTexts: ["Alpha unique", "Beta unique", "Gamma unique"]))
+                let refs = vm.document.workspace.pageOrder
+                switch operation {
+                case "reorder": XCTAssertTrue(vm.movePage(refs[0], toIndex: 3))
+                case "delete": vm.deletePage(refs[0])
+                default: vm.duplicatePages([refs[0]])
+                }
+                let order = vm.document.workspace.pageOrder
+                let target = order[0]
+                let memberID = target.memberDocId
+                let neighborBefore = pageText(vm, pageIndex: 1)
+                let removedNeedle = operation == "duplicate" ? "Alpha" : "Beta"
+                if consumer == "cleanup" {
+                    let succeeded = await vm.applyScanCleanup(pageRefIDs: [target.id],
+                        options: ScanCleanupOptions(deskew: false, binarize: true, despeckle: false))
+                    XCTAssertTrue(succeeded, operation)
+                } else {
+                    _ = vm.addRedactionMark(rect: CGRect(x: 0, y: 0, width: 612, height: 792), pageRefID: target.id)
+                    XCTAssertTrue(vm.applyRedactions(), operation)
+                }
+                let live = try XCTUnwrap(vm.document.memberPDFData[memberID])
+                XCTAssertEqual(PDFDocument(data: live)?.pageCount, order.count)
+                XCTAssertFalse(pageText(fromMemberData: live, pageIndex: 0).contains(removedNeedle))
+                XCTAssertEqual(pageText(fromMemberData: live, pageIndex: 1), neighborBefore,
+                    "the neighboring page must keep its content after \(operation) + \(consumer)")
+                XCTAssertNoThrow(try vm.currentPDFDataForOCR())
+            }
+        }
+    }
+
+    func testStructuralChangesPreserveLiveNotesFormsAndRotationsThroughOCRUndoAndReopen() throws {
+        for operation in ["reorder", "delete", "duplicate"] {
+            let vm = try makeViewModel(from: makePDFData(pageTexts: ["Alpha page", "Beta page", "Gamma page"]))
+            let pdf = try XCTUnwrap(vm.loadedPDFs.first?.1)
+            for index in 0..<pdf.pageCount {
+                let page = try XCTUnwrap(pdf.page(at: index))
+                let note = PDFAnnotation(bounds: CGRect(x: 40, y: 400, width: 80, height: 40), forType: .text, withProperties: nil)
+                note.contents = "Note \(index)"
+                page.addAnnotation(note)
+                let widget = PDFAnnotation(bounds: CGRect(x: 40, y: 350, width: 120, height: 30), forType: .widget, withProperties: nil)
+                widget.widgetFieldType = .text
+                widget.fieldName = "Field\(index)"
+                widget.widgetStringValue = "Value \(index)"
+                page.addAnnotation(widget)
+                page.rotation = index * 90
+            }
+            let undo = UndoManager()
+            undo.groupsByEvent = false
+            vm.undoManager = undo
+            let refs = vm.document.workspace.pageOrder
+            let expected: [Int]
+            undo.beginUndoGrouping()
+            switch operation {
+            case "reorder":
+                XCTAssertTrue(vm.movePage(refs[0], toIndex: 3))
+                expected = [1, 2, 0]
+            case "delete":
+                vm.deletePage(refs[0])
+                expected = [1, 2]
+            default:
+                vm.duplicatePages([refs[0]])
+                expected = [0, 0, 1, 2]
+            }
+            undo.endUndoGrouping()
+            let memberID = refs[0].memberDocId
+            func assertInteractive(_ data: Data, _ indexes: [Int]) throws {
+                let document = try XCTUnwrap(PDFDocument(data: data))
+                XCTAssertEqual(document.pageCount, indexes.count)
+                for (localIndex, sourceIndex) in indexes.enumerated() {
+                    let page = try XCTUnwrap(document.page(at: localIndex))
+                    XCTAssertEqual(page.rotation, sourceIndex * 90, operation)
+                    XCTAssertTrue(page.annotations.contains { $0.contents == "Note \(sourceIndex)" }, operation)
+                    XCTAssertTrue(page.annotations.contains { $0.widgetStringValue == "Value \(sourceIndex)" }, operation)
+                }
+                XCTAssertTrue(QPDFService.formFieldsReferencePageAnnotations(data))
+            }
+            try assertInteractive(XCTUnwrap(vm.document.memberPDFData[memberID]), expected)
+            try assertInteractive(XCTUnwrap(vm.currentPDFDataForOCR()[memberID]), expected)
+            undo.undo()
+            try assertInteractive(XCTUnwrap(vm.currentPDFDataForOCR()[memberID]), [0, 1, 2])
+            undo.redo()
+            try assertInteractive(XCTUnwrap(vm.document.memberPDFData[memberID]), expected)
+            let saved = try vm.document.savedFileWrapper(from: vm.document.snapshot(contentType: .pdf))
+            let reopened = try WorkspaceDocument(testingFile: saved, contentType: .pdf, filename: "reopened.pdf")
+            let reopenedVM = WorkspaceViewModel(document: reopened, processingEngine: PDFiumProcessingEngine())
+            try assertInteractive(XCTUnwrap(reopenedVM.currentPDFDataForOCR()[memberID]), expected)
+        }
     }
 
     /// In-session: delete page 1, then click text on the (new) first page. Hit-testing

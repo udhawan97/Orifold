@@ -650,6 +650,8 @@ final class WorkspaceViewModel {
     @ObservationIgnored var ocrRecognitionProviderForTesting: PDFOCRService.RecognitionProvider?
     /// Deterministic seam for exercising cancellation at the result/apply boundary.
     @ObservationIgnored var ocrResultReadyHandlerForTesting: (() -> Void)?
+    /// Allows deterministic failure of any structural byte lane before the transaction commits.
+    @ObservationIgnored var structuralPageTransformForTesting: ((Data, [Int]) -> Data?)?
     #endif
     @ObservationIgnored private var searchNotificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var activeSearchID = UUID()
@@ -5305,38 +5307,48 @@ final class WorkspaceViewModel {
         }
     }
 
-    /// Realigns a member's canonical replay bytes after a same-member delete, duplicate, or
-    /// reorder. The new base is assembled from the OLD pristine pages in the member's NEW ref
-    /// order, so committed text/object operations remain re-editable instead of becoming baked
-    /// background. Page refs are then normalized to the new base's local indexes.
+    /// Realigns every byte lane independently while refs still describe the old source indexes.
+    /// Callers restore their complete order snapshot if preparation of any lane fails.
     private func realignCanonicalReplayBaseAfterStructuralChange(memberID: UUID) -> Bool {
         guard let memberIndex = document.workspace.documents.firstIndex(where: { $0.id == memberID }) else {
             return true
         }
-        guard let canonicalData = originalMemberPDFData[memberID]
-                ?? objectBaseData[memberID]
-                ?? document.memberPDFData[memberID],
-              let canonicalPDF = PDFDocument(data: canonicalData) else { return false }
-
         let member = document.workspace.documents[memberIndex]
-        let realigned = PDFDocument()
-        for refID in member.pageRefs {
-            guard let ref = workspacePageRef(refID),
-                  ref.sourcePageIndex >= 0,
-                  let page = canonicalPDF.page(at: ref.sourcePageIndex),
-                  let copy = page.copy() as? PDFPage else { return false }
-            realigned.insert(copy, at: realigned.pageCount)
+        let indexes = member.pageRefs.compactMap { workspacePageRef($0)?.sourcePageIndex }
+        guard indexes.count == member.pageRefs.count,
+              let liveData = document.memberPDFData[memberID],
+              let loadedPDF = loadedPDFs.first(where: { $0.0.id == memberID })?.1 else { return false }
+        func realigned(_ data: Data) -> Data? {
+            #if DEBUG
+            if let transform = structuralPageTransformForTesting { return transform(data, indexes) }
+            #endif
+            return QPDFService.selectingPages(data, pageIndices: indexes)
         }
-        guard let serialized = PDFSerializer.data(from: realigned),
-              let realignedData = QPDFService.preservingCanonicalMetadataAndAttachments(
-                in: serialized, from: canonicalData
+
+        guard let reorderedLive = realigned(liveData) else { return false }
+        var pristine: Data?
+        if let data = originalMemberPDFData[memberID] {
+            guard let prepared = realigned(data) else { return false }
+            pristine = prepared
+        }
+        var objectBase: Data?
+        if let data = objectBaseData[memberID] {
+            guard let prepared = realigned(data) else { return false }
+            objectBase = prepared
+        }
+        // Only annotations/forms and rotations come from PDFKit; content and catalogs stay qpdf-backed.
+        guard let serializedLive = PDFSerializer.data(from: loadedPDF),
+              let interactive = QPDFService.replacingInteractiveState(in: reorderedLive, from: serializedLive),
+              let preparedLive = QPDFService.settingPageRotations(interactive, rotationsByPageIndex:
+                Dictionary(uniqueKeysWithValues: (0..<loadedPDF.pageCount).compactMap { index in
+                    loadedPDF.page(at: index).map { (index, $0.rotation) }
+                })
               ) else { return false }
 
         invalidatePageInspection(for: memberID)
-        originalMemberPDFData[memberID] = realignedData
-        if objectBaseData[memberID] != nil {
-            objectBaseData[memberID] = realignedData
-        }
+        document.memberPDFData[memberID] = preparedLive
+        originalMemberPDFData[memberID] = pristine
+        objectBaseData[memberID] = objectBase
         for (localIndex, refID) in member.pageRefs.enumerated() {
             if let orderIndex = document.workspace.pageOrder.firstIndex(where: { $0.id == refID }) {
                 document.workspace.pageOrder[orderIndex].sourcePageIndex = localIndex
@@ -8032,7 +8044,7 @@ final class WorkspaceViewModel {
         }
     }
 
-    private func exportCompressedPDF(options: WorkspaceExportOptions) -> Bool {
+    func exportCompressedPDF(options: WorkspaceExportOptions, destination: URL? = nil) -> Bool {
         guard let preset = options.compressionPreset else { return false }
         if (options.encryption != nil || options.sanitization != nil), hasCryptographicSignaturePlacement {
             exportError = ExportError(message: PDFEncryptionError.digitalSignatureConflict.userMessage)
@@ -8046,12 +8058,16 @@ final class WorkspaceViewModel {
         } else {
             defaultName = "\(safeFilename(document.workspace.title)).pdf"
         }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.pdf]
-        panel.nameFieldStringValue = defaultName
-        panel.title = L10n.string("savePanel.exportPDF.title")
-        guard panel.runModal() == .OK, let chosenURL = panel.url else { return false }
-        targetURL = chosenURL
+        if let destination {
+            targetURL = destination
+        } else {
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.pdf]
+            panel.nameFieldStringValue = defaultName
+            panel.title = L10n.string("savePanel.exportPDF.title")
+            guard panel.runModal() == .OK, let chosenURL = panel.url else { return false }
+            targetURL = chosenURL
+        }
 
         let encryption = options.encryption
         if let encryption {
@@ -8063,10 +8079,10 @@ final class WorkspaceViewModel {
             }
         }
 
-        let sourceData: Data
+        let payload: BakedExportPayload
         do {
             let baseOptions = WorkspaceExportOptions(lockFormAnswers: options.lockFormAnswers)
-            sourceData = try dataForPDFExport(options: baseOptions)
+            payload = try bakedExportPayload(options: baseOptions)
         } catch {
             exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
             return false
@@ -8080,29 +8096,20 @@ final class WorkspaceViewModel {
         let operationID = UUID()
         activeCompressionCancellation = cancellation
         activeCompressionID = operationID
-        let sanitization = options.sanitization
-        activeCompressionTask = Task { [weak self, sourceData, targetURL, preset, sanitization, encryption, cancellation, operationID] in
+        activeCompressionTask = Task { [weak self, payload, options, targetURL, preset, encryption, cancellation, operationID] in
             guard let self else { return }
             do {
                 let output = try await self.reducedData(
-                    from: sourceData,
+                    from: payload,
                     preset: preset,
-                    sanitization: sanitization,
-                    encryption: encryption,
+                    options: options,
                     cancellation: cancellation,
                     operationID: operationID
                 )
                 if cancellation.isCancelled || Task.isCancelled {
                     throw PDFCompressionError.cancelled
                 }
-                // Same structural gate writePDFExportData applies to the
-                // plain export path -- this path writes directly and would
-                // otherwise skip it entirely.
-                guard QPDFService.isStructurallySound(output.data, password: encryption?.userPassword) else {
-                    throw PDFExportValidationError.structurallyUnsound
-                }
-                try self.writeExportData(output.data, to: targetURL)
-                try self.verifyExportedFile(at: targetURL)
+                try self.writePDFExportData(output.data, to: targetURL, validationOptions: encryption)
                 await MainActor.run {
                     guard self.activeCompressionID == operationID else { return }
                     self.operationProgress.finish()
@@ -8145,19 +8152,38 @@ final class WorkspaceViewModel {
         cancellation: OperationCancellationToken,
         operationID: UUID
     ) async throws -> (data: Data, compressionResult: PDFCompressionResult) {
+        try await reducedData(
+            from: BakedExportPayload(baked: BakedPDFData(alreadyFlattened: sourceData), outline: [], attachments: []),
+            preset: preset,
+            options: WorkspaceExportOptions(encryption: encryption, compressionPreset: preset, sanitization: sanitization),
+            cancellation: cancellation,
+            operationID: operationID
+        )
+    }
+
+    /// Compression retains the bake proof and original catalog payload until the shared export tail.
+    private func reducedData(
+        from payload: BakedExportPayload,
+        preset: PDFCompressionPreset,
+        options: WorkspaceExportOptions,
+        cancellation: OperationCancellationToken,
+        operationID: UUID
+    ) async throws -> (data: Data, compressionResult: PDFCompressionResult) {
         let progressThrottle = ProgressUpdateThrottle()
         return try await Task.detached(priority: .userInitiated) {
             let result = try PDFCompressionService.reduceFileSize(
-                of: sourceData,
+                of: payload.baked.bytes,
                 preset: preset,
                 processingEngine: PDFiumProcessingEngine(),
                 progress: { progress in
                     guard progressThrottle.shouldEmit(progress) else { return }
                     Task { @MainActor [weak self] in
-                        guard self?.activeCompressionID == operationID,
-                              self?.operationProgress.isActive == true else { return }
-                        self?.operationProgress.update(
-                            fraction: progress,
+                        let mappedFraction = progress * 0.7
+                        guard let self, self.activeCompressionID == operationID,
+                              self.operationProgress.isActive,
+                              self.operationProgress.fraction <= mappedFraction else { return }
+                        self.operationProgress.update(
+                            fraction: mappedFraction,
                             detail: WorkspaceOperationalCopy.compressionProgress(
                                 percent: Int((progress * 100).rounded())
                             )
@@ -8171,22 +8197,33 @@ final class WorkspaceViewModel {
             if cancellation.isCancelled || Task.isCancelled {
                 throw PDFCompressionError.cancelled
             }
-            let sanitizedData = try Self.sanitized(result.data, options: sanitization)
+            let compressedPayload = BakedExportPayload(
+                baked: payload.baked.mapping { _ in result.data },
+                outline: payload.outline,
+                attachments: payload.attachments
+            )
+            let finished: Data
+            do {
+                finished = try Self.finishedExportData(compressedPayload, options: options,
+                    progress: { fraction, stage in
+                        Task { @MainActor [weak self] in
+                            let mappedFraction = 0.7 + fraction * 0.3
+                            guard let self, self.activeCompressionID == operationID,
+                                  self.operationProgress.isActive,
+                                  self.operationProgress.fraction <= mappedFraction else { return }
+                            self.operationProgress.update(fraction: mappedFraction,
+                                detail: L10n.string(forKey: stage.progressDetailKey))
+                        }
+                    },
+                    isCancelled: { cancellation.isCancelled || Task.isCancelled }
+                )
+            } catch is PDFExportCancelled {
+                throw PDFCompressionError.cancelled
+            }
             if cancellation.isCancelled || Task.isCancelled {
                 throw PDFCompressionError.cancelled
             }
-            guard let encryption else {
-                return (data: sanitizedData, compressionResult: result)
-            }
-            let encrypted = try PDFEncryptionService.encryptedData(from: sanitizedData, options: encryption)
-            if cancellation.isCancelled || Task.isCancelled {
-                throw PDFCompressionError.cancelled
-            }
-            _ = try PDFiumProcessingEngine().validatePDF(data: encrypted, password: encryption.userPassword)
-            if cancellation.isCancelled || Task.isCancelled {
-                throw PDFCompressionError.cancelled
-            }
-            return (data: encrypted, compressionResult: result)
+            return (data: finished, compressionResult: result)
         }.value
     }
 

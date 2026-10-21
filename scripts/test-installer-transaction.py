@@ -146,10 +146,12 @@ replace_staged_app
         print(f"PASS {scenario}: bundle bytes and duplicate preservation")
     print(f"Passed {len(scenarios)} installer transaction scenarios (synthetic bundles; no native launch claim).")
     test_restore(root, source)
+    # The real --restore dispatch must be able to call the shared quit helper.
+    assert source.index("\nstop_running_app() {") < source.index('if [[ -n "${RESTORE_ZIP:-}" ]]')
 
 
 def test_restore(root, source, scenarios=None):
-    names = ["cleanup", "do_restore"]
+    names = ["cleanup", "stop_running_app", "do_restore"]
     names += [name for name in ["begin_install_transaction", "swap_transaction_app", "finish_install_transaction"]
               if re.search(rf"^{name}\(\) \{{", source, re.M)]
     body = "\n".join(function(source, name) for name in names)
@@ -159,10 +161,12 @@ def test_restore(root, source, scenarios=None):
         "/usr/sbin/spctl": "fake_spctl", "codesign --verify": "fake_codesign --verify",
         "/usr/bin/xattr": "fake_xattr", "/bin/mv": "fake_mv",
         'open "$target"': 'fake_open "$target"',
+        "/usr/bin/pgrep": "fake_pgrep", "/usr/bin/osascript": "fake_osascript",
+        "/bin/sleep": "fake_sleep",
     }.items():
         body = body.replace(original, replacement)
     assert '"/Applications/' not in body
-    assert not re.search(r"\b(?:codesign|spctl|open|pkill|pgrep|osascript)\b", body)
+    assert not re.search(r"\b(?:codesign|spctl|open|pkill|pgrep|osascript|kill)\b", body)
     traps = re.search(r"^trap cleanup EXIT\n(?:trap .*\n){3}", source, re.M).group(0)
     if scenarios is None:
         scenarios = [(target, action, signal) for target in ["existing", "alternate", "fresh"]
@@ -171,6 +175,8 @@ def test_restore(root, source, scenarios=None):
         scenarios += [(target, action, signal) for target in ["existing", "alternate", "fresh"]
                   for action in ["after-old", "after-new", "after-verify"] for signal in ["INT", "TERM", "HUP"]
                   if not (target == "fresh" and action == "after-old")]
+        scenarios += [(target, action, "") for target in ["existing", "alternate"]
+                      for action in ["quit-cancelled", "still-running", "clean-quit", "other-copy-running"]]
     for target_kind, action, signal in scenarios:
         label = "restore-" + "-".join(filter(None, [target_kind, action, signal]))
         case = Path(tempfile.mkdtemp(prefix=label + "-", dir=root))
@@ -190,6 +196,10 @@ def test_restore(root, source, scenarios=None):
         expected = digest(archived_app)
         untouched = case / "unrelated.bin"
         untouched.write_bytes(b"unrelated")
+        unrelated_app = case / "UnrelatedApplications/Orifold.app"
+        unrelated_app.mkdir(parents=True)
+        (unrelated_app / "other.bin").write_bytes(b"unrelated running copy")
+        unrelated_before = digest(unrelated_app)
         script = case / "restore.zsh"
         script.write_text("""#!/bin/zsh
 set -euo pipefail
@@ -228,6 +238,17 @@ fake_plutil() { print -r -- com.ud.Orifold; }
 fake_spctl() { :; }
 fake_xattr() { :; }
 fake_open() { return 1; }
+if [[ "$ACTION" == quit-cancelled || "$ACTION" == still-running || "$ACTION" == clean-quit ]]; then
+    : > "$CASE_ROOT/target-running"
+fi
+if [[ "$ACTION" == other-copy-running ]]; then : > "$CASE_ROOT/other-running"; fi
+fake_pgrep() { [[ -f "$CASE_ROOT/target-running" || -f "$CASE_ROOT/other-running" ]]; }
+fake_osascript() {
+    print -r -- "$2" >> "$CASE_ROOT/quit-targets"
+    [[ "$ACTION" != quit-cancelled ]] || return 1
+    [[ "$ACTION" == still-running ]] || /bin/rm -f "$CASE_ROOT/target-running"
+}
+fake_sleep() { :; }
 fake_codesign() {
     if [[ "${@: -1}" == "$TARGET" ]]; then
         [[ "$ACTION" != verify-failure ]] || return 1
@@ -235,6 +256,9 @@ fake_codesign() {
     fi
 }
 fake_mv() {
+    if [[ "$1" == "$TARGET" && -f "$CASE_ROOT/target-running" ]]; then
+        : > "$CASE_ROOT/swapped-while-running"
+    fi
     if [[ "$1" == "$TARGET" ]]; then
         [[ "$ACTION" != backup-failure ]] || return 1
         /bin/mv "$@"
@@ -251,13 +275,22 @@ fake_mv() {
         result = subprocess.run(["/bin/zsh", str(script)], cwd=case,
                                 env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "TMPDIR": str(case)},
                                 capture_output=True, text=True)
-        success = action == "success"
+        success = action in {"success", "clean-quit"}
         assert (result.returncode == 0) == success, (label, result.returncode, result.stderr)
         assert digest(target) == (expected if success else previous), (label, "target bytes changed")
         assert target.exists() == (success or target_kind != "fresh"), (label, "target presence changed")
         if target_kind == "alternate":
             assert not installed.exists(), (label, "wrong target created")
         assert untouched.read_bytes() == b"unrelated", label
+        assert digest(unrelated_app) == unrelated_before, (label, "unrelated app changed")
+        assert not (case / "swapped-while-running").exists(), (label, "quit gate ran after mutation")
+        if action == "other-copy-running":
+            assert (case / "other-running").exists(), (label, "unrelated process was stopped")
+        quit_targets = case / "quit-targets"
+        if action in {"quit-cancelled", "still-running", "clean-quit", "other-copy-running"}:
+            assert quit_targets.read_text().splitlines() == [str(target)], (label, "wrong app addressed")
+        else:
+            assert not quit_targets.exists(), (label, "stopped app should not receive a quit request")
         assert not list(case.rglob(".orifold-update.*")), label
         assert not list(case.rglob("*.restore-staging-*")), label
         assert not list(case.rglob("*.replaced-*")), label

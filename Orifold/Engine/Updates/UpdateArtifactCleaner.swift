@@ -71,11 +71,15 @@ struct UpdateArtifactCleaner {
               FileManager.default.fileExists(atPath: rollbackDirectory.path) else { return }
         do {
             try RollbackArchiveTransaction.withLock(in: rollbackDirectory) {
-                let keepName = RollbackArchiver(directory: rollbackDirectory).loadManifest()?.archiveFileName
+                let archiver = RollbackArchiver(directory: rollbackDirectory)
+                // Without a usable current archive, every ZIP may be the remaining recovery copy.
+                guard let manifest = archiver.loadManifest(),
+                      let archive = archiver.archiveURL(for: manifest) else { return }
+                let keepName = archive.lastPathComponent
                 for child in directChildren(of: rollbackDirectory) {
                     guard child.pathExtension == "zip" else { continue } // staging `.partial` files are never pruned
                     if isProtected(child) { report.skippedProtected.append(child.lastPathComponent); continue }
-                    if let keepName, child.lastPathComponent == keepName { continue }
+                    if child.lastPathComponent == keepName { continue }
                     remove(child, into: &report)
                 }
             }

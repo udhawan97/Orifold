@@ -142,6 +142,85 @@ final class StructuralCatalogPreservationTests: XCTestCase {
         XCTAssertNil(QPDFService.preservingCanonicalMetadataAndAttachments(in: Data("invalid".utf8), from: valid))
     }
 
+    func testLateStructuralLaneFailureRestoresBytesRefsEditsAndUndoBeforeRetry() throws {
+        for operation in ["reorder", "duplicate", "delete", "delete-batch"] {
+            let vm = try model()
+            let ref = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+            let object = try XCTUnwrap(vm.objectMap(for: ref).objects.first {
+                ($0.objectType == .rectangle || $0.objectType == .filledShape) && $0.boundsPdf.width < 300
+            })
+            var transform = object.transform
+            transform.e += 15
+            XCTAssertTrue(vm.applyObjectEdit([ObjectEditOperation(
+                type: .objectTransform, documentID: ref.memberDocId, pageRefID: ref.id,
+                sourceObjectKey: object.stableKey, objectType: object.objectType, editability: object.editability,
+                originalBoundsPdf: object.boundsPdf, newBoundsPdf: object.boundsPdf.offsetBy(dx: 15, dy: 0),
+                originalTransform: object.transform, newTransform: transform, pageRotation: Int(object.pageRotation),
+                originalZIndex: object.zOrder, newZIndex: object.zOrder, replacementStrategy: .pdfiumStructural
+            )]))
+            let refs = vm.document.workspace.pageOrder
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .sortedKeys
+            let beforeWorkspace = try encoder.encode(vm.document.workspace)
+            let beforeBytes = vm.document.memberPDFData
+            let undo = try XCTUnwrap(retainedUndo)
+            undo.removeAllActions()
+            var failedInputs: [Data] = []
+            vm.structuralPageTransformForTesting = { data, indexes in
+                failedInputs.append(data)
+                let prepared = QPDFService.selectingPages(data, pageIndices: indexes)
+                return failedInputs.count == 3 ? nil : prepared
+            }
+            func perform(groupsUndo: Bool = false) {
+                if groupsUndo { undo.beginUndoGrouping() }
+                defer { if groupsUndo { undo.endUndoGrouping() } }
+                switch operation {
+                case "reorder": _ = vm.movePage(refs[0], toIndex: 3)
+                case "duplicate": vm.duplicatePages([refs[0]])
+                case "delete": vm.deletePage(refs[0])
+                default: vm.deletePages([refs[0], refs[1]])
+                }
+            }
+            perform()
+            XCTAssertEqual(failedInputs.count, 3, "live, pristine and object lanes must each be prepared")
+            XCTAssertNotEqual(failedInputs.first, failedInputs.dropFirst().first, "live edits must not replace the pristine lane")
+            XCTAssertEqual(vm.document.memberPDFData, beforeBytes)
+            XCTAssertEqual(try encoder.encode(vm.document.workspace), beforeWorkspace)
+            XCTAssertFalse(undo.canUndo)
+            XCTAssertFalse(undo.canRedo)
+            XCTAssertEqual(vm.editingStatus?.message, PDFTextEditWarning.serializationFailed.message)
+
+            var retryInputs: [Data] = []
+            vm.structuralPageTransformForTesting = { data, indexes in
+                retryInputs.append(data)
+                return QPDFService.selectingPages(data, pageIndices: indexes)
+            }
+            perform(groupsUndo: true)
+            XCTAssertEqual(retryInputs, failedInputs, "rollback must retain the exact bytes of all three independent lanes")
+            XCTAssertNotEqual(try encoder.encode(vm.document.workspace), beforeWorkspace)
+            XCTAssertNoThrow(try vm.currentPDFDataForOCR())
+        }
+    }
+
+    func testPageSelectionPreservesSourceLabelsAndCatalogAcrossDuplicates() throws {
+        let labeled = try Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/page-labels.pdf"))
+        let titled = try PDFMetadataService.write(metadata, to: labeled)
+        let source = try AttachmentsService.add(payload, name: "fictional.txt", mimeType: "text/plain", to: titled)
+        let output = try XCTUnwrap(QPDFService.selectingPages(source, pageIndices: [3, 0, 0]))
+        let pdf = try XCTUnwrap(PDFDocument(data: output))
+        XCTAssertEqual(pdf.pageCount, 3)
+        XCTAssertEqual(pdf.page(at: 0)?.label, "A-7")
+        XCTAssertEqual(pdf.page(at: 1)?.label, "i")
+        XCTAssertEqual(pdf.page(at: 2)?.label, "i")
+        try assertCatalog(output)
+        XCTAssertTrue(QPDFService.isStructurallySound(output))
+        for indexes in [[], [-1], [4], [Int.max]] {
+            XCTAssertNil(QPDFService.selectingPages(source, pageIndices: indexes))
+        }
+        XCTAssertNil(QPDFService.selectingPages(Data("invalid".utf8), pageIndices: [0]))
+    }
+
     private func assertCatalog(_ data: Data, file: StaticString = #filePath, line: UInt = #line) throws {
         XCTAssertEqual(try PDFMetadataService.read(from: data), metadata, file: file, line: line)
         XCTAssertEqual(try AttachmentsService.extract("fictional.txt", from: data), payload, file: file, line: line)
