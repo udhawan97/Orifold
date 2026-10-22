@@ -17,9 +17,11 @@ Every push and PR to `main` runs the **CI** workflow on `macos-15` / Xcode 16.4:
 2. Check installer script syntax (`zsh -n`).
 3. SwiftLint.
 4. `swift build`.
-5. `swift test --filter PDFSmokeTests` (fast PDF load/export sanity).
-6. `swift test` (full suite).
-7. `xcodebuild build` then `xcodebuild test` (Xcode-side, `CODE_SIGNING_ALLOWED=NO`).
+5. `swift test --filter 'PDFSmokeTests|WorkflowPolicyTests'` (focused PDF and workflow sanity).
+6. Regenerate the Xcode project and verify it matches the checked-in generated files.
+7. `xcodebuild build` then `xcodebuild test` (Xcode-side, `CODE_SIGNING_ALLOWED=NO`, with the workflow’s two named Vision exclusions).
+
+The full local `swift test` command remains part of the documented release gate; report its result separately from the hosted Xcode test run.
 
 Two more workflows guard quality: **CodeQL** (scheduled Swift analysis) and **Dependency Review** (fails a PR on moderate-or-higher advisories in dependency changes).
 
@@ -35,7 +37,7 @@ The **Release** workflow triggers on a `v*` or `release-v*` tag (or manual dispa
 The website serves the universal DMG. The one-line installer and Homebrew cask use `Orifold.zip` from the same latest release; the in-app updater verifies the published checksum before installation.
 
 <Callout variant="note">
-	**Signing & notarization, honestly.** Release builds are ad-hoc signed and *not* notarized by default, so macOS shows an "unidentified developer" prompt on first open — the installer and cask clear the download quarantine to smooth this. If the Developer ID secrets are configured, the same workflow imports the certificate and produces a properly signed (and optionally notarized) build instead.
+	**Signing & notarization, honestly.** Release builds are ad-hoc signed and *not* notarized by default, so macOS may block first launch or require per-app approval. The installer and cask clear download quarantine; this does not add notarization or guarantee a dialog-free launch. If the Developer ID secrets are configured, the same workflow imports the certificate and produces a properly signed (and optionally notarized) build instead.
 </Callout>
 
 <Details summary="The Developer ID secrets the workflow looks for">

@@ -251,9 +251,165 @@ final class PageCropTests: XCTestCase {
         XCTAssertFalse(undoManager.canUndo, "one undo must restore every member in the crop transaction")
     }
 
+    func testCropPreservesLabelsCatalogAndLiveStateThroughUndoRedoAndEditableReopen() throws {
+        let viewModel = try makeLabeledViewModel()
+        let ref = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        let exactBefore = try XCTUnwrap(viewModel.document.memberPDFData[ref.memberDocId])
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        let note = PDFAnnotation(bounds: CGRect(x: 40, y: 400, width: 80, height: 40), forType: .text, withProperties: nil)
+        note.contents = "Unsaved crop note"
+        page.addAnnotation(note)
+        let widget = PDFAnnotation(bounds: CGRect(x: 40, y: 350, width: 120, height: 30), forType: .widget, withProperties: nil)
+        widget.widgetFieldType = .text
+        widget.fieldName = "Crop answer"
+        widget.widgetStringValue = "Unsaved crop answer"
+        page.addAnnotation(widget)
+        page.rotation = 90
+        let expectedBox = CGRect(x: 18, y: 24, width: 576, height: 744)
+
+        XCTAssertTrue(viewModel.applyPageCrop(margins: PageCropMargins(top: 24, bottom: 24, left: 18, right: 18), to: [ref]))
+        func assertCropped(_ model: WorkspaceViewModel) throws {
+            let data = try XCTUnwrap(model.document.memberPDFData[ref.memberDocId])
+            try assertLabeledCatalog(data)
+            let cropped = try XCTUnwrap(PDFDocument(data: data)?.page(at: 0))
+            assertBox(cropped.bounds(for: .cropBox), equals: expectedBox)
+            XCTAssertEqual(cropped.rotation, 90)
+            XCTAssertTrue(cropped.annotations.contains { $0.contents == "Unsaved crop note" })
+            XCTAssertTrue(cropped.annotations.contains { $0.fieldName == "Crop answer" && $0.widgetStringValue == "Unsaved crop answer" })
+            try assertLabeledCatalog(XCTUnwrap(model.currentPDFDataForOCR()[ref.memberDocId]))
+            let visible = try XCTUnwrap(model.combinedPDF.page(at: 1))
+            XCTAssertEqual(model.pageReference(for: visible, in: model.combinedPDF)?.label, "i")
+        }
+        try assertCropped(viewModel)
+        viewModel.undoManager?.undo()
+        XCTAssertEqual(viewModel.document.memberPDFData[ref.memberDocId], exactBefore)
+        try assertLabeledCatalog(XCTUnwrap(viewModel.document.memberPDFData[ref.memberDocId]))
+        let restoredVisible = try XCTUnwrap(viewModel.combinedPDF.page(at: 1))
+        XCTAssertEqual(viewModel.pageReference(for: restoredVisible, in: viewModel.combinedPDF)?.label, "i")
+        XCTAssertEqual(viewModel.loadedPDFs.first?.1.page(at: 0)?.rotation, 90)
+        XCTAssertTrue(viewModel.loadedPDFs.first?.1.page(at: 0)?.annotations.contains { $0.contents == "Unsaved crop note" } == true)
+        viewModel.undoManager?.redo()
+        try assertCropped(viewModel)
+        let snapshot = try viewModel.document.snapshot(contentType: .pdf)
+        try assertLabeledCatalog(XCTUnwrap(snapshot.memberPDFData[ref.memberDocId]))
+        let saved = try viewModel.document.savedFileWrapper(from: snapshot)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let reopened = try WorkspaceDocument(testingFile: saved, contentType: .pdf,
+            fingerprintStore: WorkspaceFingerprintStore(directory: directory))
+        try assertCropped(WorkspaceViewModel(document: reopened, processingEngine: PDFiumProcessingEngine()))
+    }
+
+    func testCropKeepsEachReplayLaneLabeledAndRollsBackLateFailureBeforeRetry() throws {
+        let model = try makeLabeledViewModel()
+        let ref = try XCTUnwrap(model.document.workspace.pageOrder.first)
+        let image = try XCTUnwrap(model.objectMap(for: ref).objects.first { $0.objectType == .imageXObject })
+        XCTAssertTrue(model.applyObjectEdit([transformOperation(image, pageRef: ref, memberID: ref.memberDocId, deltaX: 12, deltaY: -8)]))
+        let beforeBytes = model.document.memberPDFData
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let beforeWorkspace = try encoder.encode(model.document.workspace)
+        let undo = try XCTUnwrap(model.undoManager)
+        undo.removeAllActions()
+        var failedInputs: [Data] = []
+        model.cropBoxTransformForTesting = { data, boxes in
+            failedInputs.append(data)
+            let output = QPDFService.settingCropBoxes(data, pageCropBoxes: boxes)
+            return failedInputs.count == 3 ? nil : output
+        }
+        let margins = PageCropMargins(top: 24, bottom: 24, left: 18, right: 18)
+        XCTAssertFalse(model.applyPageCrop(margins: margins, to: [ref]))
+        XCTAssertEqual(failedInputs.count, 3, "live, pristine and object lanes must all be prepared")
+        XCTAssertNotEqual(failedInputs.first, failedInputs.dropFirst().first, "baked live edits must not replace pristine content")
+        XCTAssertEqual(model.document.memberPDFData, beforeBytes)
+        XCTAssertEqual(try encoder.encode(model.document.workspace), beforeWorkspace)
+        XCTAssertFalse(undo.canUndo)
+        XCTAssertFalse(undo.canRedo)
+
+        var retryInputs: [Data] = []
+        var outputs: [Data] = []
+        model.cropBoxTransformForTesting = { data, boxes in
+            retryInputs.append(data)
+            guard let output = QPDFService.settingCropBoxes(data, pageCropBoxes: boxes) else { return nil }
+            outputs.append(output)
+            return output
+        }
+        XCTAssertTrue(model.applyPageCrop(margins: margins, to: [ref]))
+        // The live lane is serialized anew, so qpdf refreshes only its second trailer ID.
+        // Pristine and object inputs must remain byte-for-byte identical.
+        XCTAssertEqual(try pdfIgnoringUpdatedDocumentID(XCTUnwrap(retryInputs.first)),
+                       try pdfIgnoringUpdatedDocumentID(XCTUnwrap(failedInputs.first)))
+        XCTAssertEqual(Array(retryInputs.dropFirst()), Array(failedInputs.dropFirst()),
+                       "failure must retain exact pristine and object inputs for retry")
+        XCTAssertEqual(outputs.count, 3)
+        for output in outputs {
+            try assertLabeledCatalog(output)
+            assertBox(try cropBox(in: output), equals: CGRect(x: 18, y: 24, width: 576, height: 744))
+        }
+        undo.undo()
+        XCTAssertEqual(model.document.memberPDFData, beforeBytes)
+        undo.redo()
+        let movedImage = try XCTUnwrap(model.objectMap(for: ref).objects.first { $0.objectType == .imageXObject })
+        XCTAssertTrue(model.applyObjectEdit([transformOperation(movedImage, pageRef: ref, memberID: ref.memberDocId, deltaX: 6, deltaY: -4)]))
+        let replayed = try XCTUnwrap(model.document.memberPDFData[ref.memberDocId])
+        try assertLabeledCatalog(replayed)
+        assertBox(try cropBox(in: replayed), equals: CGRect(x: 18, y: 24, width: 576, height: 744))
+        let snapshot = try model.document.snapshot(contentType: .pdf)
+        try assertLabeledCatalog(XCTUnwrap(snapshot.originalMemberPDFData[ref.memberDocId]))
+        try assertLabeledCatalog(XCTUnwrap(snapshot.memberPDFData[ref.memberDocId]))
+    }
+
+    func testLabelGraftPreservesDestinationOutlineAndRejectsDifferentPageCounts() throws {
+        let model = try makeLabeledViewModel()
+        let canonical = try XCTUnwrap(model.document.memberPDFData.values.first)
+        let pdf = try XCTUnwrap(PDFDocument(data: canonical))
+        PDFOutlineBuilder.apply([PDFOutlineReader.OutlineNode(title: "Edited destination", depth: 0, localPageIndex: 2, hasChildren: false)], to: pdf)
+        let serialized = try XCTUnwrap(PDFSerializer.data(from: pdf))
+        XCTAssertFalse(QPDFService.hasPageLabels(serialized))
+        let output = try XCTUnwrap(QPDFService.preservingPageLabels(in: serialized, from: canonical))
+        let result = try XCTUnwrap(PDFDocument(data: output))
+        XCTAssertEqual((0..<result.pageCount).map { result.page(at: $0)?.label }, ["i", "ii", "1", "A-7"])
+        XCTAssertEqual(PDFOutlineReader.nodes(in: result).map(\.title), ["Edited destination"])
+        XCTAssertEqual(PDFOutlineReader.nodes(in: result).map(\.localPageIndex), [2])
+        XCTAssertNil(QPDFService.preservingPageLabels(in: makeSinglePagePDF(), from: canonical))
+        XCTAssertNil(QPDFService.preservingPageLabels(in: serialized, from: Data("invalid".utf8)))
+        XCTAssertNil(QPDFService.preservingPageLabels(in: Data("invalid".utf8), from: canonical))
+        let unlabeled = try XCTUnwrap(QPDFService.preservingPageLabels(in: canonical, from: serialized))
+        XCTAssertFalse(QPDFService.hasPageLabels(unlabeled))
+    }
+
 }
 
 private extension PageCropTests {
+    func makeLabeledViewModel() throws -> WorkspaceViewModel {
+        let fixtureURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/page-labels.pdf")
+        let labeled = try XCTUnwrap(QPDFService.replacingPageContent(in: Data(contentsOf: fixtureURL),
+            pageIndex: 0, with: makeSinglePagePDF()))
+        let titled = try PDFMetadataService.write(PDFDocumentMetadata(title: "Crop catalog"), to: labeled)
+        let source = try AttachmentsService.add(Data("Exact crop payload".utf8), name: "crop-proof.txt", mimeType: "text/plain", to: titled)
+        let document = WorkspaceDocument()
+        var member = MemberDocument(displayName: "Labeled crop", sourcePDFRef: "crop.pdf")
+        let refs = (0..<4).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+        member.pageRefs = refs.map(\.id)
+        document.workspace.documents = [member]
+        document.workspace.pageOrder = refs
+        document.memberPDFData[member.id] = source
+        let model = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        retainedUndoManager = undo
+        model.undoManager = undo
+        return model
+    }
+
+    func assertLabeledCatalog(_ data: Data) throws {
+        XCTAssertTrue(QPDFService.hasPageLabels(data))
+        let pdf = try XCTUnwrap(PDFDocument(data: data))
+        XCTAssertEqual((0..<pdf.pageCount).map { pdf.page(at: $0)?.label }, ["i", "ii", "1", "A-7"])
+        XCTAssertEqual(try PDFMetadataService.read(from: data).title, "Crop catalog")
+        XCTAssertEqual(try AttachmentsService.extract("crop-proof.txt", from: data), Data("Exact crop payload".utf8))
+    }
+
     func makeViewModel() throws -> WorkspaceViewModel {
         try makeViewModel(pdfData: makeSinglePagePDF())
     }

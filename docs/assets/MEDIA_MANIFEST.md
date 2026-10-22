@@ -1,5 +1,25 @@
 # Docs media capture manifest
 
+## Current workspace capture
+
+`workspace-v0-12-2.png` is an actual 2026-10-21 capture from source revision
+`f475df3b3136deb034d42f9854633cbc26a26ac6`, built with SwiftPM and launched in a
+separate temporary profile and uniquely identified app bundle. It shows the bundled fictional
+**My Lord Bag of Rice** sample at actual size, with page thumbnails expanded, in dark appearance.
+No user documents, private paths, notifications, or desktop content are present.
+The native capture was converted to a 1600 × 1176 PNG with palette optimization; no UI was
+composited or generated. It is mirrored in `docs/assets/screenshots/` and
+`docs-site/public/assets/screenshots/` and used by the README, landing page, and window guide.
+This proves that source-build state, not installed-release or complete workflow acceptance.
+
+The remaining guide screenshots below are historical v0.8.1 captures. They are illustrative
+of those controls and must not be presented as current release proof. The signature workflow
+SVG is explicitly an illustration, not a capture. The landing page now uses the current
+workspace capture rather than a signature demo placeholder.
+
+## Historical capture record
+
+
 **Status: 12 public slots are real photographic captures; 1 uses a privacy-safe illustrated SVG.** Real
 captures live in `docs-site/public/assets/screenshots/` and `docs-site/public/assets/gifs/` and
 are wired into their pages' `<Figure src="...">` prop; the `Figure` component's
@@ -49,7 +69,7 @@ one real thumbnail rather than the "3–4 demo thumbnails" the illustration impl
 
 Privacy-safe illustrated SVG (replace only with a fully fictional real capture that meets the
 standards below): `sign-document-workflow-visual.svg`. It covers the Draw/Type/Initials flow and
-is also used on the landing page instead of the retired identity-bearing Digital capture. It is wired through the `Media`
+remains on the signatures guide as an explicitly illustrated workflow. It is wired through the `Media`
 component (`docs-site/src/components/Media.astro`) with the illustrated SVG as the video
 `poster`, so dropping in a real clip later is a one-line change — add
 `mp4="/Orifold/assets/gifs/<name>.mp4"` next to the existing `poster=` and the still is replaced

@@ -226,7 +226,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(text.contains("SSL.com"))
         XCTAssertTrue(acquisition.contains("Getting a CA-issued (AATL) Digital ID"))
         XCTAssertTrue(acquisition.contains("Trusted providers"))
-        XCTAssertTrue(CertificateGuideResource.shortPopoverCopy.contains("Orifold never charges for signing"))
+        XCTAssertTrue(CertificateGuideResource.shortPopoverCopy(locale: Locale(identifier: "en")).contains("Orifold never charges for signing"))
     }
 }
 

@@ -17,7 +17,7 @@ export default defineConfig({
 		starlight({
 			title: 'Orifold Docs',
 			description:
-				'Fold chaos into one clean PDF. Free, open-source, local-processing PDF workspace for macOS.',
+				'Many files. One clear PDF. A free, local-first PDF workspace for Mac.',
 			logo: {
 				src: './public/assets/orifold-app-icon-128.png',
 				replacesTitle: false,

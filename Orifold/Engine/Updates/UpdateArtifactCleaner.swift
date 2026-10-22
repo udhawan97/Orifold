@@ -24,8 +24,7 @@ struct UpdateArtifactCleaner {
     /// Updater-owned cache of downloaded/staged artifacts. Emptied of anything older than
     /// the retention window (so an in-flight download isn't nuked).
     let updaterCacheDirectory: URL
-    /// Rollback archive directory. Only archives NOT referenced by the current manifest are
-    /// pruned — the one restorable previous version is always kept.
+    /// Keep both the previous installed version and every unresolved helper's rescue copy.
     let rollbackDirectory: URL
 
     init(
@@ -71,11 +70,13 @@ struct UpdateArtifactCleaner {
               FileManager.default.fileExists(atPath: rollbackDirectory.path) else { return }
         do {
             try RollbackArchiveTransaction.withLock(in: rollbackDirectory) {
-                let keepName = RollbackArchiver(directory: rollbackDirectory).loadManifest()?.archiveFileName
+                let archiver = RollbackArchiver(directory: rollbackDirectory)
+                // Without a usable current archive, every ZIP may be the remaining recovery copy.
+                guard let keepNames = archiver.retainedArchiveNames() else { return }
                 for child in directChildren(of: rollbackDirectory) {
                     guard child.pathExtension == "zip" else { continue } // staging `.partial` files are never pruned
                     if isProtected(child) { report.skippedProtected.append(child.lastPathComponent); continue }
-                    if let keepName, child.lastPathComponent == keepName { continue }
+                    if keepNames.contains(child.lastPathComponent) { continue }
                     remove(child, into: &report)
                 }
             }

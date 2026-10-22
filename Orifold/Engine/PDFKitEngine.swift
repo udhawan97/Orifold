@@ -768,7 +768,7 @@ enum DocumentImportConverter {
     }
 
     private static func importedRTFDDocument(from url: URL) throws -> ImportedDocument {
-        try validateByteCount(Int64(rtfdPackageByteCount(at: url)), contentType: .orifoldRTFD)
+        try validateRTFDPackageByteCount(at: url)
         let wrapper = try FileWrapper(url: url, options: [.immediate])
         return try importedRTFDFileWrapper(wrapper, title: url.lastPathComponent)
     }
@@ -781,23 +781,25 @@ enum DocumentImportConverter {
         return ImportedDocument(pdfDocument: pdf, sourcePayload: nil)
     }
 
-    private static func rtfdPackageByteCount(at url: URL) throws -> Int {
+    private static func validateRTFDPackageByteCount(at url: URL) throws {
         let resourceKeys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey]
         guard let enumerator = FileManager.default.enumerator(
             at: url,
             includingPropertiesForKeys: Array(resourceKeys),
-            options: [.skipsHiddenFiles]
+            options: []
         ) else {
             throw ConversionError.unreadableDocument
         }
-        var byteCount = 0
+        var byteCount: Int64 = 0
         for case let child as URL in enumerator {
             let values = try child.resourceValues(forKeys: resourceKeys)
             if values.isRegularFile == true {
-                byteCount += values.fileSize ?? 0
+                let (total, overflow) = byteCount.addingReportingOverflow(Int64(values.fileSize ?? 0))
+                byteCount = overflow ? .max : total
+                // FileWrapper loads hidden descendants too; stop before its eager allocation.
+                try validateByteCount(byteCount, contentType: .orifoldRTFD)
             }
         }
-        return byteCount
     }
 
     private static func rtfdPackageByteCount(in wrapper: FileWrapper) -> Int {

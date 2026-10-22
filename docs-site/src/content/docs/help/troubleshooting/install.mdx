@@ -18,25 +18,18 @@ The **Download for macOS** button is a plain link to the DMG on GitHub. If nothi
 
 ## macOS warns the app is from an unidentified developer
 
-Release builds are ad-hoc signed but not notarized. The one-line installer and Homebrew cask clear the download quarantine automatically. From the DMG, the first launch takes one step:
+Public builds are ad-hoc signed and not Apple-notarized unless the release states otherwise.
+Confirm the download source and checksum, then follow [Apple’s guidance for opening a trusted
+app from an unidentified developer](https://support.apple.com/en-us/102445). Terminal and
+Homebrew installation clear quarantine; they do not add notarization.
 
-- **macOS 14:** right-click Orifold → **Open** → **Open**.
-- **macOS 15:** open Orifold once (it's blocked), then **System Settings → Privacy & Security → Open Anyway**.
+## macOS says the app is damaged or will harm your computer
 
-## macOS says the app is "damaged and can't be opened"
-
-This is the quarantine flag on an un-notarized download, not a corrupt file. Install via the one-line installer or Homebrew cask (they clear it), or, if you already dragged the app in from the DMG, clear it once from Terminal:
-
-```zsh
-xattr -dr com.apple.quarantine /Applications/Orifold.app
-```
-
-Then open Orifold normally.
-
-If this warning appeared immediately after choosing **Install and Restart** in Orifold
-v0.8.13 or earlier, the old app's generated updater command was blocked before it ran; your
-installed app and documents were not replaced. Run the one-line installer once to install
-v0.8.14 or later. In-app updates remove that launch-blocking attribute from v0.8.14 onward.
+Do not assume this is only a quarantine flag. Download again from the official release,
+compare SHA-256 against its manifest, and report a repeatable mismatch or alert. Apple explains
+that damaged software may be corrupted or modified and that malware alerts are a different
+condition. Follow [Apple’s alert guidance](https://support.apple.com/en-us/102445) before deciding
+whether to open a download.
 
 ## Double-clicking a .command file says it cannot be opened
 

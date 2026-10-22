@@ -26,7 +26,7 @@ struct PasswordPromptView: View {
                 .foregroundStyle(Color.dsTextPrimary)
 
             if failed {
-                Text(L10n.string("passwordPrompt.incorrectPassword.message"))
+                Text(failureMessage)
                     .font(.dsCaption())
                     .foregroundStyle(Color.dsAnnotationCoral)
             }
@@ -51,6 +51,13 @@ struct PasswordPromptView: View {
         }
         .padding(32)
         .frame(width: 360)
+    }
+
+    var failureMessage: String {
+        if !pdf.isLocked, let message = viewModel.importError?.message {
+            return message
+        }
+        return L10n.string("passwordPrompt.incorrectPassword.message")
     }
 
     private func attemptUnlock() {

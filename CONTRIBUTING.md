@@ -31,8 +31,8 @@ swift test
 
 Requirements:
 
-- macOS 14 or later
-- Xcode 16+
+- A macOS version supported by your chosen Xcode (the app deployment target is macOS 14+)
+- Swift 6.1+ for the pinned dependencies; CI uses Xcode 16.4
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) — `brew install xcodegen`
 
 ## Pull request workflow

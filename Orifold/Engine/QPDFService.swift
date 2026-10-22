@@ -24,6 +24,14 @@ enum QPDFService {
         }
     }
 
+    /// Workspace consumers operate on readable bytes without retaining an import password.
+    static func decrypted(_ data: Data, password: String) -> Data? {
+        withQPDF(data, description: "unlock-workspace", password: password) { qpdf in
+            guard !hasErrors(qpdf_check_pdf(qpdf)) else { return nil }
+            return write(qpdf) { qpdf_set_preserve_encryption($0, QPDF_FALSE) }
+        }
+    }
+
     /// Runs qpdf's structural checker (equivalent to `qpdf --check`) without
     /// modifying the data. Used as a post-export validation gate. `password`
     /// must be supplied for encrypted data -- qpdf cannot parse (and will
@@ -139,6 +147,75 @@ enum QPDFService {
         withQPDF(data, description: "page-labels-probe") { qpdf in
             qpdf_oh_has_key(qpdf, qpdf_get_root(qpdf), "/PageLabels") == QPDF_TRUE
         } ?? false
+    }
+
+    /// A missing result is unreadable input, not proof that moving its pages is form-safe.
+    static func hasAcroForm(_ data: Data) -> Bool? {
+        withQPDF(data, description: "acroform-presence") { qpdf in
+            guard !hasErrors(qpdf_check_pdf(qpdf)) else { return nil }
+            return hasKey(qpdf, qpdf_get_root(qpdf), "/AcroForm")
+        }
+    }
+
+    /// Carries labels across a same-order PDFKit serialization without replacing its outline.
+    /// Page selection must adjust the number tree before this same-layout bridge is used.
+    static func preservingPageLabels(in destinationData: Data, from sourceData: Data) -> Data? {
+        withQPDF(destinationData, description: "page-labels-destination") { destination in
+            withQPDF(sourceData, description: "page-labels-source") { source in
+                guard !hasErrors(qpdf_check_pdf(destination)), !hasErrors(qpdf_check_pdf(source)),
+                      qpdf_get_num_pages(source) > 0,
+                      qpdf_get_num_pages(source) == qpdf_get_num_pages(destination) else { return nil }
+                let sourceRoot = qpdf_get_root(source)
+                let destinationRoot = qpdf_get_root(destination)
+                if hasKey(source, sourceRoot, "/PageLabels") {
+                    let labels = indirectObject(qpdf_oh_get_key(source, sourceRoot, "/PageLabels"), in: source)
+                    let copied = qpdf_oh_copy_foreign_object(destination, source, labels)
+                    replaceKey(destination, in: destinationRoot, key: "/PageLabels", value: copied)
+                } else if hasKey(destination, destinationRoot, "/PageLabels") {
+                    removeKey(destination, from: destinationRoot, key: "/PageLabels")
+                } else {
+                    return destinationData
+                }
+                return write(destination) { _ in }
+            }
+        }
+    }
+
+    /// Carries the canonical Info dictionary and embedded-file tree across page realignment.
+    /// Other catalog state and every destination page remain untouched.
+    static func preservingCanonicalMetadataAndAttachments(in destinationData: Data, from sourceData: Data) -> Data? {
+        withQPDF(destinationData, description: "canonical-catalog-destination") { destination in
+            withQPDF(sourceData, description: "canonical-catalog-source") { source in
+                guard !hasErrors(qpdf_check_pdf(destination)), !hasErrors(qpdf_check_pdf(source)) else { return nil }
+                let sourceTrailer = qpdf_get_trailer(source)
+                let destinationTrailer = qpdf_get_trailer(destination)
+                if hasKey(source, sourceTrailer, "/Info") {
+                    let info = indirectObject(qpdf_oh_get_key(source, sourceTrailer, "/Info"), in: source)
+                    let copied = qpdf_oh_copy_foreign_object(destination, source, info)
+                    replaceKey(destination, in: destinationTrailer, key: "/Info", value: copied)
+                } else {
+                    removeKey(destination, from: destinationTrailer, key: "/Info")
+                }
+                let sourceRoot = qpdf_get_root(source)
+                let destinationRoot = qpdf_get_root(destination)
+                let sourceNames = qpdf_oh_get_key(source, sourceRoot, "/Names")
+                var destinationNames = qpdf_oh_get_key(destination, destinationRoot, "/Names")
+                if qpdf_oh_is_dictionary(source, sourceNames) == QPDF_TRUE,
+                   hasKey(source, sourceNames, "/EmbeddedFiles") {
+                    if qpdf_oh_is_dictionary(destination, destinationNames) != QPDF_TRUE {
+                        destinationNames = qpdf_oh_new_dictionary(destination)
+                        replaceKey(destination, in: destinationRoot, key: "/Names", value: destinationNames)
+                    }
+                    let files = indirectObject(qpdf_oh_get_key(source, sourceNames, "/EmbeddedFiles"), in: source)
+                    let copied = qpdf_oh_copy_foreign_object(destination, source, files)
+                    replaceKey(destination, in: destinationNames, key: "/EmbeddedFiles", value: copied)
+                } else if qpdf_oh_is_dictionary(destination, destinationNames) == QPDF_TRUE {
+                    removeKey(destination, from: destinationNames, key: "/EmbeddedFiles")
+                }
+                guard !hasErrors(qpdf_check_pdf(destination)) else { return nil }
+                return write(destination) { _ in }
+            }
+        }
     }
 
     /// Replaces only page annotations and the document AcroForm in `destinationData` with

@@ -34,7 +34,7 @@ final class PDFImportNormalizerTests: XCTestCase {
         // The normalizer must return the qpdf-hardened ORIGINAL, never PDFKit's rebuild:
         // that rebuild is exactly what destroys Type 3 text layers and triggers the
         // "typed text lands on top of the original" bug.
-        XCTAssertEqual(normalized, expectedHardened, "should keep the qpdf-preserved original")
+        XCTAssertEqual(try pdfIgnoringUpdatedDocumentID(normalized), try pdfIgnoringUpdatedDocumentID(expectedHardened), "should keep the qpdf-preserved original")
         XCTAssertNotEqual(normalized, pdfKitRebuild, "should not fall through to the lossy PDFKit rebuild")
 
         // And it stays a readable, page-count-preserving document.
@@ -141,7 +141,7 @@ final class PDFImportNormalizerTests: XCTestCase {
 
         let stored = try XCTUnwrap(document.memberPDFData.values.first)
         let expectedHardened = try XCTUnwrap(QPDFService.sanitized(raw, removingMetadata: false))
-        XCTAssertEqual(stored, expectedHardened, "import must persist the qpdf-preserved original, not a PDFKit rebuild")
+        XCTAssertEqual(try pdfIgnoringUpdatedDocumentID(stored), try pdfIgnoringUpdatedDocumentID(expectedHardened), "import must persist the qpdf-preserved original, not a PDFKit rebuild")
     }
 }
 

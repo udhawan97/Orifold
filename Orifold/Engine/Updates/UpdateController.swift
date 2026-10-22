@@ -115,6 +115,8 @@ final class UpdateController {
 
     var currentVersionString: String { currentVersion.description }
 
+    func refreshRollbackAvailability() { rollbackManifest = archiver.loadManifest() }
+
     /// True when an update is available and not the one the user skipped.
     var hasActionableUpdate: Bool {
         guard let update = phase.availableUpdate else { return false }
@@ -301,7 +303,8 @@ final class UpdateController {
         }
 
         guard let rollback = await Task.detached(operation: { () -> (manifest: RollbackManifest, path: String)? in
-            guard let manifest = try? archiver.archive(bundleURL: bundleURL, version: version, build: build),
+            guard let manifest = try? archiver.prepare(bundleURL: bundleURL, version: version, build: build,
+                                                       sessionID: sessionID, toVersion: update.version),
                   let path = archiver.archiveURL(for: manifest)?.path else { return nil }
             return (manifest: manifest, path: path)
         }).value else {
@@ -309,7 +312,10 @@ final class UpdateController {
             phase = .failed(UpdateFailure(kind: .verification, detail: "Could not prepare a verified rollback archive."))
             return false
         }
-        rollbackManifest = rollback.manifest
+        var helperMayRun = false
+        defer {
+            if !helperMayRun { try? archiver.discardPreparation(sessionID: sessionID) }
+        }
 
         // Preparation can take long enough for a document to become dirty after the initial
         // UI check. Recheck immediately before authorizing the external helper.
@@ -357,10 +363,12 @@ final class UpdateController {
             phase = .failed(UpdateFailure(kind: .install, detail: "Could not start the updater."))
             return false
         }
+        helperMayRun = true
 
         guard handOff.terminateForInstall() else {
             let helperWasRevoked = handOff.abandonLaunchedHelper()
             if helperWasRevoked {
+                helperMayRun = false
                 markers.clearAttempt(ownedBy: sessionID)
                 markers.clearReopenManifest(ownedBy: sessionID)
                 history.remove(id: historyRecord.id)

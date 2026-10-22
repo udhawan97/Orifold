@@ -1,6 +1,6 @@
 ---
 title: Reset & lock form answers
-description: Clear a form's answers, or lock them during export so recipients can't edit them.
+description: Clear a form’s answers or flatten supported form controls during export.
 keywords: [lock form, flatten form, reset form, form answers]
 badge: pro
 ---
@@ -11,7 +11,11 @@ import Callout from '../../../components/Callout.astro';
 <Badge variant="pro" />
 
 <Callout variant="whentouse">
-	You've filled out a form and want to make sure the final copy can't be "accidentally" edited by whoever receives it — or you need to start the form over.
+	You want to remove ordinary editable form controls from a copy, or start the form over.
+</Callout>
+
+<Callout variant="note" label="Verify saved answers">
+	Reader Mode form-answer serialization remains under investigation. Keep the original and reopen a saved copy in another viewer before relying on the answers. See the limitations below.
 </Callout>
 
 ## Reset a form
@@ -20,17 +24,23 @@ Choose Reset Form to clear every field back to blank.
 
 ## Lock answers at export
 
-When exporting, choose to lock form answers. The exported PDF keeps its filled values but recipients can no longer change them.
+When exporting, choose to lock form answers. This is intended to convert supported field appearances into page content. It does not prevent a PDF editor from changing document content.
 
 <Callout variant="tip">
-	Flatten before sharing: locking form answers and baking in any stamps at export means nobody can quietly edit your final copy.
+	Flattening changes the representation of form controls. Verify the saved answers before sharing; use a separate signature workflow when you need evidence of later changes.
 </Callout>
 
 ## What you should see
 
-Locked exports open normally in any PDF viewer, showing your answers as plain, non-editable content.
+Supported answers appear as page content when you reopen the saved copy. Check every value; a visible or flattened appearance is not proof of correct serialization.
 
 ## Related
 
 - [Fill PDF forms](/Orifold/fill-sign/forms/)
 - [Export & save](/Orifold/export/export-save/)
+
+## Verify the saved answers
+
+Form-answer serialization from Reader Mode is still under investigation. Keep the original
+and reopen the exported copy in another viewer to verify all answers. A locked appearance
+alone does not establish that the correct answer was saved.

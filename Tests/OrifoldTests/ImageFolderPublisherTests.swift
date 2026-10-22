@@ -14,8 +14,7 @@ final class ImageFolderPublisherTests: XCTestCase {
     override func setUpWithError() throws {
         let temporary = ProcessInfo.processInfo.environment["ORIFOLD_TEST_TEMP_ROOT"]
             .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? FileManager.default.temporaryDirectory
-        root = temporary.appendingPathComponent("orifold-image-publication-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        root = try makeRoot(temporary: temporary)
     }
 
     override func tearDownWithError() throws {
@@ -70,6 +69,30 @@ final class ImageFolderPublisherTests: XCTestCase {
         try ImageFolderPublisher.publish(pages, to: destination)
         XCTAssertEqual(try tree(at: destination), Dictionary(uniqueKeysWithValues: pages.map { ($0.filename, $0.data) }))
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), ["Pages"])
+    }
+
+    func testTemporaryDirectoryAliasKeepsRelativeSnapshotsAndResolvedSandboxPaths() throws {
+        let initialRoot = try XCTUnwrap(root)
+        let parent = initialRoot.deletingLastPathComponent().resolvingSymlinksInPath()
+        var aliases: [URL] = []
+        if parent.path.hasPrefix("/private/var/") {
+            aliases.append(URL(fileURLWithPath: String(parent.path.dropFirst("/private".count)), isDirectory: true))
+        } else if parent.path.hasPrefix("/var/") {
+            aliases.append(parent)
+        }
+        let linkedParent = initialRoot.appendingPathComponent("temporary-alias", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: linkedParent, withDestinationURL: parent)
+        aliases.append(linkedParent)
+        defer { root = initialRoot }
+        for alias in aliases {
+            let fixtureRoot = try makeRoot(temporary: alias)
+            root = fixtureRoot
+            defer { try? FileManager.default.removeItem(at: fixtureRoot) }
+            XCTAssertEqual(root.path, try resolvedDirectory(root).path, "sandbox rules must name the filesystem-canonical fixture path")
+            try makeOldTree()
+            try ImageFolderPublisher.publish(pages, to: destination)
+            XCTAssertEqual(try tree(at: destination), Dictionary(uniqueKeysWithValues: pages.map { ($0.filename, $0.data) }))
+        }
     }
 
     func testSelectedPathFallbackCreatesNewCompleteFolder() throws {
@@ -168,6 +191,22 @@ final class ImageFolderPublisherTests: XCTestCase {
         })
         let sentinel = try XCTUnwrap(unrelated).appendingPathComponent("keep.txt")
         XCTAssertEqual(try Data(contentsOf: sentinel), Data("unrelated contents".utf8))
+    }
+
+    private func makeRoot(temporary: URL) throws -> URL {
+        let root = try resolvedDirectory(temporary).appendingPathComponent("orifold-image-publication-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        return root
+    }
+
+    private func resolvedDirectory(_ directory: URL) throws -> URL {
+        // Foundation can retain /var aliases while enumeration and sandbox rules use
+        // filesystem paths. Resolve the existing parent before creating the fixture.
+        guard let path = Darwin.realpath(directory.path, nil) else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        defer { Darwin.free(path) }
+        return URL(fileURLWithPath: String(cString: path), isDirectory: true)
     }
 
     private func makeOldTree() throws {

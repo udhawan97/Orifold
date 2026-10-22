@@ -27,6 +27,7 @@ final class UpdateLaunchCoordinator {
     private let sentinel: LaunchSentinel
     private let markers: UpdateInstallMarkerStore
     private let history: UpdateHistoryStore
+    private let archiver: RollbackArchiver
     private let currentVersion: String
     private(set) var lastAssessment: LaunchSentinel.Assessment?
     private var healthyTask: Task<Void, Never>?
@@ -38,6 +39,7 @@ final class UpdateLaunchCoordinator {
         sentinel = LaunchSentinel(version: currentVersion, build: build)
         markers = UpdateInstallMarkerStore()
         history = UpdateHistoryStore()
+        archiver = RollbackArchiver()
     }
 
     func applicationDidFinishLaunching() {
@@ -49,8 +51,9 @@ final class UpdateLaunchCoordinator {
         case .none:
             break
         case .succeeded:
-            // The new version is running; the record is confirmed verified after the grace.
-            markers.clearAttempt()
+            // Keep ownership through the healthy grace so a crash cannot lose the pending
+            // rescue archive's promotion receipt.
+            break
         case .failed:
             markers.clearAttempt()
             if let latest = history.latest, !latest.launchVerified, latest.rollbackReason == nil {
@@ -72,7 +75,10 @@ final class UpdateLaunchCoordinator {
             try? await Task.sleep(nanoseconds: UInt64(Self.healthyGraceInterval * 1_000_000_000))
             guard !Task.isCancelled, let self else { return }
             self.sentinel.markHealthy()
-            Self.confirmHealthyInstall(in: self.history, currentVersion: self.currentVersion)
+            if await Self.confirmHealthyInstall(in: self.history, currentVersion: self.currentVersion,
+                                          attempt: attempt, markers: self.markers, archiver: self.archiver) {
+                UpdateController.shared.refreshRollbackAvailability()
+            }
         }
 
         Task { await UpdateController.shared.maybeRunAutomaticCheck() }
@@ -97,15 +103,34 @@ final class UpdateLaunchCoordinator {
     }
 
     /// The grace-period commit, separated from the timer so persisted history can be verified.
-    static func confirmHealthyInstall(in history: UpdateHistoryStore, currentVersion: String, at date: Date = Date()) {
+    @discardableResult
+    static func confirmHealthyInstall(in history: UpdateHistoryStore, currentVersion: String, at date: Date = Date(),
+                                      attempt: InstallAttempt? = nil, markers: UpdateInstallMarkerStore? = nil,
+                                      archiver: RollbackArchiver? = nil) async -> Bool {
+        if let attempt {
+            guard let markers, let archiver,
+                  evaluateInstallOutcome(attempt: attempt, currentVersion: currentVersion) == .succeeded else { return false }
+            let promoted = await Task.detached {
+                do {
+                    return try archiver.commitPreparation(for: attempt)
+                } catch { return false }
+            }.value
+            guard promoted, !Task.isCancelled else {
+                // Preserve the attempt and both archives so the next launch can retry safely.
+                return false
+            }
+            if let sessionID = attempt.sessionID { markers.clearAttempt(ownedBy: sessionID) }
+            else if markers.readAttempt() == attempt { markers.clearAttempt() }
+        }
         guard let latest = history.latest, !latest.launchVerified,
-              versionsMatch(latest.toVersion, currentVersion) else { return }
+              versionsMatch(latest.toVersion, currentVersion) else { return true }
         history.update(id: latest.id) { $0.launchVerified = true; $0.verifiedAt = date }
+        return true
     }
 
     /// Both persisted offers and bundle marketing strings name numeric version identities.
     /// Do not let two malformed values compare equal through optional equality.
-    static func versionsMatch(_ offered: String, _ running: String) -> Bool {
+    nonisolated static func versionsMatch(_ offered: String, _ running: String) -> Bool {
         let pattern = #"^(?:release-)?[vV]?[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"#
         let values = [offered, running].map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         guard values.allSatisfy({ value in

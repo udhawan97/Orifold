@@ -650,6 +650,10 @@ final class WorkspaceViewModel {
     @ObservationIgnored var ocrRecognitionProviderForTesting: PDFOCRService.RecognitionProvider?
     /// Deterministic seam for exercising cancellation at the result/apply boundary.
     @ObservationIgnored var ocrResultReadyHandlerForTesting: (() -> Void)?
+    /// Allows deterministic failure of any structural byte lane before the transaction commits.
+    @ObservationIgnored var structuralPageTransformForTesting: ((Data, [Int]) -> Data?)?
+    /// Allows crop tests to inspect and fail each lane before the atomic publication.
+    @ObservationIgnored var cropBoxTransformForTesting: ((Data, [Int: CGRect]) -> Data?)?
     #endif
     @ObservationIgnored private var searchNotificationTokens: [NSObjectProtocol] = []
     @ObservationIgnored private var activeSearchID = UUID()
@@ -1491,8 +1495,16 @@ final class WorkspaceViewModel {
         guard canPerformMutatingAction() else { return false }
         guard pdf.unlock(withPassword: password) else { return false }
         let pending = pendingPasswordImports.first
-        smokeValidatePDFData(pdf.dataRepresentation(), password: password)
-        attachPDF(pdf, from: url, sourcePayload: nil, importPosition: pending?.position)
+        guard let serialized = PDFSerializer.data(from: pdf),
+              let plainData = QPDFService.decrypted(serialized, password: password),
+              let plainPDF = PDFDocument(data: plainData),
+              !plainPDF.isEncrypted, !plainPDF.isLocked,
+              plainPDF.pageCount > 0, plainPDF.pageCount == pdf.pageCount else {
+            importError = ImportError(fileName: url.lastPathComponent, message: L10n.string("error.import.preparePDFForSaving"))
+            return false
+        }
+        guard attachPDF(plainPDF, from: url, sourcePayload: nil, importPosition: pending?.position,
+                        originalPDFData: plainData) != nil else { return false }
         removeCurrentPasswordImport()
         rebuild()
         pending?.position?.batch.resolvePendingPassword()
@@ -1811,6 +1823,12 @@ final class WorkspaceViewModel {
     }
 
     private struct OrderSnapshot: @unchecked Sendable {
+        var modifiedAt: Date
+        var selectedPageRefID: UUID?
+        var selectedPageRefIDs: Set<UUID>
+        var selectedStampDecorationID: UUID?
+        var commentRevision: Int
+        var decorationStateVersion: Int
         var documents: [MemberDocument]
         var pageOrder: [PageRef]
         var comments: [WorkspaceComment]
@@ -1892,6 +1910,12 @@ final class WorkspaceViewModel {
     private func captureOrderSnapshot() -> OrderSnapshot {
         let memberTimeline = captureMemberTimelineSnapshot()
         return OrderSnapshot(
+            modifiedAt: document.workspace.modifiedAt,
+            selectedPageRefID: selectedPageRefID,
+            selectedPageRefIDs: selectedPageRefIDs,
+            selectedStampDecorationID: selectedStampDecorationID,
+            commentRevision: commentRevision,
+            decorationStateVersion: decorationStateVersion,
             documents: document.workspace.documents,
             pageOrder: document.workspace.pageOrder,
             comments: document.workspace.comments,
@@ -1911,16 +1935,18 @@ final class WorkspaceViewModel {
         )
     }
 
-    private func restore(_ snapshot: OrderSnapshot) {
+    private func restore(_ snapshot: OrderSnapshot, registersInverse: Bool = true) {
         // Register the inverse so the restore itself is redoable — undo closures that
         // register nothing leave NSUndoManager's redo stack empty, which silently made
         // every order-snapshot operation (page delete/move/duplicate, document reorder,
         // OCR, form reset) un-redoable after its undo.
-        let inverse = captureOrderSnapshot()
-        registerIsolatedUndo {
-            undoManager?.registerUndo(withTarget: self) { vm in
-                guard vm.canPerformUndoMutation() else { return }
-                vm.restore(inverse)
+        if registersInverse {
+            let inverse = captureOrderSnapshot()
+            registerIsolatedUndo {
+                undoManager?.registerUndo(withTarget: self) { vm in
+                    guard vm.canPerformUndoMutation() else { return }
+                    vm.restore(inverse)
+                }
             }
         }
         document.workspace.documents = snapshot.documents
@@ -1945,6 +1971,14 @@ final class WorkspaceViewModel {
         }
         textAnalysisCache.removeAll()
         objectAnalysisCache.removeAll()
+        if !registersInverse {
+            document.workspace.modifiedAt = snapshot.modifiedAt
+            selectedPageRefID = snapshot.selectedPageRefID
+            selectedPageRefIDs = snapshot.selectedPageRefIDs
+            selectedStampDecorationID = snapshot.selectedStampDecorationID
+            commentRevision = snapshot.commentRevision
+            decorationStateVersion = snapshot.decorationStateVersion
+        }
         objectSelection = snapshot.objectSelection
         applyPageRotations(snapshot.pageRotations)
         rebuild()
@@ -2050,8 +2084,14 @@ final class WorkspaceViewModel {
             // way to know the destinations drifted. Falls back to `data` when the member has
             // no bookmarks or the repair cannot serialize, so export never fails over this.
             let outlined = PDFOutlineBuilder.reanchoring(data, toOutlineOf: pdf) ?? data
+            // PDFKit also drops source numbering. Restore only that same-layout number tree
+            // after outline repair so editable saves retain labels and current bookmark edits.
+            guard let canonical = document.memberPDFData[member.id],
+                  let labeled = QPDFService.preservingPageLabels(in: outlined, from: canonical) else {
+                throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
+            }
             result[member.id] = try AttachmentsService.replacingAttachments(
-                in: outlined, with: attachments[member.id] ?? []
+                in: labeled, with: attachments[member.id] ?? []
             )
         }
         return result
@@ -3363,26 +3403,22 @@ final class WorkspaceViewModel {
         var result: [UUID: Data] = [:]
         for (member, pdf) in loadedPDFs {
             guard let structuralData = document.memberPDFData[member.id],
-                  let serializedLive = PDFSerializer.data(from: pdf),
-                  PDFDocument(data: serializedLive)?.pageCount == pdf.pageCount,
-                  let interactiveData = QPDFService.replacingInteractiveState(
-                      in: structuralData,
-                      from: serializedLive
-                  ) else {
-                throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
-            }
-            let rotations = Dictionary(uniqueKeysWithValues: (0..<pdf.pageCount).compactMap { pageIndex in
-                pdf.page(at: pageIndex).map { (pageIndex, $0.rotation) }
-            })
-            guard let prepared = QPDFService.settingPageRotations(
-                interactiveData,
-                rotationsByPageIndex: rotations
-            ) else {
+                  let prepared = Self.preservingLiveInteractiveState(in: structuralData, from: pdf) else {
                 throw PDFKitEngine.ExportAssemblyError.unreadableMember(member.displayName)
             }
             result[member.id] = prepared
         }
         return result
+    }
+
+    private static func preservingLiveInteractiveState(in data: Data, from pdf: PDFDocument) -> Data? {
+        guard let serialized = PDFSerializer.data(from: pdf),
+              PDFDocument(data: serialized)?.pageCount == pdf.pageCount,
+              let interactive = QPDFService.replacingInteractiveState(in: data, from: serialized) else { return nil }
+        let rotations = Dictionary(uniqueKeysWithValues: (0..<pdf.pageCount).compactMap { index in
+            pdf.page(at: index).map { (index, $0.rotation) }
+        })
+        return QPDFService.settingPageRotations(interactive, rotationsByPageIndex: rotations)
     }
 
     private func searchableData(
@@ -3880,7 +3916,7 @@ final class WorkspaceViewModel {
     }
 
     static func reinjectingAttachments(_ collected: [CollectedAttachment], into exportData: Data) throws -> Data {
-        try AttachmentsService.reinject(collected, into: exportData)
+        try AttachmentsService.replacingAttachments(in: exportData, with: collected)
     }
 
     // MARK: - Decorations
@@ -5253,9 +5289,7 @@ final class WorkspaceViewModel {
     /// are therefore retired so a later replay cannot apply their transforms twice.
     private func rebasePristineToLiveBytes(memberID: UUID) {
         guard let memberIndex = document.workspace.documents.firstIndex(where: { $0.id == memberID }),
-              let loaded = loadedPDFs.first(where: { $0.0.id == memberID }) else { return }
-        let liveBytes = PDFSerializer.data(from: loaded.1) ?? document.memberPDFData[memberID]
-        guard let liveBytes else { return }
+              let liveBytes = document.memberPDFData[memberID] else { return }
         invalidatePageInspection(for: memberID)
         originalMemberPDFData[memberID] = liveBytes
         if objectBaseData[memberID] != nil {
@@ -5275,33 +5309,48 @@ final class WorkspaceViewModel {
         }
     }
 
-    /// Realigns a member's canonical replay bytes after a same-member delete, duplicate, or
-    /// reorder. The new base is assembled from the OLD pristine pages in the member's NEW ref
-    /// order, so committed text/object operations remain re-editable instead of becoming baked
-    /// background. Page refs are then normalized to the new base's local indexes.
-    private func realignCanonicalReplayBaseAfterStructuralChange(memberID: UUID) {
-        guard let memberIndex = document.workspace.documents.firstIndex(where: { $0.id == memberID }),
-              let canonicalData = originalMemberPDFData[memberID]
-                ?? objectBaseData[memberID]
-                ?? document.memberPDFData[memberID],
-              let canonicalPDF = PDFDocument(data: canonicalData) else { return }
-
-        let member = document.workspace.documents[memberIndex]
-        let realigned = PDFDocument()
-        for refID in member.pageRefs {
-            guard let ref = workspacePageRef(refID),
-                  ref.sourcePageIndex >= 0,
-                  let page = canonicalPDF.page(at: ref.sourcePageIndex),
-                  let copy = page.copy() as? PDFPage else { return }
-            realigned.insert(copy, at: realigned.pageCount)
+    /// Realigns every byte lane independently while refs still describe the old source indexes.
+    /// Callers restore their complete order snapshot if preparation of any lane fails.
+    private func realignCanonicalReplayBaseAfterStructuralChange(memberID: UUID) -> Bool {
+        guard let memberIndex = document.workspace.documents.firstIndex(where: { $0.id == memberID }) else {
+            return true
         }
-        guard let realignedData = PDFSerializer.data(from: realigned) else { return }
+        let member = document.workspace.documents[memberIndex]
+        let indexes = member.pageRefs.compactMap { workspacePageRef($0)?.sourcePageIndex }
+        guard indexes.count == member.pageRefs.count,
+              let liveData = document.memberPDFData[memberID],
+              let loadedPDF = loadedPDFs.first(where: { $0.0.id == memberID })?.1 else { return false }
+        func realigned(_ data: Data) -> Data? {
+            #if DEBUG
+            if let transform = structuralPageTransformForTesting { return transform(data, indexes) }
+            #endif
+            return QPDFService.selectingPages(data, pageIndices: indexes)
+        }
+
+        guard let reorderedLive = realigned(liveData) else { return false }
+        var pristine: Data?
+        if let data = originalMemberPDFData[memberID] {
+            guard let prepared = realigned(data) else { return false }
+            pristine = prepared
+        }
+        var objectBase: Data?
+        if let data = objectBaseData[memberID] {
+            guard let prepared = realigned(data) else { return false }
+            objectBase = prepared
+        }
+        // Only annotations/forms and rotations come from PDFKit; content and catalogs stay qpdf-backed.
+        guard let serializedLive = PDFSerializer.data(from: loadedPDF),
+              let interactive = QPDFService.replacingInteractiveState(in: reorderedLive, from: serializedLive),
+              let preparedLive = QPDFService.settingPageRotations(interactive, rotationsByPageIndex:
+                Dictionary(uniqueKeysWithValues: (0..<loadedPDF.pageCount).compactMap { index in
+                    loadedPDF.page(at: index).map { (index, $0.rotation) }
+                })
+              ) else { return false }
 
         invalidatePageInspection(for: memberID)
-        originalMemberPDFData[memberID] = realignedData
-        if objectBaseData[memberID] != nil {
-            objectBaseData[memberID] = realignedData
-        }
+        document.memberPDFData[memberID] = preparedLive
+        originalMemberPDFData[memberID] = pristine
+        objectBaseData[memberID] = objectBase
         for (localIndex, refID) in member.pageRefs.enumerated() {
             if let orderIndex = document.workspace.pageOrder.firstIndex(where: { $0.id == refID }) {
                 document.workspace.pageOrder[orderIndex].sourcePageIndex = localIndex
@@ -5309,6 +5358,7 @@ final class WorkspaceViewModel {
             textAnalysisCache.removeValue(forKey: refID)
             objectAnalysisCache.removeValue(forKey: refID)
         }
+        return true
     }
 
     struct CommittedEditReplayError: LocalizedError {
@@ -7492,12 +7542,12 @@ final class WorkspaceViewModel {
 
     // MARK: - Zoom
 
-    func zoomIn()  { NotificationCenter.default.post(name: .orifoldZoomIn,  object: nil) }
-    func zoomOut() { NotificationCenter.default.post(name: .orifoldZoomOut, object: nil) }
-    func zoomFit() { NotificationCenter.default.post(name: .orifoldZoomFit, object: nil) }
+    func zoomIn()  { NotificationCenter.default.post(name: .orifoldZoomIn,  object: self) }
+    func zoomOut() { NotificationCenter.default.post(name: .orifoldZoomOut, object: self) }
+    func zoomFit() { NotificationCenter.default.post(name: .orifoldZoomFit, object: self) }
     /// Back to 1:1. Relative zoom alone can't answer "am I seeing this at print size?",
     /// which is the question a reader checking a layout is actually asking.
-    func zoomActualSize() { NotificationCenter.default.post(name: .orifoldZoomActualSize, object: nil) }
+    func zoomActualSize() { NotificationCenter.default.post(name: .orifoldZoomActualSize, object: self) }
 
     // MARK: - Export
 
@@ -7914,89 +7964,27 @@ final class WorkspaceViewModel {
         return result
     }
 
-    func reduceFileSize(preset: PDFCompressionPreset = .balanced) {
+    func reduceFileSize(preset: PDFCompressionPreset = .balanced, destination: URL? = nil) {
         guard canPerformMutatingAction() else { return }
         let targetURL: URL
         let defaultName = "\(safeFilename(document.workspace.title))-reduced.pdf"
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.pdf]
-        panel.canCreateDirectories = true
-        panel.nameFieldStringValue = defaultName
-        panel.title = L10n.string("savePanel.reduceFileSize.title")
-        panel.prompt = L10n.string("savePanel.reduce.prompt")
-        guard panel.runModal() == .OK, let chosenURL = panel.url else { return }
-        targetURL = chosenURL
-
-        let sourceData: Data
-        do {
-            var options = WorkspaceExportOptions()
-            options.lockFormAnswers = hasFillableFormFields
-            sourceData = try dataForPDFExport(options: options)
-        } catch {
-            exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
-            return
+        if let destination {
+            targetURL = destination
+        } else {
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.pdf]
+            panel.canCreateDirectories = true
+            panel.nameFieldStringValue = defaultName
+            panel.title = L10n.string("savePanel.reduceFileSize.title")
+            panel.prompt = L10n.string("savePanel.reduce.prompt")
+            guard panel.runModal() == .OK, let chosenURL = panel.url else { return }
+            targetURL = chosenURL
         }
-
-        operationProgress.start(
-            title: L10n.string("progress.compression.title"),
-            detail: L10n.string("progress.compression.preparing")
-        )
-        let cancellation = OperationCancellationToken()
-        let operationID = UUID()
-        activeCompressionCancellation = cancellation
-        activeCompressionID = operationID
-        activeCompressionTask = Task { [weak self, sourceData, targetURL, preset, cancellation, operationID] in
-            guard let self else { return }
-            do {
-                let result = try await self.reducedData(
-                    from: sourceData,
-                    preset: preset,
-                    encryption: nil,
-                    cancellation: cancellation,
-                    operationID: operationID
-                ).compressionResult
-                if cancellation.isCancelled || Task.isCancelled {
-                    throw PDFCompressionError.cancelled
-                }
-                guard QPDFService.isStructurallySound(result.data) else {
-                    throw PDFExportValidationError.structurallyUnsound
-                }
-                try self.writeExportData(result.data, to: targetURL)
-                try self.verifyExportedFile(at: targetURL)
-                await MainActor.run {
-                    guard self.activeCompressionID == operationID else { return }
-                    self.operationProgress.finish()
-                    self.activeCompressionTask = nil
-                    self.activeCompressionCancellation = nil
-                    self.activeCompressionID = nil
-                    self.finalizeSuccessfulExport(url: targetURL, format: .pdf, note: self.compressionSummary(result))
-                }
-            } catch {
-                await MainActor.run {
-                    guard self.activeCompressionID == operationID else { return }
-                    self.operationProgress.finish()
-                    self.activeCompressionTask = nil
-                    self.activeCompressionCancellation = nil
-                    self.activeCompressionID = nil
-                    if let compressionError = error as? PDFCompressionError, compressionError == .cancelled {
-                        self.editingStatus = .warning(
-                            PDFCompressionError.cancelled.errorDescription
-                                ?? L10n.string("error.compression.cancelled")
-                        )
-                    } else if error is CancellationError {
-                        self.editingStatus = .warning(
-                            PDFCompressionError.cancelled.errorDescription
-                                ?? L10n.string("error.compression.cancelled")
-                        )
-                    } else {
-                        self.exportError = ExportError(message: self.userMessage(for: error, exporting: .pdf))
-                    }
-                }
-            }
-        }
+        _ = exportCompressedPDF(options: WorkspaceExportOptions(
+            lockFormAnswers: hasFillableFormFields, compressionPreset: preset), destination: targetURL)
     }
 
-    private func exportCompressedPDF(options: WorkspaceExportOptions) -> Bool {
+    func exportCompressedPDF(options: WorkspaceExportOptions, destination: URL? = nil) -> Bool {
         guard let preset = options.compressionPreset else { return false }
         if (options.encryption != nil || options.sanitization != nil), hasCryptographicSignaturePlacement {
             exportError = ExportError(message: PDFEncryptionError.digitalSignatureConflict.userMessage)
@@ -8010,12 +7998,16 @@ final class WorkspaceViewModel {
         } else {
             defaultName = "\(safeFilename(document.workspace.title)).pdf"
         }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.pdf]
-        panel.nameFieldStringValue = defaultName
-        panel.title = L10n.string("savePanel.exportPDF.title")
-        guard panel.runModal() == .OK, let chosenURL = panel.url else { return false }
-        targetURL = chosenURL
+        if let destination {
+            targetURL = destination
+        } else {
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.pdf]
+            panel.nameFieldStringValue = defaultName
+            panel.title = L10n.string("savePanel.exportPDF.title")
+            guard panel.runModal() == .OK, let chosenURL = panel.url else { return false }
+            targetURL = chosenURL
+        }
 
         let encryption = options.encryption
         if let encryption {
@@ -8027,10 +8019,10 @@ final class WorkspaceViewModel {
             }
         }
 
-        let sourceData: Data
+        let payload: BakedExportPayload
         do {
             let baseOptions = WorkspaceExportOptions(lockFormAnswers: options.lockFormAnswers)
-            sourceData = try dataForPDFExport(options: baseOptions)
+            payload = try bakedExportPayload(options: baseOptions)
         } catch {
             exportError = ExportError(message: userMessage(for: error, exporting: .pdf))
             return false
@@ -8044,29 +8036,20 @@ final class WorkspaceViewModel {
         let operationID = UUID()
         activeCompressionCancellation = cancellation
         activeCompressionID = operationID
-        let sanitization = options.sanitization
-        activeCompressionTask = Task { [weak self, sourceData, targetURL, preset, sanitization, encryption, cancellation, operationID] in
+        activeCompressionTask = Task { [weak self, payload, options, targetURL, preset, encryption, cancellation, operationID] in
             guard let self else { return }
             do {
                 let output = try await self.reducedData(
-                    from: sourceData,
+                    from: payload,
                     preset: preset,
-                    sanitization: sanitization,
-                    encryption: encryption,
+                    options: options,
                     cancellation: cancellation,
                     operationID: operationID
                 )
                 if cancellation.isCancelled || Task.isCancelled {
                     throw PDFCompressionError.cancelled
                 }
-                // Same structural gate writePDFExportData applies to the
-                // plain export path -- this path writes directly and would
-                // otherwise skip it entirely.
-                guard QPDFService.isStructurallySound(output.data, password: encryption?.userPassword) else {
-                    throw PDFExportValidationError.structurallyUnsound
-                }
-                try self.writeExportData(output.data, to: targetURL)
-                try self.verifyExportedFile(at: targetURL)
+                try self.writePDFExportData(output.data, to: targetURL, validationOptions: encryption)
                 await MainActor.run {
                     guard self.activeCompressionID == operationID else { return }
                     self.operationProgress.finish()
@@ -8109,19 +8092,42 @@ final class WorkspaceViewModel {
         cancellation: OperationCancellationToken,
         operationID: UUID
     ) async throws -> (data: Data, compressionResult: PDFCompressionResult) {
+        if cancellation.isCancelled || Task.isCancelled { throw PDFCompressionError.cancelled }
+        guard let pdf = PDFDocument(data: sourceData), pdf.pageCount > 0 else { throw PDFCompressionError.invalidPDF }
+        let attachments = try AttachmentsService.capture(in: sourceData)
+        let outline = PDFOutlineReader.nodes(in: pdf)
+        return try await reducedData(
+            from: BakedExportPayload(baked: BakedPDFData(alreadyFlattened: sourceData), outline: outline, attachments: attachments),
+            preset: preset,
+            options: WorkspaceExportOptions(encryption: encryption, compressionPreset: preset, sanitization: sanitization),
+            cancellation: cancellation,
+            operationID: operationID
+        )
+    }
+
+    /// Compression retains the bake proof and original catalog payload until the shared export tail.
+    private func reducedData(
+        from payload: BakedExportPayload,
+        preset: PDFCompressionPreset,
+        options: WorkspaceExportOptions,
+        cancellation: OperationCancellationToken,
+        operationID: UUID
+    ) async throws -> (data: Data, compressionResult: PDFCompressionResult) {
         let progressThrottle = ProgressUpdateThrottle()
         return try await Task.detached(priority: .userInitiated) {
             let result = try PDFCompressionService.reduceFileSize(
-                of: sourceData,
+                of: payload.baked.bytes,
                 preset: preset,
                 processingEngine: PDFiumProcessingEngine(),
                 progress: { progress in
                     guard progressThrottle.shouldEmit(progress) else { return }
                     Task { @MainActor [weak self] in
-                        guard self?.activeCompressionID == operationID,
-                              self?.operationProgress.isActive == true else { return }
-                        self?.operationProgress.update(
-                            fraction: progress,
+                        let mappedFraction = progress * 0.7
+                        guard let self, self.activeCompressionID == operationID,
+                              self.operationProgress.isActive,
+                              self.operationProgress.fraction <= mappedFraction else { return }
+                        self.operationProgress.update(
+                            fraction: mappedFraction,
                             detail: WorkspaceOperationalCopy.compressionProgress(
                                 percent: Int((progress * 100).rounded())
                             )
@@ -8135,22 +8141,33 @@ final class WorkspaceViewModel {
             if cancellation.isCancelled || Task.isCancelled {
                 throw PDFCompressionError.cancelled
             }
-            let sanitizedData = try Self.sanitized(result.data, options: sanitization)
+            let compressedPayload = BakedExportPayload(
+                baked: payload.baked.mapping { _ in result.data },
+                outline: payload.outline,
+                attachments: payload.attachments
+            )
+            let finished: Data
+            do {
+                finished = try Self.finishedExportData(compressedPayload, options: options,
+                    progress: { fraction, stage in
+                        Task { @MainActor [weak self] in
+                            let mappedFraction = 0.7 + fraction * 0.3
+                            guard let self, self.activeCompressionID == operationID,
+                                  self.operationProgress.isActive,
+                                  self.operationProgress.fraction <= mappedFraction else { return }
+                            self.operationProgress.update(fraction: mappedFraction,
+                                detail: L10n.string(forKey: stage.progressDetailKey))
+                        }
+                    },
+                    isCancelled: { cancellation.isCancelled || Task.isCancelled }
+                )
+            } catch is PDFExportCancelled {
+                throw PDFCompressionError.cancelled
+            }
             if cancellation.isCancelled || Task.isCancelled {
                 throw PDFCompressionError.cancelled
             }
-            guard let encryption else {
-                return (data: sanitizedData, compressionResult: result)
-            }
-            let encrypted = try PDFEncryptionService.encryptedData(from: sanitizedData, options: encryption)
-            if cancellation.isCancelled || Task.isCancelled {
-                throw PDFCompressionError.cancelled
-            }
-            _ = try PDFiumProcessingEngine().validatePDF(data: encrypted, password: encryption.userPassword)
-            if cancellation.isCancelled || Task.isCancelled {
-                throw PDFCompressionError.cancelled
-            }
-            return (data: encrypted, compressionResult: result)
+            return (data: finished, compressionResult: result)
         }.value
     }
 
@@ -9729,13 +9746,9 @@ final class WorkspaceViewModel {
                   let page = lookup.pdf.page(at: localIndex) else { return false }
             if liveDataByMemberID[ref.memberDocId] == nil {
                 guard let previousLive = document.memberPDFData[ref.memberDocId],
-                      let serializedLive = PDFSerializer.data(from: lookup.pdf),
-                      let liveData = Self.preservingAttachments(
-                        from: previousLive,
-                        in: serializedLive
-                      ) else { return false }
+                      let liveData = Self.preservingLiveInteractiveState(in: previousLive, from: lookup.pdf) else { return false }
                 previousLiveByMemberID[ref.memberDocId] = previousLive
-                previousLoadedByMemberID[ref.memberDocId] = serializedLive
+                previousLoadedByMemberID[ref.memberDocId] = liveData
                 liveDataByMemberID[ref.memberDocId] = liveData
             }
             guard let cropBox = cropBox(for: page, margins: margins) else { return false }
@@ -9761,10 +9774,12 @@ final class WorkspaceViewModel {
                     invalidatedPageRefIDs: crop.pageRefIDs,
                     reloadsLivePDF: true
                 ),
-                transform: { QPDFService.settingCropBoxes(
-                    $0,
-                    pageCropBoxes: crop.boxesByLocalIndex
-                ) }
+                transform: { data in
+                    #if DEBUG
+                    if let transform = self.cropBoxTransformForTesting { return transform(data, crop.boxesByLocalIndex) }
+                    #endif
+                    return QPDFService.settingCropBoxes(data, pageCropBoxes: crop.boxesByLocalIndex)
+                }
             ))
         }
         guard mutateMemberBytes(
@@ -9777,8 +9792,8 @@ final class WorkspaceViewModel {
     }
 
     /// PDFKit serialization intentionally carries the current reader state, but it drops
-    /// embedded-file name trees. Re-graft the member lane's exact attachment payloads before
-    /// qpdf writes `/CropBox`; any extraction or insertion failure aborts the transaction.
+    /// embedded-file name trees. Re-graft the member lane's exact attachment payloads when
+    /// a page-oriented writer supplies intermediate bytes; failure aborts its transaction.
     private static func preservingAttachments(from source: Data, in serializedLive: Data) -> Data? {
         do {
             let sourceAttachments = try AttachmentsService.list(in: source)
@@ -9899,7 +9914,11 @@ final class WorkspaceViewModel {
             loadedPDFs[lookup.loadedIndex].0 = document.workspace.documents[lookup.documentIndex]
             // Deleting a page shifts every later page's local index within this member; a frozen
             // object-edit base still has the old indices, so it must move to the post-delete bytes.
-            realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId)
+            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId) else {
+                restore(snapshot, registersInverse: false)
+                showEditWarning(.serializationFailed)
+                return
+            }
         }
         rebuild()
 
@@ -9955,7 +9974,11 @@ final class WorkspaceViewModel {
         // frozen object-edit base still has the old indices, so it must move to the post-delete
         // bytes (members dropped entirely above already had their base removed).
         for memberID in Set(orderedRefs.map(\.memberDocId)) {
-            realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID)
+            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID) else {
+                restore(snapshot, registersInverse: false)
+                showEditWarning(.serializationFailed)
+                return
+            }
         }
         rebuild()
         undoManager?.registerUndo(withTarget: self) { vm in
@@ -10043,7 +10066,11 @@ final class WorkspaceViewModel {
         // Inserting a page shifts every later local index. Rebuild the canonical base in the new
         // ref order; both operation lanes were cloned above, so source and duplicate stay editable.
         for memberID in Set(orderedRefs.map(\.memberDocId)) {
-            realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID)
+            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID) else {
+                restore(snapshot, registersInverse: false)
+                showEditWarning(.serializationFailed)
+                return
+            }
         }
         rebuild()
         markWorkspaceModified()
@@ -10554,7 +10581,11 @@ final class WorkspaceViewModel {
         // always reflects the CURRENT page order. Reordering without refreezing would apply a
         // later object edit's ops (indexed by the new order) against the old order baked into
         // the frozen bytes — silently editing the wrong page.
-        realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId)
+        guard realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId) else {
+            restore(snapshot, registersInverse: false)
+            showEditWarning(.serializationFailed)
+            return false
+        }
         rebuild()
 
         undoManager?.registerUndo(withTarget: self) { vm in
@@ -10573,7 +10604,34 @@ final class WorkspaceViewModel {
               let targetLookup = memberPDF(for: targetRef),
               let sourceLocalIdx = localIndex(ref: ref, memberIndex: sourceLookup.documentIndex),
               let targetLocalIdx = localIndex(ref: targetRef, memberIndex: targetLookup.documentIndex),
-              let page = sourceLookup.pdf.page(at: sourceLocalIdx) else { return false }
+              let page = sourceLookup.pdf.page(at: sourceLocalIdx),
+              let sourceBytes = document.memberPDFData[ref.memberDocId],
+              let targetBytes = document.memberPDFData[targetRef.memberDocId] else { return false }
+
+        // PDFKit cross-document insertion cannot retain a valid field graph. Refuse before
+        // even capturing a snapshot (which reconciles live values), including forms on pages
+        // that stay behind and newly added widgets not yet present in the canonical bytes.
+        func isFormFree(_ pdf: PDFDocument, data: Data) -> Bool {
+            guard QPDFService.hasAcroForm(data) == false else { return false }
+            return (0..<pdf.pageCount).allSatisfy { index in
+                guard let page = pdf.page(at: index) else { return false }
+                return !page.annotations.contains(where: \.isPDFWidget)
+            }
+        }
+        let displayedPages = (0..<combinedPDF.pageCount).compactMap { index -> PDFPage? in
+            guard let page = combinedPDF.page(at: index), !(page is BoundaryPage) else { return nil }
+            return page
+        }
+        let involvedMemberIDs: Set<UUID> = [ref.memberDocId, targetRef.memberDocId]
+        guard isFormFree(sourceLookup.pdf, data: sourceBytes),
+              isFormFree(targetLookup.pdf, data: targetBytes),
+              displayedPages.count == document.workspace.pageOrder.count,
+              !zip(document.workspace.pageOrder, displayedPages).contains(where: { ref, page in
+                  involvedMemberIDs.contains(ref.memberDocId) && page.annotations.contains(where: \.isPDFWidget)
+              }) else {
+            showEditWarning(.serializationFailed)
+            return false
+        }
 
         let snapshot = captureOrderSnapshot()
         sourceLookup.pdf.removePage(at: sourceLocalIdx)
@@ -10596,6 +10654,27 @@ final class WorkspaceViewModel {
         } else {
             document.workspace.pageOrder.append(movedRef)
         }
+
+        var prepared: [UUID: Data] = [:]
+        if sourceLookup.pdf.pageCount > 0 {
+            let sourceIndexes = (0..<(sourceLookup.pdf.pageCount + 1)).filter { $0 != sourceLocalIdx }
+            guard let selected = QPDFService.selectingPages(sourceBytes, pageIndices: sourceIndexes),
+                  let live = Self.preservingLiveInteractiveState(in: selected, from: sourceLookup.pdf) else {
+                restore(snapshot, registersInverse: false)
+                showEditWarning(.serializationFailed)
+                return false
+            }
+            prepared[ref.memberDocId] = live
+        }
+        guard let inserted = QPDFService.insertingPage(from: sourceBytes, pageIndex: sourceLocalIdx,
+                                                       into: targetBytes, at: targetInsertIndex),
+              let targetLive = Self.preservingLiveInteractiveState(in: inserted, from: targetLookup.pdf) else {
+            restore(snapshot, registersInverse: false)
+            showEditWarning(.serializationFailed)
+            return false
+        }
+        prepared[targetRef.memberDocId] = targetLive
+        for (memberID, data) in prepared { document.memberPDFData[memberID] = data }
 
         document.sourcePayloads.removeValue(forKey: ref.memberDocId)
         document.sourcePayloads.removeValue(forKey: targetRef.memberDocId)

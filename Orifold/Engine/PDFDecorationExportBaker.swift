@@ -81,6 +81,7 @@ enum PDFDecorationExportBaker {
               bakedDocument.pageCount == document.pageCount else {
             throw BakeError.invalidPDF
         }
+        bakedDocument.documentAttributes = document.documentAttributes
         try copyPageGeometry(from: document, to: bakedDocument)
         try copyAnnotations(from: document, to: bakedDocument)
         guard let bakedData = PDFSerializer.data(from: bakedDocument) else {

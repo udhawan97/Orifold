@@ -1,0 +1,11 @@
+{
+  "workspace": {
+    "src": "/assets/screenshots/workspace-v0-12-2.png",
+    "width": 1600,
+    "height": 1176,
+    "alt": "The current Orifold workspace with the bundled fictional My Lord Bag of Rice sample, expanded page thumbnails, editing toolbar, and PDF canvas.",
+    "caption": "Current source build: the bundled My Lord Bag of Rice sample, with page thumbnails expanded.",
+    "sourceRevision": "f475df3b3136deb034d42f9854633cbc26a26ac6",
+    "status": "Source build"
+  }
+}

@@ -186,50 +186,88 @@ final class ExportOutputDirectory {
 enum ExportFileWriter {
     /// Writes export bytes to `targetURL`, preferring a crash-safe temp-file +
     /// atomic swap so a crash or force-quit mid-write can't leave a truncated
-    /// file at the user's real destination. Falls back to a direct,
-    /// non-atomic write only if the temp-sibling-file write itself can't even
-    /// start -- some sandboxed destinations only grant write access to the
-    /// exact NSSavePanel-chosen path, not sibling paths in the same folder
-    /// (which is also why neither write uses `.atomic`: that option creates
-    /// its own hidden sibling temp file, which would hit the same problem).
+    /// file at the user's real destination. If creating a sibling is denied,
+    /// exact NSSavePanel-chosen path grants can still create a new output with
+    /// an exclusive open. An existing output is never directly overwritten.
     /// `validate` runs against the written bytes before they're committed to
     /// `targetURL`, so a validation failure never lands at the real destination.
     static func write(_ data: Data, to targetURL: URL, validate: ((Data) throws -> Void)? = nil) throws {
+        try write(data, to: targetURL, writeForTesting: nil, validate: validate)
+    }
+
+    static func write(
+        _ data: Data,
+        to targetURL: URL,
+        writeForTesting: ((Data, Int32) throws -> Void)?,
+        validate: ((Data) throws -> Void)? = nil
+    ) throws {
+        guard targetURL.isFileURL, targetURL.path.hasPrefix("/"),
+              !targetURL.path.utf8.contains(0) else { throw ExportWriteError.fileNotFound }
         let fileManager = FileManager.default
         let directory = targetURL.deletingLastPathComponent()
         let tempURL = directory.appendingPathComponent(".Orifold-export-\(UUID().uuidString)")
-
-        let wroteTemp: Bool
-        do {
-            try data.write(to: tempURL)
-            wroteTemp = true
-        } catch {
-            wroteTemp = false
-        }
-
-        if wroteTemp {
-            defer { try? fileManager.removeItem(at: tempURL) }
-            if let validate {
-                try validate(try Data(contentsOf: tempURL))
+        let descriptor = Darwin.open(tempURL.path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, mode_t(0o644))
+        guard descriptor >= 0 else {
+            let stagingError = currentPOSIXError()
+            guard stagingError.code == .EACCES || stagingError.code == .EPERM else { throw stagingError }
+            // Validate before exposing any bytes at a path with a file-only grant.
+            try validate?(data)
+            let selectedDescriptor = Darwin.open(targetURL.path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, mode_t(0o644))
+            guard selectedDescriptor >= 0 else {
+                if errno == EEXIST { throw stagingError }
+                throw currentPOSIXError()
             }
-            if fileManager.fileExists(atPath: targetURL.path) {
-                guard try fileManager.replaceItemAt(
-                    targetURL,
-                    withItemAt: tempURL,
-                    backupItemName: nil,
-                    options: [.usingNewMetadataOnly]
-                ) != nil else {
-                    throw ExportWriteError.fileNotFound
-                }
-            } else {
-                try fileManager.moveItem(at: tempURL, to: targetURL)
+            var completed = false
+            defer {
+                if !completed { removeOwnedFile(at: targetURL, descriptor: selectedDescriptor) }
+                Darwin.close(selectedDescriptor)
+            }
+            try writeAll(data, to: selectedDescriptor)
+            guard Darwin.fsync(selectedDescriptor) == 0 else { throw currentPOSIXError() }
+            completed = true
+            return
+        }
+        defer {
+            removeOwnedFile(at: tempURL, descriptor: descriptor)
+            Darwin.close(descriptor)
+        }
+        if let writeForTesting {
+            try writeForTesting(data, descriptor)
+        } else {
+            try writeAll(data, to: descriptor)
+        }
+        guard Darwin.fsync(descriptor) == 0 else { throw currentPOSIXError() }
+        if let validate {
+            guard Darwin.lseek(descriptor, 0, SEEK_SET) == 0 else { throw currentPOSIXError() }
+            let stagedData = try readAll(from: descriptor, expectedSize: data.count)
+            guard stagedData.count == data.count else { throw ExportWriteError.emptyFile }
+            try validate(stagedData)
+        }
+        guard ownsFile(at: tempURL, descriptor: descriptor) else { throw ExportWriteError.fileNotFound }
+        if fileManager.fileExists(atPath: targetURL.path) {
+            guard try fileManager.replaceItemAt(
+                targetURL,
+                withItemAt: tempURL,
+                backupItemName: nil,
+                options: [.usingNewMetadataOnly]
+            ) != nil else {
+                throw ExportWriteError.fileNotFound
             }
         } else {
-            if let validate {
-                try validate(data)
-            }
-            try data.write(to: targetURL)
+            try fileManager.moveItem(at: tempURL, to: targetURL)
         }
+    }
+
+    private static func ownsFile(at url: URL, descriptor: Int32) -> Bool {
+        var opened = stat()
+        var named = stat()
+        return Darwin.fstat(descriptor, &opened) == 0 && Darwin.lstat(url.path, &named) == 0
+            && opened.st_dev == named.st_dev && opened.st_ino == named.st_ino
+    }
+
+    private static func removeOwnedFile(at url: URL, descriptor: Int32) {
+        guard ownsFile(at: url, descriptor: descriptor) else { return }
+        _ = Darwin.unlink(url.path)
     }
 
     /// Publishes validated bytes in a retained directory only if the name does not exist.

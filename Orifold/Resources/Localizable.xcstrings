@@ -46884,37 +46884,78 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Getting a Digital ID"
+            "value": "Getting a Digital ID (English guide)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cómo obtener un ID digital"
+            "value": "Cómo obtener un ID digital (guía en inglés)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obtenir un identifiant numérique"
+            "value": "Obtenir un identifiant numérique (guide en anglais)"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "डिजिटल आईडी प्राप्त करना"
+            "value": "डिजिटल आईडी प्राप्त करना (अंग्रेज़ी गाइड)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "デジタルIDを取得する"
+            "value": "デジタルIDを取得する（英語ガイド）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "获取数字证书"
+            "value": "获取数字证书（英文指南）"
+          }
+        }
+      }
+    },
+    "signaturePalette.certificateTrust.caveat": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing in Orifold is free. A signature made with a self-signed or Keychain ID is valid and tamper-evident, but recipients will see 'identity not verified' until they trust it once. To have Adobe Acrobat/Reader trust your identity automatically, you need a CA-issued Digital ID from a trusted provider (an 'AATL' certificate). These are a paid third-party product (~US $180–600/yr). Orifold never charges for signing — you buy the certificate directly from the provider, then import the `.p12` file here."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firmar en Orifold es gratis. Una firma creada con un ID autofirmado o del Llavero es válida y permite detectar alteraciones, pero los destinatarios verán «identidad no verificada» hasta que confíen en ella una vez. Para que Adobe Acrobat/Reader confíe automáticamente en tu identidad, necesitas un ID digital emitido por una autoridad de certificación de un proveedor de confianza (un certificado «AATL»). Es un producto de pago de terceros (aprox. 180–600 USD al año). Orifold nunca cobra por firmar: compras el certificado directamente al proveedor y luego importas aquí el archivo `.p12`."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La signature dans Orifold est gratuite. Une signature créée avec un identifiant autosigné ou du Trousseau est valide et permet de détecter les altérations, mais les destinataires verront « identité non vérifiée » tant qu’ils ne lui auront pas accordé leur confiance une fois. Pour qu’Adobe Acrobat/Reader fasse automatiquement confiance à votre identité, vous devez disposer d’un identifiant numérique émis par une autorité de certification auprès d’un fournisseur de confiance (un certificat « AATL »). Il s’agit d’un produit tiers payant (environ 180 à 600 USD par an). Orifold ne facture jamais la signature : vous achetez le certificat directement auprès du fournisseur, puis importez le fichier `.p12` ici."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifold में हस्ताक्षर करना मुफ़्त है। स्व-हस्ताक्षरित या Keychain आईडी से बना हस्ताक्षर मान्य होता है और उसमें छेड़छाड़ का पता लगाया जा सकता है, लेकिन प्राप्तकर्ताओं को 'पहचान सत्यापित नहीं है' दिखाई देगा, जब तक वे एक बार उस पर भरोसा नहीं करते। Adobe Acrobat/Reader आपकी पहचान पर अपने आप भरोसा करे, इसके लिए आपको किसी विश्वसनीय प्रदाता से प्रमाणपत्र प्राधिकरण (CA) द्वारा जारी डिजिटल आईडी ('AATL' प्रमाणपत्र) चाहिए। यह किसी तीसरे पक्ष का सशुल्क उत्पाद है (लगभग 180–600 अमेरिकी डॉलर प्रति वर्ष)। Orifold हस्ताक्षर करने के लिए कभी शुल्क नहीं लेता — आप प्रमाणपत्र सीधे प्रदाता से खरीदते हैं, फिर यहाँ `.p12` फ़ाइल आयात करते हैं।"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Orifoldでの署名は無料です。自己署名またはキーチェーンのIDで作成した署名は有効で、改ざんを検出できますが、受信者が一度信頼するまでは「本人確認が未検証」と表示されます。Adobe Acrobat/Readerで本人の身元が自動的に信頼されるには、信頼できるプロバイダーから認証局（CA）発行のデジタルID（「AATL」証明書）を取得する必要があります。これは第三者が提供する有料製品です（年間約180～600米ドル）。Orifoldは署名に料金を請求しません。証明書をプロバイダーから直接購入し、ここで`.p12`ファイルを読み込みます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Orifold 中签名是免费的。使用自签名或钥匙串 ID 创建的签名有效且可检测篡改，但在收件人首次信任该签名之前，他们会看到“身份未经验证”。要让 Adobe Acrobat/Reader 自动信任您的身份，您需要从受信任的提供商处获取由证书颁发机构（CA）签发的数字 ID（“AATL”证书）。这是付费的第三方产品（每年约 180–600 美元）。Orifold 从不收取签名费用：您直接向提供商购买证书，然后在此处导入 `.p12` 文件。"
           }
         }
       }
@@ -46925,37 +46966,37 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "How to get one"
+            "value": "How to get one (English guide)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cómo obtener uno"
+            "value": "Cómo obtener uno (guía en inglés)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comment en obtenir un"
+            "value": "Comment en obtenir un (guide en anglais)"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "एक कैसे प्राप्त करें"
+            "value": "एक कैसे प्राप्त करें (अंग्रेज़ी गाइड)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "取得方法"
+            "value": "取得方法（英語ガイド）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "如何获取证书"
+            "value": "如何获取证书（英文指南）"
           }
         }
       }

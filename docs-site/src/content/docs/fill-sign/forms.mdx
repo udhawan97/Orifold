@@ -12,6 +12,10 @@ import Card from '../../../components/Card.astro';
 	You've imported a PDF with fillable fields — an application, a tax form, an intake sheet.
 </Callout>
 
+<Callout variant="note" label="Verify saved answers">
+	Reader Mode form-answer serialization remains under investigation. Keep the original and reopen a saved copy in another viewer before relying on the answers. See the limitations below.
+</Callout>
+
 ## Steps
 
 1. Open the PDF; Orifold detects its form fields automatically.
@@ -20,7 +24,7 @@ import Card from '../../../components/Card.astro';
 
 ## What you should see
 
-Every detected field is fillable directly on the page, with your answers visible as you type.
+Supported fields show your answers as you type. A visible answer is not proof that it has been serialized into the saved file.
 
 ## Related
 
@@ -32,3 +36,13 @@ Every detected field is fillable directly on the page, with your answers visible
 		Adding a signature to a completed form.
 	</Card>
 </CardGrid>
+
+## Current limits
+
+Form-answer serialization from Reader Mode remains under investigation. Keep the original,
+save a copy, close it, and reopen it in another PDF viewer to verify every answer before
+submitting important paperwork. Locking or flattening a form is not a substitute for this check.
+
+Moving pages between source documents refuses an affected member that contains form widgets
+or an AcroForm catalog, before changing the workspace. This conservative refusal includes
+forms that are not visible on the selected page. Reordering within one source remains separate.

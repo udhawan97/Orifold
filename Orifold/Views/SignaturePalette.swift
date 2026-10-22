@@ -504,7 +504,7 @@ private struct CertificateTrustPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: .dsMD) {
-            Text(CertificateGuideResource.shortPopoverCopy)
+            Text(CertificateGuideResource.shortPopoverCopy(locale: locale))
                 .font(.dsCaption())
                 .foregroundStyle(Color.dsTextPrimary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -546,7 +546,7 @@ private struct CertificateGuideSheet: View {
         let _ = locale
         VStack(spacing: 0) {
             HStack {
-                Text(L10n.string("signaturePalette.certificateGuide.title"))
+                Text(L10n.string("signaturePalette.certificateGuide.title", locale: locale))
                     .font(.system(size: 15, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.dsTextPrimary)
                 Spacer()
@@ -572,7 +572,9 @@ private struct CertificateGuideSheet: View {
 }
 
 enum CertificateGuideResource {
-    static let shortPopoverCopy = "Signing in Orifold is free. A signature made with a self-signed or Keychain ID is valid and tamper-evident, but recipients will see 'identity not verified' until they trust it once. To have Adobe Acrobat/Reader trust your identity automatically, you need a CA-issued Digital ID from a trusted provider (an 'AATL' certificate). These are a paid third-party product (~US $180–600/yr). Orifold never charges for signing — you buy the certificate directly from the provider, then import the `.p12` file here."
+    static func shortPopoverCopy(locale: Locale) -> String {
+        L10n.string("signaturePalette.certificateTrust.caveat", locale: locale)
+    }
 
     static func guideText() -> String {
         for bundle in guideBundles() {
@@ -626,9 +628,28 @@ enum CertificateGuideResource {
             appendBundle(appBundle(at: siblingAppURL))
         }
         #if SWIFT_PACKAGE
-        appendBundle(.module)
+        appendBundle(swiftPMResourceBundle(for: Bundle.main))
+        appendBundle(swiftPMResourceBundle(for: Bundle(for: BundleAnchor.self)))
         #endif
         return bundles
+    }
+
+    private final class BundleAnchor {}
+
+    // Match L10n's shipped-app, CLI and test layouts without SwiftPM's trapping accessor.
+    static func swiftPMResourceBundle(for bundle: Bundle) -> Bundle? {
+        let candidates: [URL?] = [
+            bundle.resourceURL,
+            bundle.bundleURL,
+            bundle.executableURL?.deletingLastPathComponent(),
+            bundle.bundleURL.deletingLastPathComponent(),
+        ]
+        for base in candidates {
+            guard let url = base?.appendingPathComponent("Orifold_Orifold.bundle"),
+                  let found = Bundle(url: url) else { continue }
+            return found
+        }
+        return nil
     }
 
     private static func appBundle(at url: URL) -> Bundle? {

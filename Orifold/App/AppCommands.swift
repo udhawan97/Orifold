@@ -289,13 +289,13 @@ private struct ViewToggleCommandButtons: View {
 
     var body: some View {
         Button(L10n.string("toolbar.readerMode.label", locale: locale)) {
-            NotificationCenter.default.post(name: .orifoldToggleReaderMode, object: nil)
+            NotificationCenter.default.postWorkspaceCommand(.orifoldToggleReaderMode, to: viewModel)
         }
         .keyboardShortcut(.readerMode)
         .disabled(viewModel == nil)
 
         Button(L10n.string("toolbar.contents.label", locale: locale)) {
-            NotificationCenter.default.post(name: .orifoldToggleTableOfContents, object: nil)
+            NotificationCenter.default.postWorkspaceCommand(.orifoldToggleTableOfContents, to: viewModel)
         }
         .keyboardShortcut(.toggleContents)
         .disabled(viewModel == nil)
@@ -350,7 +350,7 @@ private struct TranslateCommandButton: View {
                     locale: locale
                 )
             ) {
-                NotificationCenter.default.post(name: .orifoldRequestTranslation, object: nil)
+                NotificationCenter.default.postWorkspaceCommand(.orifoldRequestTranslation, to: viewModel)
             }
             .disabled(viewModel?.translationRequestText == nil)
         }
@@ -382,7 +382,7 @@ private struct PrintCommandButton: View {
 
     var body: some View {
         Button(L10n.string("appCommands.print.button", locale: locale)) {
-            NotificationCenter.default.post(name: .orifoldPrint, object: nil)
+            NotificationCenter.default.postWorkspaceCommand(.orifoldPrint, to: viewModel)
         }
         .keyboardShortcut(.print)
         .disabled(viewModel == nil)
@@ -396,7 +396,7 @@ private struct PrintNUpCommandButton: View {
 
     var body: some View {
         Button(L10n.string("imposition.print.nup", locale: locale)) {
-            NotificationCenter.default.post(name: .orifoldPrintNUp, object: nil)
+            NotificationCenter.default.postWorkspaceCommand(.orifoldPrintNUp, to: viewModel)
         }
         .keyboardShortcut(.printNUp)
         .disabled(viewModel == nil)
@@ -419,7 +419,7 @@ private struct DiscardCloseCommandButton: View {
 
     var body: some View {
         Button(L10n.string("appCommands.discardClose.button", locale: locale)) {
-            NotificationCenter.default.post(name: .orifoldRequestDiscardClose, object: nil)
+            NotificationCenter.default.postWorkspaceCommand(.orifoldRequestDiscardClose, to: viewModel)
         }
         .disabled(!hasChanges)
     }
@@ -451,13 +451,15 @@ private struct ZoomCommandButtons: View {
 }
 
 private struct ShowKeyboardShortcutsCommandButton: View {
+    @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
     var locale: Locale
 
     var body: some View {
         Button(L10n.string("appCommands.keyboardShortcuts.button", locale: locale)) {
-            NotificationCenter.default.post(name: .orifoldShowShortcuts, object: nil)
+            NotificationCenter.default.postWorkspaceCommand(.orifoldShowShortcuts, to: viewModel)
         }
         .keyboardShortcut(.keyboardShortcuts)
+        .disabled(viewModel == nil)
     }
 }
 

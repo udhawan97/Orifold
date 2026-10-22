@@ -31,7 +31,8 @@ def main():
     root.mkdir(parents=True, exist_ok=True)
     source = Path(__file__).with_name("install-mac.sh").read_text()
     body = "\n".join(function(source, n) for n in
-                     ["cleanup", "stop_running_app", "remove_stray_app_copies", "replace_staged_app"])
+                     ["cleanup", "begin_install_transaction", "swap_transaction_app", "finish_install_transaction",
+                      "stop_running_app", "remove_stray_app_copies", "replace_staged_app"])
     # Intercept every process/Apple-event operation in the tested source, including
     # any future kill regression, before the shell can execute it.
     assert "/usr/bin/pkill" not in body and not re.search(r"\bkill\b", body)
@@ -79,6 +80,7 @@ STAGE_ROOT="$CASE_ROOT/stage"
 STAGED_APP="$STAGE_ROOT/Orifold.app"
 LOG_FILE="$CASE_ROOT/install.log"
 INSTALL_TRANSACTION_DIR=""
+INSTALL_TRANSACTION_TARGET=""
 INSTALL_TRANSACTION_ACTIVE=0
 INSTALL_HAD_PREVIOUS=0
 print_step() { :; }
@@ -143,6 +145,160 @@ replace_staged_app
             assert all(target.startswith(str(case) + "/") for target in targets), scenario
         print(f"PASS {scenario}: bundle bytes and duplicate preservation")
     print(f"Passed {len(scenarios)} installer transaction scenarios (synthetic bundles; no native launch claim).")
+    test_restore(root, source)
+    subprocess.run([sys.executable, str(Path(__file__).with_name("test-uninstaller-cancellation.py")),
+                    str(root / "uninstall")], check=True)
+    # The real --restore dispatch must be able to call the shared quit helper.
+    assert source.index("\nstop_running_app() {") < source.index('if [[ -n "${RESTORE_ZIP:-}" ]]')
+
+
+def test_restore(root, source, scenarios=None):
+    names = ["cleanup", "stop_running_app", "do_restore"]
+    names += [name for name in ["begin_install_transaction", "swap_transaction_app", "finish_install_transaction"]
+              if re.search(rf"^{name}\(\) \{{", source, re.M)]
+    body = "\n".join(function(source, name) for name in names)
+    for original, replacement in {
+        '"/Applications/$APP_NAME.app"': '"$SYSTEM_APP"',
+        "/usr/bin/ditto": "fake_ditto", "/usr/bin/plutil": "fake_plutil",
+        "/usr/sbin/spctl": "fake_spctl", "codesign --verify": "fake_codesign --verify",
+        "/usr/bin/xattr": "fake_xattr", "/bin/mv": "fake_mv",
+        'open "$target"': 'fake_open "$target"',
+        "/usr/bin/pgrep": "fake_pgrep", "/usr/bin/osascript": "fake_osascript",
+        "/bin/sleep": "fake_sleep",
+    }.items():
+        body = body.replace(original, replacement)
+    assert '"/Applications/' not in body
+    assert not re.search(r"\b(?:codesign|spctl|open|pkill|pgrep|osascript|kill)\b", body)
+    traps = re.search(r"^trap cleanup EXIT\n(?:trap .*\n){3}", source, re.M).group(0)
+    if scenarios is None:
+        scenarios = [(target, action, signal) for target in ["existing", "alternate", "fresh"]
+                 for action in ["success", "stage-failure", "backup-failure", "swap-failure", "verify-failure"]
+                 for signal in [""] if not (target == "fresh" and action == "backup-failure")]
+        scenarios += [(target, action, signal) for target in ["existing", "alternate", "fresh"]
+                  for action in ["after-old", "after-new", "after-verify"] for signal in ["INT", "TERM", "HUP"]
+                  if not (target == "fresh" and action == "after-old")]
+        scenarios += [(target, action, "") for target in ["existing", "alternate"]
+                      for action in ["quit-cancelled", "still-running", "clean-quit", "other-copy-running"]]
+    for target_kind, action, signal in scenarios:
+        label = "restore-" + "-".join(filter(None, [target_kind, action, signal]))
+        case = Path(tempfile.mkdtemp(prefix=label + "-", dir=root))
+        installed = case / "Applications/Orifold.app"
+        system = case / "OtherApplications/Orifold.app"
+        target = system if target_kind == "alternate" else installed
+        if target_kind != "fresh":
+            target.mkdir(parents=True)
+            (target / "old.bin").write_bytes(b"old-app\x00\xff")
+        previous = digest(target)
+        archive = case / "archive.zip"
+        archive.write_bytes(b"task-only archive adapter")
+        archived_app = case / "archived/Orifold.app"
+        (archived_app / "Contents").mkdir(parents=True)
+        (archived_app / "Contents/Info.plist").write_text("synthetic fixture")
+        (archived_app / "new.bin").write_bytes(b"new-app\x00\x01")
+        expected = digest(archived_app)
+        untouched = case / "unrelated.bin"
+        untouched.write_bytes(b"unrelated")
+        unrelated_app = case / "UnrelatedApplications/Orifold.app"
+        unrelated_app.mkdir(parents=True)
+        (unrelated_app / "other.bin").write_bytes(b"unrelated running copy")
+        unrelated_before = digest(unrelated_app)
+        script = case / "restore.zsh"
+        script.write_text("""#!/bin/zsh
+set -euo pipefail
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+""" + "\n".join(key + "=" + shlex.quote(str(value)) for key, value in {
+            "CASE_ROOT": case, "ACTION": action, "SIGNAL": signal, "TARGET": target,
+            "INSTALLED_APP": installed, "SYSTEM_APP": system, "ARCHIVED_APP": archived_app,
+            "ARCHIVE": archive,
+        }.items()) + """
+TMPPREFIX="$CASE_ROOT/zsh"
+APP_NAME=Orifold
+STAGE_ROOT="$CASE_ROOT/stage"
+LOG_FILE="$CASE_ROOT/install.log"
+OPEN_AFTER_INSTALL=0
+INSTALL_TRANSACTION_DIR=""
+INSTALL_TRANSACTION_TARGET=""
+INSTALL_TRANSACTION_ACTIVE=0
+INSTALL_HAD_PREVIOUS=0
+/bin/mkdir -p "$STAGE_ROOT"
+print_step() { :; }
+print_note() { :; }
+fail() { print -r -- "$1" >&2; exit 1; }
+interrupt_self() {
+    # This is the disposable harness shell, never an installed app or another process.
+    kill -s "$SIGNAL" "$$"
+}
+fake_ditto() {
+    if [[ "$1" == -x ]]; then
+        /bin/cp -R "$ARCHIVED_APP" "$4/Orifold.app"
+    else
+        [[ "$ACTION" != stage-failure ]] || return 1
+        /bin/cp -R "$2" "$3"
+    fi
+}
+fake_plutil() { print -r -- com.ud.Orifold; }
+fake_spctl() { :; }
+fake_xattr() { :; }
+fake_open() { return 1; }
+if [[ "$ACTION" == quit-cancelled || "$ACTION" == still-running || "$ACTION" == clean-quit ]]; then
+    : > "$CASE_ROOT/target-running"
+fi
+if [[ "$ACTION" == other-copy-running ]]; then : > "$CASE_ROOT/other-running"; fi
+fake_pgrep() { [[ -f "$CASE_ROOT/target-running" || -f "$CASE_ROOT/other-running" ]]; }
+fake_osascript() {
+    print -r -- "$2" >> "$CASE_ROOT/quit-targets"
+    [[ "$ACTION" != quit-cancelled ]] || return 1
+    [[ "$ACTION" == still-running ]] || /bin/rm -f "$CASE_ROOT/target-running"
+}
+fake_sleep() { :; }
+fake_codesign() {
+    if [[ "${@: -1}" == "$TARGET" ]]; then
+        [[ "$ACTION" != verify-failure ]] || return 1
+        [[ "$ACTION" != after-verify ]] || interrupt_self
+    fi
+}
+fake_mv() {
+    if [[ "$1" == "$TARGET" && -f "$CASE_ROOT/target-running" ]]; then
+        : > "$CASE_ROOT/swapped-while-running"
+    fi
+    if [[ "$1" == "$TARGET" ]]; then
+        [[ "$ACTION" != backup-failure ]] || return 1
+        /bin/mv "$@"
+        [[ "$ACTION" != after-old ]] || interrupt_self
+    elif [[ "$2" == "$TARGET" && "$1" != */previous.app && "$1" != *.replaced-* ]]; then
+        [[ "$ACTION" != swap-failure ]] || return 1
+        /bin/mv "$@"
+        [[ "$ACTION" != after-new ]] || interrupt_self
+    else
+        /bin/mv "$@"
+    fi
+}
+""" + body + "\n" + traps + '\ndo_restore "$ARCHIVE"\n')
+        result = subprocess.run(["/bin/zsh", str(script)], cwd=case,
+                                env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "TMPDIR": str(case)},
+                                capture_output=True, text=True)
+        success = action in {"success", "clean-quit"}
+        assert (result.returncode == 0) == success, (label, result.returncode, result.stderr)
+        assert digest(target) == (expected if success else previous), (label, "target bytes changed")
+        assert target.exists() == (success or target_kind != "fresh"), (label, "target presence changed")
+        if target_kind == "alternate":
+            assert not installed.exists(), (label, "wrong target created")
+        assert untouched.read_bytes() == b"unrelated", label
+        assert digest(unrelated_app) == unrelated_before, (label, "unrelated app changed")
+        assert not (case / "swapped-while-running").exists(), (label, "quit gate ran after mutation")
+        if action == "other-copy-running":
+            assert (case / "other-running").exists(), (label, "unrelated process was stopped")
+        quit_targets = case / "quit-targets"
+        if action in {"quit-cancelled", "still-running", "clean-quit", "other-copy-running"}:
+            assert quit_targets.read_text().splitlines() == [str(target)], (label, "wrong app addressed")
+        else:
+            assert not quit_targets.exists(), (label, "stopped app should not receive a quit request")
+        assert not list(case.rglob(".orifold-update.*")), label
+        assert not list(case.rglob("*.restore-staging-*")), label
+        assert not list(case.rglob("*.replaced-*")), label
+        assert not (case / "stage").exists(), label
+        print(f"PASS {label}: selected target and unrelated bytes preserved")
+    print(f"Passed {len(scenarios)} extracted restore scenarios (platform adapters; no native acceptance claim).")
 
 
 if __name__ == "__main__":
