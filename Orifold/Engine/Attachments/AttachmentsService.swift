@@ -75,6 +75,20 @@ enum AttachmentsService {
         return try reinject(attachments, into: result)
     }
 
+    /// A best-effort empty inventory cannot prove that discarding a member's catalog is safe.
+    /// Inspect only root-level absence: any EmbeddedFiles tree, including an empty or malformed
+    /// one, still has an owner. Nil means the catalog could not be checked safely.
+    static func attachmentCatalogIsAbsent(in data: Data) -> Bool? {
+        QPDFService.withQPDF(data, description: "attachment-catalog-absence") { qpdf in
+            guard !hasErrors(qpdf_check_pdf(qpdf)) else { return nil }
+            let root = qpdf_get_root(qpdf)
+            guard hasKey(qpdf, root, "/Names") else { return true }
+            let names = qpdf_oh_get_key(qpdf, root, "/Names")
+            guard qpdf_oh_is_dictionary(qpdf, names) == QPDF_TRUE else { return nil }
+            return !hasKey(qpdf, names, "/EmbeddedFiles")
+        }
+    }
+
     // MARK: - List / extract (qpdf_oh name-tree walk)
 
     /// Returns every embedded file in `data`, in name-tree order. An absent name

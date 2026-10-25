@@ -17,7 +17,7 @@ import Figure from '../../../components/Figure.astro';
 ## Steps
 
 1. Open the sidebar page list.
-2. **Reorder** — drag a page to a new position, including into another document’s section when both affected sources are form-free. With
+2. **Reorder** — drag a page to a new position. Moves into another document’s section have the [source-preservation limits below](#preserve-source-documents). With
    VoiceOver, use the page or document row's **Move Up** and **Move Down** actions for moves inside
    its current section.
 3. **Rotate** — right-click a page and choose a rotation, or use **Rotate Left / Rotate Right** from the **···** menu's Pages section for the page currently on screen.
@@ -48,13 +48,18 @@ touched. Focus a document or page row and press <kbd>Return</kbd> to select it w
 ## Preserve source documents
 
 Cross-document moves prepare both affected PDFs before changing the workspace. Form-bearing
-members are refused rather than risking invalid field references. Moves preserve the current
-live page state in supported form-free documents and participate in Undo.
+members are refused rather than risking invalid field references. A move also refuses when
+either affected member has committed inline-text edits, including edits on pages that stay
+behind. Keep those pages in their source while those edits are active. Inline-text edits in
+an uninvolved third member do not block the move. Supported moves preserve live page state
+and participate in Undo.
 
-Moving a source’s final page removes that empty source from the workspace. Transfer of its
-embedded attachments and other document-level catalog ownership is not verified. Keep that
-source file, inspect attachments in the resulting workspace and export, and avoid using a
-last-page move as an archival migration.
+Moving a source’s final page removes that empty source from the workspace only when Orifold
+can verify that it has no embedded-file attachment catalog. A present catalog, even an empty
+one, or an uncheckable catalog refuses the move before document state changes. Keep at least
+one page in that source. Other document-level catalog transfer remains unverified: keep the
+original files, inspect the resulting workspace and export, and avoid using a last-page move
+as an archival migration.
 
 Cropping now carries the member’s printed page labels through apply, Undo, Redo, and editable
 save/reopen. It changes the visible crop box rather than permanently removing content outside it.

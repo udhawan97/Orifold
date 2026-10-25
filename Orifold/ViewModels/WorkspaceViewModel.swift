@@ -2616,6 +2616,14 @@ final class WorkspaceViewModel {
         let annotationID: String
     }
 
+    func ownsAnnotation(_ annotation: PDFAnnotation) -> Bool {
+        guard let page = annotation.page,
+              page.annotations.contains(where: { $0 === annotation }) else { return false }
+        return loadedPDFs.contains { _, pdf in
+            (0..<pdf.pageCount).contains { pdf.page(at: $0) === page }
+        }
+    }
+
     /// PDFKit objects are replaced by replay and order undo. Only a persisted annotation
     /// identity together with a stable PageRef may cross that boundary in an undo closure.
     private func annotationUndoTarget(for annotation: PDFAnnotation) -> AnnotationUndoTarget? {
@@ -3015,9 +3023,9 @@ final class WorkspaceViewModel {
         let field = formSummary.fields[next]
         if let ref = document.workspace.pageOrder.first(where: { $0.id == field.pageRefID }),
            let pageIndex = combinedPageIndex(for: ref) {
-            NotificationCenter.default.post(
-                name: .orifoldJumpToFormField,
-                object: PDFFormFieldNavigationTarget(
+            NotificationCenter.default.postWorkspaceCommand(
+                .orifoldJumpToFormField, to: self,
+                payload: PDFFormFieldNavigationTarget(
                     pageIndex: pageIndex,
                     bounds: field.bounds,
                     fieldType: field.fieldType
@@ -4180,7 +4188,7 @@ final class WorkspaceViewModel {
             selectedPageRefIDs = [ref.id]
         }
         if let pageIndex = combinedPageIndex(for: ref) {
-            NotificationCenter.default.post(name: .orifoldJumpToPageIndex, object: pageIndex)
+            NotificationCenter.default.postWorkspaceCommand(.orifoldJumpToPageIndex, to: self, payload: pageIndex)
         }
     }
 
@@ -5824,6 +5832,11 @@ final class WorkspaceViewModel {
             showEditWarning(.annotationCreationFailed)
             return
         }
+        // A stale or foreign selection must never mutate another workspace's live page.
+        guard ownsAnnotation(ann) else {
+            selectedAnnotation = nil
+            return
+        }
         let removedSignature = signaturePlacement(for: ann)
         let removedIdentity = removedSignature.flatMap { signingIdentitiesByPlacementID[$0.id] }
         page.removeAnnotation(ann)
@@ -7041,7 +7054,7 @@ final class WorkspaceViewModel {
 
     private func jumpToSearchResult(_ index: Int) {
         guard index >= 0, index < searchResults.count else { return }
-        NotificationCenter.default.post(name: .orifoldJumpToSelection, object: searchResults[index])
+        NotificationCenter.default.postWorkspaceCommand(.orifoldJumpToSelection, to: self, payload: searchResults[index])
     }
 
     // MARK: - Read aloud (Feature C)
@@ -10607,6 +10620,26 @@ final class WorkspaceViewModel {
               let page = sourceLookup.pdf.page(at: sourceLocalIdx),
               let sourceBytes = document.memberPDFData[ref.memberDocId],
               let targetBytes = document.memberPDFData[targetRef.memberDocId] else { return false }
+
+        // Cross-member rebasing adopts baked bytes for both whole members. Retained text
+        // operations would then lose their pristine original, including on stationary siblings.
+        guard !memberHasTextEdits(ref.memberDocId), !memberHasTextEdits(targetRef.memberDocId) else {
+            showEditMessage(L10n.string("status.pageMove.committedTextEdits"), severity: .warning)
+            return false
+        }
+
+        // The source catalog is removed with its last page. Only proven attachment-catalog
+        // absence is safe; a best-effort inventory can omit malformed or deep trees.
+        if sourceLookup.pdf.pageCount == 1 {
+            guard let catalogIsAbsent = AttachmentsService.attachmentCatalogIsAbsent(in: sourceBytes) else {
+                showEditMessage(L10n.string("status.pageMove.attachmentCheckFailed"), severity: .warning)
+                return false
+            }
+            guard catalogIsAbsent else {
+                showEditMessage(L10n.string("status.pageMove.lastPageAttachments"), severity: .warning)
+                return false
+            }
+        }
 
         // PDFKit cross-document insertion cannot retain a valid field graph. Refuse before
         // even capturing a snapshot (which reconciles live values), including forms on pages

@@ -530,7 +530,7 @@ private struct ZoomPageBar: View {
                         .onSubmit {
                             if let n = Int(pageInput),
                                let combinedIndex = viewModel.combinedPageIndex(forWorkspacePageNumber: n) {
-                                NotificationCenter.default.post(name: .orifoldJumpToPageIndex, object: combinedIndex)
+                                NotificationCenter.default.postWorkspaceCommand(.orifoldJumpToPageIndex, to: viewModel, payload: combinedIndex)
                             } else {
                                 pageInput = "\(viewModel.currentPageNumber)"
                             }
@@ -684,23 +684,23 @@ struct PDFViewRepresentable: NSViewRepresentable {
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.jumpToSelection(_:)),
-            name: .orifoldJumpToSelection, object: nil)
+            name: .orifoldJumpToSelection, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.jumpToPageIndex(_:)),
-            name: .orifoldJumpToPageIndex, object: nil)
+            name: .orifoldJumpToPageIndex, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.jumpToFormField(_:)),
-            name: .orifoldJumpToFormField, object: nil)
+            name: .orifoldJumpToFormField, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.jumpToAnnotation(_:)),
-            name: .orifoldJumpToAnnotation, object: nil)
+            name: .orifoldJumpToAnnotation, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.editAnnotation(_:)),
-            name: .orifoldEditAnnotation, object: nil)
+            name: .orifoldEditAnnotation, object: viewModel)
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.printDocument(_:)),
@@ -1471,7 +1471,8 @@ struct PDFViewRepresentable: NSViewRepresentable {
         }
 
         @objc func jumpToSelection(_ notification: Notification) {
-            guard let selection = notification.object as? PDFSelection else { return }
+            guard (notification.object as? WorkspaceViewModel) === viewModel,
+                  let selection = notification.userInfo?["payload"] as? PDFSelection else { return }
             pdfView?.go(to: selection)
             pdfView?.setCurrentSelection(selection, animate: true)
             refreshSignatureOverlay()
@@ -1503,14 +1504,16 @@ struct PDFViewRepresentable: NSViewRepresentable {
         }
 
         @objc func jumpToPageIndex(_ notification: Notification) {
-            guard let idx = notification.object as? Int,
+            guard (notification.object as? WorkspaceViewModel) === viewModel,
+                  let idx = notification.userInfo?["payload"] as? Int,
                   let page = pdfView?.document?.page(at: idx) else { return }
             pdfView?.go(to: page)
             refreshSignatureOverlay()
         }
 
         @objc func jumpToFormField(_ notification: Notification) {
-            guard let target = notification.object as? PDFFormFieldNavigationTarget,
+            guard (notification.object as? WorkspaceViewModel) === viewModel,
+                  let target = notification.userInfo?["payload"] as? PDFFormFieldNavigationTarget,
                   let pdfView,
                   let page = pdfView.document?.page(at: target.pageIndex) else { return }
             let destination = PDFDestination(page: page, at: CGPoint(x: target.bounds.midX, y: target.bounds.maxY))
@@ -1527,7 +1530,9 @@ struct PDFViewRepresentable: NSViewRepresentable {
         }
 
         @objc func jumpToAnnotation(_ notification: Notification) {
-            guard let annotation = notification.object as? PDFAnnotation,
+            guard (notification.object as? WorkspaceViewModel) === viewModel,
+                  let annotation = notification.userInfo?["payload"] as? PDFAnnotation,
+                  viewModel.ownsAnnotation(annotation),
                   let page = annotation.page,
                   let pdfView else { return }
             viewModel.selectedAnnotation = annotation
@@ -1539,7 +1544,9 @@ struct PDFViewRepresentable: NSViewRepresentable {
         }
 
         @objc func editAnnotation(_ notification: Notification) {
-            guard let annotation = notification.object as? PDFAnnotation,
+            guard (notification.object as? WorkspaceViewModel) === viewModel,
+                  let annotation = notification.userInfo?["payload"] as? PDFAnnotation,
+                  viewModel.ownsAnnotation(annotation),
                   let page = annotation.page,
                   let pdfView else { return }
             viewModel.selectedAnnotation = annotation

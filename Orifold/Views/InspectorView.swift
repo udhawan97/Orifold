@@ -2449,17 +2449,15 @@ private struct InspectorMarkupView: View {
                         onSelect: {
                             viewModel.selectedAnnotation = entry.annotation
                             viewModel.selectedStampDecorationID = nil
-                            NotificationCenter.default.post(
-                                name: .orifoldJumpToAnnotation,
-                                object: entry.annotation
+                            NotificationCenter.default.postWorkspaceCommand(
+                                .orifoldJumpToAnnotation, to: viewModel, payload: entry.annotation
                             )
                         },
                         onEdit: {
                             viewModel.selectedAnnotation = entry.annotation
                             viewModel.selectedStampDecorationID = nil
-                            NotificationCenter.default.post(
-                                name: .orifoldEditAnnotation,
-                                object: entry.annotation
+                            NotificationCenter.default.postWorkspaceCommand(
+                                .orifoldEditAnnotation, to: viewModel, payload: entry.annotation
                             )
                         },
                         onDelete: {

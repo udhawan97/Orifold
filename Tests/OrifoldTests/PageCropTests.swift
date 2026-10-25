@@ -1,7 +1,9 @@
 import AppKit
 import CoreGraphics
+import Crypto
 import PDFKit
 import UniformTypeIdentifiers
+import X509
 import XCTest
 @testable import Orifold
 
@@ -94,9 +96,7 @@ final class PageCropTests: XCTestCase {
     @MainActor
     func testCropUndoRestoresSignedMemberBytesAndSignatureValidity() async throws {
         let signerName = "Crop undo signer \(UUID().uuidString)"
-        let identity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: signerName)
-        )
+        let identity = try CropSigningIdentity(commonName: signerName)
         let signed = try PDFIncrementalSigner().sign(
             pdf: makeSinglePagePDF(),
             field: SignatureFieldSpec(
@@ -112,6 +112,10 @@ final class PageCropTests: XCTestCase {
                 signingTime: Date(timeIntervalSince1970: 1_786_240_000)
             )
         }
+        let initialReports = await PDFSignatureValidationService.validate(pdf: signed)
+        let initialReport = try XCTUnwrap(initialReports.first)
+        XCTAssertEqual(initialReport.integrity, .valid)
+        XCTAssertEqual(initialReport.coverage, .entireDocument)
         let document = WorkspaceDocument()
         var member = MemberDocument(displayName: "Signed", sourcePDFRef: "signed.pdf")
         let pageRef = PageRef(memberDocId: member.id, sourcePageIndex: 0)
@@ -381,6 +385,40 @@ final class PageCropTests: XCTestCase {
 }
 
 private extension PageCropTests {
+    // Crop/Undo needs a real signature without provisioning a permanent Keychain identity.
+    struct CropSigningIdentity: SigningIdentity {
+        let privateKey: P256.Signing.PrivateKey
+        let certificate: X509.Certificate
+        let chain: [X509.Certificate] = []
+        let signatureAlgorithm: SignatureAlgorithm = .ecdsaP256SHA256
+
+        init(commonName: String) throws {
+            let privateKey = P256.Signing.PrivateKey()
+            self.privateKey = privateKey
+            let certificateKey = X509.Certificate.PrivateKey(privateKey)
+            let subject = try DistinguishedName { CommonName(commonName) }
+            certificate = try X509.Certificate(
+                version: .v3,
+                serialNumber: .init(),
+                publicKey: certificateKey.publicKey,
+                notValidBefore: Date(timeIntervalSince1970: 1_577_836_800),
+                notValidAfter: Date(timeIntervalSince1970: 2_208_988_800),
+                issuer: subject,
+                subject: subject,
+                signatureAlgorithm: .ecdsaWithSHA256,
+                extensions: X509.Certificate.Extensions {
+                    Critical(BasicConstraints.notCertificateAuthority)
+                    Critical(KeyUsage(digitalSignature: true, nonRepudiation: true))
+                },
+                issuerPrivateKey: certificateKey
+            )
+        }
+
+        func sign(_ data: Data) throws -> Data {
+            try privateKey.signature(for: data).derRepresentation
+        }
+    }
+
     func makeLabeledViewModel() throws -> WorkspaceViewModel {
         let fixtureURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/page-labels.pdf")
         let labeled = try XCTUnwrap(QPDFService.replacingPageContent(in: Data(contentsOf: fixtureURL),
