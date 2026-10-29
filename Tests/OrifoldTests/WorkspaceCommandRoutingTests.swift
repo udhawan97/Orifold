@@ -18,6 +18,11 @@ final class WorkspaceCommandRoutingTests: XCTestCase {
         .orifoldZoomFit,
         .orifoldZoomActualSize,
         .orifoldShowShortcuts,
+        .orifoldJumpToSelection,
+        .orifoldJumpToPageIndex,
+        .orifoldJumpToFormField,
+        .orifoldJumpToAnnotation,
+        .orifoldEditAnnotation,
     ]
 
     func testCommandsReachOnlyTheirTargetWorkspaceAfterFocusChanges() {
@@ -38,6 +43,26 @@ final class WorkspaceCommandRoutingTests: XCTestCase {
             center.postWorkspaceCommand(command, to: second)
             XCTAssertEqual(firstCount, 1, command.rawValue)
             XCTAssertEqual(secondCount, 1, command.rawValue)
+            withExtendedLifetime((firstReceiver, secondReceiver)) {}
+        }
+    }
+
+    func testPayloadStaysWithItsTargetWorkspace() {
+        let center = NotificationCenter()
+        let first = WorkspaceViewModel(document: WorkspaceDocument())
+        let second = WorkspaceViewModel(document: WorkspaceDocument())
+        for command in commands {
+            var received: String?
+            var otherReceived = false
+            let firstReceiver = center.publisher(for: command, object: first).sink {
+                received = $0.userInfo?["payload"] as? String
+            }
+            let secondReceiver = center.publisher(for: command, object: second).sink { _ in
+                otherReceived = true
+            }
+            center.postWorkspaceCommand(command, to: first, payload: command.rawValue)
+            XCTAssertEqual(received, command.rawValue)
+            XCTAssertFalse(otherReceived)
             withExtendedLifetime((firstReceiver, secondReceiver)) {}
         }
     }

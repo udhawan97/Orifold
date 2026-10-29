@@ -384,7 +384,8 @@ final class WorkspaceDocument: ReferenceFileDocument {
     func exportedPDFDataThrowing(from snapshot: WorkspacePackage,
                                  options: WorkspaceExportOptions = WorkspaceExportOptions(),
                                  formValueOverrides: [PDFFormValueOverride] = [],
-                                 savedSnapshotID: UUID = UUID()) throws -> Data {
+                                 savedSnapshotID: UUID = UUID(),
+                                 appliesOutlineOverride: Bool = true) throws -> Data {
         let docs: [(MemberDocument, PDFDocument)] = try snapshot.workspace.documents.map { member in
             guard let data = snapshot.memberPDFData[member.id],
                   let pdf = PDFDocument(data: data) else {
@@ -398,7 +399,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
         }
 
         let omitsCommentMetadata = snapshot.workspace.signatures.contains { $0.isCryptographic }
-        let sourcePayloads = Self.sourcePayloadsForPDFMetadata(from: snapshot)
+        let sourcePayloads = Self.sourcePayloadsForPDFMetadata(
+            from: snapshot,
+            retainingLayoutChangeMarker: options.embedsEditableWorkspaceState
+        )
         let editableWorkspace = options.embedsEditableWorkspaceState ? snapshot.workspace : nil
         let editableMemberPDFData = options.embedsEditableWorkspaceState ? snapshot.memberPDFData : [:]
         // Persist pristine bytes ONLY for members that actually have committed edit
@@ -435,7 +439,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             )
             let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
             let commentData = try Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace)
-            return try Self.embedMetadata(
+            let embeddedData = try Self.embedMetadata(
                 in: commentData,
                 workspace: snapshot.workspace,
                 sourcePayloads: sourcePayloads,
@@ -445,6 +449,14 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 editableOriginalMemberPDFData: editableOriginalMemberPDFData,
                 omittingComments: omitsCommentMetadata
             )
+            // Explicit Export defers this write until after compression/imposition.
+            // Ordinary Save writes here, after its final content/metadata PDFKit pass
+            // and before savedFileWrapper re-injects document-level attachments.
+            guard appliesOutlineOverride,
+                  let nodes = PDFOutlineBuilder.workspaceOverrideNodes(in: snapshot.workspace) else {
+                return embeddedData
+            }
+            return PDFOutlineBuilder.applying(nodes, to: embeddedData)
         }
 
         let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
@@ -484,7 +496,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
         )
     }
 
-    private static func sourcePayloadsForPDFMetadata(from snapshot: WorkspacePackage) -> [UUID: SourceDocumentPayload] {
+    private static func sourcePayloadsForPDFMetadata(
+        from snapshot: WorkspacePackage,
+        retainingLayoutChangeMarker: Bool
+    ) -> [UUID: SourceDocumentPayload] {
         guard snapshot.workspace.documents.count == 1,
               snapshot.workspace.signatures.isEmpty,
               !snapshot.workspace.hasActiveDecorations,
@@ -492,6 +507,9 @@ final class WorkspaceDocument: ReferenceFileDocument {
               snapshot.workspace.objectEditStates.isEmpty,   // object edits also disable the source fast-path
               let member = snapshot.workspace.documents.first,
               let payload = snapshot.sourcePayloads[member.id],
+              // Editable Save preserves the marker so reopen can refuse stale source
+              // export. Every preexisting fidelity/retention exclusion still applies.
+              (retainingLayoutChangeMarker || payload.sourceLayoutChanged != true),
               snapshot.workspace.pageOrder.map(\.id) == member.pageRefs else {
             return [:]
         }

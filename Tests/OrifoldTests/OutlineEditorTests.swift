@@ -126,6 +126,97 @@ final class OutlineEditorTests: XCTestCase {
         XCTAssertEqual(bookmarks.count, 6)
     }
 
+    func testSaveAndExplicitExportAgreeAfterAddRenameNestReorderAndDelete() throws {
+        let model = try viewModel(data: blankData(pageCount: 3))
+        model.beginOutlineEditing()
+        let refs = model.document.workspace.pageOrder
+        model.addBookmark(title: "Start", at: refs[0])
+        let first = try XCTUnwrap(model.editedOutline?.last)
+        model.renameBookmark(first.id, to: "Introduction")
+        model.addBookmark(title: "Detail", at: refs[2])
+        let detail = try XCTUnwrap(model.editedOutline?.last)
+        model.setBookmarkDepth(detail.id, depth: 1)
+        model.addBookmark(title: "Appendix", at: refs[1])
+        let appendix = try XCTUnwrap(model.editedOutline?.last)
+        model.moveBookmark(appendix.id, up: true)
+        let expected = [Bookmark(title: "Introduction", depth: 0, page: 0),
+                        Bookmark(title: "Appendix", depth: 0, page: 1),
+                        Bookmark(title: "Detail", depth: 1, page: 2)]
+        XCTAssertEqual(try exportedBookmarks(model), expected)
+        XCTAssertEqual(try savedBookmarks(model), expected)
+        let reopened = try savedReopen(model)
+        XCTAssertEqual(reopened.editedOutline, model.editedOutline)
+        XCTAssertEqual(try exportedBookmarks(reopened), expected)
+
+        model.deleteBookmark(appendix.id)
+        let afterDelete = [expected[0], Bookmark(title: "Detail", depth: 0, page: 2)]
+        XCTAssertEqual(try exportedBookmarks(model), afterDelete)
+        XCTAssertEqual(try savedBookmarks(model), afterDelete)
+    }
+
+    func testDeleteEverySourceBookmarkClearsSaveAndExportThroughUndoRedoAndReopen() throws {
+        let model = try viewModel()
+        let original = try exportedBookmarks(model)
+        XCTAssertEqual(original.count, 7)
+        model.beginOutlineEditing()
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        model.undoManager = undo
+        undo.beginUndoGrouping()
+        while let first = model.editedOutline?.first { model.deleteBookmark(first.id) }
+        undo.endUndoGrouping()
+        XCTAssertEqual(model.editedOutline, [])
+        XCTAssertEqual(try exportedBookmarks(model), [])
+        XCTAssertEqual(try savedBookmarks(model), [])
+        XCTAssertEqual(try exportedBookmarks(savedReopen(model)), [])
+        undo.undo()
+        XCTAssertEqual(try exportedBookmarks(model), original)
+        XCTAssertEqual(try savedBookmarks(model), original)
+        undo.redo()
+        XCTAssertEqual(try exportedBookmarks(model), [])
+        XCTAssertEqual(try savedBookmarks(model), [])
+        undo.beginUndoGrouping()
+        model.clearOutlineOverride()
+        undo.endUndoGrouping()
+        XCTAssertNil(model.editedOutline)
+        XCTAssertEqual(try exportedBookmarks(model), original)
+        XCTAssertEqual(try savedBookmarks(model), original)
+    }
+
+    func testOverrideWritesBeforeAttachmentReinjectionForSaveAndExport() throws {
+        let model = try viewModel(data: blankData(pageCount: 3))
+        let payload = Data([0, 1, 2, 255]) + Data("Fictional exact attachment".utf8)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("outline-\(UUID().uuidString).txt")
+        try payload.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertTrue(model.addAttachment(url))
+        model.beginOutlineEditing()
+        model.addBookmark(title: "Override", at: model.document.workspace.pageOrder[2])
+        let saved = try model.document.savedFileWrapper(from: model.document.snapshot(contentType: .pdf))
+        for data in [try XCTUnwrap(saved.regularFileContents), try model.dataForPDFExport()] {
+            XCTAssertEqual(try AttachmentsService.extract(url.lastPathComponent, from: data), payload)
+            XCTAssertEqual(try bookmarks(in: data), [Bookmark(title: "Override", depth: 0, page: 2)])
+        }
+    }
+
+    func testUnoutlinedSourceSkipsAnExtraOutlineSerialization() throws {
+        let model = try viewModel(data: blankData(pageCount: 2))
+        let payload = try model.bakedExportPayload(options: WorkspaceExportOptions())
+        XCTAssertNil(payload.outline)
+        XCTAssertEqual(try WorkspaceViewModel.finishedExportData(payload, options: WorkspaceExportOptions()),
+                       payload.baked.bytes)
+    }
+
+    func testEditedOutlineRetainsScaleMappingAndOmitsNUpMapping() throws {
+        let model = try viewModel(data: blankData(pageCount: 3))
+        model.beginOutlineEditing()
+        model.addBookmark(title: "Last", at: model.document.workspace.pageOrder[2])
+        let scaled = try model.dataForPDFExport(options: WorkspaceExportOptions(imposition: .scale(width: 300, height: 400)))
+        XCTAssertEqual(try bookmarks(in: scaled), [Bookmark(title: "Last", depth: 0, page: 2)])
+        let imposed = try model.dataForPDFExport(options: WorkspaceExportOptions(imposition: .nUp(rows: 1, cols: 2)))
+        XCTAssertTrue(try bookmarks(in: imposed).isEmpty)
+    }
+
     // MARK: - TOC display
 
     func testTableOfContentsRendersTheOverride() throws {
@@ -146,10 +237,31 @@ final class OutlineEditorTests: XCTestCase {
         let page: Int
     }
 
+    private func savedBookmarks(_ viewModel: WorkspaceViewModel) throws -> [Bookmark] {
+        let wrapper = try viewModel.document.savedFileWrapper(from: viewModel.document.snapshot(contentType: .pdf))
+        return try bookmarks(in: XCTUnwrap(wrapper.regularFileContents))
+    }
+
+    private func savedReopen(_ viewModel: WorkspaceViewModel) throws -> WorkspaceViewModel {
+        let wrapper = try viewModel.document.savedFileWrapper(from: viewModel.document.snapshot(contentType: .pdf))
+        return WorkspaceViewModel(document: try WorkspaceDocument(testingFile: wrapper, contentType: .pdf))
+    }
+
+    private func bookmarks(in data: Data) throws -> [Bookmark] {
+        let reopened = try XCTUnwrap(PDFDocument(data: data))
+        let nodes = PDFOutlineReader.nodes(in: reopened)
+        if nodes.isEmpty { XCTAssertNil(reopened.outlineRoot) }
+        return nodes.map {
+            Bookmark(title: $0.title, depth: $0.depth, page: $0.localPageIndex)
+        }
+    }
+
     private func exportedBookmarks(_ viewModel: WorkspaceViewModel) throws -> [Bookmark] {
         let data = try viewModel.dataForPDFExport()
         let reopened = try XCTUnwrap(PDFDocument(data: data))
-        return PDFOutlineReader.nodes(in: reopened).map {
+        let nodes = PDFOutlineReader.nodes(in: reopened)
+        if nodes.isEmpty { XCTAssertNil(reopened.outlineRoot) }
+        return nodes.map {
             Bookmark(title: $0.title, depth: $0.depth, page: $0.localPageIndex)
         }
     }

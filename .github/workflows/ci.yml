@@ -77,6 +77,9 @@ jobs:
       - name: Installer transaction regression tests
         run: python3 scripts/test-installer-transaction.py "$RUNNER_TEMP/orifold-installer-tests"
 
+      - name: Release smoke shell regression tests
+        run: python3 scripts/test-release-smoke.py "$RUNNER_TEMP/orifold-release-smoke-tests"
+
       - name: SwiftLint
         run: |
           command -v swiftlint || brew install swiftlint

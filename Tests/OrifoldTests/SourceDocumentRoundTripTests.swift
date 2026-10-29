@@ -40,6 +40,127 @@ final class SourceDocumentRoundTripTests: XCTestCase {
         XCTAssertEqual(exported, Data(markdown.utf8))
     }
 
+    func testReorderedTextRefusesStaleSourceExportAndUndoRedoRestoresCompatibility() throws {
+        let (viewModel, source) = try multipageTextViewModel()
+        let originalOrder = viewModel.document.workspace.pageOrder.map(\.id)
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        viewModel.undoManager = undo
+        XCTAssertEqual(try viewModel.dataForWorkspaceExport(as: .text), source)
+        let first = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        undo.beginUndoGrouping()
+        XCTAssertTrue(viewModel.movePage(first, toIndex: originalOrder.count))
+        undo.endUndoGrouping()
+        let reordered = Array(originalOrder.dropFirst()) + [first.id]
+        XCTAssertEqual(viewModel.document.workspace.pageOrder.map(\.id), reordered)
+        assertSourceLayoutRefusal(viewModel)
+        XCTAssertEqual(viewModel.document.sourcePayloads[first.memberDocId]?.originalData, source)
+        undo.undo()
+        XCTAssertEqual(viewModel.document.workspace.pageOrder.map(\.id), originalOrder)
+        XCTAssertEqual(try viewModel.dataForWorkspaceExport(as: .text), source)
+        undo.redo()
+        XCTAssertEqual(viewModel.document.workspace.pageOrder.map(\.id), reordered)
+        assertSourceLayoutRefusal(viewModel)
+    }
+
+    func testReorderedTextSaveReopenRetainsOrderOriginalBytesAndSourceExportRefusal() throws {
+        let (viewModel, source) = try reorderedTextViewModel()
+        let order = viewModel.document.workspace.pageOrder.map(\.id)
+        let member = try XCTUnwrap(viewModel.loadedPDFs.first)
+        let expectedText = (0..<member.1.pageCount).map {
+            PDFTextAnalysisEngine.readingOrderText(data: viewModel.document.memberPDFData[member.0.id]!, pageIndex: $0)
+        }
+        let reopened = try savedReopen(viewModel)
+        XCTAssertEqual(reopened.document.workspace.pageOrder.map(\.id), order)
+        let payload = try XCTUnwrap(reopened.document.sourcePayloads[member.0.id])
+        XCTAssertEqual(payload.originalData, source)
+        let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any])
+        XCTAssertEqual(encoded["sourceLayoutChanged"] as? Bool, true)
+        assertSourceLayoutRefusal(reopened)
+        let bytes = try XCTUnwrap(reopened.document.memberPDFData[member.0.id])
+        XCTAssertEqual((0..<expectedText.count).map {
+            PDFTextAnalysisEngine.readingOrderText(data: bytes, pageIndex: $0)
+        }, expectedText)
+        // The non-editable output keeps its previous refusal to embed incompatible sources.
+        let flat = try viewModel.document.exportedPDFDataThrowing(from: viewModel.document.snapshot(contentType: .pdf))
+        let flatDocument = try WorkspaceDocument(testingFile: FileWrapper(regularFileWithContents: flat), contentType: .pdf)
+        XCTAssertTrue(flatDocument.sourcePayloads.isEmpty)
+    }
+
+    func testReorderedThenDeletedTextSaveDoesNotRetainDeletedPageSourcePayload() throws {
+        let (viewModel, _) = try reorderedTextViewModel()
+        viewModel.deletePage(try XCTUnwrap(viewModel.document.workspace.pageOrder.first))
+        let reopened = try savedReopen(viewModel)
+        XCTAssertTrue(reopened.document.sourcePayloads.isEmpty,
+                      "editable Save must retain the preexisting rendered-page-count exclusion")
+    }
+
+    func testReorderedThenRedactedTextSaveDoesNotReembedOriginalSource() throws {
+        let (viewModel, _) = try reorderedTextViewModel()
+        let ref = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        let page = try XCTUnwrap(viewModel.loadedPDFs.first?.1.page(at: 0))
+        viewModel.addRedactionMark(rect: page.bounds(for: .mediaBox), pageRefID: ref.id)
+        XCTAssertTrue(viewModel.applyRedactions())
+        XCTAssertNil(viewModel.document.sourcePayloads[ref.memberDocId])
+        XCTAssertTrue(try savedReopen(viewModel).document.sourcePayloads.isEmpty)
+    }
+
+    func testSanitizedReorderedTextExportRemovesEditableSourceMetadata() throws {
+        let (viewModel, _) = try reorderedTextViewModel()
+        let data = try viewModel.dataForPDFExport(options: WorkspaceExportOptions(
+            embedsEditableWorkspaceState: true, sanitization: PDFSanitizationOptions(removesMetadata: true)
+        ))
+        let reopened = try WorkspaceDocument(testingFile: FileWrapper(regularFileWithContents: data), contentType: .pdf)
+        XCTAssertTrue(reopened.sourcePayloads.isEmpty)
+        let pdf = try XCTUnwrap(PDFDocument(data: data))
+        for index in 0..<pdf.pageCount {
+            XCTAssertFalse(try XCTUnwrap(pdf.page(at: index)).annotations.contains {
+                $0.value(forAnnotationKey: PDFAnnotationKey(rawValue: "/OrifoldWorkspaceComments")) != nil
+            })
+        }
+    }
+
+    func testLegacySourcePayloadWithoutLayoutMarkerStillDecodesAndExportsExactBytes() throws {
+        let (viewModel, source) = try multipageTextViewModel()
+        let member = try XCTUnwrap(viewModel.document.workspace.documents.first)
+        let payload = try XCTUnwrap(viewModel.document.sourcePayloads[member.id])
+        var encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any])
+        encoded.removeValue(forKey: "sourceLayoutChanged")
+        viewModel.document.sourcePayloads[member.id] = try JSONDecoder().decode(
+            SourceDocumentPayload.self, from: JSONSerialization.data(withJSONObject: encoded)
+        )
+        XCTAssertEqual(try viewModel.dataForWorkspaceExport(as: .text), source)
+    }
+
+    private func multipageTextViewModel() throws -> (WorkspaceViewModel, Data) {
+        let source = Data((0..<180).map { "Fictional line \($0): unique source order" }.joined(separator: "\n").utf8)
+        let viewModel = try makeViewModel(data: source, contentType: .plainText, filename: "ordered.txt")
+        XCTAssertGreaterThan(viewModel.document.workspace.pageOrder.count, 1)
+        return (viewModel, source)
+    }
+
+    private func reorderedTextViewModel() throws -> (WorkspaceViewModel, Data) {
+        let (viewModel, source) = try multipageTextViewModel()
+        let first = try XCTUnwrap(viewModel.document.workspace.pageOrder.first)
+        XCTAssertTrue(viewModel.movePage(first, toIndex: viewModel.document.workspace.pageOrder.count))
+        return (viewModel, source)
+    }
+
+    private func savedReopen(_ viewModel: WorkspaceViewModel) throws -> WorkspaceViewModel {
+        let wrapper = try viewModel.document.savedFileWrapper(from: viewModel.document.snapshot(contentType: .pdf))
+        let document = try WorkspaceDocument(testingFile: wrapper, contentType: .pdf)
+        return WorkspaceViewModel(document: document, processingEngine: PDFKitProcessingEngineFallback())
+    }
+
+    private func assertSourceLayoutRefusal(_ viewModel: WorkspaceViewModel, file: StaticString = #filePath,
+                                          line: UInt = #line) {
+        XCTAssertThrowsError(try viewModel.dataForWorkspaceExport(as: .text), file: file, line: line) { error in
+            guard case WorkspaceViewModel.ExportBuildError.pdfOnlyEditsCannotMap = error else {
+                return XCTFail("Expected source-layout refusal, got \(error)", file: file, line: line)
+            }
+        }
+    }
+
     func testDeletingSignedSecondaryPageRestoresSourcePreservingMarkdownExport() throws {
         let markdown = Data("# Heading\n\nOriginal body".utf8)
         let document = WorkspaceDocument()
