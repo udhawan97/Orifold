@@ -286,10 +286,12 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
         try makeSignedApp(at: oldApp, marker: "OLD")
         try makeSignedApp(at: newApp, marker: "NEW")
 
-        // Real DMG containing the new app.
+        // Build a real compressed DMG without formatting a raw device during fixture setup.
         let dmg = root.appendingPathComponent("Orifold-9.9.9.dmg")
-        try XCTAssertProcess("/usr/bin/hdiutil", ["create", "-volname", "Orifold", "-srcfolder", srcDir.path,
-                                                  "-ov", "-format", "UDZO", "-quiet", dmg.path])
+        let hybrid = root.appendingPathComponent("Orifold-hybrid.iso")
+        try XCTAssertProcess("/usr/bin/hdiutil", ["makehybrid", "-udf", "-udf-volume-name", "Orifold",
+                                                  "-o", hybrid.path, srcDir.path])
+        try XCTAssertProcess("/usr/bin/hdiutil", ["convert", hybrid.path, "-format", "UDZO", "-o", dmg.path])
         let sha = try RollbackArchiver.sha256(of: dmg)
 
         // Recorder in place of `open` — records the path it would relaunch.
@@ -573,10 +575,13 @@ final class UpdaterScriptGeneratorTests: XCTestCase {
     }
 
     private func makeSyntheticFixture() throws -> SyntheticFixture {
-        // The production scripts reject translocated /private/var/folders targets. Keep
-        // synthetic bundles in this checkout's disposable build tree instead of bypassing it.
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().appendingPathComponent(".build/orifold-synthetic-\(UUID().uuidString)")
+        // The production scripts reject translocated /private/var/folders targets. Contained
+        // runs supply a disposable non-translocated root; ordinary runs use the build tree.
+        let buildRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent(".build", isDirectory: true)
+        let temporary = ProcessInfo.processInfo.environment["ORIFOLD_TEST_TEMP_ROOT"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? buildRoot
+        let root = temporary.appendingPathComponent("orifold-synthetic-\(UUID().uuidString)")
         let target = root.appendingPathComponent("Applications/Orifold.app")
         let candidate = root.appendingPathComponent("candidate/Orifold.app")
         let archived = root.appendingPathComponent("archived/Orifold.app")

@@ -7,7 +7,8 @@ final class SignatureValidationTests: XCTestCase {
     func testOpeningSignedPDFAsDocumentKeepsUntouchedValidationEvidence() async throws {
         let signerName = "Wave 6 Opened \(UUID().uuidString)"
         let identity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: signerName)
+            request: SelfSignedIdentityRequest(commonName: signerName),
+            keychain: try makeDisposableSigningKeychain()
         )
         let signed = try sign(pdf: try unsignedPDFData(), identity: identity, signerName: signerName)
         let document = try WorkspaceDocument(
@@ -38,7 +39,8 @@ final class SignatureValidationTests: XCTestCase {
     func testImportedSignedPDFKeepsUntouchedValidationEvidenceOutsideHardenedWorkspaceBytes() async throws {
         let signerName = "Wave 6 Imported \(UUID().uuidString)"
         let identity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: signerName)
+            request: SelfSignedIdentityRequest(commonName: signerName),
+            keychain: try makeDisposableSigningKeychain()
         )
         let signed = try sign(pdf: try unsignedPDFData(), identity: identity, signerName: signerName)
         let url = FileManager.default.temporaryDirectory
@@ -82,7 +84,8 @@ final class SignatureValidationTests: XCTestCase {
     func testAppSelfSignedPDFReportsValidIntegrityWholeDocumentAndUntrustedIdentity() async throws {
         let signerName = "Wave 6 Signer \(UUID().uuidString)"
         let identity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: signerName)
+            request: SelfSignedIdentityRequest(commonName: signerName),
+            keychain: try makeDisposableSigningKeychain()
         )
         let signed = try sign(pdf: try unsignedPDFData(), identity: identity, signerName: signerName)
 
@@ -101,7 +104,8 @@ final class SignatureValidationTests: XCTestCase {
     func testFlippingCoveredByteFailsIntegrity() async throws {
         let signerName = "Wave 6 Integrity \(UUID().uuidString)"
         let identity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: signerName)
+            request: SelfSignedIdentityRequest(commonName: signerName),
+            keychain: try makeDisposableSigningKeychain()
         )
         var signed = try sign(pdf: try unsignedPDFData(), identity: identity, signerName: signerName)
         let marker = Data("ORIFOLD-INTEGRITY-A".utf8)
@@ -119,10 +123,12 @@ final class SignatureValidationTests: XCTestCase {
         let firstName = "Wave 6 First \(UUID().uuidString)"
         let secondName = "Wave 6 Second \(UUID().uuidString)"
         let firstIdentity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: firstName)
+            request: SelfSignedIdentityRequest(commonName: firstName),
+            keychain: try makeDisposableSigningKeychain()
         )
         let secondIdentity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: secondName)
+            request: SelfSignedIdentityRequest(commonName: secondName),
+            keychain: try makeDisposableSigningKeychain()
         )
         let firstSigned = try sign(
             pdf: try unsignedPDFData(),
@@ -218,7 +224,8 @@ final class SignatureValidationTests: XCTestCase {
     func testSignedDataV3StillReachesPinnedCMSVerifier() async throws {
         let signerName = "Wave 6 v3 \(UUID().uuidString)"
         let identity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: signerName)
+            request: SelfSignedIdentityRequest(commonName: signerName),
+            keychain: try makeDisposableSigningKeychain()
         )
         let signed = try sign(pdf: try unsignedPDFData(), identity: identity, signerName: signerName)
         let dictionary = try XCTUnwrap(QPDFService.signatureDictionaries(in: signed).first)

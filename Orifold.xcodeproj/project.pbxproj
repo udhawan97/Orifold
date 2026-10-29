@@ -106,6 +106,7 @@
 		41492E3F6E5F8F99022F8AC5 /* TextDeletionLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82368D54373993BC0F7209CA /* TextDeletionLifecycleTests.swift */; };
 		43A80F2B49E56654C3C69B1D /* PageGraphicsIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA5EA2E13AFAC6570B1A19F /* PageGraphicsIndex.swift */; };
 		457B15AF433B68058213A20C /* DocumentComfortSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE72C557BAC137327068F1C5 /* DocumentComfortSettingsTests.swift */; };
+		460AE5FB0455F92049125B66 /* DisposableSigningKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59BEA1D30E0D9B8ABCEF0DC /* DisposableSigningKeychain.swift */; };
 		465641062102D29204827A07 /* RedactionEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56D1C0D14BC4D0EA583FFCE9 /* RedactionEngineTests.swift */; };
 		46B13176518ECB156433EE78 /* ProductUXRegressionSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07D2FCA63A5FD0101C987460 /* ProductUXRegressionSourceTests.swift */; };
 		470D9A15DFB0DC83C7FF8446 /* SigningErrorMessageClarityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E5B1F2242D9F71CD242E475 /* SigningErrorMessageClarityTests.swift */; };
@@ -633,6 +634,7 @@
 		A519F58736B1D3F314D7F25A /* UpdateInstallPreflightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateInstallPreflightTests.swift; sourceTree = "<group>"; };
 		A5316049F1F510EABEF3ADF5 /* RollbackArchiveTransactionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RollbackArchiveTransactionTests.swift; sourceTree = "<group>"; };
 		A54CC3969919F604A2FEA7F1 /* ExternalModificationAndBakeStampTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalModificationAndBakeStampTests.swift; sourceTree = "<group>"; };
+		A59BEA1D30E0D9B8ABCEF0DC /* DisposableSigningKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisposableSigningKeychain.swift; sourceTree = "<group>"; };
 		A5E032ECA98C3EFB2AADF6B3 /* PDFTextDiffTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextDiffTests.swift; sourceTree = "<group>"; };
 		A613C983F7EBAB1154BD9AFF /* WorkspaceOperationalLocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceOperationalLocalizationTests.swift; sourceTree = "<group>"; };
 		A66929A3776C7BF999835D95 /* UnlockedPDFImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnlockedPDFImportTests.swift; sourceTree = "<group>"; };
@@ -852,6 +854,7 @@
 		2B4B03F42E93B163D72FE6B7 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				A59BEA1D30E0D9B8ABCEF0DC /* DisposableSigningKeychain.swift */,
 				F44698F552362CE4249704CB /* EditingFixturePDFBuilder.swift */,
 				232886A74E0C1B633FB21860 /* InlineEditStressFixture.swift */,
 				2A2FB6E2E42D2E2AE57DD10B /* OutlineFixturePDFBuilder.swift */,
@@ -1598,6 +1601,7 @@
 				5FB38FF0E37B93DD5078803E /* CurrentCombinedPageTests.swift in Sources */,
 				23AFEE2AEDB332B81B3F139D /* DecorationMetadataPreservationTests.swift in Sources */,
 				A7948BB561D4CE295842D9B4 /* DiscardChangesAndCloseTests.swift in Sources */,
+				460AE5FB0455F92049125B66 /* DisposableSigningKeychain.swift in Sources */,
 				457B15AF433B68058213A20C /* DocumentComfortSettingsTests.swift in Sources */,
 				895C1CE9EDF86542475FCFFB /* DocumentTypeEditHardeningTests.swift in Sources */,
 				30C88EE70A5045C708424E96 /* EditedRun2RegressionTests.swift in Sources */,

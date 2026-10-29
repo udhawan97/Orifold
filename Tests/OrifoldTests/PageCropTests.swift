@@ -95,7 +95,8 @@ final class PageCropTests: XCTestCase {
     func testCropUndoRestoresSignedMemberBytesAndSignatureValidity() async throws {
         let signerName = "Crop undo signer \(UUID().uuidString)"
         let identity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: signerName)
+            request: SelfSignedIdentityRequest(commonName: signerName),
+            keychain: try makeDisposableSigningKeychain()
         )
         let signed = try PDFIncrementalSigner().sign(
             pdf: makeSinglePagePDF(),

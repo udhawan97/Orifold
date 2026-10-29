@@ -31,8 +31,10 @@ enum CertificateProfileError: Error, Equatable, LocalizedError {
     private(set) var profiles: [DigitalCertificateProfile] = []
 
     private let storeURL: URL
+    private let keychain: SecKeychain?
 
-    init(storeURL: URL? = nil) {
+    init(storeURL: URL? = nil, keychain: SecKeychain? = nil) {
+        self.keychain = keychain
         if let storeURL {
             self.storeURL = storeURL
         } else {
@@ -81,7 +83,7 @@ enum CertificateProfileError: Error, Equatable, LocalizedError {
         label: String,
         source: DigitalCertificateProfile.Source
     ) throws -> DigitalCertificateProfile {
-        let persistentRef = try Self.persistentReference(for: identity.secIdentity)
+        let persistentRef = try Self.persistentReference(for: identity.secIdentity, keychain: keychain)
         let fingerprint = try DigitalCertificateProfile.fingerprint(for: identity)
         let existingIndex = profiles.firstIndex { $0.sha256Fingerprint == fingerprint }
         let profile = try DigitalCertificateProfile(
@@ -108,23 +110,26 @@ enum CertificateProfileError: Error, Equatable, LocalizedError {
         // already-deleted Keychain item (harmless, still visible, still deletable again),
         // rather than the reverse: an orphaned Keychain identity with no profile entry
         // left to ever find or remove it through.
-        Self.deleteKeychainItem(persistentRef: profile.keychainPersistentRef)
+        Self.deleteKeychainItem(persistentRef: profile.keychainPersistentRef, keychain: keychain)
         profiles.removeAll { $0.id == id }
         persist()
     }
 
     func resolveIdentity(for profile: DigitalCertificateProfile) throws -> SecuritySigningIdentity {
-        try Self.identity(forPersistentRef: profile.keychainPersistentRef)
+        try Self.identity(forPersistentRef: profile.keychainPersistentRef, keychain: keychain)
     }
 
     // MARK: - Keychain plumbing
 
-    static func persistentReference(for secIdentity: SecIdentity) throws -> Data {
-        let query: [String: Any] = [
+    static func persistentReference(for secIdentity: SecIdentity, keychain: SecKeychain? = nil) throws -> Data {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassIdentity,
-            kSecValueRef as String: secIdentity,
+            kSecMatchItemList as String: [secIdentity],
             kSecReturnPersistentRef as String: true
         ]
+        if let keychain {
+            query[kSecMatchSearchList as String] = [keychain]
+        }
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         guard status == errSecSuccess, let data = result as? Data else {
@@ -133,11 +138,16 @@ enum CertificateProfileError: Error, Equatable, LocalizedError {
         return data
     }
 
-    static func identity(forPersistentRef persistentRef: Data) throws -> SecuritySigningIdentity {
-        let query: [String: Any] = [
-            kSecValuePersistentRef as String: persistentRef,
+    static func identity(forPersistentRef persistentRef: Data, keychain: SecKeychain? = nil) throws -> SecuritySigningIdentity {
+        // macOS resolves persistent references through an item list, not kSecValuePersistentRef.
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassIdentity,
+            kSecMatchItemList as String: [persistentRef],
             kSecReturnRef as String: true
         ]
+        if let keychain {
+            query[kSecMatchSearchList as String] = [keychain]
+        }
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         guard status == errSecSuccess, let result, CFGetTypeID(result) == SecIdentityGetTypeID() else {
@@ -147,8 +157,14 @@ enum CertificateProfileError: Error, Equatable, LocalizedError {
         return try SecuritySigningIdentity(secIdentity: secIdentity)
     }
 
-    static func deleteKeychainItem(persistentRef: Data) {
-        let query: [String: Any] = [kSecValuePersistentRef as String: persistentRef]
+    static func deleteKeychainItem(persistentRef: Data, keychain: SecKeychain? = nil) {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassIdentity,
+            kSecMatchItemList as String: [persistentRef]
+        ]
+        if let keychain {
+            query[kSecMatchSearchList as String] = [keychain]
+        }
         SecItemDelete(query as CFDictionary)
     }
 

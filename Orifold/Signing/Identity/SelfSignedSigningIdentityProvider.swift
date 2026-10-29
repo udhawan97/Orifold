@@ -29,13 +29,13 @@ struct SelfSignedIdentityRequest {
 enum SelfSignedSigningIdentityProvider {
     static let trustDisclosureLabel = "self-signed (identity not independently trusted)"
 
-    static func generate(request: SelfSignedIdentityRequest) throws -> SecuritySigningIdentity {
+    static func generate(request: SelfSignedIdentityRequest, keychain: SecKeychain? = nil) throws -> SecuritySigningIdentity {
         let applicationTag = "com.orifold.signing.self-signed.\(UUID().uuidString)"
         let tagData = Data(applicationTag.utf8)
-        let privateKey = try generatePrivateKey(tag: tagData, label: request.keychainLabel)
+        let privateKey = try generatePrivateKey(tag: tagData, label: request.keychainLabel, keychain: keychain)
 
         guard let publicKey = SecKeyCopyPublicKey(privateKey) else {
-            deletePrivateKey(tag: tagData)
+            deletePrivateKey(tag: tagData, keychain: keychain)
             throw SigningIdentityError.unsupportedPrivateKeyAlgorithm("missing public key")
         }
 
@@ -49,21 +49,21 @@ enum SelfSignedSigningIdentityProvider {
                 publicKey: publicKey
             )
         } catch {
-            deletePrivateKey(tag: tagData)
+            deletePrivateKey(tag: tagData, keychain: keychain)
             throw error
         }
 
         do {
-            try addCertificateToKeychain(certificate, label: request.keychainLabel)
+            try addCertificateToKeychain(certificate, label: request.keychainLabel, keychain: keychain)
         } catch {
-            deletePrivateKey(tag: tagData)
+            deletePrivateKey(tag: tagData, keychain: keychain)
             throw error
         }
 
         var secIdentity: SecIdentity?
-        let identityStatus = SecIdentityCreateWithCertificate(nil, certificate, &secIdentity)
+        let identityStatus = SecIdentityCreateWithCertificate(keychain, certificate, &secIdentity)
         guard identityStatus == errSecSuccess, let secIdentity else {
-            deletePrivateKey(tag: tagData)
+            deletePrivateKey(tag: tagData, keychain: keychain)
             throw SigningIdentityError.securityStatus(
                 operation: "SecIdentityCreateWithCertificate",
                 status: identityStatus
@@ -73,8 +73,8 @@ enum SelfSignedSigningIdentityProvider {
         return try SecuritySigningIdentity(secIdentity: secIdentity, secCertificateChain: [certificate])
     }
 
-    private static func generatePrivateKey(tag: Data, label: String) throws -> SecKey {
-        let attributes: [String: Any] = [
+    private static func generatePrivateKey(tag: Data, label: String, keychain: SecKeychain?) throws -> SecKey {
+        var attributes: [String: Any] = [
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
             kSecAttrKeySizeInBits as String: 256,
             kSecPrivateKeyAttrs as String: [
@@ -84,6 +84,10 @@ enum SelfSignedSigningIdentityProvider {
             ]
         ]
 
+        if let keychain {
+            attributes[kSecUseKeychain as String] = keychain
+        }
+
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
             throw SigningIdentityError.cfError(operation: "SecKeyCreateRandomKey", error: error)
@@ -92,12 +96,16 @@ enum SelfSignedSigningIdentityProvider {
         return privateKey
     }
 
-    private static func addCertificateToKeychain(_ certificate: SecCertificate, label: String) throws {
-        let query: [String: Any] = [
+    private static func addCertificateToKeychain(_ certificate: SecCertificate, label: String, keychain: SecKeychain?) throws {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassCertificate,
             kSecValueRef as String: certificate,
             kSecAttrLabel as String: label
         ]
+
+        if let keychain {
+            query[kSecUseKeychain as String] = keychain
+        }
 
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess || status == errSecDuplicateItem else {
@@ -105,12 +113,15 @@ enum SelfSignedSigningIdentityProvider {
         }
     }
 
-    private static func deletePrivateKey(tag: Data) {
-        let query: [String: Any] = [
+    private static func deletePrivateKey(tag: Data, keychain: SecKeychain?) {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: tag,
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom
         ]
+        if let keychain {
+            query[kSecMatchSearchList as String] = [keychain]
+        }
         SecItemDelete(query as CFDictionary)
     }
 }

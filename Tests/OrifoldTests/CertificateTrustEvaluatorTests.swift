@@ -4,7 +4,8 @@ import XCTest
 final class CertificateTrustEvaluatorTests: XCTestCase {
     private func makeSelfSignedProfile(commonName: String = "Test Signer") throws -> DigitalCertificateProfile {
         let identity = try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: "\(commonName) \(UUID().uuidString)")
+            request: SelfSignedIdentityRequest(commonName: "\(commonName) \(UUID().uuidString)"),
+            keychain: try makeDisposableSigningKeychain()
         )
         return try DigitalCertificateProfile(
             identity: identity,

@@ -452,6 +452,29 @@ final class HTMLImportSecurityTests: XCTestCase {
         XCTAssertTrue(text.contains("DATA CSS"), "data stylesheet should remain intentionally supported")
     }
 
+    @MainActor
+    func testHTMLImportRendersSuccessiveDocumentsWithCachedNetworkPolicy() async throws {
+        for marker in ["FIRST POLICY RENDER", "SECOND POLICY RENDER"] {
+            let html = """
+            <!doctype html><html><head>
+              <link rel="stylesheet" href="data:text/css,.visible%20%7B%20display%3A%20block%20!important%3B%20%7D">
+            </head><body>
+              <main class="visible" style="display: none; height: 1800px">\(marker)</main>
+            </body></html>
+            """
+            let imported = try await DocumentImportConverter.importedDocumentAsync(
+                from: Data(html.utf8),
+                contentType: .html,
+                filename: "successive.html",
+                baseURL: nil
+            )
+
+            XCTAssertGreaterThan(imported.pdfDocument.pageCount, 1, "each import must reach the native renderer")
+            XCTAssertTrue(extractedText(from: imported.pdfDocument).contains(marker),
+                          "the cached network policy must remain usable by later web views")
+        }
+    }
+
     private func extractedText(from document: PDFDocument) -> String {
         guard let data = document.dataRepresentation() else { return "" }
         return (0..<document.pageCount)
