@@ -10,6 +10,15 @@ import Callout from '../../../components/Callout.astro';
 	A PDF needs to carry a source spreadsheet, evidence file, or other supporting attachment inside it.
 </Callout>
 
+## Attachments in an incoming PDF
+
+The preferred PDF import path removes existing embedded files as part of active-content
+hardening. A compatibility fallback can retain them, so opening or importing a PDF guarantees
+neither retention nor removal of its attachments. Keep the original and extract any files you
+need before importing, then deliberately add them through **Inspector → Attachments** and
+check the resulting inventory. Use **Sanitize for sharing** when you want the output to
+exclude embedded files.
+
 ## Add or manage an attachment
 
 1. Select the document in the sidebar.
@@ -17,7 +26,8 @@ import Callout from '../../../components/Callout.astro';
 3. Click **Add attachment**, or drop one file into the panel.
 4. Use the download button beside an item to extract a copy, or the trash button to remove it.
 
-Add and remove are undoable. A normal PDF export preserves attachments even though assembly, compression, and imposition rebuild the document internally.
+Add and remove are undoable. Attachments added in Orifold survive normal save and PDF export,
+even though assembly, compression, and imposition rebuild the document internally.
 
 <Callout variant="warning">
 	**Sanitize for sharing** deliberately strips every embedded attachment. Attachment controls are also unavailable when Orifold cannot manage the selected member's bytes, such as an encrypted PDF without an available password.

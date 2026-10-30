@@ -223,7 +223,7 @@ final class StructuralCatalogPreservationTests: XCTestCase {
 
     func testCrossMemberMovePreparesCanonicalLayoutsCatalogsUndoAndEditableReopen() throws {
         for sourcePageCount in [1, 2] {
-            let vm = try crossMemberModel(sourcePageCount: sourcePageCount)
+            let vm = try crossMemberModel(sourcePageCount: sourcePageCount, includeSourceAttachment: sourcePageCount > 1)
             let initialRefs = vm.document.workspace.pageOrder
             let sourceID = initialRefs[0].memberDocId
             let targetRef = initialRefs[sourcePageCount]
@@ -262,6 +262,176 @@ final class StructuralCatalogPreservationTests: XCTestCase {
             let reopened = try WorkspaceDocument(testingFile: saved, contentType: .pdf,
                 fingerprintStore: WorkspaceFingerprintStore(directory: try directory()))
             try assertMoved(WorkspaceViewModel(document: reopened, processingEngine: PDFiumProcessingEngine()))
+        }
+    }
+
+    func testLastSourcePageWithAttachmentsRefusesBeforeMutationAndPreservesExistingUndoOrRedo() throws {
+        final class UndoProbe { var value = 1 }
+        for name in ["Source.txt", "Target.txt"] {
+            for sourceComesFirst in [true, false] {
+                for history in ["undo", "redo"] {
+                    let vm = try crossMemberModel(sourcePageCount: 1, sourceAttachmentName: name)
+                    let undo = try XCTUnwrap(retainedUndo)
+                    if !sourceComesFirst { vm.moveDocument(from: IndexSet(integer: 0), to: 2) }
+                    undo.removeAllActions()
+                    undo.groupsByEvent = false
+                    let source = try XCTUnwrap(vm.document.workspace.documents.first { $0.displayName == "Source" })
+                    let target = try XCTUnwrap(vm.document.workspace.documents.first { $0.displayName == "Target" })
+                    let sourceRef = try XCTUnwrap(vm.workspacePageRef(XCTUnwrap(source.pageRefs.first)))
+                    let targetRef = try XCTUnwrap(vm.workspacePageRef(XCTUnwrap(target.pageRefs.first)))
+                    vm.selectedPageRefID = sourceRef.id
+                    vm.selectedPageRefIDs = [sourceRef.id, targetRef.id]
+                    let decoration = PageDecoration(kind: .hanko, text: "Fictional", pageRefID: sourceRef.id,
+                        rect: CGRect(x: 90, y: 300, width: 100, height: 60))
+                    vm.document.workspace.decorations = [decoration]
+                    vm.selectedStampDecorationID = decoration.id
+                    vm.document.sourcePayloads[source.id] = SourceDocumentPayload(
+                        format: .plainText, originalFilename: "fictional.txt", originalContentTypeIdentifier: "public.plain-text",
+                        originalData: Data("Fictional source".utf8), plainText: "Fictional source", renderedPageCount: 1)
+                    let probe = UndoProbe()
+                    undo.beginUndoGrouping()
+                    undo.registerUndo(withTarget: probe) { probe in
+                        probe.value = 0
+                        undo.registerUndo(withTarget: probe) { $0.value = 1 }
+                    }
+                    undo.setActionName("Existing fictional edit")
+                    undo.endUndoGrouping()
+                    if history == "redo" { undo.undo() }
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = .sortedKeys
+                    let beforeWorkspace = try encoder.encode(vm.document.workspace)
+                    let beforeBytes = vm.document.memberPDFData
+                    let beforePayloads = try encoder.encode(vm.document.sourcePayloads)
+                    let beforeOriginals = vm.document.currentOriginalPDFDataProvider?()
+                    let loadedObjects = vm.loadedPDFs.map { ObjectIdentifier($0.1) }
+                    let combinedObject = ObjectIdentifier(vm.combinedPDF)
+                    let beforeCanUndo = undo.canUndo
+                    let beforeCanRedo = undo.canRedo
+                    let beforeUndoName = undo.undoActionName
+                    let beforeRedoName = undo.redoActionName
+
+                    XCTAssertFalse(vm.movePage(sourceRef, after: targetRef))
+
+                    XCTAssertEqual(try encoder.encode(vm.document.workspace), beforeWorkspace)
+                    XCTAssertEqual(vm.document.memberPDFData, beforeBytes)
+                    XCTAssertEqual(try encoder.encode(vm.document.sourcePayloads), beforePayloads)
+                    XCTAssertEqual(vm.document.currentOriginalPDFDataProvider?(), beforeOriginals)
+                    XCTAssertEqual(vm.loadedPDFs.map { ObjectIdentifier($0.1) }, loadedObjects)
+                    XCTAssertEqual(ObjectIdentifier(vm.combinedPDF), combinedObject)
+                    XCTAssertEqual(vm.selectedPageRefID, sourceRef.id)
+                    XCTAssertEqual(vm.selectedPageRefIDs, [sourceRef.id, targetRef.id])
+                    XCTAssertEqual(vm.selectedStampDecorationID, decoration.id)
+                    XCTAssertEqual(undo.canUndo, beforeCanUndo)
+                    XCTAssertEqual(undo.canRedo, beforeCanRedo)
+                    XCTAssertEqual(undo.undoActionName, beforeUndoName)
+                    XCTAssertEqual(undo.redoActionName, beforeRedoName)
+                    XCTAssertEqual(vm.editingStatus?.message, L10n.string("status.pageMove.lastPageAttachments"))
+                    XCTAssertEqual(try AttachmentsService.extract(name, from: XCTUnwrap(vm.document.memberPDFData[source.id])), Data("Source".utf8))
+                    XCTAssertEqual(try AttachmentsService.extract("Target.txt", from: XCTUnwrap(vm.document.memberPDFData[target.id])), Data("Target".utf8))
+                    if history == "redo" {
+                        undo.redo()
+                        XCTAssertEqual(probe.value, 1)
+                    } else {
+                        undo.undo()
+                        XCTAssertEqual(probe.value, 0)
+                    }
+                }
+            }
+        }
+    }
+
+    func testLastSourcePageRefusesUnreadableAttachmentInventoryBeforeSnapshotAndAllowsRetry() throws {
+        let vm = try crossMemberModel(sourcePageCount: 1, includeSourceAttachment: false)
+        let refs = vm.document.workspace.pageOrder
+        let sourceID = refs[0].memberDocId
+        let validSource = try XCTUnwrap(vm.document.memberPDFData[sourceID])
+        vm.document.memberPDFData[sourceID] = Data("invalid attachment inventory".utf8)
+        let beforeBytes = vm.document.memberPDFData
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let beforeWorkspace = try encoder.encode(vm.document.workspace)
+        let loadedObjects = vm.loadedPDFs.map { ObjectIdentifier($0.1) }
+        let combinedObject = ObjectIdentifier(vm.combinedPDF)
+
+        XCTAssertFalse(vm.movePage(refs[0], after: refs[1]))
+
+        XCTAssertEqual(vm.document.memberPDFData, beforeBytes)
+        XCTAssertEqual(try encoder.encode(vm.document.workspace), beforeWorkspace)
+        XCTAssertEqual(vm.loadedPDFs.map { ObjectIdentifier($0.1) }, loadedObjects)
+        XCTAssertEqual(ObjectIdentifier(vm.combinedPDF), combinedObject)
+        XCTAssertFalse(try XCTUnwrap(retainedUndo).canUndo)
+        XCTAssertEqual(vm.editingStatus?.message, L10n.string("status.pageMove.attachmentCheckFailed"))
+        vm.document.memberPDFData[sourceID] = validSource
+        XCTAssertTrue(vm.movePage(refs[0], after: refs[1]))
+        XCTAssertEqual(try AttachmentsService.extract("Target.txt", from: XCTUnwrap(vm.document.memberPDFData[refs[1].memberDocId])), Data("Target".utf8))
+        XCTAssertEqual(try AttachmentsService.extract("Target.txt", from: vm.dataForPDFExport()), Data("Target".utf8))
+    }
+
+    func testLastSourcePageRefusesLoadableUninspectableAttachmentCatalogsBeforeMutation() throws {
+        final class UndoProbe { var value = 1 }
+        for catalog in ["invalid-root-names", "invalid-embedded-files", "invalid-leaf", "invalid-kids", "odd-leaf", "deep-tree", "empty-tree"] {
+            for history in ["undo", "redo"] {
+                let data = try attachmentCatalogFixture(catalog)
+                XCTAssertNotNil(PDFDocument(data: data), catalog)
+                XCTAssertEqual(QPDFService.hasAcroForm(data), false, catalog)
+                XCTAssertEqual(try AttachmentsService.list(in: data), [], "best-effort inventory cannot establish absence: \(catalog)")
+                let vm = try crossMemberModel(sourcePageCount: 1, sourceData: data, includeSourceAttachment: false)
+                let refs = vm.document.workspace.pageOrder
+                let undo = try XCTUnwrap(retainedUndo)
+                undo.groupsByEvent = false
+                vm.selectedPageRefID = refs[0].id
+                vm.selectedPageRefIDs = [refs[0].id, refs[1].id]
+                vm.document.sourcePayloads[refs[0].memberDocId] = SourceDocumentPayload(
+                    format: .plainText, originalFilename: "fictional.txt", originalContentTypeIdentifier: "public.plain-text",
+                    originalData: Data("Fictional source".utf8), plainText: "Fictional source", renderedPageCount: 1)
+                let probe = UndoProbe()
+                undo.beginUndoGrouping()
+                undo.registerUndo(withTarget: probe) { probe in
+                    probe.value = 0
+                    undo.registerUndo(withTarget: probe) { $0.value = 1 }
+                }
+                undo.setActionName("Existing fictional edit")
+                undo.endUndoGrouping()
+                if history == "redo" { undo.undo() }
+                undo.groupsByEvent = true
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = .sortedKeys
+                let beforeWorkspace = try encoder.encode(vm.document.workspace)
+                let beforeBytes = vm.document.memberPDFData
+                let beforePayloads = try encoder.encode(vm.document.sourcePayloads)
+                let loadedObjects = vm.loadedPDFs.map { ObjectIdentifier($0.1) }
+                let combinedObject = ObjectIdentifier(vm.combinedPDF)
+                let beforeHistory = [undo.canUndo, undo.canRedo]
+                let beforeNames = [undo.undoActionName, undo.redoActionName]
+
+                XCTAssertFalse(vm.movePage(refs[0], after: refs[1]), catalog)
+
+                XCTAssertEqual(try encoder.encode(vm.document.workspace), beforeWorkspace, catalog)
+                XCTAssertEqual(vm.document.memberPDFData, beforeBytes, catalog)
+                XCTAssertEqual(try encoder.encode(vm.document.sourcePayloads), beforePayloads, catalog)
+                XCTAssertEqual(vm.loadedPDFs.map { ObjectIdentifier($0.1) }, loadedObjects, catalog)
+                XCTAssertEqual(ObjectIdentifier(vm.combinedPDF), combinedObject, catalog)
+                XCTAssertEqual(vm.selectedPageRefID, refs[0].id, catalog)
+                XCTAssertEqual(vm.selectedPageRefIDs, [refs[0].id, refs[1].id], catalog)
+                XCTAssertEqual([undo.canUndo, undo.canRedo], beforeHistory, catalog)
+                XCTAssertEqual([undo.undoActionName, undo.redoActionName], beforeNames, catalog)
+                let warningKey = catalog == "invalid-root-names"
+                    ? "status.pageMove.attachmentCheckFailed" : "status.pageMove.lastPageAttachments"
+                XCTAssertEqual(vm.editingStatus?.message, L10n.string(forKey: warningKey), catalog)
+                if history == "redo" { undo.redo(); XCTAssertEqual(probe.value, 1, catalog) }
+                else { undo.undo(); XCTAssertEqual(probe.value, 0, catalog) }
+            }
+        }
+    }
+
+    func testLastSourcePageMovesWhenAttachmentCatalogAbsenceIsProven() throws {
+        for catalog in ["absent-names", "empty-names", "unrelated-names"] {
+            let vm = try crossMemberModel(sourcePageCount: 1,
+                sourceData: attachmentCatalogFixture(catalog), includeSourceAttachment: false)
+            let refs = vm.document.workspace.pageOrder
+            XCTAssertTrue(vm.movePage(refs[0], after: refs[1]), catalog)
+            XCTAssertEqual(vm.document.workspace.documents.count, 1, catalog)
+            XCTAssertEqual(try AttachmentsService.extract("Target.txt", from: vm.dataForPDFExport()), Data("Target".utf8), catalog)
         }
     }
 
@@ -429,7 +599,40 @@ final class StructuralCatalogPreservationTests: XCTestCase {
             + "\ntrailer<</Root 1 0 R/Size \(fieldID + 1)>>\n%%EOF").utf8)))
     }
 
-    private func crossMemberModel(sourcePageCount: Int, sourceData: Data? = nil, targetData: Data? = nil) throws -> WorkspaceViewModel {
+    private func attachmentCatalogFixture(_ catalog: String) throws -> Data {
+        let rootNames: String
+        switch catalog {
+        case "absent-names": rootNames = ""
+        case "empty-names": rootNames = "/Names << >>"
+        case "unrelated-names": rootNames = "/Names << /Dests << /Names [] >> >>"
+        case "invalid-root-names": rootNames = "/Names 4 0 R"
+        default: rootNames = "/Names << /EmbeddedFiles 4 0 R >>"
+        }
+        var objects = [
+            "1 0 obj << /Type /Catalog /Pages 2 0 R \(rootNames) >> endobj",
+            "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+            "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >> endobj"
+        ]
+        switch catalog {
+        case "invalid-root-names", "invalid-embedded-files": objects.append("4 0 obj (uninspectable) endobj")
+        case "invalid-leaf": objects.append("4 0 obj << /Names (uninspectable) >> endobj")
+        case "invalid-kids": objects.append("4 0 obj << /Kids (uninspectable) >> endobj")
+        case "odd-leaf": objects.append("4 0 obj << /Names [(orphan)] >> endobj")
+        case "deep-tree":
+            for index in 4..<68 { objects.append("\(index) 0 obj << /Kids [\(index + 1) 0 R] >> endobj") }
+            objects.append("68 0 obj << /Names [(Deep.txt) 69 0 R] >> endobj")
+            objects.append("69 0 obj << /Type /Filespec /F (Deep.txt) /EF << /F 70 0 R >> >> endobj")
+            objects.append("70 0 obj << /Type /EmbeddedFile /Length 9 >> stream\nFictional\nendstream endobj")
+        case "empty-tree": objects.append("4 0 obj << /Names [] >> endobj")
+        default: break
+        }
+        let raw = Data(("%PDF-1.4\n" + objects.joined(separator: "\n")
+            + "\ntrailer << /Root 1 0 R /Size 71 >>\n%%EOF").utf8)
+        return try XCTUnwrap(QPDFService.repaired(raw))
+    }
+
+    private func crossMemberModel(sourcePageCount: Int, sourceData: Data? = nil, targetData: Data? = nil,
+                                  includeSourceAttachment: Bool = true, sourceAttachmentName: String = "Source.txt") throws -> WorkspaceViewModel {
         let document = WorkspaceDocument()
         for (role, count) in [("Source", sourcePageCount), ("Target", 3)] {
             let data = try PDFMetadataService.write(PDFDocumentMetadata(title: role),
@@ -439,8 +642,9 @@ final class StructuralCatalogPreservationTests: XCTestCase {
             member.pageRefs = refs.map(\.id)
             document.workspace.documents.append(member)
             document.workspace.pageOrder.append(contentsOf: refs)
-            document.memberPDFData[member.id] = try AttachmentsService.add(Data(role.utf8),
-                name: "\(role).txt", mimeType: "text/plain", to: data)
+            document.memberPDFData[member.id] = role == "Source" && !includeSourceAttachment ? data
+                : try AttachmentsService.add(Data(role.utf8),
+                    name: role == "Source" ? sourceAttachmentName : "Target.txt", mimeType: "text/plain", to: data)
         }
         let vm = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
         let undo = UndoManager()

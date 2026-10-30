@@ -10666,6 +10666,26 @@ final class WorkspaceViewModel {
               let sourceBytes = document.memberPDFData[ref.memberDocId],
               let targetBytes = document.memberPDFData[targetRef.memberDocId] else { return false }
 
+        // Cross-member rebasing adopts baked bytes for both whole members. Retained text
+        // operations would then lose their pristine original, including on stationary siblings.
+        guard !memberHasTextEdits(ref.memberDocId), !memberHasTextEdits(targetRef.memberDocId) else {
+            showEditMessage(L10n.string("status.pageMove.committedTextEdits"), severity: .warning)
+            return false
+        }
+
+        // The source catalog is removed with its last page. Only proven attachment-catalog
+        // absence is safe; a best-effort inventory can omit malformed or deep trees.
+        if sourceLookup.pdf.pageCount == 1 {
+            guard let catalogIsAbsent = AttachmentsService.attachmentCatalogIsAbsent(in: sourceBytes) else {
+                showEditMessage(L10n.string("status.pageMove.attachmentCheckFailed"), severity: .warning)
+                return false
+            }
+            guard catalogIsAbsent else {
+                showEditMessage(L10n.string("status.pageMove.lastPageAttachments"), severity: .warning)
+                return false
+            }
+        }
+
         // PDFKit cross-document insertion cannot retain a valid field graph. Refuse before
         // even capturing a snapshot (which reconciles live values), including forms on pages
         // that stay behind and newly added widgets not yet present in the canonical bytes.
