@@ -394,6 +394,189 @@ final class StructuralOpsEditConsistencyTests: XCTestCase {
         XCTAssertFalse(after.contains("MemberB"), "the moved page's content must not be replaced by a target-member page")
     }
 
+    func testCrossMemberMoveRefusesTextEditsOnMovedOrStationaryInvolvedPagesWithoutChangingStateOrUndo() throws {
+        final class UndoProbe { var value = 1 }
+        for editedIndex in [0, 1, 3] {
+            for history in ["undo", "redo"] {
+                let (vm, undo) = try crossMemberTextModel()
+                let refs = vm.document.workspace.pageOrder
+                try applyCrossMemberTextEdit(vm, ref: refs[editedIndex])
+                undo.removeAllActions()
+                vm.selectedPageRefID = refs[editedIndex].id
+                vm.selectedPageRefIDs = [refs[0].id, refs[editedIndex].id]
+                let probe = UndoProbe()
+                undo.beginUndoGrouping()
+                undo.registerUndo(withTarget: probe) { probe in
+                    probe.value = 0
+                    undo.registerUndo(withTarget: probe) { $0.value = 1 }
+                }
+                undo.setActionName("Existing fictional edit")
+                undo.endUndoGrouping()
+                if history == "redo" { undo.undo() }
+                undo.groupsByEvent = true
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = .sortedKeys
+                let beforeWorkspace = try encoder.encode(vm.document.workspace)
+                let beforeBytes = vm.document.memberPDFData
+                let beforePristine = vm.document.currentOriginalPDFDataProvider?()
+                let beforePayloads = try encoder.encode(vm.document.sourcePayloads)
+                let loadedObjects = vm.loadedPDFs.map { ObjectIdentifier($0.1) }
+                let combinedObject = ObjectIdentifier(vm.combinedPDF)
+                let beforeHistory = [undo.canUndo, undo.canRedo]
+                let beforeNames = [undo.undoActionName, undo.redoActionName]
+
+                XCTAssertFalse(vm.movePage(refs[0], after: refs[2]))
+
+                XCTAssertEqual(try encoder.encode(vm.document.workspace), beforeWorkspace)
+                XCTAssertEqual(vm.document.memberPDFData, beforeBytes)
+                XCTAssertEqual(vm.document.currentOriginalPDFDataProvider?(), beforePristine)
+                XCTAssertEqual(try encoder.encode(vm.document.sourcePayloads), beforePayloads)
+                XCTAssertEqual(vm.loadedPDFs.map { ObjectIdentifier($0.1) }, loadedObjects)
+                XCTAssertEqual(ObjectIdentifier(vm.combinedPDF), combinedObject)
+                XCTAssertEqual(vm.selectedPageRefID, refs[editedIndex].id)
+                XCTAssertEqual(vm.selectedPageRefIDs, [refs[0].id, refs[editedIndex].id])
+                XCTAssertEqual([undo.canUndo, undo.canRedo], beforeHistory)
+                XCTAssertEqual([undo.undoActionName, undo.redoActionName], beforeNames)
+                XCTAssertEqual(vm.editingStatus?.message, L10n.string("status.pageMove.committedTextEdits"))
+                if history == "redo" { undo.redo(); XCTAssertEqual(probe.value, 1) }
+                else { undo.undo(); XCTAssertEqual(probe.value, 0) }
+            }
+        }
+    }
+
+    func testRefusedCrossMemberMoveKeepsRevertOneAndAllHonestIncludingEditableReopen() throws {
+        for reopen in [false, true] {
+            for revertAll in [false, true] {
+                var (vm, undo) = try crossMemberTextModel()
+                let refs = vm.document.workspace.pageOrder
+                let edited = refs[1]
+                let original = try XCTUnwrap(vm.document.memberPDFData[edited.memberDocId])
+                let originalPixels = try pagePixels(original, pageIndex: 1)
+                try applyCrossMemberTextEdit(vm, ref: edited)
+                let editedBytes = try XCTUnwrap(vm.document.memberPDFData[edited.memberDocId])
+                XCTAssertNotEqual(try pagePixels(editedBytes, pageIndex: 1), originalPixels, "pixel control must detect the visible replacement")
+                XCTAssertTrue(PDFTextAnalysisEngine.readingOrderText(data: editedBytes, pageIndex: 1).contains("Fictional replacement"))
+                if reopen {
+                    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Orifold-text-move-\(UUID())")
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                    defer { try? FileManager.default.removeItem(at: directory) }
+                    let saved = try vm.document.savedFileWrapper(from: vm.document.snapshot(contentType: .pdf))
+                    let document = try WorkspaceDocument(testingFile: saved, contentType: .pdf,
+                        fingerprintStore: WorkspaceFingerprintStore(directory: directory))
+                    vm = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+                    undo = UndoManager()
+                    vm.undoManager = undo
+                }
+                undo.groupsByEvent = true
+                let operation = try XCTUnwrap(vm.document.workspace.pageEditStates.first?.operations.first)
+                XCTAssertFalse(vm.movePage(try XCTUnwrap(vm.workspacePageRef(refs[0].id)),
+                    after: try XCTUnwrap(vm.workspacePageRef(refs[2].id))))
+                if revertAll { XCTAssertTrue(vm.revertAllInlineTextEdits()) }
+                else { XCTAssertTrue(vm.revertInlineTextEdit(pageRefID: edited.id, operationID: operation.id)) }
+                XCTAssertFalse(vm.hasInlineTextEdits)
+                let reverted = try XCTUnwrap(vm.document.memberPDFData[edited.memberDocId])
+                let member = try XCTUnwrap(vm.document.workspace.documents.first { $0.id == edited.memberDocId })
+                let revertedIndex = try XCTUnwrap(member.pageRefs.firstIndex(of: edited.id))
+                let text = PDFTextAnalysisEngine.readingOrderText(data: reverted, pageIndex: revertedIndex)
+                XCTAssertFalse(text.contains("Fictional replacement"))
+                XCTAssertTrue(text.contains("Source page 1"))
+                XCTAssertEqual(try pagePixels(reverted, pageIndex: revertedIndex), originalPixels)
+            }
+        }
+    }
+
+    func testCrossMemberMoveKeepsTextEditsInUntouchedThirdMemberReversible() throws {
+        let (vm, undo) = try crossMemberTextModel(includeThird: true)
+        let refs = vm.document.workspace.pageOrder
+        let edited = refs[4]
+        let originalPixels = try pagePixels(XCTUnwrap(vm.document.memberPDFData[edited.memberDocId]), pageIndex: 0)
+        try applyCrossMemberTextEdit(vm, ref: edited)
+        let thirdBytes = vm.document.memberPDFData[edited.memberDocId]
+        let thirdOps = vm.document.workspace.pageEditStates
+        undo.groupsByEvent = true
+        XCTAssertTrue(vm.movePage(refs[0], after: refs[2]))
+        XCTAssertEqual(vm.document.memberPDFData[edited.memberDocId], thirdBytes)
+        XCTAssertEqual(vm.document.workspace.pageEditStates, thirdOps)
+        XCTAssertTrue(vm.revertAllInlineTextEdits())
+        let reverted = try XCTUnwrap(vm.document.memberPDFData[edited.memberDocId])
+        XCTAssertFalse(PDFTextAnalysisEngine.readingOrderText(data: reverted, pageIndex: 0).contains("Fictional replacement"))
+        XCTAssertEqual(try pagePixels(reverted, pageIndex: 0), originalPixels)
+    }
+
+    func testCrossMemberMoveStillAllowsObjectOnlyEditsInEitherInvolvedMember() throws {
+        for editedIndex in [0, 3] {
+            let (vm, undo) = try crossMemberTextModel()
+            let refs = vm.document.workspace.pageOrder
+            let edited = refs[editedIndex]
+            let object = try XCTUnwrap(vm.objectMap(for: edited).objects.first {
+                $0.objectType == .rectangle || $0.objectType == .filledShape
+            })
+            var transform = object.transform
+            transform.e += 20
+            XCTAssertTrue(vm.applyObjectEdit([ObjectEditOperation(
+                type: .objectTransform, documentID: edited.memberDocId, pageRefID: edited.id,
+                sourceObjectKey: object.stableKey, objectType: object.objectType, editability: object.editability,
+                originalBoundsPdf: object.boundsPdf, newBoundsPdf: object.boundsPdf.offsetBy(dx: 20, dy: 0),
+                originalTransform: object.transform, newTransform: transform, pageRotation: Int(object.pageRotation),
+                originalZIndex: object.zOrder, newZIndex: object.zOrder, replacementStrategy: .pdfiumStructural
+            )]))
+            XCTAssertFalse(vm.hasInlineTextEdits)
+            undo.groupsByEvent = true
+            XCTAssertTrue(vm.movePage(refs[0], after: refs[2]))
+            let movedRef = try XCTUnwrap(vm.workspacePageRef(edited.id))
+            XCTAssertTrue(vm.objectMap(for: movedRef).objects.contains {
+                abs($0.boundsPdf.minX - (object.boundsPdf.minX + 20)) < 2 && $0.objectType == object.objectType
+            })
+        }
+    }
+
+    private func crossMemberTextModel(includeThird: Bool = false) throws -> (WorkspaceViewModel, UndoManager) {
+        let document = WorkspaceDocument()
+        for name in includeThird ? ["Source", "Target", "Third"] : ["Source", "Target"] {
+            let pdf = PDFDocument()
+            for index in 0..<2 {
+                let data = EditingFixturePDFBuilder.makePDF(runs: [
+                    .init(string: "\(name) page \(index)", origin: CGPoint(x: 72, y: 700), fontSize: 18)
+                ], rules: [.init(rect: CGRect(x: 100, y: 200, width: 100, height: 50))])
+                pdf.insert(try XCTUnwrap(PDFDocument(data: data)?.page(at: 0)), at: index)
+            }
+            var member = MemberDocument(displayName: name, sourcePDFRef: "\(name).pdf")
+            let refs = (0..<2).map { PageRef(memberDocId: member.id, sourcePageIndex: $0) }
+            member.pageRefs = refs.map(\.id)
+            document.workspace.documents.append(member)
+            document.workspace.pageOrder += refs
+            document.memberPDFData[member.id] = try XCTUnwrap(PDFSerializer.data(from: pdf))
+        }
+        let vm = WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine())
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        vm.undoManager = undo
+        return (vm, undo)
+    }
+
+    private func applyCrossMemberTextEdit(_ vm: WorkspaceViewModel, ref: PageRef) throws {
+        let member = try XCTUnwrap(vm.loadedPDFs.first { $0.0.id == ref.memberDocId })
+        let index = try XCTUnwrap(member.0.pageRefs.firstIndex(of: ref.id))
+        let page = try XCTUnwrap(member.1.page(at: index))
+        let data = try XCTUnwrap(vm.document.memberPDFData[ref.memberDocId])
+        let block = try XCTUnwrap(PDFTextAnalysisEngine().analyze(data: data, pageIndex: index,
+            pageRefID: ref.id, fallbackPage: page).blocks.first)
+        XCTAssertTrue(vm.applyInlineTextEdit(pageRef: ref, sourceBlock: block,
+            replacementText: "Fictional replacement", editedBounds: block.bounds,
+            fontName: block.fontName, fontSize: block.fontSize, textColor: .black, alignment: .left))
+    }
+
+    private func pagePixels(_ data: Data, pageIndex: Int) throws -> Data {
+        let document = try XCTUnwrap(CGPDFDocument(XCTUnwrap(CGDataProvider(data: data as CFData))))
+        let page = try XCTUnwrap(document.page(at: pageIndex + 1))
+        let context = try XCTUnwrap(CGContext(data: nil, width: 612, height: 792,
+            bitsPerComponent: 8, bytesPerRow: 612, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: 0))
+        context.setFillColor(gray: 1, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: 612, height: 792))
+        context.drawPDFPage(page)
+        return Data(bytes: try XCTUnwrap(context.data), count: context.bytesPerRow * context.height)
+    }
+
     /// Redo works for order-snapshot operations: delete → undo → redo must re-delete.
     func testDeletePageUndoThenRedoRedeletes() throws {
         let pdfData = try makePDFData(pageTexts: ["Page one text", "Page two text"])

@@ -981,6 +981,114 @@ final class ObjectEditWorkspaceTests: XCTestCase {
         XCTAssertNil(vm.objectSelection, "bulk-rotating the selected object's page must clear it")
     }
 
+    func testRemovingObjectEditedMemberClearsOCRGateAndUndoRedoRestoresExactStateAfterReopen() throws {
+        for reopens in [false, true] {
+            var vm = try makeMemberRemovalViewModel(count: 2)
+            let initial = try XCTUnwrap(vm.document.workspace.pageOrder.first)
+            let beforeEdit = try XCTUnwrap(vm.document.memberPDFData[initial.memberDocId])
+            try commitRemovalFixtureShapeMove(vm, ref: initial)
+            XCTAssertNotEqual(vm.document.memberPDFData[initial.memberDocId], beforeEdit)
+            if reopens { vm = try reopenMemberRemovalViewModel(vm) }
+            let member = try XCTUnwrap(vm.document.workspace.documents.first)
+            let survivor = try XCTUnwrap(vm.document.workspace.documents.last)
+            let order = vm.document.workspace.pageOrder.map(\.id)
+            let editedStates = vm.document.workspace.objectEditStates
+            XCTAssertFalse(editedStates.isEmpty)
+            let editedBytes = try XCTUnwrap(vm.document.memberPDFData[member.id])
+            let survivorBytes = try XCTUnwrap(vm.document.memberPDFData[survivor.id])
+            XCTAssertTrue(vm.hasCommittedEditsBlockingOCR)
+            let undo = try XCTUnwrap(vm.undoManager)
+            undo.removeAllActions()
+            undo.beginUndoGrouping()
+            vm.removeDocument(member)
+            undo.endUndoGrouping()
+            XCTAssertEqual(vm.document.workspace.documents.map(\.id), [survivor.id])
+            XCTAssertTrue(vm.document.workspace.objectEditStates.isEmpty)
+            XCTAssertFalse(vm.hasCommittedEditsBlockingOCR)
+            XCTAssertEqual(vm.document.memberPDFData[survivor.id], survivorBytes)
+            undo.undo()
+            XCTAssertEqual(vm.document.workspace.pageOrder.map(\.id), order)
+            XCTAssertEqual(vm.document.workspace.objectEditStates, editedStates)
+            XCTAssertEqual(vm.document.memberPDFData[member.id], editedBytes)
+            XCTAssertEqual(vm.document.memberPDFData[survivor.id], survivorBytes)
+            XCTAssertTrue(vm.hasCommittedEditsBlockingOCR)
+            undo.redo()
+            XCTAssertEqual(vm.document.workspace.documents.map(\.id), [survivor.id])
+            XCTAssertTrue(vm.document.workspace.objectEditStates.isEmpty)
+            XCTAssertFalse(vm.hasCommittedEditsBlockingOCR)
+            XCTAssertEqual(vm.document.memberPDFData[survivor.id], survivorBytes)
+        }
+    }
+
+    func testRemovingMultipleMembersKeepsSurvivingObjectOperationsThroughUndoRedoAndReopen() throws {
+        var vm = try makeMemberRemovalViewModel(count: 3)
+        let refs = vm.document.workspace.pageOrder
+        try commitRemovalFixtureShapeMove(vm, ref: refs[0])
+        try commitRemovalFixtureShapeMove(vm, ref: refs[2])
+        vm = try reopenMemberRemovalViewModel(vm)
+        let members = vm.document.workspace.documents
+        let allStates = vm.document.workspace.objectEditStates
+        let survivor = members[2]
+        let survivorStates = allStates.filter { survivor.pageRefs.contains($0.pageRefID) }
+        XCTAssertEqual(survivorStates.count, 1)
+        let allBytes = vm.document.memberPDFData
+        let undo = try XCTUnwrap(vm.undoManager)
+        undo.removeAllActions()
+        undo.beginUndoGrouping()
+        vm.removeDocument(at: IndexSet(integersIn: 0..<2))
+        undo.endUndoGrouping()
+        XCTAssertEqual(vm.document.workspace.documents.map(\.id), [survivor.id])
+        XCTAssertEqual(vm.document.workspace.objectEditStates, survivorStates)
+        XCTAssertEqual(vm.document.memberPDFData[survivor.id], allBytes[survivor.id])
+        XCTAssertTrue(vm.hasCommittedEditsBlockingOCR, "surviving committed operations still block OCR")
+        undo.undo()
+        XCTAssertEqual(vm.document.workspace.documents.map(\.id), members.map(\.id))
+        XCTAssertEqual(vm.document.workspace.documents.map(\.pageRefs), members.map(\.pageRefs))
+        XCTAssertEqual(vm.document.workspace.objectEditStates, allStates)
+        XCTAssertEqual(vm.document.memberPDFData, allBytes)
+        undo.redo()
+        XCTAssertEqual(vm.document.workspace.documents.map(\.id), [survivor.id])
+        XCTAssertEqual(vm.document.workspace.objectEditStates, survivorStates)
+        XCTAssertEqual(vm.document.memberPDFData[survivor.id], allBytes[survivor.id])
+        XCTAssertTrue(vm.hasCommittedEditsBlockingOCR)
+    }
+
+    private func makeMemberRemovalViewModel(count: Int) throws -> WorkspaceViewModel {
+        let document = WorkspaceDocument()
+        for index in 0..<count {
+            var member = MemberDocument(displayName: "Fixture \(index)", sourcePDFRef: "fixture-\(index).pdf")
+            let ref = PageRef(memberDocId: member.id, sourcePageIndex: 0)
+            member.pageRefs = [ref.id]
+            document.workspace.documents.append(member)
+            document.workspace.pageOrder.append(ref)
+            document.memberPDFData[member.id] = makeFixture()
+        }
+        return attachRemovalUndo(WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine()))
+    }
+
+    private func reopenMemberRemovalViewModel(_ vm: WorkspaceViewModel) throws -> WorkspaceViewModel {
+        let wrapper = try vm.document.savedFileWrapper(from: vm.document.snapshot(contentType: .pdf))
+        let document = try WorkspaceDocument(testingFile: wrapper, contentType: .pdf)
+        return attachRemovalUndo(WorkspaceViewModel(document: document, processingEngine: PDFiumProcessingEngine()))
+    }
+
+    private func attachRemovalUndo(_ vm: WorkspaceViewModel) -> WorkspaceViewModel {
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        retainedUndoManager = undo
+        vm.undoManager = undo
+        return vm
+    }
+
+    private func commitRemovalFixtureShapeMove(_ vm: WorkspaceViewModel, ref: PageRef) throws {
+        let point = CGPoint(x: deleteRect.midX, y: deleteRect.midY)
+        let hit = try XCTUnwrap(vm.objectHit(at: point, on: ref, scaleFactor: 1))
+        XCTAssertTrue(hit.objectType == .rectangle || hit.objectType == .filledShape)
+        vm.selectObject(hit, on: ref)
+        let result = vm.commitObjectBoundsChange(from: hit.boundsPdf, to: hit.boundsPdf.offsetBy(dx: 30, dy: 0))
+        XCTAssertTrue(result.didApply)
+    }
+
     // Regression (UI-bug loop, deeper root cause): OrderSnapshot — the undo mechanism shared by
     // delete/duplicate/reorder/OCR/form-reset — didn't carry objectEditStates/objectBaseData, only
     // pageEditStates. So deleting a page that had committed object edits, then undoing, restored

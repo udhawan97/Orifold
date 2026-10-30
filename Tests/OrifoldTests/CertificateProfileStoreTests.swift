@@ -1,3 +1,4 @@
+import Security
 import XCTest
 @testable import Orifold
 
@@ -7,14 +8,21 @@ import XCTest
 // regenerated, across resolves and across store instances (i.e. across app launches).
 @MainActor
 final class CertificateProfileStoreTests: XCTestCase {
+    private var signingKeychain: SecKeychain!
+
+    override func setUpWithError() throws {
+        signingKeychain = try makeDisposableSigningKeychain()
+    }
+
     private func makeTempStore() -> CertificateProfileStore {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("cert-profiles-\(UUID().uuidString).json")
-        return CertificateProfileStore(storeURL: url)
+        return CertificateProfileStore(storeURL: url, keychain: signingKeychain)
     }
 
     private func makeSelfSignedIdentity(commonName: String = "Test Signer") throws -> SecuritySigningIdentity {
         try SelfSignedSigningIdentityProvider.generate(
-            request: SelfSignedIdentityRequest(commonName: "\(commonName) \(UUID().uuidString)")
+            request: SelfSignedIdentityRequest(commonName: "\(commonName) \(UUID().uuidString)"),
+            keychain: signingKeychain
         )
     }
 
@@ -22,15 +30,23 @@ final class CertificateProfileStoreTests: XCTestCase {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("cert-profiles-\(UUID().uuidString).json")
         let identity = try makeSelfSignedIdentity()
 
-        let store1 = CertificateProfileStore(storeURL: url)
+        let store1 = CertificateProfileStore(storeURL: url, keychain: signingKeychain)
         let profile = try store1.register(identity: identity, label: "My self-signed ID", source: .selfSignedGenerated)
         XCTAssertEqual(store1.profiles.count, 1)
 
         // A fresh store instance loading from the same file must see the same profile — this
         // is what makes "create once, reuse forever" actually work across app launches.
-        let store2 = CertificateProfileStore(storeURL: url)
+        let store2 = CertificateProfileStore(storeURL: url, keychain: signingKeychain)
         XCTAssertEqual(store2.profiles.map(\.id), [profile.id])
         XCTAssertEqual(store2.profiles.first?.sha256Fingerprint, profile.sha256Fingerprint)
+        let reloadedProfile = try XCTUnwrap(store2.profiles.first)
+        let reloadedIdentity = try store2.resolveIdentity(for: reloadedProfile)
+        XCTAssertEqual(reloadedIdentity.certificate, identity.certificate)
+        let payload = Data("reloaded signing profile".utf8)
+        let signature = try reloadedIdentity.sign(payload)
+        let publicKey = try XCTUnwrap(SecCertificateCopyKey(identity.secCertificate))
+        XCTAssertTrue(SecKeyVerifySignature(publicKey, .ecdsaSignatureMessageX962SHA256,
+                                           payload as CFData, signature as CFData, nil))
 
         try? FileManager.default.removeItem(at: url)
     }
@@ -39,7 +55,6 @@ final class CertificateProfileStoreTests: XCTestCase {
         let store = makeTempStore()
         let identity = try makeSelfSignedIdentity()
         let profile = try store.register(identity: identity, label: "Reusable ID", source: .selfSignedGenerated)
-
         let resolvedOnce = try store.resolveIdentity(for: profile)
         let resolvedTwice = try store.resolveIdentity(for: profile)
 
@@ -68,6 +83,7 @@ final class CertificateProfileStoreTests: XCTestCase {
         let store = makeTempStore()
         let identity = try makeSelfSignedIdentity()
         let profile = try store.register(identity: identity, label: "To delete", source: .selfSignedGenerated)
+        XCTAssertEqual(try store.resolveIdentity(for: profile).certificate, identity.certificate)
 
         store.remove(id: profile.id)
 

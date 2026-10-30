@@ -75,6 +75,9 @@ struct SourceDocumentPayload: Codable, Equatable {
     var richTextRTFData: Data?
     var plainText: String?
     var renderedPageCount: Int?
+    /// Replay indexes track the current PDF layout, so they cannot prove that original
+    /// source bytes still represent its page order. nil preserves legacy unchanged imports.
+    var sourceLayoutChanged: Bool?
 
     var originalString: String? {
         plainText ?? String(data: originalData, encoding: .utf8)

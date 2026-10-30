@@ -271,7 +271,8 @@ enum WorkspaceOperationalCopy {
 /// documents: `PDFDocument` is not `Sendable`, `Data` is.
 struct BakedExportPayload: Sendable {
     let baked: BakedPDFData
-    let outline: [PDFOutlineReader.OutlineNode]
+    /// nil skips a rewrite; an explicitly empty list clears existing source bookmarks.
+    let outline: [PDFOutlineReader.OutlineNode]?
     let attachments: [WorkspaceViewModel.CollectedAttachment]
 }
 
@@ -1769,6 +1770,7 @@ final class WorkspaceViewModel {
             .flatMap(\.pageRefs))
         document.workspace.documents.removeAll { removedIds.contains($0.id) }
         document.workspace.pageEditStates.removeAll { removedPageRefIDs.contains($0.pageRefID) }
+        document.workspace.objectEditStates.removeAll { removedPageRefIDs.contains($0.pageRefID) }
         clearCommentAnchors(forRemovedPageRefIDs: removedPageRefIDs)
         removeSignaturePlacements(forRemovedPageRefIDs: removedPageRefIDs)
         removeDecorations(forRemovedPageRefIDs: removedPageRefIDs)
@@ -2616,6 +2618,20 @@ final class WorkspaceViewModel {
         let annotationID: String
     }
 
+    private struct AnnotationDeletionState {
+        let signature: SignaturePlacement?
+        let signatureIndex: Int?
+        let signingIdentity: (any SigningIdentity)?
+    }
+
+    func ownsAnnotation(_ annotation: PDFAnnotation) -> Bool {
+        guard let page = annotation.page,
+              page.annotations.contains(where: { $0 === annotation }) else { return false }
+        return loadedPDFs.contains { _, pdf in
+            (0..<pdf.pageCount).contains { pdf.page(at: $0) === page }
+        }
+    }
+
     /// PDFKit objects are replaced by replay and order undo. Only a persisted annotation
     /// identity together with a stable PageRef may cross that boundary in an undo closure.
     private func annotationUndoTarget(for annotation: PDFAnnotation) -> AnnotationUndoTarget? {
@@ -2658,8 +2674,24 @@ final class WorkspaceViewModel {
                                   actionName: L10n.string("undo.removeNote"))
     }
 
+    private func annotationUndoCopy(_ annotation: PDFAnnotation, target: AnnotationUndoTarget,
+                                    signature: SignaturePlacement?) -> PDFAnnotation? {
+        let copy: PDFAnnotation
+        if let signature {
+            guard let image = NSImage(data: signature.imageData) else { return nil }
+            copy = SignatureImageAnnotation(bounds: annotation.bounds, image: image, placementID: signature.id)
+            PDFAnnotationEditSnapshot(annotation: annotation).restore(to: copy)
+        } else {
+            guard let annotationCopy = annotation.copy() as? PDFAnnotation else { return nil }
+            copy = annotationCopy
+        }
+        copy.setValue(target.annotationID, forAnnotationKey: Self.annotationIdentityKey)
+        return copy
+    }
+
     private func restoreAnnotationPresence(_ target: AnnotationUndoTarget, template: PDFAnnotation,
-                                           present: Bool, actionName: String) {
+                                           present: Bool, actionName: String,
+                                           deletionState: AnnotationDeletionState? = nil) {
         guard let page = annotationUndoPage(target) else {
             showAnnotationUndoTargetMissing()
             return
@@ -2667,20 +2699,36 @@ final class WorkspaceViewModel {
         let matches = annotationUndoMatches(target, on: page)
         let inverseTemplate: PDFAnnotation
         if present {
-            guard matches.isEmpty, let copy = template.copy() as? PDFAnnotation else {
+            guard matches.isEmpty,
+                  let copy = annotationUndoCopy(template, target: target, signature: deletionState?.signature) else {
                 showAnnotationUndoTargetMissing()
                 return
             }
             page.addAnnotation(copy)
+            if let deletionState {
+                selectedAnnotation = copy
+                selectedStampDecorationID = nil
+                if let signature = deletionState.signature {
+                    document.workspace.signatures.removeAll { $0.id == signature.id }
+                    let index = min(deletionState.signatureIndex ?? document.workspace.signatures.count,
+                                    document.workspace.signatures.count)
+                    document.workspace.signatures.insert(signature, at: index)
+                    signingIdentitiesByPlacementID[signature.id] = deletionState.signingIdentity
+                }
+            }
             inverseTemplate = template
         } else {
             guard matches.count == 1, let annotation = matches.first,
-                  let copy = annotation.copy() as? PDFAnnotation else {
+                  let copy = annotationUndoCopy(annotation, target: target, signature: deletionState?.signature) else {
                 showAnnotationUndoTargetMissing()
                 return
             }
             inverseTemplate = copy
             page.removeAnnotation(annotation)
+            if let signature = deletionState?.signature {
+                document.workspace.signatures.removeAll { $0.id == signature.id }
+                signingIdentitiesByPlacementID.removeValue(forKey: signature.id)
+            }
             let selectedAnnotationID = selectedAnnotation?
                 .value(forAnnotationKey: Self.annotationIdentityKey) as? String
             if selectedAnnotation === annotation
@@ -2691,7 +2739,8 @@ final class WorkspaceViewModel {
         markAnnotationsModified()
         undoManager?.registerUndo(withTarget: self) { vm in
             guard vm.canPerformUndoMutation() else { return }
-            vm.restoreAnnotationPresence(target, template: inverseTemplate, present: !present, actionName: actionName)
+            vm.restoreAnnotationPresence(target, template: inverseTemplate, present: !present,
+                                         actionName: actionName, deletionState: deletionState)
         }
         undoManager?.setActionName(actionName)
     }
@@ -2719,7 +2768,7 @@ final class WorkspaceViewModel {
     func registerAnnotationEdit(_ annotation: PDFAnnotation,
                                 from oldSnapshot: PDFAnnotationEditSnapshot,
                                 actionName: String) {
-        guard canPerformMutatingAction() else { return }
+        guard canPerformMutatingAction(), ownsAnnotation(annotation) else { return }
         guard let target = annotationUndoTarget(for: annotation) else {
             markAnnotationsModified()
             showAnnotationUndoTargetMissing()
@@ -3015,9 +3064,9 @@ final class WorkspaceViewModel {
         let field = formSummary.fields[next]
         if let ref = document.workspace.pageOrder.first(where: { $0.id == field.pageRefID }),
            let pageIndex = combinedPageIndex(for: ref) {
-            NotificationCenter.default.post(
-                name: .orifoldJumpToFormField,
-                object: PDFFormFieldNavigationTarget(
+            NotificationCenter.default.postWorkspaceCommand(
+                .orifoldJumpToFormField, to: self,
+                payload: PDFFormFieldNavigationTarget(
                     pageIndex: pageIndex,
                     bounds: field.bounds,
                     fieldType: field.fieldType
@@ -4180,7 +4229,7 @@ final class WorkspaceViewModel {
             selectedPageRefIDs = [ref.id]
         }
         if let pageIndex = combinedPageIndex(for: ref) {
-            NotificationCenter.default.post(name: .orifoldJumpToPageIndex, object: pageIndex)
+            NotificationCenter.default.postWorkspaceCommand(.orifoldJumpToPageIndex, to: self, payload: pageIndex)
         }
     }
 
@@ -5351,6 +5400,12 @@ final class WorkspaceViewModel {
         document.memberPDFData[memberID] = preparedLive
         originalMemberPDFData[memberID] = pristine
         objectBaseData[memberID] = objectBase
+        // Preserve source eligibility independently of the replay indexes reset below.
+        // Only mark after every byte lane prepared successfully; order Undo restores the
+        // payload with its original marker and exact source bytes as one snapshot.
+        if indexes != Array(member.pageRefs.indices) {
+            document.sourcePayloads[memberID]?.sourceLayoutChanged = true
+        }
         for (localIndex, refID) in member.pageRefs.enumerated() {
             if let orderIndex = document.workspace.pageOrder.firstIndex(where: { $0.id == refID }) {
                 document.workspace.pageOrder[orderIndex].sourcePageIndex = localIndex
@@ -5820,32 +5875,34 @@ final class WorkspaceViewModel {
             deleteSelectedStampDecoration()
             return
         }
-        guard let ann = selectedAnnotation, let page = ann.page else {
+        guard let ann = selectedAnnotation else {
             showEditWarning(.annotationCreationFailed)
             return
         }
-        let removedSignature = signaturePlacement(for: ann)
-        let removedIdentity = removedSignature.flatMap { signingIdentitiesByPlacementID[$0.id] }
-        page.removeAnnotation(ann)
-        if let removedSignature {
-            document.workspace.signatures.removeAll { $0.id == removedSignature.id }
-            signingIdentitiesByPlacementID.removeValue(forKey: removedSignature.id)
+        // A stale or foreign selection must never mutate another workspace's live page.
+        guard ownsAnnotation(ann) else {
+            selectedAnnotation = nil
+            return
         }
-        selectedAnnotation = nil
+        guard let target = annotationUndoTarget(for: ann) else {
+            showAnnotationUndoTargetMissing()
+            return
+        }
+        let signature = signaturePlacement(for: ann)
+        let deletionState = AnnotationDeletionState(
+            signature: signature,
+            signatureIndex: signature.flatMap { placement in
+                document.workspace.signatures.firstIndex { $0.id == placement.id }
+            },
+            signingIdentity: signature.flatMap { signingIdentitiesByPlacementID[$0.id] }
+        )
+        guard let template = annotationUndoCopy(ann, target: target, signature: signature) else {
+            showAnnotationUndoTargetMissing()
+            return
+        }
         selectedStampDecorationID = nil
-        markAnnotationsModified()
-        undoManager?.registerUndo(withTarget: self) { vm in
-            guard vm.canPerformUndoMutation() else { return }
-            page.addAnnotation(ann)
-            if let removedSignature {
-                vm.document.workspace.signatures.append(removedSignature)
-                if let removedIdentity {
-                    vm.signingIdentitiesByPlacementID[removedSignature.id] = removedIdentity
-                }
-            }
-            vm.selectedAnnotation = ann
-        }
-        undoManager?.setActionName(L10n.string("undo.deleteAnnotation"))
+        restoreAnnotationPresence(target, template: template, present: false,
+                                  actionName: L10n.string("undo.deleteAnnotation"), deletionState: deletionState)
     }
 
     @discardableResult
@@ -7041,7 +7098,7 @@ final class WorkspaceViewModel {
 
     private func jumpToSearchResult(_ index: Int) {
         guard index >= 0, index < searchResults.count else { return }
-        NotificationCenter.default.post(name: .orifoldJumpToSelection, object: searchResults[index])
+        NotificationCenter.default.postWorkspaceCommand(.orifoldJumpToSelection, to: self, payload: searchResults[index])
     }
 
     // MARK: - Read aloud (Feature C)
@@ -7813,7 +7870,8 @@ final class WorkspaceViewModel {
             try document.exportedPDFDataThrowing(
                 from: snapshot,
                 options: options,
-                formValueOverrides: liveFormValueOverrides
+                formValueOverrides: liveFormValueOverrides,
+                appliesOutlineOverride: false
             ))
         if let preset = options.compressionPreset {
             baked = try baked.mapping { data in
@@ -7905,11 +7963,11 @@ final class WorkspaceViewModel {
     /// its bookmarks correctly and its own serialized bytes do not. Reading the snapshot
     /// back would bake in exactly the corruption this indirection exists to avoid, so
     /// this must keep reading the live documents even though the snapshot is right there.
-    private func concatenatedOutlineNodes() -> [PDFOutlineReader.OutlineNode] {
+    private func concatenatedOutlineNodes() -> [PDFOutlineReader.OutlineNode]? {
         // A user-edited outline replaces the source walk wholesale — including the
         // empty override, which means "the user deleted every bookmark on purpose".
-        if document.workspace.outlineOverride != nil {
-            return overrideOutlineNodesForExport()
+        if let override = PDFOutlineBuilder.workspaceOverrideNodes(in: document.workspace) {
+            return override
         }
         var nodes: [PDFOutlineReader.OutlineNode] = []
         var pagesSoFar = 0
@@ -7918,7 +7976,7 @@ final class WorkspaceViewModel {
             nodes.append(contentsOf: PDFOutlineReader.nodes(in: pdf).map { $0.offsetting(by: pagesSoFar) })
             pagesSoFar += pdf.pageCount
         }
-        return nodes
+        return nodes.isEmpty ? nil : nodes
     }
 
     /// Writes `nodes` into `data` as a `/Outlines` tree, or returns `data` untouched.
@@ -7929,16 +7987,14 @@ final class WorkspaceViewModel {
     /// absent. Degrades silently on any failure — unlike sanitize, a missing bookmark
     /// costs navigation convenience, not privacy, so it must never fail an export.
     private static func applyingOutline(
-        _ nodes: [PDFOutlineReader.OutlineNode],
+        _ nodes: [PDFOutlineReader.OutlineNode]?,
         to data: Data,
         options: WorkspaceExportOptions
     ) -> Data {
         // `.scale` is the one layout whose output page N is still source page N, so its
         // bookmarks stay faithful and the write must keep running.
-        guard options.imposition?.preservesPageMapping != false, !nodes.isEmpty else { return data }
-        guard let pdf = PDFDocument(data: data) else { return data }
-        PDFOutlineBuilder.apply(nodes, to: pdf)
-        return PDFSerializer.data(from: pdf) ?? data
+        guard options.imposition?.preservesPageMapping != false, let nodes else { return data }
+        return PDFOutlineBuilder.applying(nodes, to: data)
     }
 
     /// Applies `options.sanitization` if present. Throws rather than falling
@@ -8097,7 +8153,8 @@ final class WorkspaceViewModel {
         let attachments = try AttachmentsService.capture(in: sourceData)
         let outline = PDFOutlineReader.nodes(in: pdf)
         return try await reducedData(
-            from: BakedExportPayload(baked: BakedPDFData(alreadyFlattened: sourceData), outline: outline, attachments: attachments),
+            from: BakedExportPayload(baked: BakedPDFData(alreadyFlattened: sourceData),
+                                     outline: outline.isEmpty ? nil : outline, attachments: attachments),
             preset: preset,
             options: WorkspaceExportOptions(encryption: encryption, compressionPreset: preset, sanitization: sanitization),
             cancellation: cancellation,
@@ -8564,7 +8621,8 @@ final class WorkspaceViewModel {
     }
 
     private func sourcePayloadCanRepresentCurrentPDF(member: MemberDocument, payload: SourceDocumentPayload) -> Bool {
-        guard document.workspace.documents.count == 1,
+        guard payload.sourceLayoutChanged != true,
+              document.workspace.documents.count == 1,
               document.workspace.signatures.isEmpty,
               !document.workspace.hasActiveDecorations,
               document.workspace.pageOrder.map(\.id) == member.pageRefs else {
@@ -10608,6 +10666,26 @@ final class WorkspaceViewModel {
               let sourceBytes = document.memberPDFData[ref.memberDocId],
               let targetBytes = document.memberPDFData[targetRef.memberDocId] else { return false }
 
+        // Cross-member rebasing adopts baked bytes for both whole members. Retained text
+        // operations would then lose their pristine original, including on stationary siblings.
+        guard !memberHasTextEdits(ref.memberDocId), !memberHasTextEdits(targetRef.memberDocId) else {
+            showEditMessage(L10n.string("status.pageMove.committedTextEdits"), severity: .warning)
+            return false
+        }
+
+        // The source catalog is removed with its last page. Only proven attachment-catalog
+        // absence is safe; a best-effort inventory can omit malformed or deep trees.
+        if sourceLookup.pdf.pageCount == 1 {
+            guard let catalogIsAbsent = AttachmentsService.attachmentCatalogIsAbsent(in: sourceBytes) else {
+                showEditMessage(L10n.string("status.pageMove.attachmentCheckFailed"), severity: .warning)
+                return false
+            }
+            guard catalogIsAbsent else {
+                showEditMessage(L10n.string("status.pageMove.lastPageAttachments"), severity: .warning)
+                return false
+            }
+        }
+
         // PDFKit cross-document insertion cannot retain a valid field graph. Refuse before
         // even capturing a snapshot (which reconciles live values), including forms on pages
         // that stay behind and newly added widgets not yet present in the canonical bytes.
@@ -10872,27 +10950,6 @@ final class WorkspaceViewModel {
             previousDepth = result[index].depth
         }
         return result
-    }
-
-    /// Export-time resolution of the override: each anchor becomes its position in the
-    /// concatenated export page list (`pageOrder` mirrors the member-by-member assembly).
-    /// Anchors whose page was deleted drop out — a dangling bookmark is worse than a
-    /// missing one, same rule as `PDFOutlineBuilder`.
-    private func overrideOutlineNodesForExport() -> [PDFOutlineReader.OutlineNode] {
-        guard let override = document.workspace.outlineOverride else { return [] }
-        let indexByRefID = Dictionary(
-            document.workspace.pageOrder.enumerated().map { ($0.element.id, $0.offset) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        return override.compactMap { node in
-            guard let pageIndex = indexByRefID[node.pageRefID] else { return nil }
-            return PDFOutlineReader.OutlineNode(
-                title: node.title,
-                depth: node.depth,
-                localPageIndex: pageIndex,
-                hasChildren: false
-            )
-        }
     }
 
     // MARK: - TOC synthesis

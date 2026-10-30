@@ -159,9 +159,8 @@ struct SearchView: View {
                         .onTapGesture {
                             guard viewModel.searchResults.indices.contains(i) else { return }
                             viewModel.searchResultIndex = i
-                            NotificationCenter.default.post(
-                                name: .orifoldJumpToSelection,
-                                object: result
+                            NotificationCenter.default.postWorkspaceCommand(
+                                .orifoldJumpToSelection, to: viewModel, payload: result
                             )
                         }
                     }
@@ -330,8 +329,8 @@ extension Notification.Name {
 
 extension NotificationCenter {
     /// Capture the document target before a menu or panel changes window focus.
-    func postWorkspaceCommand(_ name: Notification.Name, to workspace: WorkspaceViewModel?) {
+    func postWorkspaceCommand(_ name: Notification.Name, to workspace: WorkspaceViewModel?, payload: Any? = nil) {
         guard let workspace else { return }
-        post(name: name, object: workspace)
+        post(name: name, object: workspace, userInfo: payload.map { ["payload": $0] })
     }
 }

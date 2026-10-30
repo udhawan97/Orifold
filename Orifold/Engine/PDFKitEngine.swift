@@ -2464,8 +2464,17 @@ private final class HTMLPDFRenderer: NSObject, WKNavigationDelegate {
 
     private static func networkBlockingRuleList() async throws -> WKContentRuleList {
         if let networkBlockRuleList { return networkBlockRuleList }
+        // This renderer is nonpersistent; its request policy must not depend on access
+        // to the user's persistent WebKit store. The compiled list retains its bytes.
+        let storeURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("OrifoldHTMLRules-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: storeURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: storeURL) }
+        guard let store = WKContentRuleListStore(url: storeURL) else {
+            throw DocumentImportConverter.ConversionError.renderingFailed
+        }
         let ruleList = try await withCheckedThrowingContinuation { continuation in
-            WKContentRuleListStore.default().compileContentRuleList(
+            store.compileContentRuleList(
                 forIdentifier: "OrifoldHTMLImportNetworkBlock-v2",
                 encodedContentRuleList: HTMLImportResourcePolicy.blockedSchemeRuleList
             ) { ruleList, error in
