@@ -39,8 +39,6 @@ INSTALL_DIR="$HOME/Applications"
 INSTALLED_APP="$INSTALL_DIR/$APP_NAME.app"
 DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME.command"
 DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $APP_NAME.command"
-LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
-LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
 RELEASE_API="https://api.github.com/repos/$REPO/releases/latest"
 INSTALL_TRANSACTION_DIR=""
 INSTALL_TRANSACTION_TARGET=""
@@ -470,37 +468,54 @@ replace_staged_app() {
     remove_stray_app_copies
 }
 
+# These two scripts are distributed independently (including curl | zsh).
+# Compare the complete command bytes emitted by current and legacy installers.
+desktop_command_contents() {
+    printf '%s\n' '#!/bin/zsh' 'set -euo pipefail' 'PATH="/usr/bin:/bin:/usr/sbin:/sbin"' \
+        "/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/$1/main/$2 | /bin/zsh"
+}
+
+remove_known_desktop_command() {
+    local helper="$1" endpoint="$2" repo
+    [[ ! -L "${helper:h}" && ! -L "$helper" && -f "$helper" ]] || return 0
+    for repo in "$APP_NAME" "${LEGACY_APP_NAMES[@]}"; do
+        if /usr/bin/cmp -s "$helper" <(desktop_command_contents "$repo" "$endpoint"); then
+            /bin/rm -f "$helper" || print_note "Could not remove $helper."
+            return 0
+        fi
+    done
+}
+
+install_desktop_command() {
+    local helper="$1" endpoint="$2" fd
+    # Never follow an existing link, overwrite a modified helper, or enter a directory.
+    [[ ! -e "$helper" && ! -L "$helper" ]] || return 0
+    zmodload zsh/system || return 1
+    sysopen -w -o creat,excl -m 755 -u fd "$helper" || return 1
+    desktop_command_contents "$APP_NAME" "$endpoint" >&$fd
+    exec {fd}>&-
+}
+
+refresh_desktop_commands() {
+    local desktop="$HOME/Desktop" name
+    [[ -d "$desktop" && ! -L "$desktop" ]] || return 0
+    for name in "${LEGACY_APP_NAMES[@]}"; do
+        remove_known_desktop_command "$desktop/$name.command" install.sh
+        remove_known_desktop_command "$desktop/Uninstall $name.command" scripts/uninstall-mac.sh
+    done
+    for name in "$APP_NAME" "${LEGACY_APP_NAMES[@]}"; do
+        remove_known_desktop_command "$desktop/Update $name.command" install.sh
+        remove_known_desktop_command "$desktop/Install or Update $name.command" install.sh
+    done
+    install_desktop_command "$DESKTOP_LAUNCHER" install.sh || print_note "Could not create $DESKTOP_LAUNCHER."
+    install_desktop_command "$DESKTOP_UNINSTALLER" scripts/uninstall-mac.sh || print_note "Could not create $DESKTOP_UNINSTALLER."
+}
+
 install_staged_app() {
     replace_staged_app
 
     print_step "Refreshing Desktop commands"
-    if [[ -d "$HOME/Desktop" ]]; then
-        /bin/rm -f "$DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_LAUNCHER" "$LEGACY_DESKTOP_UPDATER"
-        for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
-            /bin/rm -f "$HOME/Desktop/$legacy_app_name.command" \
-                "$HOME/Desktop/Uninstall $legacy_app_name.command" \
-                "$HOME/Desktop/$legacy_app_name" \
-                "$HOME/Desktop/Update $legacy_app_name.command" \
-                "$HOME/Desktop/Install or Update $legacy_app_name.command"
-            /bin/rm -rf "$HOME/Desktop/Install or Update $legacy_app_name.app"
-        done
-        cat > "$DESKTOP_LAUNCHER" <<'LAUNCHER'
-#!/bin/zsh
-set -euo pipefail
-PATH="/usr/bin:/bin:/usr/sbin:/sbin"
-/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/install.sh | /bin/zsh
-LAUNCHER
-        chmod +x "$DESKTOP_LAUNCHER" 2>/dev/null || print_note "Could not make the Desktop launcher executable."
-        cat > "$DESKTOP_UNINSTALLER" <<'UNINSTALLER'
-#!/bin/zsh
-set -euo pipefail
-PATH="/usr/bin:/bin:/usr/sbin:/sbin"
-/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/Orifold/main/scripts/uninstall-mac.sh | /bin/zsh
-UNINSTALLER
-        chmod +x "$DESKTOP_UNINSTALLER" 2>/dev/null || print_note "Could not make the Desktop uninstaller executable."
-    else
-        print_note "Desktop folder not found, so the launcher and uninstaller were not created."
-    fi
+    refresh_desktop_commands
 
     if [[ $OPEN_AFTER_INSTALL -eq 1 ]]; then
         print_step "Opening $APP_NAME"

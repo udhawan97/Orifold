@@ -87,6 +87,39 @@ fake_sleep() { :; }
     test_recorded_removal(root, source, body, gate)
 
 
+def desktop_functions(source, names):
+    return "\n".join(re.search(rf"^{name}\(\) \{{\n.*?^\}}$", source, re.M | re.S).group(0)
+                     for name in names)
+
+
+def command_bytes(repo, endpoint):
+    return (f'#!/bin/zsh\nset -euo pipefail\nPATH="/usr/bin:/bin:/usr/sbin:/sbin"\n'
+            f'/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/{repo}/main/{endpoint} | /bin/zsh\n').encode()
+
+
+def desktop_fixture(case, home):
+    desktop = home / "Desktop"
+    desktop.mkdir(parents=True)
+    folder = desktop / "Orifold"
+    folder.mkdir()
+    (folder / "fictional.pdf").write_bytes(b"fictional user document")
+    app_folder = desktop / "Install or Update pdFold.app"
+    app_folder.mkdir()
+    (app_folder / "keep").write_bytes(b"not a managed bundle")
+    modified = desktop / "Uninstall Orifold.command"
+    modified.write_bytes(command_bytes("Orifold", "scripts/uninstall-mac.sh") + b"# user modification\n")
+    target = case / "unrelated-file"
+    target.write_bytes(b"keep the target unchanged")
+    link = desktop / "Orifold.command"
+    link.symlink_to(target)
+    legacy = desktop / "pdFold.command"
+    legacy.write_bytes(command_bytes("pdFold", "install.sh"))
+    bare = desktop / "PDFold"
+    bare.write_bytes(b"ordinary desktop file")
+    return desktop, legacy, link, {p: p.read_bytes() for p in [folder / "fictional.pdf", app_folder / "keep",
+                                                                modified, target, bare]}
+
+
 def test_recorded_removal(root, source, body, gate):
     assignments = source[source.index("APP_NAME="):source.index("KEEP_USER_DATA=")]
     removal = source[source.index('print_step "Removing installed app and commands"'):]
@@ -109,6 +142,32 @@ def test_recorded_removal(root, source, body, gate):
         marker = home / "Library/Application Support/Orifold/marker"
         marker.parent.mkdir(parents=True)
         marker.write_text("user data marker")
+        desktop, legacy, link, user_files = desktop_fixture(case, home)
+        installer = Path(__file__).with_name("install-mac.sh").read_text()
+        shared_names = ["desktop_command_contents", "remove_known_desktop_command"]
+        install_helpers = desktop_functions(installer, shared_names + ["install_desktop_command", "refresh_desktop_commands"])
+        install_helpers = install_helpers.replace("$HOME", "$FIXTURE_HOME")
+        # Execute only the extracted Desktop path. Every actual file is inside the fixture.
+        prepare = case / "install-helpers.zsh"
+        prepare.write_text("set -euo pipefail\n" + assignments + install_helpers + """
+print_note() { :; }
+DESKTOP_LAUNCHER="$FIXTURE_HOME/Desktop/Orifold.command"
+DESKTOP_UNINSTALLER="$FIXTURE_HOME/Desktop/Uninstall Orifold.command"
+refresh_desktop_commands
+""")
+        env = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "FIXTURE_HOME": str(home), "TMPDIR": str(case)}
+        subprocess.run(["/bin/zsh", "-f", str(prepare)], cwd=case, env=env, check=True)
+        assert not legacy.exists() and link.is_symlink()
+        assert all(path.read_bytes() == content for path, content in user_files.items())
+        # Also check a first install: both helpers must be executable, with exact expected bytes.
+        fresh_home = case / "fresh"
+        (fresh_home / "Desktop").mkdir(parents=True)
+        subprocess.run(["/bin/zsh", "-f", str(prepare)], cwd=case, env={**env, "FIXTURE_HOME": str(fresh_home)}, check=True)
+        for filename, endpoint in [("Orifold.command", "install.sh"), ("Uninstall Orifold.command", "scripts/uninstall-mac.sh")]:
+            fresh = fresh_home / "Desktop" / filename
+            assert fresh.is_file() and os.access(fresh, os.X_OK) and fresh.read_bytes() == command_bytes("Orifold", endpoint)
+        legacy.write_bytes(command_bytes("pdFold", "install.sh"))
+        uninstall_helpers = desktop_functions(source, shared_names)
         script = case / "removal.zsh"
         script.write_text("""#!/bin/zsh -f
 set -euo pipefail
@@ -130,7 +189,7 @@ record_removal() {
 }
 remove_path() { record_removal path "$1"; }
 remove_glob_paths() { record_removal glob "$1"; }
-""" + body + "\n" + gate + "\n" + removal)
+""" + uninstall_helpers + "\n" + body + "\n" + gate + "\n" + removal)
         result = subprocess.run(["/bin/zsh", "-f", str(script)], cwd=case,
                                 env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "TMPDIR": str(case)},
                                 capture_output=True, text=True)
@@ -143,13 +202,8 @@ remove_glob_paths() { record_removal glob "$1"; }
         for name in names:
             for location in ["Applications", "SystemApplications"]:
                 expect("path", f"{location}/{name}.app")
-        for name in names:
-            desktop = [f"{name}.command", name, f"Update {name}.command", f"Uninstall {name}.command",
-                       f"Install or Update {name}.app", f"Install or Update {name}.command"] if name == "Orifold" else [
-                f"{name}.command", f"Uninstall {name}.command", name, f"Update {name}.command",
-                f"Install or Update {name}.command", f"Install or Update {name}.app"]
-            for entry in desktop:
-                expect("path", f"Desktop/{entry}")
+        assert not legacy.exists() and link.is_symlink()
+        assert all(path.read_bytes() == content for path, content in user_files.items())
         for cache in [".orifold", ".pdfold"]:
             expect("path", cache)
         if not keep_data:
@@ -173,8 +227,8 @@ remove_glob_paths() { record_removal glob "$1"; }
         assert marker.read_text() == "user data marker"
         assert all((home / location / (name + ".app") / "marker").read_text() == "unchanged fixture"
                    for name in names for location in ["Applications", "SystemApplications"])
-        print(f"PASS removal keep-user-data={keep_data}: exact {len(expected)} recorded paths/globs; no deletion")
-    print("Passed 2 downstream uninstaller removal scenarios (recorders only; HOME unchanged).")
+        print(f"PASS removal keep-user-data={keep_data}: exact {len(expected)} recorded non-Desktop paths/globs; Desktop ownership verified")
+    print("Passed 2 install/uninstall Desktop ownership scenarios with recorded non-Desktop removals.")
 
 
 if __name__ == "__main__":

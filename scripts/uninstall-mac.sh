@@ -13,13 +13,6 @@ INSTALL_CACHE="$HOME/.orifold"
 LEGACY_INSTALL_CACHE="$HOME/.p""d""fold"
 INSTALLED_APP="$HOME/Applications/$APP_NAME.app"
 SYSTEM_INSTALLED_APP="/Applications/$APP_NAME.app"
-DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME.command"
-DESKTOP_UNINSTALLER="$HOME/Desktop/Uninstall $APP_NAME.command"
-DESKTOP_INSTALLER_APP="$HOME/Desktop/Install or Update $APP_NAME.app"
-DESKTOP_INSTALLER_COMMAND="$HOME/Desktop/Install or Update $APP_NAME.command"
-LEGACY_DESKTOP_LAUNCHER="$HOME/Desktop/$APP_NAME"
-LEGACY_DESKTOP_UPDATER="$HOME/Desktop/Update $APP_NAME.command"
-
 KEEP_USER_DATA=0
 REMOVE_ERRORS=()
 
@@ -44,6 +37,24 @@ print_step() {
 
 print_note() {
     printf "    %s\n" "$1"
+}
+
+# These two scripts are distributed independently (including curl | zsh).
+# Compare the complete command bytes emitted by current and legacy installers.
+desktop_command_contents() {
+    printf '%s\n' '#!/bin/zsh' 'set -euo pipefail' 'PATH="/usr/bin:/bin:/usr/sbin:/sbin"' \
+        "/usr/bin/curl -fsSL https://raw.githubusercontent.com/udhawan97/$1/main/$2 | /bin/zsh"
+}
+
+remove_known_desktop_command() {
+    local helper="$1" endpoint="$2" repo
+    [[ ! -L "${helper:h}" && ! -L "$helper" && -f "$helper" ]] || return 0
+    for repo in "$APP_NAME" "${LEGACY_APP_NAMES[@]}"; do
+        if /usr/bin/cmp -s "$helper" <(desktop_command_contents "$repo" "$endpoint"); then
+            /bin/rm -f "$helper" || print_note "Could not remove $helper."
+            return 0
+        fi
+    done
 }
 
 remove_path() {
@@ -142,19 +153,11 @@ for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
     remove_path "$HOME/Applications/$legacy_app_name.app"
     remove_path "/Applications/$legacy_app_name.app"
 done
-remove_path "$DESKTOP_LAUNCHER"
-remove_path "$LEGACY_DESKTOP_LAUNCHER"
-remove_path "$LEGACY_DESKTOP_UPDATER"
-remove_path "$DESKTOP_UNINSTALLER"
-remove_path "$DESKTOP_INSTALLER_APP"
-remove_path "$DESKTOP_INSTALLER_COMMAND"
-for legacy_app_name in "${LEGACY_APP_NAMES[@]}"; do
-    remove_path "$HOME/Desktop/$legacy_app_name.command"
-    remove_path "$HOME/Desktop/Uninstall $legacy_app_name.command"
-    remove_path "$HOME/Desktop/$legacy_app_name"
-    remove_path "$HOME/Desktop/Update $legacy_app_name.command"
-    remove_path "$HOME/Desktop/Install or Update $legacy_app_name.command"
-    remove_path "$HOME/Desktop/Install or Update $legacy_app_name.app"
+for name in "$APP_NAME" "${LEGACY_APP_NAMES[@]}"; do
+    remove_known_desktop_command "$HOME/Desktop/$name.command" install.sh
+    remove_known_desktop_command "$HOME/Desktop/Update $name.command" install.sh
+    remove_known_desktop_command "$HOME/Desktop/Install or Update $name.command" install.sh
+    remove_known_desktop_command "$HOME/Desktop/Uninstall $name.command" scripts/uninstall-mac.sh
 done
 remove_path "$INSTALL_CACHE"
 remove_path "$LEGACY_INSTALL_CACHE"
