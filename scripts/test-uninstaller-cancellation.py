@@ -85,6 +85,7 @@ fake_sleep() { :; }
         print(f"PASS {scenario}: exact targets; cancellation stops before removal; no process effects")
     print("Passed 4 uninstaller gate scenarios (recording adapters; no native acceptance claim).")
     test_recorded_removal(root, source, body, gate)
+    test_atomic_desktop_command(root)
 
 
 def desktop_functions(source, names):
@@ -120,6 +121,46 @@ def desktop_fixture(case, home):
                                                                 modified, target, bare]}
 
 
+def test_atomic_desktop_command(root):
+    source = Path(__file__).with_name("install-mac.sh").read_text()
+    helpers = desktop_functions(source, ["desktop_command_contents", "install_desktop_command"])
+    for scenario in ["write-failure", "collision"]:
+        case = Path(tempfile.mkdtemp(prefix=scenario + "-", dir=root))
+        helper = case / "Orifold.command"
+        script = case / "publish.zsh"
+        script.write_text("set -euo pipefail\nAPP_NAME=Orifold\n" + helpers + """
+functions[original_contents]=$functions[desktop_command_contents]
+desktop_command_contents() {
+    if [[ "$SCENARIO" == write-failure ]]; then
+        printf 'incomplete'
+        return 1
+    fi
+    /bin/mkdir "$TARGET"
+    print -r -- 'user-owned' > "$TARGET/marker"
+    original_contents "$@"
+}
+if install_desktop_command "$TARGET" install.sh; then
+    [[ "$SCENARIO" == collision ]] || exit 91
+else
+    [[ "$SCENARIO" == write-failure && ! -e "$TARGET" ]] || exit 92
+fi
+if [[ "$SCENARIO" == collision ]]; then
+    [[ "$(< "$TARGET/marker")" == user-owned ]] || exit 93
+    /bin/rm "$TARGET/marker"
+    /bin/rmdir "$TARGET"
+fi
+functions[desktop_command_contents]=$functions[original_contents]
+install_desktop_command "$TARGET" install.sh
+""")
+        result = subprocess.run(["/bin/zsh", "-f", str(script)], cwd=case,
+                                env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "TARGET": str(helper),
+                                     "SCENARIO": scenario, "TMPDIR": str(case)}, capture_output=True, text=True)
+        assert result.returncode == 0, (scenario, result.stderr)
+        assert helper.read_bytes() == command_bytes("Orifold", "install.sh") and os.access(helper, os.X_OK)
+        assert not list(case.glob(".orifold-command.*")), scenario
+    print("Passed partial write, conflicting directory and retry for Desktop helper publication.")
+
+
 def test_recorded_removal(root, source, body, gate):
     assignments = source[source.index("APP_NAME="):source.index("KEEP_USER_DATA=")]
     removal = source[source.index('print_step "Removing installed app and commands"'):]
@@ -130,7 +171,7 @@ def test_recorded_removal(root, source, body, gate):
     assert "$HOME" not in assignments + removal
     assert not re.search(r"\b(?:rm|osascript|pgrep|pkill|kill|open)\b", removal)
 
-    for keep_data in [0, 1]:
+    for keep_data, removal_error in [(0, False), (1, False), (1, True)]:
         case = Path(tempfile.mkdtemp(prefix=f"remove-keep-{keep_data}-", dir=root))
         home = case / "fixture-home"
         names = ["Orifold", "pdFold", "PDFold"]
@@ -168,6 +209,10 @@ refresh_desktop_commands
             assert fresh.is_file() and os.access(fresh, os.X_OK) and fresh.read_bytes() == command_bytes("Orifold", endpoint)
         legacy.write_bytes(command_bytes("pdFold", "install.sh"))
         uninstall_helpers = desktop_functions(source, shared_names)
+        if removal_error:
+            # Simulate an unremovable, verified helper without elevated privileges.
+            uninstall_helpers = uninstall_helpers.replace('/bin/rm -f "$helper"', 'false')
+
         script = case / "removal.zsh"
         script.write_text("""#!/bin/zsh -f
 set -euo pipefail
@@ -193,7 +238,9 @@ remove_glob_paths() { record_removal glob "$1"; }
         result = subprocess.run(["/bin/zsh", "-f", str(script)], cwd=case,
                                 env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "TMPDIR": str(case)},
                                 capture_output=True, text=True)
-        assert result.returncode == 0, (keep_data, result.returncode, result.stderr)
+        assert result.returncode == int(removal_error), (keep_data, removal_error, result.stderr)
+        if removal_error:
+            assert str(legacy) in result.stderr and legacy.exists(), result.stderr
         expected = []
 
         def expect(kind, relative):
@@ -202,7 +249,7 @@ remove_glob_paths() { record_removal glob "$1"; }
         for name in names:
             for location in ["Applications", "SystemApplications"]:
                 expect("path", f"{location}/{name}.app")
-        assert not legacy.exists() and link.is_symlink()
+        assert legacy.exists() == removal_error and link.is_symlink()
         assert all(path.read_bytes() == content for path, content in user_files.items())
         for cache in [".orifold", ".pdfold"]:
             expect("path", cache)
@@ -228,7 +275,7 @@ remove_glob_paths() { record_removal glob "$1"; }
         assert all((home / location / (name + ".app") / "marker").read_text() == "unchanged fixture"
                    for name in names for location in ["Applications", "SystemApplications"])
         print(f"PASS removal keep-user-data={keep_data}: exact {len(expected)} recorded non-Desktop paths/globs; Desktop ownership verified")
-    print("Passed 2 install/uninstall Desktop ownership scenarios with recorded non-Desktop removals.")
+    print("Passed 3 install/uninstall Desktop ownership scenarios, including a reported removal failure.")
 
 
 if __name__ == "__main__":

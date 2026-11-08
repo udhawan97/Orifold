@@ -51,7 +51,10 @@ remove_known_desktop_command() {
     [[ ! -L "${helper:h}" && ! -L "$helper" && -f "$helper" ]] || return 0
     for repo in "$APP_NAME" "${LEGACY_APP_NAMES[@]}"; do
         if /usr/bin/cmp -s "$helper" <(desktop_command_contents "$repo" "$endpoint"); then
-            /bin/rm -f "$helper" || print_note "Could not remove $helper."
+            if ! /bin/rm -f "$helper"; then
+                REMOVE_ERRORS+=("$helper")
+                print_note "Could not remove $helper."
+            fi
             return 0
         fi
     done

@@ -495,13 +495,21 @@ remove_known_desktop_command() {
 }
 
 install_desktop_command() {
-    local helper="$1" endpoint="$2" fd
-    # Never follow an existing link, overwrite a modified helper, or enter a directory.
+    local helper="$1" endpoint="$2"
     [[ ! -e "$helper" && ! -L "$helper" ]] || return 0
-    zmodload zsh/system || return 1
-    sysopen -w -o creat,excl -m 755 -u fd "$helper" || return 1
-    desktop_command_contents "$APP_NAME" "$endpoint" >&$fd
-    exec {fd}>&-
+    (
+        local staged
+        staged="$(/usr/bin/mktemp "${helper:h}/.orifold-command.XXXXXX")" || return 1
+        trap '/bin/rm -f "$staged"' EXIT
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        trap 'exit 129' HUP
+        desktop_command_contents "$APP_NAME" "$endpoint" > "$staged" || return 1
+        /bin/chmod u+x "$staged" || return 1
+        # macOS link calls link(2) on exactly these paths: even a competing directory
+        # or symlink cannot redirect publication into itself, or replace its contents.
+        /bin/link "$staged" "$helper" 2>/dev/null || [[ -e "$helper" || -L "$helper" ]]
+    )
 }
 
 refresh_desktop_commands() {
