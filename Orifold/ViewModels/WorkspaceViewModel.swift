@@ -5367,7 +5367,7 @@ final class WorkspaceViewModel {
 
     /// Realigns every byte lane independently while refs still describe the old source indexes.
     /// Callers restore their complete order snapshot if preparation of any lane fails.
-    private func realignCanonicalReplayBaseAfterStructuralChange(memberID: UUID) -> Bool {
+    private func realignCanonicalReplayBaseAfterStructuralChange(memberID: UUID, previous: OrderSnapshot) -> Bool {
         guard let memberIndex = document.workspace.documents.firstIndex(where: { $0.id == memberID }) else {
             return true
         }
@@ -5407,6 +5407,15 @@ final class WorkspaceViewModel {
         document.memberPDFData[memberID] = preparedLive
         originalMemberPDFData[memberID] = pristine
         objectBaseData[memberID] = objectBase
+        // Preserve source eligibility independently of the replay indexes reset below.
+        // Only mark after every byte lane prepared successfully; order Undo restores the
+        // payload with its original marker and exact source bytes as one snapshot.
+        if let payload = document.sourcePayloads[memberID], payload.sourceLayoutChange != .removedPages,
+           let oldRefs = previous.documents.first(where: { $0.id == memberID })?.pageRefs,
+           oldRefs != member.pageRefs {
+            let retainsEveryPage = Set(oldRefs).isSubset(of: member.pageRefs)
+            document.sourcePayloads[memberID]?.sourceLayoutChange = retainsEveryPage ? .rearranged : .removedPages
+        }
         for (localIndex, refID) in member.pageRefs.enumerated() {
             if let orderIndex = document.workspace.pageOrder.firstIndex(where: { $0.id == refID }) {
                 document.workspace.pageOrder[orderIndex].sourcePageIndex = localIndex
@@ -8619,28 +8628,20 @@ final class WorkspaceViewModel {
 
     private func sourcePayloadCanRepresentCurrentPDF(member: MemberDocument, payload: SourceDocumentPayload) -> Bool {
         guard document.workspace.documents.count == 1,
+              document.workspace.pageOrder.count == member.pageRefs.count,
               document.workspace.signatures.isEmpty,
-              !document.workspace.hasActiveDecorations,
-              document.workspace.pageOrder.map(\.id) == member.pageRefs else {
-            return false
-        }
+              !document.workspace.hasActiveDecorations else { return false }
+        return sourcePayloadMatchesMemberPages(member, payload: payload)
+    }
 
-        if let renderedPageCount = payload.renderedPageCount,
-           renderedPageCount != member.pageRefs.count {
-            return false
-        }
-
-        for (expectedSourcePageIndex, pageRefID) in member.pageRefs.enumerated() {
-            guard let pageRef = document.workspace.pageOrder.first(where: { $0.id == pageRefID }),
-                  pageRef.memberDocId == member.id,
-                  pageRef.sourcePageIndex == expectedSourcePageIndex else {
-                return false
-            }
-        }
-
-        guard let loaded = loadedPDFs.first(where: { $0.0.id == member.id }) else {
-            return false
-        }
+    private func sourcePayloadMatchesMemberPages(_ member: MemberDocument, payload: SourceDocumentPayload) -> Bool {
+        guard payload.sourceLayoutChange == nil else { return false }
+        let refs = document.workspace.pageOrder.filter { $0.memberDocId == member.id }
+        guard refs.map(\.id) == member.pageRefs,
+              refs.enumerated().allSatisfy({ $0.element.sourcePageIndex == $0.offset }),
+              payload.renderedPageCount.map({ $0 == refs.count }) ?? true,
+              let loaded = loadedPDFs.first(where: { $0.0.id == member.id }),
+              loaded.1.pageCount == refs.count else { return false }
 
         for pageIndex in 0..<loaded.1.pageCount {
             guard let page = loaded.1.page(at: pageIndex) else { return false }
@@ -9059,9 +9060,12 @@ final class WorkspaceViewModel {
 
             let memberAttributed: NSMutableAttributedString
             if let payload = document.sourcePayloads[member.id],
+               sourcePayloadMatchesMemberPages(member, payload: payload),
                let attributed = payload.attributedString()?.mutableCopy() as? NSMutableAttributedString {
                 memberAttributed = attributed
             } else {
+                // The retained source may include removed pages. Extract this member in
+                // its current order and keep the existing refusal for unmappable edits.
                 memberAttributed = NSMutableAttributedString(string: text(from: item.1), attributes: bodyAttributes)
             }
             try applyTextEdits(inlineTextEdits(for: member), to: memberAttributed, memberName: member.displayName)
@@ -9968,7 +9972,7 @@ final class WorkspaceViewModel {
             loadedPDFs[lookup.loadedIndex].0 = document.workspace.documents[lookup.documentIndex]
             // Deleting a page shifts every later page's local index within this member; a frozen
             // object-edit base still has the old indices, so it must move to the post-delete bytes.
-            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId) else {
+            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId, previous: snapshot) else {
                 restore(snapshot, registersInverse: false)
                 showEditWarning(.serializationFailed)
                 return
@@ -10028,7 +10032,7 @@ final class WorkspaceViewModel {
         // frozen object-edit base still has the old indices, so it must move to the post-delete
         // bytes (members dropped entirely above already had their base removed).
         for memberID in Set(orderedRefs.map(\.memberDocId)) {
-            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID) else {
+            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID, previous: snapshot) else {
                 restore(snapshot, registersInverse: false)
                 showEditWarning(.serializationFailed)
                 return
@@ -10120,7 +10124,7 @@ final class WorkspaceViewModel {
         // Inserting a page shifts every later local index. Rebuild the canonical base in the new
         // ref order; both operation lanes were cloned above, so source and duplicate stay editable.
         for memberID in Set(orderedRefs.map(\.memberDocId)) {
-            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID) else {
+            guard realignCanonicalReplayBaseAfterStructuralChange(memberID: memberID, previous: snapshot) else {
                 restore(snapshot, registersInverse: false)
                 showEditWarning(.serializationFailed)
                 return
@@ -10635,7 +10639,7 @@ final class WorkspaceViewModel {
         // always reflects the CURRENT page order. Reordering without refreezing would apply a
         // later object edit's ops (indexed by the new order) against the old order baked into
         // the frozen bytes — silently editing the wrong page.
-        guard realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId) else {
+        guard realignCanonicalReplayBaseAfterStructuralChange(memberID: ref.memberDocId, previous: snapshot) else {
             restore(snapshot, registersInverse: false)
             showEditWarning(.serializationFailed)
             return false

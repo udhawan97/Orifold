@@ -398,7 +398,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
         }
 
         let omitsCommentMetadata = snapshot.workspace.signatures.contains { $0.isCryptographic }
-        let sourcePayloads = Self.sourcePayloadsForPDFMetadata(from: snapshot)
+        let sourcePayloads = Self.sourcePayloadsForPDFMetadata(
+            from: snapshot,
+            retainingLayoutChangeMarker: options.embedsEditableWorkspaceState
+        )
         let editableWorkspace = options.embedsEditableWorkspaceState ? snapshot.workspace : nil
         let editableMemberPDFData = options.embedsEditableWorkspaceState ? snapshot.memberPDFData : [:]
         // Persist pristine bytes ONLY for members that actually have committed edit
@@ -484,7 +487,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
         )
     }
 
-    private static func sourcePayloadsForPDFMetadata(from snapshot: WorkspacePackage) -> [UUID: SourceDocumentPayload] {
+    private static func sourcePayloadsForPDFMetadata(
+        from snapshot: WorkspacePackage,
+        retainingLayoutChangeMarker: Bool
+    ) -> [UUID: SourceDocumentPayload] {
         guard snapshot.workspace.documents.count == 1,
               snapshot.workspace.signatures.isEmpty,
               !snapshot.workspace.hasActiveDecorations,
@@ -492,6 +498,10 @@ final class WorkspaceDocument: ReferenceFileDocument {
               snapshot.workspace.objectEditStates.isEmpty,   // object edits also disable the source fast-path
               let member = snapshot.workspace.documents.first,
               let payload = snapshot.sourcePayloads[member.id],
+              // Editable Save preserves the marker so reopen can refuse stale source
+              // export. Every preexisting fidelity/retention exclusion still applies.
+              payload.sourceLayoutChange != .removedPages,
+              (retainingLayoutChangeMarker || payload.sourceLayoutChange == nil),
               snapshot.workspace.pageOrder.map(\.id) == member.pageRefs else {
             return [:]
         }

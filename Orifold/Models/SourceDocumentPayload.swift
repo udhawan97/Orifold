@@ -75,6 +75,25 @@ struct SourceDocumentPayload: Codable, Equatable {
     var richTextRTFData: Data?
     var plainText: String?
     var renderedPageCount: Int?
+    /// A reorder invalidates original-format export. A removal also disqualifies embedding
+    /// the source in an editable save, even if a later duplication restores the page count.
+    enum LayoutChange {
+        case rearranged
+        case removedPages
+    }
+    // Preserve the original Boolean coding key used by existing candidate workspaces.
+    private(set) var sourceLayoutChanged: Bool?
+    private(set) var sourcePagesRemoved: Bool?
+    var sourceLayoutChange: LayoutChange? {
+        get {
+            if sourcePagesRemoved == true { return .removedPages }
+            return sourceLayoutChanged == true ? .rearranged : nil
+        }
+        set {
+            sourceLayoutChanged = newValue == nil ? nil : true
+            sourcePagesRemoved = newValue == .removedPages ? true : nil
+        }
+    }
 
     var originalString: String? {
         plainText ?? String(data: originalData, encoding: .utf8)
