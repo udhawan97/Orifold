@@ -2449,17 +2449,15 @@ private struct InspectorMarkupView: View {
                         onSelect: {
                             viewModel.selectedAnnotation = entry.annotation
                             viewModel.selectedStampDecorationID = nil
-                            NotificationCenter.default.post(
-                                name: .orifoldJumpToAnnotation,
-                                object: entry.annotation
+                            NotificationCenter.default.postWorkspaceCommand(
+                                .orifoldJumpToAnnotation, to: viewModel, payload: entry.annotation
                             )
                         },
                         onEdit: {
                             viewModel.selectedAnnotation = entry.annotation
                             viewModel.selectedStampDecorationID = nil
-                            NotificationCenter.default.post(
-                                name: .orifoldEditAnnotation,
-                                object: entry.annotation
+                            NotificationCenter.default.postWorkspaceCommand(
+                                .orifoldEditAnnotation, to: viewModel, payload: entry.annotation
                             )
                         },
                         onDelete: {
@@ -2712,6 +2710,20 @@ private struct InspectorTextEditRow: View {
     }
 }
 
+private extension PDFAnnotation {
+    func inspectorTypeLabel(locale: Locale) -> String {
+        switch type {
+        case "Highlight": return L10n.string("inspector.annotationType.highlight.label", locale: locale)
+        case "Text":      return L10n.string("inspector.annotationType.note.label", locale: locale)
+        case "Ink":       return L10n.string("inspector.annotationType.ink.label", locale: locale)
+        case "FreeText":  return L10n.string("inspector.annotationType.textBox.label", locale: locale)
+        case "Underline": return L10n.string("inspector.annotationType.underline.label", locale: locale)
+        case "StrikeOut": return L10n.string("inspector.annotationType.strikeout.label", locale: locale)
+        default:          return type ?? L10n.string("inspector.annotationType.generic.label", locale: locale)
+        }
+    }
+}
+
 private struct InspectorEditingDetails: View {
     var ann: PDFAnnotation
     // Read so SwiftUI re-invokes `body` when the app language changes.
@@ -2720,23 +2732,29 @@ private struct InspectorEditingDetails: View {
     private var isEditableText: Bool { ann.type == "FreeText" || ann.type == "Text" }
 
     var body: some View {
-        let _ = locale
         VStack(alignment: .leading, spacing: .dsSM) {
             HStack(spacing: .dsSM) {
                 Image(systemName: "slider.horizontal.3")
                     .foregroundStyle(Color.dsAccent)
-                Text(L10n.string("inspector.editingDetails.title"))
+                Text(L10n.string("inspector.editingDetails.title", locale: locale))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.dsTextPrimary)
                 Spacer()
             }
 
-            InspectorDetailLine(label: "Type", value: ann.type ?? "Annotation")
-            InspectorDetailLine(label: "Bounds", value: "\(Int(ann.bounds.width)) x \(Int(ann.bounds.height))")
+            InspectorDetailLine(label: L10n.string("inspector.editingDetails.type.label", locale: locale),
+                                value: ann.inspectorTypeLabel(locale: locale))
+            InspectorDetailLine(label: L10n.string("inspector.editingDetails.bounds.label", locale: locale),
+                                value: "\(Int(ann.bounds.width)) x \(Int(ann.bounds.height))")
             if let font = ann.font {
-                InspectorDetailLine(label: "Font", value: "\(font.displayName ?? font.familyName ?? "Font") \(Int(round(font.pointSize)))")
+                let fontLabel = L10n.string("inspector.editingDetails.font.label", locale: locale)
+                InspectorDetailLine(label: fontLabel,
+                                    value: "\(font.displayName ?? font.familyName ?? fontLabel) \(Int(round(font.pointSize)))")
             }
-            InspectorDetailLine(label: "Mode", value: isEditableText ? "Editable annotation" : "Markup annotation")
+            InspectorDetailLine(label: L10n.string("inspector.editingDetails.mode.label", locale: locale),
+                                value: isEditableText
+                                    ? L10n.string("inspector.editingDetails.editable", locale: locale)
+                                    : L10n.string("inspector.editingDetails.markup", locale: locale))
         }
         .padding(.horizontal, .dsMD)
         .padding(.vertical, .dsMD)
@@ -2798,18 +2816,6 @@ private struct InspectorAnnotationRow: View {
         ann.type == "Text" || ann.type == "FreeText"
     }
 
-    private var typeLabel: String {
-        switch ann.type {
-        case "Highlight": return L10n.string("inspector.annotationType.highlight.label", locale: locale)
-        case "Text":      return L10n.string("inspector.annotationType.note.label", locale: locale)
-        case "Ink":       return L10n.string("inspector.annotationType.ink.label", locale: locale)
-        case "FreeText":  return L10n.string("inspector.annotationType.textBox.label", locale: locale)
-        case "Underline": return L10n.string("inspector.annotationType.underline.label", locale: locale)
-        case "StrikeOut": return L10n.string("inspector.annotationType.strikeout.label", locale: locale)
-        default:          return ann.type ?? L10n.string("inspector.annotationType.generic.label", locale: locale)
-        }
-    }
-
     private var icon: String {
         switch ann.type {
         case "Highlight": return "highlighter"
@@ -2831,7 +2837,7 @@ private struct InspectorAnnotationRow: View {
                         .frame(width: 16)
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(typeLabel)
+                        Text(ann.inspectorTypeLabel(locale: locale))
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color.dsTextPrimary)
                         if let contents = ann.contents, !contents.isEmpty {

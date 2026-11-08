@@ -6340,10 +6340,11 @@ final class WorkspaceViewModelTests: XCTestCase {
         var jumpedIndex: Int?
         let token = NotificationCenter.default.addObserver(
             forName: .orifoldJumpToPageIndex,
-            object: nil,
+            object: viewModel,
             queue: nil
         ) { notification in
-            jumpedIndex = notification.object as? Int
+            XCTAssertTrue((notification.object as? WorkspaceViewModel) === viewModel)
+            jumpedIndex = notification.userInfo?["payload"] as? Int
         }
         defer { NotificationCenter.default.removeObserver(token) }
 

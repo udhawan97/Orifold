@@ -1,3 +1,5 @@
+import AppKit
+import PDFKit
 import XCTest
 @testable import Orifold
 
@@ -82,6 +84,90 @@ final class LocalizationCoverageTests: XCTestCase {
                 XCTAssertFalse(text.contains(key), "Raw key leaked in \(language)")
             }
         }
+    }
+
+    @MainActor
+    func testAnnotationEditorsResolveHeadingsAndCommitActionNamesInEveryAppLanguage() throws {
+        let catalog = try loadCatalog()
+        for language in ["en"] + Self.supportedLanguages {
+            let locale = Locale(identifier: language)
+            for (subtype, replacement, key) in [
+                (PDFAnnotationSubtype.text, false, "readingCanvas.noteEditor.title"),
+                (.freeText, false, "inspector.annotationType.textBox.label"),
+                (.freeText, true, "undo.editPDFText"),
+            ] {
+                let annotation = PDFAnnotation(bounds: CGRect(x: 20, y: 20, width: 200, height: 40),
+                                               forType: subtype, withProperties: nil)
+                annotation.contents = "Fictional original note"
+                annotation.font = .systemFont(ofSize: 16)
+                annotation.fontColor = .black
+                annotation.setValue(replacement, forAnnotationKey: WorkspaceViewModel.textReplacementAnnotationKey)
+                var actionNames: [String] = []
+                let controller = NoteEditorViewController(
+                    annotation: annotation,
+                    changeHandler: { _, _, actionName in actionNames.append(actionName) },
+                    locale: locale
+                )
+                controller.loadViewIfNeeded()
+                let expected = try XCTUnwrap(catalog.strings[key]?.localizations[language]?.stringUnit?.value)
+                let heading = try XCTUnwrap(annotationEditorDescendants(NSTextField.self, in: controller.view)
+                    .first { $0.stringValue == expected }, "Missing \(key) in \(language)")
+                XCTAssertLessThanOrEqual(heading.fittingSize.width, heading.bounds.width + 0.5,
+                                         "Heading clips in \(language): \(expected)")
+                let textView = try XCTUnwrap(annotationEditorDescendants(NSTextView.self, in: controller.view).first)
+                textView.string = "Fictional edited note"
+                controller.viewWillDisappear()
+                XCTAssertEqual(annotation.contents, "Fictional edited note")
+                XCTAssertEqual(actionNames, [expected], "Commit action name must match the localized heading")
+            }
+        }
+    }
+
+    @MainActor
+    func testAnnotationEditorDefaultHeadingMatchesTheCurrentAppLocale() throws {
+        let expected = L10n.string("readingCanvas.noteEditor.title", locale: L10n.currentLocale)
+        let note = PDFAnnotation(bounds: CGRect(x: 20, y: 20, width: 24, height: 24),
+                                 forType: .text, withProperties: nil)
+        let controller = NoteEditorViewController(annotation: note)
+        controller.loadViewIfNeeded()
+        XCTAssertTrue(annotationEditorDescendants(NSTextField.self, in: controller.view)
+            .contains { $0.stringValue == expected })
+    }
+
+    @MainActor
+    func testAnnotationDetailCopyResolvesWithinConservativeWidthBudgetsInEveryAppLanguage() throws {
+        let catalog = try loadCatalog()
+        let labels = ["type", "bounds", "font", "mode"].map { "inspector.editingDetails.\($0).label" }
+        let values = ["inspector.editingDetails.editable", "inspector.editingDetails.markup"]
+        // Copy-only budgets: the label is fixed at 54pt; mode copy stays within 180pt.
+        // These checks do not render SwiftUI or measure the available native inspector width.
+        for language in ["en"] + Self.supportedLanguages {
+            let locale = Locale(identifier: language)
+            for key in labels + values + ["inspector.editingDetails.title", "inspector.annotationType.generic.label"] {
+                let expected = try XCTUnwrap(catalog.strings[key]?.localizations[language]?.stringUnit?.value)
+                let actual = L10n.string(forKey: key, locale: locale)
+                XCTAssertEqual(actual, expected, "Incorrect annotation detail translation in \(language)")
+                XCTAssertFalse(actual.contains(key))
+                if labels.contains(key) {
+                    let width = (actual.uppercased() as NSString).size(withAttributes: [
+                        .font: NSFont.systemFont(ofSize: 9, weight: .medium)
+                    ]).width
+                    XCTAssertLessThanOrEqual(width, 54, "Label copy exceeds its 54pt budget in \(language): \(actual)")
+                } else if values.contains(key) {
+                    let width = (actual as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12)]).width
+                    XCTAssertLessThanOrEqual(width, 180, "Mode copy exceeds its 180pt budget in \(language): \(actual)")
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func annotationEditorDescendants<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
+        var matches = (view as? T).map { [$0] } ?? []
+        for child in view.subviews {
+            matches.append(contentsOf: annotationEditorDescendants(type, in: child))
+        }
+        return matches
     }
 
     /// Interpolated-format-string keys (literal Swift source containing `\(`)

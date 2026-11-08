@@ -479,7 +479,7 @@ struct ContentView: View {
         }
         .popover(isPresented: $showTOC, arrowEdge: .top) {
             TOCView(viewModel: viewModel) { pageIndex in
-                NotificationCenter.default.post(name: .orifoldJumpToPageIndex, object: pageIndex)
+                NotificationCenter.default.postWorkspaceCommand(.orifoldJumpToPageIndex, to: viewModel, payload: pageIndex)
                 showTOC = false
             }
             .environmentObject(languageManager)
