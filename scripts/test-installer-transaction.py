@@ -32,14 +32,14 @@ def main():
     source = Path(__file__).with_name("install-mac.sh").read_text()
     body = "\n".join(function(source, n) for n in
                      ["cleanup", "begin_install_transaction", "swap_transaction_app", "finish_install_transaction",
-                      "stop_running_app", "remove_stray_app_copies", "replace_staged_app"])
+                      "stop_running_app", "remove_stray_app_copies", "replace_staged_app", "install_staged_app"])
     # Intercept every process/Apple-event operation in the tested source, including
     # any future kill regression, before the shell can execute it.
     assert "/usr/bin/pkill" not in body and not re.search(r"\bkill\b", body)
     for original, replacement in {
         "/usr/bin/pgrep": "fake_pgrep", "/usr/bin/osascript": "fake_osascript",
         "/bin/sleep": "fake_sleep", "/usr/bin/ditto": "fake_ditto",
-        "/usr/bin/xattr": "fake_xattr", "/bin/mv": "fake_mv",
+        "/usr/bin/xattr": "fake_xattr", "/bin/mv": "fake_mv", "/usr/bin/open": "fake_open",
     }.items():
         body = body.replace(original, replacement)
     body = body.replace(">/dev/null 2>&1 <<", "<<")
@@ -49,7 +49,9 @@ def main():
     assert '"/Applications"' not in body
     scenarios = ["cancel", "still-running", "copy-failure", "preverify-failure",
                  "backup-move-failure", "swap-failure", "postverify-failure", "interrupt",
-                 "fresh-postverify-failure", "success", "clean-quit", "fresh-success", "duplicate-cancel"]
+                 "fresh-postverify-failure", "success", "clean-quit", "fresh-success", "duplicate-cancel",
+                 "open-failure", "early-exit", "other-copy-only", "launch-state-unknown", "no-open",
+                 "fresh-open-failure", "fresh-early-exit", "launch-interruption"]
     for scenario in scenarios:
         case = Path(tempfile.mkdtemp(prefix=scenario + "-", dir=root))
         current = case / "Applications/Orifold.app"
@@ -83,6 +85,9 @@ INSTALL_TRANSACTION_DIR=""
 INSTALL_TRANSACTION_TARGET=""
 INSTALL_TRANSACTION_ACTIVE=0
 INSTALL_HAD_PREVIOUS=0
+INSTALL_LAUNCH_PENDING=0
+OPEN_AFTER_INSTALL=1
+[[ "$SCENARIO" != no-open ]] || OPEN_AFTER_INSTALL=0
 print_step() { :; }
 print_note() { print -r -- "$1" >> "$LOG_FILE"; }
 fail() { print -r -- "$1" >> "$LOG_FILE"; exit 1; }
@@ -94,6 +99,22 @@ fake_osascript() {
     print -r -- "$2" >> "$CASE_ROOT/quit-targets"
     [[ "$SCENARIO" != cancel && "$SCENARIO" != duplicate-cancel ]]
 }
+fake_open() {
+    [[ "$1" == "$INSTALLED_APP" ]] || exit 93
+    print -r -- "$1" >> "$CASE_ROOT/opens"
+    if [[ "$SCENARIO" == launch-interruption ]]; then exit 143; fi
+    [[ "$SCENARIO" != *open-failure ]]
+}
+running_bundle_state() {
+    [[ "$1" == "$INSTALLED_APP" ]] || exit 94
+    case "$SCENARIO" in
+        launch-state-unknown) return 1 ;;
+        *early-exit|other-copy-only|*open-failure) print -r -- stopped ;;
+        *) print -r -- running ;;
+    esac
+}
+capture_launch_diagnostics() { :; }
+refresh_desktop_commands() { : > "$CASE_ROOT/refreshed"; }
 fake_sleep() { :; }
 fake_xattr() { :; }
 fake_ditto() {
@@ -127,17 +148,33 @@ if [[ "$SCENARIO" == duplicate-cancel ]]; then
         original_stop_running_app "$1"
     }
 fi
-replace_staged_app
+install_staged_app
 """)
         result = subprocess.run(["/bin/zsh", str(script)], cwd=case,
                                 env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
                                      "TMPDIR": str(case)}, capture_output=True, text=True)
-        success = scenario in {"success", "clean-quit", "fresh-success", "duplicate-cancel"}
+        success = scenario in {"success", "clean-quit", "fresh-success", "duplicate-cancel", "no-open"}
+        uncertain = scenario in {"launch-state-unknown", "launch-interruption"}
+        fresh_launch_failed = scenario in {"fresh-open-failure", "fresh-early-exit"}
         assert (result.returncode == 0) == success, (scenario, result.returncode, result.stderr)
-        assert digest(current) == (expected if success else previous), scenario
-        assert current.exists() == (success or not fresh), scenario
+        keep_new = success or uncertain or fresh_launch_failed
+        assert digest(current) == (expected if keep_new else previous), scenario
+        assert current.exists() == (keep_new or not fresh), scenario
         assert duplicate.exists() == (not success or scenario == "duplicate-cancel"), scenario
-        assert not list((case / "Applications").glob(".orifold-update.*")), scenario
+        assert (case / "refreshed").exists() == success, scenario
+        transactions = list((case / "Applications").glob(".orifold-update.*"))
+        if uncertain:
+            assert len(transactions) == 1 and digest(transactions[0] / "previous.app") == previous, scenario
+            assert "Previous app preserved at " in result.stderr, scenario
+        else:
+            assert not transactions, scenario
+        opened = case / "opens"
+        reaches_launch = scenario in {"success", "clean-quit", "fresh-success", "duplicate-cancel", "open-failure",
+                                      "early-exit", "other-copy-only", "launch-state-unknown", "launch-interruption",
+                                      "fresh-open-failure", "fresh-early-exit"}
+        assert opened.exists() == reaches_launch, scenario
+        if opened.exists():
+            assert opened.read_text().splitlines() == [str(current)], scenario
         if scenario in {"cancel", "still-running", "clean-quit"}:
             assert (case / "quit-targets").read_text().splitlines() == [str(current)]
         if (case / "quit-targets").exists():
@@ -145,11 +182,37 @@ replace_staged_app
             assert all(target.startswith(str(case) + "/") for target in targets), scenario
         print(f"PASS {scenario}: bundle bytes and duplicate preservation")
     print(f"Passed {len(scenarios)} installer transaction scenarios (synthetic bundles; no native launch claim).")
+    test_launch_bundle_identity(root, source)
     test_restore(root, source)
     subprocess.run([sys.executable, str(Path(__file__).with_name("test-uninstaller-cancellation.py")),
                     str(root / "uninstall")], check=True)
     # The real --restore dispatch must be able to call the shared quit helper.
     assert source.index("\nstop_running_app() {") < source.index('if [[ -n "${RESTORE_ZIP:-}" ]]')
+
+
+def test_launch_bundle_identity(root, source):
+    # Keep the actual JXA path comparison. Substitute the OS process inventory so no
+    # running application is read or launched. A helper process may have no bundle URL.
+    code = source.split("<<'BUNDLE_STATE'\n", 1)[1].split("\nBUNDLE_STATE", 1)[0]
+    inventory = "$.NSWorkspace.sharedWorkspace.runningApplications"
+    assert code.count(inventory) == 1
+    code = code.replace(inventory, """({
+        count: 2, objectAtIndex: i => ({bundleURL: i === 0 ? null : $.NSURL.fileURLWithPath(argv[1])})
+    })""")
+    case = Path(tempfile.mkdtemp(prefix="bundle-identity-", dir=root))
+    probe = case / "state.js"
+    probe.write_text(code)
+    target = case / "Applications/Orifold.app"
+    other = case / "Elsewhere/Orifold.app"
+    for app in [target, other]:
+        app.mkdir(parents=True)
+    alias = case / "Alias.app"
+    alias.symlink_to(target)
+    for candidate, expected in [(target, "running"), (other, "stopped"), (alias, "running")]:
+        result = subprocess.run(["/usr/bin/osascript", "-l", "JavaScript", str(probe), str(target), str(candidate)],
+                                capture_output=True, text=True, check=True, timeout=10)
+        assert result.stdout.strip() == expected, (candidate, result.stdout, result.stderr)
+    print("Passed 3 target-bundle identity cases (synthetic process inventory).")
 
 
 def test_restore(root, source, scenarios=None):
@@ -220,6 +283,7 @@ INSTALL_TRANSACTION_DIR=""
 INSTALL_TRANSACTION_TARGET=""
 INSTALL_TRANSACTION_ACTIVE=0
 INSTALL_HAD_PREVIOUS=0
+INSTALL_LAUNCH_PENDING=0
 /bin/mkdir -p "$STAGE_ROOT"
 print_step() { :; }
 print_note() { :; }

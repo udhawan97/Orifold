@@ -44,6 +44,7 @@ INSTALL_TRANSACTION_DIR=""
 INSTALL_TRANSACTION_TARGET=""
 INSTALL_TRANSACTION_ACTIVE=0
 INSTALL_HAD_PREVIOUS=0
+INSTALL_LAUNCH_PENDING=0
 
 usage() {
     cat <<USAGE
@@ -94,6 +95,17 @@ fail() {
 }
 
 cleanup() {
+    if [[ $INSTALL_TRANSACTION_ACTIVE -eq 1 && $INSTALL_LAUNCH_PENDING -eq 1 ]]; then
+        # A signal or an unavailable LaunchServices query can interrupt launch. Never swap
+        # underneath a running or unconfirmed process. Keep both bundles for manual recovery.
+        local state
+        state="$(running_bundle_state "$INSTALL_TRANSACTION_TARGET")" || state=unknown
+        if [[ "$state" != stopped ]]; then
+            printf 'Launch was interrupted. Previous app preserved at %s/previous.app\n' "$INSTALL_TRANSACTION_DIR" >&2
+            INSTALL_TRANSACTION_ACTIVE=0
+            INSTALL_TRANSACTION_DIR=""
+        fi
+    fi
     if [[ $INSTALL_TRANSACTION_ACTIVE -eq 1 ]]; then
         if [[ -d "$INSTALL_TRANSACTION_DIR/previous.app" ]]; then
             if ! /bin/rm -rf "$INSTALL_TRANSACTION_TARGET" || ! /bin/mv "$INSTALL_TRANSACTION_DIR/previous.app" "$INSTALL_TRANSACTION_TARGET"; then
@@ -462,10 +474,6 @@ replace_staged_app() {
     print_step "Installing app at $INSTALLED_APP"
     swap_transaction_app
     verify_app_bundle "$INSTALLED_APP"
-    finish_install_transaction
-
-    # A usable replacement now exists. Cancelled quits leave duplicate copies intact.
-    remove_stray_app_copies
 }
 
 # These two scripts are distributed independently (including curl | zsh).
@@ -511,21 +519,51 @@ refresh_desktop_commands() {
     install_desktop_command "$DESKTOP_UNINSTALLER" scripts/uninstall-mac.sh || print_note "Could not create $DESKTOP_UNINSTALLER."
 }
 
+running_bundle_state() {
+    # A different process named Orifold must never satisfy the launch check.
+    /usr/bin/osascript -l JavaScript - "$1" <<'BUNDLE_STATE'
+ObjC.import("AppKit");
+function run(argv) {
+    const expected = $.NSURL.fileURLWithPath(argv[0]).URLByResolvingSymlinksInPath.path.js;
+    const apps = $.NSWorkspace.sharedWorkspace.runningApplications;
+    for (let i = 0; i < apps.count; ++i) {
+        const url = apps.objectAtIndex(i).bundleURL;
+        if (url && url.URLByResolvingSymlinksInPath.path.js === expected) return "running";
+    }
+    return "stopped";
+}
+BUNDLE_STATE
+}
+
 install_staged_app() {
     replace_staged_app
 
-    print_step "Refreshing Desktop commands"
-    refresh_desktop_commands
-
+    # A fresh installation has no previous app to restore. Keep a verified fresh bundle
+    # on disk for manual launch, as before. An upgrade keeps its backup through launch.
+    if [[ $INSTALL_HAD_PREVIOUS -eq 0 ]]; then
+        finish_install_transaction
+    fi
     if [[ $OPEN_AFTER_INSTALL -eq 1 ]]; then
         print_step "Opening $APP_NAME"
-        open "$INSTALLED_APP" || fail "The app was installed, but macOS could not open it."
+        INSTALL_LAUNCH_PENDING=1
+        if ! /usr/bin/open "$INSTALLED_APP"; then
+            fail "macOS could not open $INSTALLED_APP."
+        fi
         /bin/sleep 1
-        if ! /usr/bin/pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+        local state
+        state="$(running_bundle_state "$INSTALLED_APP")" || fail "Could not check whether $INSTALLED_APP remained running."
+        if [[ "$state" != running ]]; then
             capture_launch_diagnostics
-            fail "$APP_NAME opened but did not remain running. Check the install log for recent macOS launch diagnostics."
+            fail "$INSTALLED_APP did not remain running. Check the install log for launch diagnostics."
         fi
     fi
+    if [[ $INSTALL_TRANSACTION_ACTIVE -eq 1 ]]; then
+        finish_install_transaction
+    fi
+    INSTALL_LAUNCH_PENDING=0
+    remove_stray_app_copies
+    print_step "Refreshing Desktop commands"
+    refresh_desktop_commands
 }
 
 install_prebuilt_release() {
