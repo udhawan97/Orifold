@@ -250,20 +250,6 @@ struct ContentView: View {
         )
     }
 
-    // Undo/Redo availability drives the toolbar buttons off the view model's own undo manager
-    // (the one every edit registers on), and reads `structureRevision` so the buttons re-evaluate
-    // after AppKit-driven object-edit commits, which don't otherwise trigger a SwiftUI refresh —
-    // that gap is what left Undo/Redo stuck disabled after a move/resize/delete on the canvas.
-    private var undoAvailable: Bool {
-        _ = viewModel.structureRevision
-        return viewModel.undoManager?.canUndo == true
-    }
-
-    private var redoAvailable: Bool {
-        _ = viewModel.structureRevision
-        return viewModel.undoManager?.canRedo == true
-    }
-
     var body: some View {
         Group {
             if viewModel.memberDocuments.isEmpty {
@@ -578,7 +564,7 @@ struct ContentView: View {
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .disabled(!undoAvailable)
+            .disabled(viewModel.undoManagerForControls?.canUndo != true)
             .padding(.leading, 8)
 
             ToolbarIconButton(labelKey: "toolbar.redo.label", systemImage: "arrow.uturn.forward", helpKey: "toolbar.redo.help") {
@@ -587,7 +573,7 @@ struct ContentView: View {
             .acceptsImportDrops { providers in
                 handleDrop(providers: providers)
             }
-            .disabled(!redoAvailable)
+            .disabled(viewModel.undoManagerForControls?.canRedo != true)
 
             // A bare `Divider()` placed directly in a `ToolbarItemGroup` (outside any
             // HStack/VStack) has no layout context to infer its axis from and can render as

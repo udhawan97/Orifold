@@ -610,7 +610,35 @@ final class WorkspaceViewModel {
         document.workspace.documents.isEmpty && pageCount == 0 && selectedPageRefID == nil
     }
 
-    weak var undoManager: UndoManager?
+    @ObservationIgnored weak var undoManager: UndoManager? {
+        didSet {
+            guard oldValue !== undoManager else { return }
+            let center = NotificationCenter.default
+            undoHistoryObservers.forEach(center.removeObserver)
+            undoHistoryObservers.removeAll()
+            undoHistoryRevision &+= 1
+            guard let undoManager else { return }
+            let changes: [Notification.Name] = [
+                .NSUndoManagerDidCloseUndoGroup, .NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange
+            ]
+            undoHistoryObservers = changes.map { name in
+                center.addObserver(forName: name, object: undoManager, queue: .main) { [weak self] notification in
+                    guard let self, let manager = notification.object as? UndoManager,
+                          self.undoManager === manager else { return }
+                    self.undoHistoryRevision &+= 1
+                }
+            }
+        }
+    }
+    @ObservationIgnored private var undoHistoryObservers: [NSObjectProtocol] = []
+    private var undoHistoryRevision = 0
+
+    /// Annotation edits can change the manager's stacks without rebuilding the document.
+    /// The menu and toolbar observe completed history changes, then read the live titles and availability.
+    var undoManagerForControls: UndoManager? {
+        _ = undoHistoryRevision
+        return undoManager
+    }
 
     private let engine: PDFEngine
     private let processingEngine: PDFProcessingEngine
@@ -1103,6 +1131,7 @@ final class WorkspaceViewModel {
     }
 
     deinit {
+        undoHistoryObservers.forEach(NotificationCenter.default.removeObserver)
         cancelPendingSearch()
         activeImportCancellation?.cancel()
         activeImportTask?.cancel()
@@ -2913,13 +2942,9 @@ final class WorkspaceViewModel {
 
     // MARK: - Discard changes & close
 
-    /// True once the document differs from how it was opened. Drives whether the
-    /// "Discard Changes & Close" escape hatch is offered. Reads `structureRevision` so it
-    /// re-evaluates after AppKit-driven commits (object move/resize/delete) that don't
-    /// otherwise trigger a SwiftUI refresh — the same gap the toolbar Undo button reads.
+    /// Drives the document's Discard Changes & Close command from its own undo history.
     var hasUnsavedChanges: Bool {
-        _ = structureRevision
-        return undoManager?.canUndo == true
+        undoManagerForControls?.canUndo == true
     }
 
     /// Rolls every piece of in-memory document state back to the `initialDocumentState`
@@ -2960,6 +2985,7 @@ final class WorkspaceViewModel {
         // Wipe undo/redo so the framework stops treating the document as edited; otherwise
         // closing could re-trigger the very save-on-close that was failing.
         undoManager?.removeAllActions()
+        undoHistoryRevision &+= 1
         // Close on the next runloop turn so this method (usually invoked from a menu/dialog
         // button) fully unwinds first. Use `close()`, NOT `performClose(_:)`: `close()` is
         // unconditional and never routes back through the save-on-close machinery.

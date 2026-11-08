@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import Crypto
 import X509
 import PDFKit
@@ -14,6 +15,83 @@ final class WorkspaceNavigationOwnershipTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         return WorkspaceFingerprintStore(directory: directory)
     }()
+
+    func testNoteUndoAndRedoInvalidateObservedControlsWithoutChangingFocusOrRebuilding() throws {
+        let (owner, note, manager) = try makeWorkspace()
+        let revision = owner.structureRevision
+        let title = "Edit fictional note"
+        let commandChanged = observeUndoControls(owner)
+        let snapshot = PDFAnnotationEditSnapshot(annotation: note)
+        manager.beginUndoGrouping()
+        note.contents = "Revised"
+        owner.registerAnnotationEdit(note, from: snapshot, actionName: title)
+        manager.endUndoGrouping()
+        wait(for: [commandChanged], timeout: 1)
+        XCTAssertEqual(owner.undoManagerForControls?.undoActionName, title)
+        XCTAssertTrue(owner.undoManagerForControls?.canUndo == true)
+        XCTAssertFalse(owner.undoManagerForControls?.canRedo == true)
+
+        let undoChanged = observeUndoControls(owner)
+        owner.performUndoCommand()
+        wait(for: [undoChanged], timeout: 1)
+        XCTAssertEqual(note.contents, "Fictional note")
+        XCTAssertEqual(owner.undoManagerForControls?.redoActionName, title)
+        XCTAssertTrue(owner.undoManagerForControls?.canRedo == true)
+        XCTAssertFalse(owner.undoManagerForControls?.canUndo == true)
+
+        let redoChanged = observeUndoControls(owner)
+        owner.performRedoCommand()
+        wait(for: [redoChanged], timeout: 1)
+        XCTAssertEqual(note.contents, "Revised")
+        XCTAssertTrue(owner.undoManagerForControls?.canUndo == true)
+        XCTAssertFalse(owner.undoManagerForControls?.canRedo == true)
+        XCTAssertEqual(owner.structureRevision, revision)
+    }
+
+    func testUndoControlObservationFollowsManagerReplacementAndIgnoresThePreviousWindow() throws {
+        let (owner, _, previous) = try makeWorkspace()
+        let (other, _, otherManager) = try makeWorkspace()
+        let replacement = UndoManager()
+        replacement.groupsByEvent = false
+
+        let rebound = observeUndoControls(owner)
+        owner.undoManager = replacement
+        wait(for: [rebound], timeout: 1)
+        let unaffectedOwner = observeUndoControls(owner)
+        unaffectedOwner.isInverted = true
+        owner.undoManager = replacement
+        recordUndo(on: previous, name: "Previous")
+        recordUndo(on: otherManager, name: "Other window")
+        wait(for: [unaffectedOwner], timeout: 0.03)
+        XCTAssertFalse(owner.undoManagerForControls?.canUndo == true)
+        XCTAssertEqual(other.undoManagerForControls?.undoActionName, "Other window")
+
+        let current = observeUndoControls(owner)
+        recordUndo(on: replacement, name: "Replacement")
+        wait(for: [current], timeout: 1)
+        XCTAssertEqual(owner.undoManagerForControls?.undoActionName, "Replacement")
+        let cleared = observeUndoControls(owner)
+        owner.undoManager = nil
+        wait(for: [cleared], timeout: 1)
+        XCTAssertNil(owner.undoManagerForControls)
+    }
+
+    private func observeUndoControls(_ owner: WorkspaceViewModel) -> XCTestExpectation {
+        let changed = XCTestExpectation(description: "Update the workspace's Undo and Redo controls")
+        withObservationTracking {
+            _ = owner.undoManagerForControls?.canRedo
+        } onChange: {
+            changed.fulfill()
+        }
+        return changed
+    }
+
+    private func recordUndo(on manager: UndoManager, name: String) {
+        manager.beginUndoGrouping()
+        manager.registerUndo(withTarget: self) { _ in }
+        manager.setActionName(name)
+        manager.endUndoGrouping()
+    }
 
     func testForeignAnnotationCallbackCannotReplaceSelectionOrDeleteAnotherWorkspaceNote() throws {
         let (first, firstNote, _) = try makeWorkspace()

@@ -236,34 +236,22 @@ private struct UndoRedoCommandButtons: View {
 
     private var importInProgress: Bool { isImporting == true }
 
-    // Drive Undo/Redo from the view model's own undo manager — the one every edit registers on
-    // and that `performUndoCommand`/`performRedoCommand` actually operate on — NOT
-    // `@Environment(\.undoManager)`, which resolves to nil in the `.commands` scene and left the
-    // controls permanently disabled for object edits (their edit was registered and undoable, but
-    // the button never saw it). Reading `structureRevision` — bumped by every `rebuild()`,
-    // including AppKit-driven object commits that don't originate from a SwiftUI interaction —
-    // forces these buttons to re-evaluate their enabled state after such a commit.
-    private var activeUndoManager: UndoManager? {
-        _ = viewModel?.structureRevision
-        return viewModel?.undoManager
-    }
-
     private var undoTitle: String {
-        guard let name = activeUndoManager?.undoActionName, !name.isEmpty else {
+        guard let name = viewModel?.undoManagerForControls?.undoActionName, !name.isEmpty else {
             return L10n.string("appCommands.undo.button", locale: locale)
         }
         return L10n.format("appCommands.undo.withAction", name, locale: locale)
     }
 
     private var redoTitle: String {
-        guard let name = activeUndoManager?.redoActionName, !name.isEmpty else {
+        guard let name = viewModel?.undoManagerForControls?.redoActionName, !name.isEmpty else {
             return L10n.string("appCommands.redo.button", locale: locale)
         }
         return L10n.format("appCommands.redo.withAction", name, locale: locale)
     }
 
     var body: some View {
-        let undo = activeUndoManager
+        let undo = viewModel?.undoManagerForControls
         Button(undoTitle) {
             viewModel?.performUndoCommand()
         }
@@ -410,18 +398,11 @@ private struct DiscardCloseCommandButton: View {
     @FocusedValue(\.orifoldWorkspaceViewModel) private var viewModel
     var locale: Locale
 
-    // Read `structureRevision` (bumped by every edit's `rebuild()`) so this re-evaluates its
-    // enabled state, matching how the Undo command buttons stay in sync.
-    private var hasChanges: Bool {
-        _ = viewModel?.structureRevision
-        return viewModel?.hasUnsavedChanges == true
-    }
-
     var body: some View {
         Button(L10n.string("appCommands.discardClose.button", locale: locale)) {
             NotificationCenter.default.postWorkspaceCommand(.orifoldRequestDiscardClose, to: viewModel)
         }
-        .disabled(!hasChanges)
+        .disabled(viewModel?.hasUnsavedChanges != true)
     }
 }
 
