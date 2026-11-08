@@ -19,6 +19,30 @@ import PDFKit
 /// onto bytes the app means to *keep* is the case that remains off-limits.
 enum PDFOutlineBuilder {
 
+    /// Resolves the one override contract shared by ordinary Save and explicit Export:
+    /// nil follows source outlines, an empty list removes them, and a populated list replaces.
+    static func workspaceOverrideNodes(in workspace: Workspace) -> [PDFOutlineReader.OutlineNode]? {
+        guard let override = workspace.outlineOverride else { return nil }
+        let indexByRefID = Dictionary(
+            workspace.pageOrder.enumerated().map { ($0.element.id, $0.offset) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return override.compactMap { node in
+            guard let pageIndex = indexByRefID[node.pageRefID] else { return nil }
+            return PDFOutlineReader.OutlineNode(
+                title: node.title, depth: node.depth, localPageIndex: pageIndex, hasChildren: false
+            )
+        }
+    }
+
+    /// Run once after page-content passes and before attachment re-injection. The caller
+    /// decides whether its layout preserves page indexes; failures retain existing export policy.
+    static func applying(_ nodes: [PDFOutlineReader.OutlineNode], to data: Data) -> Data {
+        guard let pdf = PDFDocument(data: data) else { return data }
+        apply(nodes, to: pdf)
+        return PDFSerializer.data(from: pdf) ?? data
+    }
+
     /// Marks a run as belonging to a markdown heading block, carrying its level (1–6).
     /// The contract between `typesetMarkdown`, which knows block structure, and
     /// `renderAttributedString`, which knows pagination — neither alone can place a
@@ -146,7 +170,12 @@ enum PDFOutlineBuilder {
         let headings = nodes.map {
             Heading(title: $0.title, level: $0.depth + 1, pageIndex: $0.localPageIndex)
         }
-        guard let root = outline(from: headings, in: document) else { return }
-        document.outlineRoot = root
+        if let root = outline(from: headings, in: document) {
+            document.outlineRoot = root
+        } else if document.outlineRoot != nil {
+            // PDFKit ignores nil when replacing a parsed root. An explicit empty root
+            // clears it; serialization omits that childless root from the final PDF.
+            document.outlineRoot = PDFOutline()
+        }
     }
 }

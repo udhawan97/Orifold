@@ -271,7 +271,8 @@ enum WorkspaceOperationalCopy {
 /// documents: `PDFDocument` is not `Sendable`, `Data` is.
 struct BakedExportPayload: Sendable {
     let baked: BakedPDFData
-    let outline: [PDFOutlineReader.OutlineNode]
+    /// nil skips a rewrite; an explicitly empty list clears existing source bookmarks.
+    let outline: [PDFOutlineReader.OutlineNode]?
     let attachments: [WorkspaceViewModel.CollectedAttachment]
 }
 
@@ -7876,7 +7877,8 @@ final class WorkspaceViewModel {
             try document.exportedPDFDataThrowing(
                 from: snapshot,
                 options: options,
-                formValueOverrides: liveFormValueOverrides
+                formValueOverrides: liveFormValueOverrides,
+                appliesOutlineOverride: false
             ))
         if let preset = options.compressionPreset {
             baked = try baked.mapping { data in
@@ -7968,11 +7970,11 @@ final class WorkspaceViewModel {
     /// its bookmarks correctly and its own serialized bytes do not. Reading the snapshot
     /// back would bake in exactly the corruption this indirection exists to avoid, so
     /// this must keep reading the live documents even though the snapshot is right there.
-    private func concatenatedOutlineNodes() -> [PDFOutlineReader.OutlineNode] {
+    private func concatenatedOutlineNodes() -> [PDFOutlineReader.OutlineNode]? {
         // A user-edited outline replaces the source walk wholesale — including the
         // empty override, which means "the user deleted every bookmark on purpose".
-        if document.workspace.outlineOverride != nil {
-            return overrideOutlineNodesForExport()
+        if let override = PDFOutlineBuilder.workspaceOverrideNodes(in: document.workspace) {
+            return override
         }
         var nodes: [PDFOutlineReader.OutlineNode] = []
         var pagesSoFar = 0
@@ -7981,7 +7983,7 @@ final class WorkspaceViewModel {
             nodes.append(contentsOf: PDFOutlineReader.nodes(in: pdf).map { $0.offsetting(by: pagesSoFar) })
             pagesSoFar += pdf.pageCount
         }
-        return nodes
+        return nodes.isEmpty ? nil : nodes
     }
 
     /// Writes `nodes` into `data` as a `/Outlines` tree, or returns `data` untouched.
@@ -7992,16 +7994,14 @@ final class WorkspaceViewModel {
     /// absent. Degrades silently on any failure — unlike sanitize, a missing bookmark
     /// costs navigation convenience, not privacy, so it must never fail an export.
     private static func applyingOutline(
-        _ nodes: [PDFOutlineReader.OutlineNode],
+        _ nodes: [PDFOutlineReader.OutlineNode]?,
         to data: Data,
         options: WorkspaceExportOptions
     ) -> Data {
         // `.scale` is the one layout whose output page N is still source page N, so its
         // bookmarks stay faithful and the write must keep running.
-        guard options.imposition?.preservesPageMapping != false, !nodes.isEmpty else { return data }
-        guard let pdf = PDFDocument(data: data) else { return data }
-        PDFOutlineBuilder.apply(nodes, to: pdf)
-        return PDFSerializer.data(from: pdf) ?? data
+        guard options.imposition?.preservesPageMapping != false, let nodes else { return data }
+        return PDFOutlineBuilder.applying(nodes, to: data)
     }
 
     /// Applies `options.sanitization` if present. Throws rather than falling
@@ -8160,7 +8160,8 @@ final class WorkspaceViewModel {
         let attachments = try AttachmentsService.capture(in: sourceData)
         let outline = PDFOutlineReader.nodes(in: pdf)
         return try await reducedData(
-            from: BakedExportPayload(baked: BakedPDFData(alreadyFlattened: sourceData), outline: outline, attachments: attachments),
+            from: BakedExportPayload(baked: BakedPDFData(alreadyFlattened: sourceData),
+                                     outline: outline.isEmpty ? nil : outline, attachments: attachments),
             preset: preset,
             options: WorkspaceExportOptions(encryption: encryption, compressionPreset: preset, sanitization: sanitization),
             cancellation: cancellation,
@@ -10930,27 +10931,6 @@ final class WorkspaceViewModel {
             previousDepth = result[index].depth
         }
         return result
-    }
-
-    /// Export-time resolution of the override: each anchor becomes its position in the
-    /// concatenated export page list (`pageOrder` mirrors the member-by-member assembly).
-    /// Anchors whose page was deleted drop out — a dangling bookmark is worse than a
-    /// missing one, same rule as `PDFOutlineBuilder`.
-    private func overrideOutlineNodesForExport() -> [PDFOutlineReader.OutlineNode] {
-        guard let override = document.workspace.outlineOverride else { return [] }
-        let indexByRefID = Dictionary(
-            document.workspace.pageOrder.enumerated().map { ($0.element.id, $0.offset) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        return override.compactMap { node in
-            guard let pageIndex = indexByRefID[node.pageRefID] else { return nil }
-            return PDFOutlineReader.OutlineNode(
-                title: node.title,
-                depth: node.depth,
-                localPageIndex: pageIndex,
-                hasChildren: false
-            )
-        }
     }
 
     // MARK: - TOC synthesis

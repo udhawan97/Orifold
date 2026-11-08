@@ -53,6 +53,19 @@ final class PDFOutlineBuilderTests: XCTestCase {
         )
     }
 
+    func testEmptyReplacementClearsAnExistingOutline() throws {
+        let document = OutlineFixtures.outlinedPDF(pageCount: 2, outline: [
+            OutlineFixtureSpec(title: "Original", page: 1)
+        ])
+        XCTAssertNotNil(document.outlineRoot)
+        let originalData = try XCTUnwrap(PDFSerializer.data(from: document))
+        PDFOutlineBuilder.apply([], to: document)
+        XCTAssertEqual(document.outlineRoot?.numberOfChildren, 0)
+        let reopened = try XCTUnwrap(PDFDocument(data: PDFOutlineBuilder.applying([], to: originalData)))
+        XCTAssertNil(reopened.outlineRoot)
+        XCTAssertTrue(PDFOutlineReader.nodes(in: reopened).isEmpty)
+    }
+
     /// A child arriving without a parent must land somewhere rather than being dropped.
     /// Real `/Outlines` trees are not always well-formed, and the reader's own
     /// promotion rule (lifting an unreadable node's children) emits exactly this.

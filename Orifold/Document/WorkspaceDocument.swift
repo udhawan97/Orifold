@@ -385,7 +385,8 @@ final class WorkspaceDocument: ReferenceFileDocument {
     func exportedPDFDataThrowing(from snapshot: WorkspacePackage,
                                  options: WorkspaceExportOptions = WorkspaceExportOptions(),
                                  formValueOverrides: [PDFFormValueOverride] = [],
-                                 savedSnapshotID: UUID = UUID()) throws -> Data {
+                                 savedSnapshotID: UUID = UUID(),
+                                 appliesOutlineOverride: Bool = true) throws -> Data {
         let docs: [(MemberDocument, PDFDocument)] = try snapshot.workspace.documents.map { member in
             guard let data = snapshot.memberPDFData[member.id],
                   let pdf = PDFDocument(data: data) else {
@@ -439,7 +440,7 @@ final class WorkspaceDocument: ReferenceFileDocument {
             )
             let decoratedData = try Self.applyDecorationExportAdditions(to: formData, workspace: snapshot.workspace)
             let commentData = try Self.applyCommentExportAdditions(to: decoratedData, workspace: snapshot.workspace)
-            return try Self.embedMetadata(
+            let embeddedData = try Self.embedMetadata(
                 in: commentData,
                 workspace: snapshot.workspace,
                 sourcePayloads: sourcePayloads,
@@ -449,6 +450,14 @@ final class WorkspaceDocument: ReferenceFileDocument {
                 editableOriginalMemberPDFData: editableOriginalMemberPDFData,
                 omittingComments: omitsCommentMetadata
             )
+            // Explicit Export defers this write until after compression/imposition.
+            // Ordinary Save writes here, after its final content/metadata PDFKit pass
+            // and before savedFileWrapper re-injects document-level attachments.
+            guard appliesOutlineOverride,
+                  let nodes = PDFOutlineBuilder.workspaceOverrideNodes(in: snapshot.workspace) else {
+                return embeddedData
+            }
+            return PDFOutlineBuilder.applying(nodes, to: embeddedData)
         }
 
         let visualPlacements = snapshot.workspace.signatures.filter { !$0.isCryptographic }
