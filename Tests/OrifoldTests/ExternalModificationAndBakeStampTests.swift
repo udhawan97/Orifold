@@ -216,6 +216,94 @@ final class ExternalModificationAndBakeStampTests: XCTestCase {
         XCTAssertTrue(try makeViewModel(from: externallyRewrite(legacy), name: "LegacyChanged", store: store).document.externalModificationDetected)
     }
 
+    @MainActor
+    func testReinitializingWindowContentPreservesStickyNoteHistoryInPhysicalAndEditableSave() throws {
+        let store = tempStore()
+        let input = try XCTUnwrap(PDFDocument(data: makePDFData(pageTexts: ["Fictional document"])))
+        let inputPage = try XCTUnwrap(input.page(at: 0))
+        let original = "Fictional original note"
+        let edited = "Edited in the owning window"
+        let note = PDFAnnotation(bounds: CGRect(x: 20, y: 40, width: 24, height: 24), forType: .text, withProperties: nil)
+        note.contents = original
+        inputPage.addAnnotation(note)
+        let bytes = try XCTUnwrap(PDFSerializer.data(from: input))
+        func document() throws -> WorkspaceDocument {
+            try WorkspaceDocument(testingFile: FileWrapper(regularFileWithContents: bytes), contentType: .pdf,
+                                  filename: "fictional.pdf", fingerprintStore: store)
+        }
+        func savedNotes(_ pdf: PDFDocument) throws -> [String] {
+            try XCTUnwrap(pdf.page(at: 0)).annotations.filter { $0.type == "Text" }.compactMap(\.contents)
+        }
+        let first = try document()
+        let other = try document()
+        let originalViews = (ContentView(document: first), ContentView(document: other))
+        defer { withExtendedLifetime(originalViews) {} }
+        let owner = first.viewModelForWindow()
+        let neighbor = other.viewModelForWindow()
+        XCTAssertFalse(owner === neighbor)
+        let manager = UndoManager()
+        manager.groupsByEvent = false
+        owner.undoManager = manager
+        let pdf = try XCTUnwrap(owner.loadedPDFs.first?.1)
+        let liveNote = try XCTUnwrap(pdf.page(at: 0)?.annotations.first { $0.type == "Text" })
+        let prior = PDFAnnotationEditSnapshot(annotation: liveNote)
+        manager.beginUndoGrouping()
+        liveNote.contents = edited
+        owner.registerAnnotationEdit(liveNote, from: prior, actionName: "Edit Note")
+        manager.endUndoGrouping()
+        manager.undo()
+        XCTAssertEqual(liveNote.contents, original)
+        manager.redo()
+        owner.selectedAnnotation = liveNote
+        manager.beginUndoGrouping()
+        owner.deleteSelectedAnnotation()
+        manager.endUndoGrouping()
+        manager.undo()
+        manager.redo()
+        XCTAssertEqual(try savedNotes(pdf), [])
+        manager.undo()
+        XCTAssertEqual(try savedNotes(pdf), [edited])
+
+        let directory = makeTempDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("sticky-note.pdf")
+        func assertSavedEdit() throws {
+            try save(owner).write(to: url)
+            let saved = try Data(contentsOf: url)
+            XCTAssertEqual(try savedNotes(XCTUnwrap(PDFDocument(data: saved))), [edited])
+            let reopened = try makeViewModel(from: saved, name: "StickyReopen", store: store)
+            XCTAssertEqual(try savedNotes(XCTUnwrap(reopened.loadedPDFs.first?.1)), [edited])
+        }
+        // SwiftUI may construct and discard a new view value without replacing its State.
+        // Save once while that value exists and again after it has gone away.
+        try autoreleasepool {
+            let replacement = ContentView(document: first)
+            try withExtendedLifetime(replacement) { try assertSavedEdit() }
+        }
+        try assertSavedEdit()
+        XCTAssertEqual(try savedNotes(XCTUnwrap(PDFDocument(data: save(neighbor)))), [original])
+    }
+
+    @MainActor
+    func testDocumentCanReleaseAndRecreateItsWindowModel() throws {
+        let doc = try WorkspaceDocument(
+            testingFile: FileWrapper(regularFileWithContents: makePDFData(pageTexts: ["Fictional page"])),
+            contentType: .pdf, fingerprintStore: tempStore()
+        )
+        weak var previous: WorkspaceViewModel?
+        autoreleasepool {
+            let content = ContentView(document: doc)
+            let model = doc.viewModelForWindow()
+            previous = model
+            XCTAssertTrue(doc.viewModelForWindow() === model)
+            withExtendedLifetime(content) {}
+        }
+        XCTAssertNil(previous)
+        let next = doc.viewModelForWindow()
+        XCTAssertTrue(next.document === doc)
+        XCTAssertGreaterThan(try save(next).count, 0)
+    }
+
     func testSamePageCountExternalCorrectionDropsEmbeddedTextSourceAcrossResave() throws {
         let store = tempStore()
         let original = "OriginalSourceToken"

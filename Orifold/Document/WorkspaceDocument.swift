@@ -171,6 +171,18 @@ final class WorkspaceDocument: ReferenceFileDocument {
     /// rendering/editing source of truth.
     private(set) var incomingSignatureSources: [UUID: IncomingSignatureSource] = [:]
 
+    /// ContentView owns the live model. SwiftUI can initialize replacement view values
+    /// before discarding their initial State, so each must use the same snapshot provider.
+    @MainActor private weak var windowModel: WorkspaceViewModel?
+
+    @MainActor
+    func viewModelForWindow() -> WorkspaceViewModel {
+        if let windowModel { return windowModel }
+        let model = WorkspaceViewModel(document: self)
+        windowModel = model
+        return model
+    }
+
     /// ViewModel sets this so snapshot() can capture live annotation state.
     var currentPDFDataProvider: (() throws -> [UUID: Data])?
 

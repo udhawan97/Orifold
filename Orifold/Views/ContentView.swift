@@ -219,7 +219,7 @@ struct ContentView: View {
     init(document: WorkspaceDocument, fileURL: URL? = nil) {
         self.document = document
         self.fileURL = fileURL
-        _viewModel = State(initialValue: WorkspaceViewModel(document: document))
+        _viewModel = State(initialValue: document.viewModelForWindow())
     }
 
     private func recordRecentOpenIfNeeded() {
