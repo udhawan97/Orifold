@@ -315,7 +315,8 @@ final class WorkspaceDocument: ReferenceFileDocument {
         }
         if let sourcePayload {
             sourcePayloads[member.id] = sourcePayload
-        } else if metadata.sourcePayloads.count == 1,
+        } else if !externalModificationDetected,
+                  metadata.sourcePayloads.count == 1,
                   let savedPayload = metadata.sourcePayloads.values.first,
                   savedPayload.renderedPageCount.map({ $0 == pageCount }) ?? true {
             sourcePayloads[member.id] = savedPayload

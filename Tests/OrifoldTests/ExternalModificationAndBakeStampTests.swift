@@ -216,6 +216,44 @@ final class ExternalModificationAndBakeStampTests: XCTestCase {
         XCTAssertTrue(try makeViewModel(from: externallyRewrite(legacy), name: "LegacyChanged", store: store).document.externalModificationDetected)
     }
 
+    func testSamePageCountExternalCorrectionDropsEmbeddedTextSourceAcrossResave() throws {
+        let store = tempStore()
+        let original = "OriginalSourceToken"
+        let corrected = "ExternallyCorrectedToken"
+        let file = FileWrapper(regularFileWithContents: Data(original.utf8))
+        let input = try WorkspaceDocument(testingFile: file, contentType: .plainText, filename: "note.txt", fingerprintStore: store)
+        let saved = try save(WorkspaceViewModel(document: input))
+        let source = try XCTUnwrap(PDFDocument(data: saved))
+        let key = PDFAnnotationKey(rawValue: "/OrifoldWorkspaceComments")
+        let metadata = try XCTUnwrap(source.page(at: 0)?.annotations.first { $0.value(forAnnotationKey: key) != nil })
+        let external = try XCTUnwrap(PDFDocument(data: makePDFData(pageTexts: [corrected])))
+        let copiedMetadata = try XCTUnwrap(metadata.copy() as? PDFAnnotation)
+        try XCTUnwrap(external.page(at: 0)).addAnnotation(copiedMetadata)
+        let rewritten = try XCTUnwrap(PDFSerializer.data(from: external))
+        XCTAssertEqual(external.pageCount, source.pageCount)
+
+        let unchanged = try makeViewModel(from: saved, name: "Untouched", store: store)
+        XCTAssertEqual(try unchanged.dataForWorkspaceExport(as: .text), Data(original.utf8))
+        let unknown = try makeViewModel(from: rewritten, name: "UnknownFingerprint", store: tempStore())
+        XCTAssertFalse(unknown.document.externalModificationDetected)
+        XCTAssertEqual(try unknown.dataForWorkspaceExport(as: .text), Data(original.utf8))
+
+        let disk = makeTempDirectory()
+        try FileManager.default.createDirectory(at: disk, withIntermediateDirectories: true)
+        let url = disk.appendingPathComponent("corrected.pdf")
+        try rewritten.write(to: url)
+        let reopened = try makeViewModel(from: Data(contentsOf: url), name: "Corrected", store: store)
+        XCTAssertTrue(reopened.document.externalModificationDetected)
+        try save(reopened).write(to: url)
+        let resaved = try makeViewModel(from: Data(contentsOf: url), name: "Resaved", store: store)
+        for model in [reopened, resaved] {
+            XCTAssertTrue(model.document.sourcePayloads.isEmpty)
+            let text = String(decoding: try model.dataForWorkspaceExport(as: .text), as: UTF8.self)
+            XCTAssertTrue(text.contains(corrected))
+            XCTAssertFalse(text.contains(original))
+        }
+    }
+
     func testExternalModificationDropsStaleEditsKeepsContentAndFiresNotice() throws {
         let store = tempStore()
         let vm = try makeViewModel(from: try makePDFData(pageTexts: ["Gamma original paragraph text"]), name: "Gamma", store: store)
