@@ -172,6 +172,63 @@ final class WorkspaceNavigationOwnershipTests: XCTestCase {
         XCTAssertEqual(other.commentRevision, otherRevision)
     }
 
+    func testBusyWorkspaceKeepsNoteEditsAndDraftDismissalPendingUntilRetry() throws {
+        let (owner, note, undo) = try makeWorkspace()
+        let (other, _, otherUndo) = try makeWorkspace()
+        let baseline = owner.commentRevision
+        let editor = NoteEditorViewController(
+            annotation: note, changeHandler: owner.registerAnnotationEdit,
+            discardDraft: owner.discardDraftAnnotation, canMutate: { owner.canEditAnnotation(note) }
+        )
+        var closed = false
+        editor.closeHandler = { closed = true }
+        editor.loadViewIfNeeded()
+        let text = try XCTUnwrap(descendant(NSTextView.self, in: editor.view))
+        text.string = "Pending fictional change"
+        let done = try XCTUnwrap(editor.view.subviews.flatMap(\.subviews)
+            .compactMap { $0 as? NSButton }.first { $0.keyEquivalent == "\r" })
+
+        owner.setProcessingStateForTesting(compressionActive: true)
+        done.performClick(nil)
+        editor.viewWillDisappear()
+        XCTAssertFalse(closed)
+        XCTAssertEqual(note.contents, "Fictional note")
+        XCTAssertEqual(owner.commentRevision, baseline)
+        XCTAssertFalse(undo.canUndo)
+        owner.setProcessingStateForTesting()
+        undo.beginUndoGrouping()
+        done.performClick(nil)
+        undo.endUndoGrouping()
+        XCTAssertTrue(closed)
+        XCTAssertEqual(note.contents, "Pending fictional change")
+        undo.undo()
+        XCTAssertEqual(note.contents, "Fictional note")
+        XCTAssertFalse(otherUndo.canUndo)
+        XCTAssertEqual(other.commentRevision, 0)
+
+        note.contents = ""
+        note.setValue(true, forAnnotationKey: WorkspaceViewModel.draftTextAnnotationKey)
+        let draftEditor = NoteEditorViewController(
+            annotation: note, discardDraft: owner.discardDraftAnnotation,
+            canMutate: { owner.canEditAnnotation(note) }
+        )
+        closed = false
+        draftEditor.closeHandler = { closed = true }
+        draftEditor.loadViewIfNeeded()
+        let cancel = try XCTUnwrap(draftEditor.view.subviews.flatMap(\.subviews)
+            .compactMap { $0 as? NSButton }.first { $0.keyEquivalent == "\u{1b}" })
+        owner.setProcessingStateForTesting(ocrActive: true)
+        cancel.performClick(nil)
+        XCTAssertFalse(closed)
+        XCTAssertTrue(owner.ownsAnnotation(note))
+        XCTAssertFalse(owner.discardDraftAnnotation(note))
+        owner.setProcessingStateForTesting()
+        cancel.performClick(nil)
+        XCTAssertTrue(closed)
+        XCTAssertFalse(owner.ownsAnnotation(note))
+        XCTAssertFalse(otherUndo.canUndo)
+    }
+
     func testOwnedNoteEditorSupportsIndependentUndoAndRedo() throws {
         let (first, note, undo) = try makeWorkspace()
         let (second, secondNote, secondUndo) = try makeWorkspace()

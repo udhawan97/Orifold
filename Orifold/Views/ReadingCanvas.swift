@@ -1214,7 +1214,7 @@ struct PDFViewRepresentable: NSViewRepresentable {
         }
 
         private func showNoteEditor(for annotation: PDFAnnotation, near rect: CGRect, in view: NSView) {
-            guard viewModel.ownsAnnotation(annotation) else { return }
+            guard viewModel.canEditAnnotation(annotation) else { return }
             notePopover?.close()
             let vc = NoteEditorViewController(
                 annotation: annotation,
@@ -1226,8 +1226,8 @@ struct PDFViewRepresentable: NSViewRepresentable {
                     self?.viewModel.registerAnnotationEdit(annotation, from: snapshot, actionName: actionName)
                     view?.needsDisplay = true
                 },
-                discardDraft: { [weak viewModel] annotation in viewModel?.discardDraftAnnotation(annotation) },
-                canMutate: { [weak viewModel] in viewModel?.ownsAnnotation(annotation) == true }
+                discardDraft: { [weak viewModel] annotation in viewModel?.discardDraftAnnotation(annotation) == true },
+                canMutate: { [weak viewModel] in viewModel?.canEditAnnotation(annotation) == true }
             )
             let popover = NSPopover()
             popover.contentViewController = vc
@@ -1238,6 +1238,13 @@ struct PDFViewRepresentable: NSViewRepresentable {
             }
             notePopover = popover
             popover.show(relativeTo: rect, of: view, preferredEdge: .maxY)
+        }
+
+        func popoverShouldClose(_ popover: NSPopover) -> Bool {
+            guard popover === notePopover,
+                  let editor = popover.contentViewController as? NoteEditorViewController,
+                  viewModel.ownsAnnotation(editor.annotation) else { return true }
+            return viewModel.canEditAnnotation(editor.annotation)
         }
 
         func popoverDidClose(_ notification: Notification) {
@@ -2702,8 +2709,8 @@ final class SignatureSelectionOverlayView: NSView {
 // MARK: - Note editor popover (NSPopover backed)
 
 final class NoteEditorViewController: NSViewController {
-    private let annotation: PDFAnnotation
-    private let discardDraft: (PDFAnnotation) -> Void
+    fileprivate let annotation: PDFAnnotation
+    private let discardDraft: (PDFAnnotation) -> Bool
     private let canMutate: () -> Bool
     private let locale: Locale
     private let statusHandler: (String, Bool) -> Void
@@ -2748,7 +2755,11 @@ final class NoteEditorViewController: NSViewController {
         annotation: PDFAnnotation,
         statusHandler: @escaping (String, Bool) -> Void = { _, _ in },
         changeHandler: @escaping (PDFAnnotation, PDFAnnotationEditSnapshot, String) -> Void = { _, _, _ in },
-        discardDraft: @escaping (PDFAnnotation) -> Void = { $0.page?.removeAnnotation($0) },
+        discardDraft: @escaping (PDFAnnotation) -> Bool = { draft in
+            guard let page = draft.page else { return false }
+            page.removeAnnotation(draft)
+            return true
+        },
         canMutate: @escaping () -> Bool = { true },
         locale: Locale = L10n.currentLocale
     ) {
@@ -2881,8 +2892,7 @@ final class NoteEditorViewController: NSViewController {
     }
 
     @objc private func cancel() {
-        cancelChanges()
-        closeEditor()
+        if cancelChanges() { closeEditor() }
     }
 
     private func closeEditor() {
@@ -2901,8 +2911,7 @@ final class NoteEditorViewController: NSViewController {
             isReplacement: isTextReplacementAnnotation
         ) {
         case .removeDraft:
-            discardDraft(annotation)
-            return true
+            return discardDraft(annotation)
         case .rejectReplacement:
             statusHandler(L10n.string("status.textEdit.replacementCannotBeEmpty"), true)
             return false
@@ -2938,14 +2947,16 @@ final class NoteEditorViewController: NSViewController {
         return true
     }
 
-    private func cancelChanges() {
-        didCancel = true
-        guard canMutate() else { return }
+    @discardableResult
+    private func cancelChanges() -> Bool {
+        guard canMutate() else { return false }
         if isDraftAnnotation, (originalSnapshot.contents ?? "").isEmpty {
-            discardDraft(annotation)
+            guard discardDraft(annotation) else { return false }
         } else {
             originalSnapshot.restore(to: annotation)
         }
+        didCancel = true
+        return true
     }
 
     private func finishForDismissal() {

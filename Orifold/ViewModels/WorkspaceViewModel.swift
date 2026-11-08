@@ -2764,19 +2764,25 @@ final class WorkspaceViewModel {
         undoManager?.setActionName(actionName)
     }
 
-    func discardDraftAnnotation(_ annotation: PDFAnnotation) {
-        guard canPerformMutatingAction(), ownsAnnotation(annotation),
+    func canEditAnnotation(_ annotation: PDFAnnotation) -> Bool {
+        ownsAnnotation(annotation) && canPerformMutatingAction()
+    }
+
+    @discardableResult
+    func discardDraftAnnotation(_ annotation: PDFAnnotation) -> Bool {
+        guard canEditAnnotation(annotation),
               Self.annotationHasBooleanFlag(annotation, key: Self.draftTextAnnotationKey,
-                                            legacyKey: Self.legacyDraftTextAnnotationKey) else { return }
+                                            legacyKey: Self.legacyDraftTextAnnotationKey) else { return false }
         annotation.page?.removeAnnotation(annotation)
         if selectedAnnotation === annotation { selectedAnnotation = nil }
         markAnnotationsModified()
+        return true
     }
 
     func registerAnnotationEdit(_ annotation: PDFAnnotation,
                                 from oldSnapshot: PDFAnnotationEditSnapshot,
                                 actionName: String) {
-        guard canPerformMutatingAction(), ownsAnnotation(annotation) else { return }
+        guard canEditAnnotation(annotation) else { return }
         guard let target = annotationUndoTarget(for: annotation) else {
             markAnnotationsModified()
             showAnnotationUndoTargetMissing()
