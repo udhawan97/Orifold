@@ -315,7 +315,7 @@ jobs:
             --dir "$RUNNER_TEMP/dist"
 
       - name: Publish tagged GitHub release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           name: ${{ needs.build.outputs.release_title }}
@@ -385,7 +385,7 @@ jobs:
           fi
 
       - name: Publish rolling prebuilt release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: Orifold-latest
           name: Orifold Latest
